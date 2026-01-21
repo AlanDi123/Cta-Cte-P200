@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema Sol & Verde V18.0 Enterprise</title>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ESTILOS CSS - SISTEMA COMPLETO
+       ═══════════════════════════════════════════════════════════════ -->
+  <style>
+    /* ========================================
+       RESET Y VARIABLES CSS
+       ======================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* Paleta de colores corporativos */
+      --sv-verde-corp: #2E7D32;
+      --sv-verde-brillante: #4CAF50;
+      --sv-verde-oscuro: #1B5E20;
+      --sv-rojo: #C62828;
+      --sv-naranja: #FF6F00;
+      --sv-amarillo: #FBC02D;
+      --sv-crema: #F9A825;
+
+      /* Colores funcionales */
+      --sv-primario: #2E7D32;
+      --sv-secundario: #FF6F00;
+      --sv-exito: #4CAF50;
+      --sv-advertencia: #FBC02D;
+      --sv-peligro: #C62828;
+      --sv-info: #00ACC1;
+
+      /* Fondos y superficies - Modo Claro */
+      --sv-fondo: #F1F8E9;
+      --sv-superficie: #FFFFFF;
+      --sv-superficie-elevada: #FAFAFA;
+      --sv-borde: #C8E6C9;
+      --sv-texto-primario: #1B5E20;
+      --sv-texto-secundario: #558B2F;
+      --sv-texto-deshabilitado: #A5D6A7;
+
+      /* Sombras */
+      --sv-sombra-sm: 0 1px 3px rgba(46, 125, 50, 0.12), 0 1px 2px rgba(46, 125, 50, 0.24);
+      --sv-sombra-md: 0 4px 6px rgba(46, 125, 50, 0.16), 0 2px 4px rgba(46, 125, 50, 0.23);
+      --sv-sombra-lg: 0 10px 20px rgba(46, 125, 50, 0.19), 0 6px 6px rgba(46, 125, 50, 0.23);
+
+      /* Transiciones */
+      --sv-transicion-rapida: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      --sv-transicion-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+      --sv-transicion-lenta: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+      /* Dimensiones */
+      --sv-header-height: 64px;
+      --sv-sidebar-width: 280px;
+      --sv-toast-width: 320px;
+    }
+
+    /* Modo Oscuro */
+    [data-theme="dark"] {
+      --sv-fondo: #0D1B0E;
+      --sv-superficie: #1B5E20;
+      --sv-superficie-elevada: #2E7D32;
+      --sv-borde: #33691E;
+      --sv-texto-primario: #E8F5E9;
+      --sv-texto-secundario: #C8E6C9;
+      --sv-texto-deshabilitado: #558B2F;
+
+      --sv-sombra-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.4);
+      --sv-sombra-md: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.5);
+      --sv-sombra-lg: 0 10px 20px rgba(0, 0, 0, 0.5), 0 6px 6px rgba(0, 0, 0, 0.6);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--sv-fondo);
+      color: var(--sv-texto-primario);
+      transition: background-color var(--sv-transicion-normal), color var(--sv-transicion-normal);
+    }
+
+    /* ========================================
+       SPLASH SCREEN
+       ======================================== */
+    #splashScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, var(--sv-verde-oscuro) 0%, var(--sv-verde-corp) 50%, var(--sv-verde-brillante) 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      animation: splashFadeIn 0.5s ease-out;
+    }
+
+    #splashScreen.hide {
+      animation: splashFadeOut 0.5s ease-out forwards;
+    }
+
+    @keyframes splashFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes splashFadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; pointer-events: none; }
+    }
+
+    .splash-logo-container {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin-bottom: 30px;
+    }
+
+    .splash-logo {
+      width: 100%;
+      height: 100%;
+      background: white;
+      border-radius: 50%;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      animation: logoFloat 3s ease-in-out infinite;
+    }
+
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .splash-logo-stripes {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 10px;
+    }
+
+    .splash-stripe {
+      height: 8px;
+      border-radius: 4px;
+      transition: width var(--sv-transicion-lenta);
+    }
+
+    .splash-stripe:nth-child(1) { background: #C62828; width: 30%; margin: 0 auto; }
+    .splash-stripe:nth-child(2) { background: #C62828; width: 50%; margin: 0 auto; }
+    .splash-stripe:nth-child(3) { background: #FF6F00; width: 70%; margin: 0 auto; }
+    .splash-stripe:nth-child(4) { background: #F9A825; width: 85%; margin: 0 auto; }
+    .splash-stripe:nth-child(5) { background: #FBC02D; width: 100%; margin: 0 auto; }
+
+    .splash-text {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2E7D32;
+      letter-spacing: 2px;
+    }
+
+    .splash-bowl {
+      width: 80%;
+      height: 40px;
+      background: #2E7D32;
+      border-radius: 0 0 100% 100%;
+      margin-top: 5px;
+    }
+
+    .splash-title {
+      color: white;
+      font-size: 24px;
+      font-weight: 300;
+      letter-spacing: 4px;
+      margin-bottom: 10px;
+    }
+
+    .splash-version {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      font-weight: 300;
+      margin-bottom: 30px;
+    }
+
+    .splash-progress {
+      width: 300px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+
+    .splash-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--sv-naranja), var(--sv-amarillo), var(--sv-verde-brillante));
+      width: 0%;
+      border-radius: 2px;
+      animation: progressLoad 2s ease-out forwards;
+    }
+
+    @keyframes progressLoad {
+      0% { width: 0%; }
+      25% { width: 30%; }
+      50% { width: 65%; }
+      75% { width: 85%; }
+      100% { width: 100%; }
+    }
+
+    .splash-loading-text {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 14px;
+      animation: loadingPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes loadingPulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    /* ========================================
+       LAYOUT PRINCIPAL
+       ======================================== */
+    #appContainer {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      animation: appFadeIn 0.5s ease-out 2.5s forwards;
+    }
+
+    @keyframes appFadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ========================================
+       HEADER
+       ======================================== */
+    .app-header {
+      height: var(--sv-header-height);
+      background: linear-gradient(135deg, var(--sv-primario) 0%, var(--sv-verde-brillante) 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      box-shadow: var(--sv-sombra-md);
+      z-index: 1000;
+      position: relative;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .menu-toggle {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 28px;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 8px;
+      transition: background var(--sv-transicion-rapida);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+    }
+
+    .menu-toggle:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-logo-icon {
+      width: 40px;
+      height: 40px;
+      background: white;
+      border-radius: 50%;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .logo-mini-stripe {
+      width: 80%;
+      height: 2px;
+      border-radius: 1px;
+    }
+
+    .logo-mini-stripe:nth-child(1) { background: #C62828; width: 30%; }
+    .logo-mini-stripe:nth-child(2) { background: #FF6F00; width: 50%; }
+    .logo-mini-stripe:nth-child(3) { background: #FBC02D; width: 70%; }
+    .logo-mini-stripe:nth-child(4) { background: #2E7D32; width: 100%; margin-top: 2px; height: 8px; border-radius: 0 0 50% 50%; }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .header-version {
+      font-size: 11px;
+      opacity: 0.8;
+      font-weight: 300;
+    }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .header-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: white;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all var(--sv-transicion-rapida);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .theme-toggle {
+      font-size: 20px;
+    }
+
+    /* ========================================
+       SIDEBAR
+       ======================================== */
+    .sidebar {
+      position: fixed;
+      top: var(--sv-header-height);
+      left: 0;
+      width: var(--sv-sidebar-width);
+      height: calc(100% - var(--sv-header-height));
+      background: var(--sv-superficie);
+      box-shadow: var(--sv-sombra-lg);
+      transform: translateX(-100%);
+      transition: transform var(--sv-transicion-normal);
+      z-index: 999;
+      overflow-y: auto;
+      border-right: 2px solid var(--sv-borde);
+    }
+
+    .sidebar.active {
+      transform: translateX(0);
+    }
+
+    .sidebar-overlay {
+      position: fixed;
+      top: var(--sv-header-height);
+      left: 0;
+      width: 100%;
+      height: calc(100% - var(--sv-header-height));
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--sv-transicion-normal);
+      z-index: 998;
+    }
+
+    .sidebar-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .menu-section {
+      padding: 20px 0;
+      border-bottom: 1px solid var(--sv-borde);
+    }
+
+    .menu-section-title {
+      padding: 0 20px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--sv-texto-secundario);
+      letter-spacing: 1px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      padding: 14px 20px;
+      color: var(--sv-texto-primario);
+      text-decoration: none;
+      transition: all var(--sv-transicion-rapida);
+      cursor: pointer;
+      position: relative;
+      gap: 15px;
+      border-left: 4px solid transparent;
+    }
+
+    .menu-item:hover {
+      background: var(--sv-fondo);
+      border-left-color: var(--sv-secundario);
+    }
+
+    .menu-item.active {
+      background: linear-gradient(90deg, rgba(46, 125, 50, 0.1) 0%, transparent 100%);
+      border-left-color: var(--sv-primario);
+      font-weight: 600;
+    }
+
+    .menu-item-icon {
+      font-size: 22px;
+      width: 30px;
+      text-align: center;
+    }
+
+    .menu-item-text {
+      flex: 1;
+      font-size: 15px;
+    }
+
+    .menu-item-shortcut {
+      font-size: 11px;
+      background: var(--sv-fondo);
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: var(--sv-texto-secundario);
+      font-family: 'Courier New', monospace;
+      opacity: 0.7;
+    }
+
+    /* ========================================
+       MAIN CONTENT
+       ======================================== */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 30px;
+      background: var(--sv-fondo);
+      position: relative;
+    }
+
+    .module-view {
+      display: none;
+      animation: moduleSlideIn 0.3s ease-out;
+    }
+
+    .module-view.active {
+      display: block;
+    }
+
+    @keyframes moduleSlideIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .module-header {
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--sv-borde);
+    }
+
+    .module-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--sv-primario);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .module-subtitle {
+      font-size: 14px;
+      color: var(--sv-texto-secundario);
+      font-weight: 400;
+    }
+
+    /* ========================================
+       TOAST NOTIFICATIONS
+       ======================================== */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 10px;
+      max-width: var(--sv-toast-width);
+    }
+
+    .toast {
+      background: var(--sv-superficie);
+      color: var(--sv-texto-primario);
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: var(--sv-sombra-lg);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 280px;
+      max-width: var(--sv-toast-width);
+      border-left: 4px solid var(--sv-info);
+      animation: toastSlideIn 0.3s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    @keyframes toastSlideIn {
+      from {
+        opacity: 0;
+        transform: translateX(100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .toast.removing {
+      animation: toastSlideOut 0.3s ease-out forwards;
+    }
+
+    @keyframes toastSlideOut {
+      from {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateX(120%);
+      }
+    }
+
+    .toast-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .toast-content {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .toast-message {
+      font-size: 13px;
+      opacity: 0.9;
+      line-height: 1.4;
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      color: var(--sv-texto-secundario);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: background var(--sv-transicion-rapida);
+      flex-shrink: 0;
+    }
+
+    .toast-close:hover {
+      background: var(--sv-fondo);
+    }
+
+    .toast-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      background: currentColor;
+      opacity: 0.3;
+      animation: toastProgress 3s linear forwards;
+    }
+
+    @keyframes toastProgress {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+
+    .toast.success {
+      border-left-color: var(--sv-exito);
+    }
+
+    .toast.success .toast-icon {
+      color: var(--sv-exito);
+    }
+
+    .toast.warning {
+      border-left-color: var(--sv-advertencia);
+    }
+
+    .toast.warning .toast-icon {
+      color: var(--sv-advertencia);
+    }
+
+    .toast.error {
+      border-left-color: var(--sv-peligro);
+    }
+
+    .toast.error .toast-icon {
+      color: var(--sv-peligro);
+    }
+
+    .toast.info {
+      border-left-color: var(--sv-info);
+    }
+
+    .toast.info .toast-icon {
+      color: var(--sv-info);
+    }
+
+    /* ========================================
+       FORMULARIOS Y TARJETAS
+       ======================================== */
+    .card {
+      background: var(--sv-superficie);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: var(--sv-sombra-sm);
+      border: 1px solid var(--sv-borde);
+      transition: box-shadow var(--sv-transicion-rapida);
+    }
+
+    .card:hover {
+      box-shadow: var(--sv-sombra-md);
+    }
+
+    .card-header {
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--sv-fondo);
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--sv-primario);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--sv-texto-primario);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-label-icon {
+      font-size: 16px;
+      color: var(--sv-primario);
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--sv-borde);
+      border-radius: 8px;
+      font-size: 15px;
+      background: var(--sv-fondo);
+      color: var(--sv-texto-primario);
+      transition: all var(--sv-transicion-rapida);
+      font-family: inherit;
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      outline: none;
+      border-color: var(--sv-primario);
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
+    }
+
+    .form-input:disabled,
+    .form-select:disabled,
+    .form-textarea:disabled {
+      background: var(--sv-superficie-elevada);
+      color: var(--sv-texto-deshabilitado);
+      cursor: not-allowed;
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 80px;
+      font-family: inherit;
+    }
+
+    /* ========================================
+       BOTONES
+       ======================================== */
+    .btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--sv-transicion-rapida);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .btn:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--sv-primario) 0%, var(--sv-verde-brillante) 100%);
+      color: white;
+      box-shadow: var(--sv-sombra-md);
+    }
+
+    .btn-primary:hover {
+      box-shadow: var(--sv-sombra-lg);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, var(--sv-naranja) 0%, var(--sv-amarillo) 100%);
+      color: white;
+      box-shadow: var(--sv-sombra-md);
+    }
+
+    .btn-danger {
+      background: var(--sv-peligro);
+      color: white;
+    }
+
+    .btn-block {
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ========================================
+       TABLAS
+       ======================================== */
+    .tabla-movimientos {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .tabla-movimientos thead {
+      background: linear-gradient(135deg, var(--sv-primario) 0%, var(--sv-verde-brillante) 100%);
+      color: white;
+    }
+
+    .tabla-movimientos th {
+      padding: 14px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tabla-movimientos tbody tr {
+      border-bottom: 1px solid var(--sv-borde);
+      transition: background var(--sv-transicion-rapida);
+    }
+
+    .tabla-movimientos tbody tr:hover {
+      background: var(--sv-fondo);
+    }
+
+    .tabla-movimientos td {
+      padding: 14px 12px;
+    }
+
+    .tabla-movimientos .tipo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .tipo-badge.debe {
+      background: rgba(198, 40, 40, 0.1);
+      color: var(--sv-peligro);
+      border: 1px solid rgba(198, 40, 40, 0.3);
+    }
+
+    .tipo-badge.haber {
+      background: rgba(76, 175, 80, 0.1);
+      color: var(--sv-exito);
+      border: 1px solid rgba(76, 175, 80, 0.3);
+    }
+
+    .monto-cell {
+      font-weight: 600;
+      font-size: 15px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .tabla-empty {
+      text-align: center;
+      padding: 40px;
+      color: var(--sv-texto-secundario);
+      font-style: italic;
+    }
+
+    /* ========================================
+       UTILIDADES
+       ======================================== */
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .mb-10 { margin-bottom: 10px; }
+    .mb-20 { margin-bottom: 20px; }
+    .mb-30 { margin-bottom: 30px; }
+    .mt-20 { margin-top: 20px; }
+    .hidden { display: none !important; }
+
+    /* ========================================
+       SCROLLBAR
+       ======================================== */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--sv-fondo);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--sv-borde);
+      border-radius: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--sv-texto-secundario);
+    }
+
+    /* ========================================
+       RESPONSIVE
+       ======================================== */
+    @media (max-width: 768px) {
+      :root {
+        --sv-sidebar-width: 260px;
+        --sv-header-height: 56px;
+      }
+
+      .main-content {
+        padding: 20px 15px;
+      }
+
+      .header-title {
+        font-size: 16px;
+      }
+
+      .header-version {
+        display: none;
+      }
+
+      .module-title {
+        font-size: 24px;
+      }
+
+      .tabla-movimientos {
+        font-size: 12px;
+      }
+
+      .tabla-movimientos th,
+      .tabla-movimientos td {
+        padding: 10px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SPLASH SCREEN
+       ═══════════════════════════════════════════════════════════════ -->
+  <div id="splashScreen">
+    <div class="splash-logo-container">
+      <div class="splash-logo">
+        <div class="splash-logo-stripes">
+          <div class="splash-stripe"></div>
+          <div class="splash-stripe"></div>
+          <div class="splash-stripe"></div>
+          <div class="splash-stripe"></div>
+          <div class="splash-stripe"></div>
+        </div>
+        <div class="splash-text">Sol&Verde</div>
+        <div class="splash-bowl"></div>
+      </div>
+    </div>
+
+    <div class="splash-title">SISTEMA DE CUENTAS CORRIENTES</div>
+    <div class="splash-version">Versión 18.0 Enterprise</div>
+
+    <div class="splash-progress">
+      <div class="splash-progress-bar"></div>
+    </div>
+
+    <div class="splash-loading-text">Inicializando sistema...</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       APLICACIÓN PRINCIPAL
+       ═══════════════════════════════════════════════════════════════ -->
+  <div id="appContainer">
+
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="header-left">
+        <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú">☰</button>
+
+        <div class="header-logo">
+          <div class="header-logo-icon">
+            <div class="logo-mini-stripe"></div>
+            <div class="logo-mini-stripe"></div>
+            <div class="logo-mini-stripe"></div>
+            <div class="logo-mini-stripe"></div>
+          </div>
+          <div>
+            <div class="header-title">Sol & Verde</div>
+            <div class="header-version">V18.0 Enterprise</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button class="header-btn theme-toggle" id="themeToggle" title="Cambiar tema (Ctrl+T)">
+          <span id="themeIcon">🌙</span>
+        </button>
+        <button class="header-btn" id="helpBtn" title="Ayuda (F1)">❓ Ayuda</button>
+      </div>
+    </header>
+
+    <!-- SIDEBAR OVERLAY -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- SIDEBAR MENU -->
+    <aside class="sidebar" id="sidebar">
+      <div class="menu-section">
+        <div class="menu-section-title">Principal</div>
+        <a class="menu-item active" data-module="dashboard">
+          <span class="menu-item-icon">🏠</span>
+          <span class="menu-item-text">Dashboard</span>
+          <span class="menu-item-shortcut">Ctrl+1</span>
+        </a>
+        <a class="menu-item" data-module="visual-reasoning">
+          <span class="menu-item-icon">🧠</span>
+          <span class="menu-item-text">Visual Reasoning</span>
+          <span class="menu-item-shortcut">Ctrl+2</span>
+        </a>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-section-title">Consultas</div>
+        <a class="menu-item" data-module="visor-clientes">
+          <span class="menu-item-icon">👁️</span>
+          <span class="menu-item-text">Visor de Clientes</span>
+          <span class="menu-item-shortcut">Ctrl+3</span>
+        </a>
+        <a class="menu-item" data-module="estadisticas">
+          <span class="menu-item-icon">📊</span>
+          <span class="menu-item-text">Estadísticas</span>
+          <span class="menu-item-shortcut">Ctrl+4</span>
+        </a>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-section-title">Gestión</div>
+        <a class="menu-item" data-module="gestion-clientes">
+          <span class="menu-item-icon">👥</span>
+          <span class="menu-item-text">Gestión de Clientes</span>
+          <span class="menu-item-shortcut">Ctrl+6</span>
+        </a>
+        <a class="menu-item" data-module="configuracion">
+          <span class="menu-item-icon">⚙️</span>
+          <span class="menu-item-text">Configuración</span>
+          <span class="menu-item-shortcut">Ctrl+,</span>
+        </a>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" id="mainContent">
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: DASHBOARD PRINCIPAL
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view active" id="module-dashboard">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>🏠</span>
+            Dashboard Principal
+          </h1>
+          <p class="module-subtitle">Carga rápida de movimientos de cuenta corriente</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📝</span>
+              Nuevo Movimiento
+            </h2>
+          </div>
+
+          <form id="dashboardForm">
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">📅</span>
+                Fecha
+              </label>
+              <input type="datetime-local" id="inputFecha" class="form-input" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">👤</span>
+                Cliente
+              </label>
+              <input type="text" id="inputCliente" class="form-input" placeholder="Buscar cliente..." autocomplete="off" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">🔄</span>
+                Tipo de Movimiento
+              </label>
+              <div style="display: flex; gap: 15px;">
+                <div style="flex: 1;">
+                  <input type="checkbox" id="checkFiado">
+                  <label for="checkFiado">🔴 FIADO</label>
+                </div>
+                <div style="flex: 1;">
+                  <input type="checkbox" id="checkPago">
+                  <label for="checkPago">🟢 PAGO</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">💲</span>
+                Monto
+              </label>
+              <input type="text" id="inputMonto" class="form-input" placeholder="$ 0" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">📝</span>
+                Observaciones (Opcional)
+              </label>
+              <textarea id="inputObs" class="form-textarea" placeholder="Detalles adicionales..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="btnGuardar">
+              <span>💾</span>
+              <span>GUARDAR MOVIMIENTO</span>
+            </button>
+          </form>
+        </div>
+
+        <div class="card mt-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📋</span>
+              Últimos Movimientos
+            </h2>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="tabla-movimientos">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>Tipo</th>
+                  <th>Monto</th>
+                  <th>Saldo</th>
+                </tr>
+              </thead>
+              <tbody id="tablaMovimientosBody">
+                <tr>
+                  <td colspan="6" class="tabla-empty">Cargando movimientos...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Más módulos aquí (Visual Reasoning, Visor de Clientes, etc.) -->
+
+    </main>
+
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       JAVASCRIPT
+       ═══════════════════════════════════════════════════════════════ -->
+  <script>
+    // ========================================
+    // ESTADO GLOBAL
+    // ========================================
+    const AppState = {
+      currentModule: 'dashboard',
+      theme: 'light',
+      clientesData: [],
+      movimientosRecientes: [],
+      clienteSeleccionado: null,
+      isLoading: false
+    };
+
+    // ========================================
+    // INICIALIZACIÓN
+    // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('🚀 Iniciando Sistema Sol & Verde V18.0...');
+
+      loadTheme();
+      initSplashScreen();
+      initNavigation();
+      initThemeToggle();
+      initShortcuts();
+      initDashboard();
+
+      cargarDatosIniciales();
+    });
+
+    // ========================================
+    // SPLASH SCREEN
+    // ========================================
+    function initSplashScreen() {
+      setTimeout(() => {
+        const splash = document.getElementById('splashScreen');
+        splash.classList.add('hide');
+        setTimeout(() => {
+          splash.style.display = 'none';
+        }, 500);
+      }, 2500);
+    }
+
+    // ========================================
+    // NAVEGACIÓN
+    // ========================================
+    function initNavigation() {
+      const menuToggle = document.getElementById('menuToggle');
+      const sidebar = document.getElementById('sidebar');
+      const sidebarOverlay = document.getElementById('sidebarOverlay');
+      const menuItems = document.querySelectorAll('.menu-item');
+
+      menuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+        sidebarOverlay.classList.toggle('active');
+      });
+
+      sidebarOverlay.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+      });
+
+      menuItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          const module = item.dataset.module;
+          if (module) {
+            changeModule(module);
+            if (window.innerWidth < 768) {
+              sidebar.classList.remove('active');
+              sidebarOverlay.classList.remove('active');
+            }
+          }
+        });
+      });
+    }
+
+    function changeModule(moduleId) {
+      AppState.currentModule = moduleId;
+
+      document.querySelectorAll('.module-view').forEach(mod => {
+        mod.classList.remove('active');
+      });
+
+      const targetModule = document.getElementById(`module-${moduleId}`);
+      if (targetModule) {
+        targetModule.classList.add('active');
+      }
+
+      document.querySelectorAll('.menu-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.module === moduleId) {
+          item.classList.add('active');
+        }
+      });
+
+      console.log(`📌 Módulo cambiado a: ${moduleId}`);
+    }
+
+    // ========================================
+    // TEMA
+    // ========================================
+    function initThemeToggle() {
+      const themeToggle = document.getElementById('themeToggle');
+      themeToggle.addEventListener('click', () => {
+        toggleTheme();
+      });
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+      document.documentElement.setAttribute('data-theme', newTheme);
+      document.getElementById('themeIcon').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+
+      localStorage.setItem('sv-theme', newTheme);
+      AppState.theme = newTheme;
+
+      showToast('success', 'Tema Cambiado', `Modo ${newTheme === 'dark' ? 'Oscuro' : 'Claro'} activado`);
+    }
+
+    function loadTheme() {
+      const savedTheme = localStorage.getItem('sv-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+      AppState.theme = savedTheme;
+    }
+
+    // ========================================
+    // SHORTCUTS
+    // ========================================
+    function initShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+          const modules = ['dashboard', 'visual-reasoning', 'visor-clientes', 'estadisticas', 'reporte-diario', 'gestion-clientes', 'edicion-movimientos'];
+          const num = parseInt(e.key);
+          if (num >= 1 && num <= 7) {
+            e.preventDefault();
+            changeModule(modules[num - 1]);
+          }
+          if (e.key === ',') {
+            e.preventDefault();
+            changeModule('configuracion');
+          }
+          if (e.key === 't' || e.key === 'T') {
+            e.preventDefault();
+            toggleTheme();
+          }
+          if ((e.key === 'g' || e.key === 'G') && AppState.currentModule === 'dashboard') {
+            e.preventDefault();
+            document.getElementById('btnGuardar').click();
+          }
+        }
+        if (e.key === 'F1') {
+          e.preventDefault();
+          showToast('info', 'Ayuda', 'Use Ctrl+1 a Ctrl+7 para navegar entre módulos');
+        }
+        if (e.key === 'Escape') {
+          document.getElementById('sidebar').classList.remove('active');
+          document.getElementById('sidebarOverlay').classList.remove('active');
+        }
+      });
+    }
+
+    // ========================================
+    // TOAST NOTIFICATIONS
+    // ========================================
+    function showToast(type, title, message, duration = 3000) {
+      const container = document.getElementById('toastContainer');
+      const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || 'ℹ️'}</div>
+        <div class="toast-content">
+          <div class="toast-title">${title}</div>
+          <div class="toast-message">${message}</div>
+        </div>
+        <button class="toast-close">×</button>
+        <div class="toast-progress"></div>
+      `;
+
+      container.appendChild(toast);
+
+      const autoClose = setTimeout(() => {
+        removeToast(toast);
+      }, duration);
+
+      toast.querySelector('.toast-close').addEventListener('click', () => {
+        clearTimeout(autoClose);
+        removeToast(toast);
+      });
+    }
+
+    function removeToast(toast) {
+      toast.classList.add('removing');
+      setTimeout(() => {
+        toast.remove();
+      }, 300);
+    }
+
+    // ========================================
+    // DASHBOARD
+    // ========================================
+    function initDashboard() {
+      const now = new Date();
+      document.getElementById('inputFecha').value = now.toISOString().slice(0, 16);
+
+      const checkFiado = document.getElementById('checkFiado');
+      const checkPago = document.getElementById('checkPago');
+
+      checkFiado.addEventListener('change', () => {
+        if (checkFiado.checked) checkPago.checked = false;
+      });
+
+      checkPago.addEventListener('change', () => {
+        if (checkPago.checked) checkFiado.checked = false;
+      });
+
+      document.getElementById('dashboardForm').addEventListener('submit', handleGuardarMovimiento);
+    }
+
+    function handleGuardarMovimiento(e) {
+      e.preventDefault();
+
+      if (AppState.isLoading) {
+        showToast('warning', 'Espere', 'Procesando solicitud anterior...');
+        return;
+      }
+
+      const fecha = document.getElementById('inputFecha').value;
+      const clienteInput = document.getElementById('inputCliente').value.trim();
+      const checkFiado = document.getElementById('checkFiado').checked;
+      const checkPago = document.getElementById('checkPago').checked;
+      const montoInput = document.getElementById('inputMonto').value;
+      const obs = document.getElementById('inputObs').value.trim();
+
+      if (!clienteInput) {
+        showToast('error', 'Error', 'Debe seleccionar un cliente');
+        return;
+      }
+
+      if (!checkFiado && !checkPago) {
+        showToast('error', 'Error', 'Debe seleccionar FIADO o PAGO');
+        return;
+      }
+
+      const montoNumerico = parseInt(montoInput.replace(/[^0-9]/g, ''), 10);
+      if (!montoNumerico || montoNumerico <= 0) {
+        showToast('error', 'Error', 'Monto inválido');
+        return;
+      }
+
+      const tipo = checkFiado ? 'DEBE' : 'HABER';
+
+      const movimientoData = {
+        fecha: fecha,
+        cliente: clienteInput.toUpperCase(),
+        tipo: tipo,
+        monto: montoNumerico,
+        obs: obs
+      };
+
+      console.log('📤 Guardando movimiento:', movimientoData);
+
+      AppState.isLoading = true;
+      showToast('info', 'Guardando', 'Procesando movimiento...');
+
+      google.script.run
+        .withSuccessHandler(handleGuardarExito)
+        .withFailureHandler(handleGuardarError)
+        .guardarMovimientoDesdeHTML(movimientoData);
+    }
+
+    function handleGuardarExito(result) {
+      AppState.isLoading = false;
+
+      if (result.exito) {
+        showToast('success', '✅ Éxito', `Movimiento ${result.id} registrado correctamente`);
+        document.getElementById('dashboardForm').reset();
+        document.getElementById('inputFecha').value = new Date().toISOString().slice(0, 16);
+        cargarDatosIniciales();
+      } else {
+        showToast('error', 'Error', result.mensaje || 'Error desconocido');
+      }
+    }
+
+    function handleGuardarError(error) {
+      AppState.isLoading = false;
+      console.error('Error al guardar:', error);
+      showToast('error', 'Error del Sistema', error.message || 'Error al conectar con el servidor');
+    }
+
+    // ========================================
+    // CARGAR DATOS
+    // ========================================
+    function cargarDatosIniciales() {
+      console.log('📥 Cargando datos iniciales...');
+
+      google.script.run
+        .withSuccessHandler(function(datos) {
+          console.log('✅ Datos cargados:', datos);
+
+          AppState.clientesData = datos.clientes || [];
+          AppState.movimientosRecientes = datos.movimientosRecientes || [];
+
+          actualizarTablaMovimientos();
+
+          showToast('success', 'Sistema Listo', `${datos.clientes.length} clientes cargados`);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error al cargar datos:', error);
+          showToast('error', 'Error', 'No se pudieron cargar los datos iniciales');
+        })
+        .obtenerDatosParaHTML();
+    }
+
+    function actualizarTablaMovimientos() {
+      const tbody = document.getElementById('tablaMovimientosBody');
+
+      if (!AppState.movimientosRecientes || AppState.movimientosRecientes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="tabla-empty">No hay movimientos recientes</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = AppState.movimientosRecientes.slice(0, 10).map(mov => `
+        <tr>
+          <td><code>${mov.id}</code></td>
+          <td>${formatearFecha(mov.fecha)}</td>
+          <td>${mov.cliente}</td>
+          <td>
+            <span class="tipo-badge ${mov.tipo.toLowerCase()}">
+              ${mov.tipo === 'DEBE' ? '🔴 FIADO' : '🟢 PAGO'}
+            </span>
+          </td>
+          <td class="monto-cell">$ ${mov.monto.toLocaleString('es-AR')}</td>
+          <td class="monto-cell">$ ${mov.saldo.toLocaleString('es-AR')}</td>
+        </tr>
+      `).join('');
+    }
+
+    function formatearFecha(fecha) {
+      if (!fecha) return '-';
+      const d = new Date(fecha);
+      return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    }
+
+    console.log('✨ Sistema Sol & Verde V18.0 inicializado correctamente');
+  </script>
+</body>
+</html>
