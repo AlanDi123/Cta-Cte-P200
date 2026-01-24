@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema Sol & Verde V18.0 Enterprise</title>
+  <link rel="icon" type="image/png" href="https://i.imgur.com/tStvmV1.png">
 
   <!-- ═══════════════════════════════════════════════════════════════
        ESTILOS CSS - SISTEMA COMPLETO
@@ -144,40 +145,19 @@
       50% { transform: translateY(-10px); }
     }
 
-    .splash-logo-stripes {
+    .splash-logo-img {
       width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      margin-bottom: 10px;
+      height: 100%;
+      max-width: 200px;
+      max-height: 200px;
+      object-fit: contain;
+      border-radius: 50%;
+      background: white;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      animation: logoFloat 3s ease-in-out infinite;
     }
 
-    .splash-stripe {
-      height: 8px;
-      border-radius: 4px;
-      transition: width var(--sv-transicion-lenta);
-    }
-
-    .splash-stripe:nth-child(1) { background: #C62828; width: 30%; margin: 0 auto; }
-    .splash-stripe:nth-child(2) { background: #C62828; width: 50%; margin: 0 auto; }
-    .splash-stripe:nth-child(3) { background: #FF6F00; width: 70%; margin: 0 auto; }
-    .splash-stripe:nth-child(4) { background: #F9A825; width: 85%; margin: 0 auto; }
-    .splash-stripe:nth-child(5) { background: #FBC02D; width: 100%; margin: 0 auto; }
-
-    .splash-text {
-      font-size: 28px;
-      font-weight: bold;
-      color: #2E7D32;
-      letter-spacing: 2px;
-    }
-
-    .splash-bowl {
-      width: 80%;
-      height: 40px;
-      background: #2E7D32;
-      border-radius: 0 0 100% 100%;
-      margin-top: 5px;
-    }
 
     .splash-title {
       color: white;
@@ -306,16 +286,12 @@
       align-items: center;
     }
 
-    .logo-mini-stripe {
-      width: 80%;
-      height: 2px;
-      border-radius: 1px;
+    .header-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
     }
-
-    .logo-mini-stripe:nth-child(1) { background: #C62828; width: 30%; }
-    .logo-mini-stripe:nth-child(2) { background: #FF6F00; width: 50%; }
-    .logo-mini-stripe:nth-child(3) { background: #FBC02D; width: 70%; }
-    .logo-mini-stripe:nth-child(4) { background: #2E7D32; width: 100%; margin-top: 2px; height: 8px; border-radius: 0 0 50% 50%; }
 
     .header-title {
       font-size: 20px;
@@ -957,6 +933,208 @@
       .tabla-movimientos td {
         padding: 10px 8px;
       }
+    }
+
+    /* ========================================
+       RESPONSIVE DESIGN - BREAKPOINTS ADICIONALES
+       ======================================== */
+
+    /* Tablet */
+    @media (max-width: 1024px) and (min-width: 769px) {
+      .main-content {
+        padding: 25px 20px;
+      }
+
+      .filters-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* Mobile Large (iPhone 12/13/14, Samsung S21+) */
+    @media (max-width: 480px) {
+      :root {
+        --sv-sidebar-width: 240px;
+      }
+
+      .main-content {
+        padding: 15px 10px;
+      }
+
+      .card {
+        padding: 15px;
+      }
+
+      .btn {
+        padding: 12px 16px;
+        font-size: 13px;
+      }
+
+      .btn-block {
+        width: 100%;
+      }
+
+      /* Modales full-screen en móvil */
+      .modal {
+        width: 95%;
+        max-width: 95%;
+        max-height: 90vh;
+        margin: 5vh auto;
+      }
+
+      .modal-body {
+        max-height: 70vh;
+      }
+
+      /* Headers más compactos */
+      .module-title {
+        font-size: 20px;
+        margin-bottom: 15px;
+      }
+
+      .card-title {
+        font-size: 16px;
+      }
+
+      /* Métricas en columna única */
+      .metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .metric-card {
+        padding: 15px;
+      }
+
+      /* Formularios en columna única */
+      .form-group {
+        margin-bottom: 12px;
+      }
+
+      .form-input,
+      .form-select,
+      .form-textarea {
+        font-size: 14px;
+        padding: 10px;
+      }
+
+      /* Tablas con scroll horizontal */
+      .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .tabla-movimientos {
+        font-size: 11px;
+      }
+
+      .tabla-movimientos th,
+      .tabla-movimientos td {
+        padding: 8px 6px;
+        white-space: nowrap;
+      }
+
+      /* Badges más pequeños */
+      .badge {
+        font-size: 9px;
+        padding: 2px 5px;
+      }
+
+      /* Navegación sticky */
+      .header {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+      }
+    }
+
+    /* Mobile Extra Small (iPhone SE, pequeños) */
+    @media (max-width: 360px) {
+      .header-title {
+        font-size: 13px;
+      }
+
+      .module-title {
+        font-size: 18px;
+      }
+
+      .btn {
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .metric-card-value {
+        font-size: 22px;
+      }
+
+      .tabla-movimientos {
+        font-size: 10px;
+      }
+
+      .tabla-movimientos th,
+      .tabla-movimientos td {
+        padding: 6px 4px;
+      }
+    }
+
+    /* Landscape en móviles */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .splash-screen {
+        padding: 20px;
+      }
+
+      .splash-logo-container {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 15px;
+      }
+
+      .modal {
+        max-height: 95vh;
+      }
+    }
+
+    /* ========================================
+       ESTILOS COMPLEMENTARIOS
+       ======================================== */
+
+    .modal-large {
+      max-width: 1000px;
+      width: 95%;
+    }
+
+    .mt-10 {
+      margin-top: 10px;
+    }
+
+    .mb-20 {
+      margin-bottom: 20px;
+    }
+
+    .form-textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--sv-borde);
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      resize: vertical;
+      background: var(--sv-fondo-input);
+      color: var(--sv-texto);
+    }
+
+    .form-textarea:focus {
+      outline: none;
+      border-color: var(--sv-verde-corp);
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
     }
 
     /* ========================================
@@ -1733,17 +1911,11 @@
        ═══════════════════════════════════════════════════════════════ -->
   <div id="splashScreen">
     <div class="splash-logo-container">
-      <div class="splash-logo">
-        <div class="splash-logo-stripes">
-          <div class="splash-stripe"></div>
-          <div class="splash-stripe"></div>
-          <div class="splash-stripe"></div>
-          <div class="splash-stripe"></div>
-          <div class="splash-stripe"></div>
-        </div>
-        <div class="splash-text">Sol&Verde</div>
-        <div class="splash-bowl"></div>
-      </div>
+      <img
+        src="https://i.imgur.com/tStvmV1.png"
+        alt="Sol & Verde Logo"
+        class="splash-logo-img"
+      />
     </div>
 
     <div class="splash-title">SISTEMA DE CUENTAS CORRIENTES</div>
@@ -1768,10 +1940,11 @@
 
         <div class="header-logo">
           <div class="header-logo-icon">
-            <div class="logo-mini-stripe"></div>
-            <div class="logo-mini-stripe"></div>
-            <div class="logo-mini-stripe"></div>
-            <div class="logo-mini-stripe"></div>
+            <img
+              src="https://i.imgur.com/tStvmV1.png"
+              alt="Sol & Verde"
+              class="header-logo-img"
+            />
           </div>
           <div>
             <div class="header-title">Sol & Verde</div>
@@ -2309,6 +2482,10 @@
           <button class="btn btn-primary btn-block" id="gestionNuevoCliente">
             <span>➕</span> Nuevo Cliente
           </button>
+
+          <button class="btn btn-success btn-block mt-10" id="gestionCargaMasiva">
+            <span>📊</span> Carga Masiva de Clientes
+          </button>
         </div>
 
         <div class="metrics-grid mb-20">
@@ -2561,6 +2738,122 @@
     </div>
   </div>
 
+  <!-- MODAL: Carga Masiva de Clientes -->
+  <div class="modal-overlay" id="modalCargaMasivaOverlay"></div>
+  <div class="modal modal-large" id="modalCargaMasiva">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <span>📊</span>
+        Carga Masiva de Clientes
+      </h3>
+      <button class="modal-close" onclick="cerrarModalCargaMasiva()">×</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Instrucciones -->
+      <div class="card mb-20">
+        <div class="card-header">
+          <h4 class="card-title">
+            <span>📝</span>
+            Formato de Entrada
+          </h4>
+        </div>
+        <p style="margin-bottom: 10px;">
+          Ingrese los datos en formato CSV (separados por comas). Una línea por cliente:
+        </p>
+        <code style="display: block; background: #f5f5f5; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+          NOMBRE, TELÉFONO, EMAIL, LIMITE_CREDITO, SALDO_INICIAL, OBSERVACIONES
+        </code>
+        <p style="font-size: 12px; color: var(--sv-texto-secundario);">
+          <strong>Obligatorio:</strong> NOMBRE<br>
+          <strong>Saldo inicial:</strong> Positivo (DEBE) o Negativo (HABER a favor)
+        </p>
+
+        <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <strong>Ejemplos:</strong><br>
+          <code>JUAN PEREZ, 1234567890, juan@email.com, 150000, 50000, Cliente VIP</code><br>
+          <code>MARIA GOMEZ, 9876543210, maria@email.com, 100000, -25000, Tiene crédito a favor</code><br>
+          <code>PEDRO LOPEZ, 5555555555, , 100000, 0, Sin saldo inicial</code>
+        </div>
+      </div>
+
+      <!-- Textarea CSV -->
+      <div class="form-group">
+        <label class="form-label">
+          <span class="form-label-icon">📋</span>
+          Datos de Clientes (CSV)
+        </label>
+        <textarea
+          id="cargaMasivaTextarea"
+          class="form-textarea"
+          rows="10"
+          placeholder="NOMBRE, TEL, EMAIL, LIMITE, SALDO_INICIAL, OBS&#10;JUAN PEREZ, 1234567890, juan@email.com, 150000, 50000, Cliente VIP&#10;MARIA GOMEZ, 9876543210, maria@email.com, 100000, -25000, Crédito a favor"
+        ></textarea>
+        <small style="display: block; margin-top: 5px; color: var(--sv-texto-secundario);">
+          Total de líneas: <strong id="cargaMasivaLineasCount">0</strong>
+        </small>
+      </div>
+
+      <button class="btn btn-secondary btn-block" id="btnParsearCargaMasiva">
+        <span>🔍</span> Validar y Previsualizar
+      </button>
+
+      <!-- Preview -->
+      <div id="cargaMasivaPreview" style="display: none; margin-top: 20px;">
+        <div class="card">
+          <div class="card-header">
+            <h4 class="card-title">
+              <span>👁️</span>
+              Previsualización (<span id="cargaMasivaPreviewCount">0</span> clientes)
+            </h4>
+          </div>
+          <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="tabla-movimientos">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nombre</th>
+                  <th>Teléfono</th>
+                  <th>Email</th>
+                  <th>Límite</th>
+                  <th>Saldo Inicial</th>
+                  <th>Observaciones</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="cargaMasivaPreviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Resumen -->
+        <div class="metrics-grid" style="margin-top: 15px;">
+          <div class="metric-card" style="background: #d4edda;">
+            <div class="metric-card-title">Válidos</div>
+            <div class="metric-card-value" id="cargaMasivaValidosCount">0</div>
+          </div>
+          <div class="metric-card" style="background: #f8d7da;">
+            <div class="metric-card-title">Con Errores</div>
+            <div class="metric-card-value" id="cargaMasivaErroresCount">0</div>
+          </div>
+        </div>
+
+        <!-- Lista de errores -->
+        <div id="cargaMasivaErrores" style="display: none; margin-top: 15px; background: #f8d7da; padding: 15px; border-radius: 5px;">
+          <h5 style="margin: 0 0 10px 0; color: #721c24;">⚠️ Errores Encontrados</h5>
+          <ul id="cargaMasivaErroresLista" style="margin: 0; padding-left: 20px; color: #721c24;"></ul>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="cerrarModalCargaMasiva()">Cancelar</button>
+      <button class="btn btn-primary" id="btnGuardarCargaMasiva" style="display: none;">
+        <span>💾</span> Guardar <span id="cargaMasivaGuardarCount">0</span> Clientes
+      </button>
+    </div>
+  </div>
+
   <!-- LOADING OVERLAY GLOBAL -->
   <div class="loading-overlay" id="loadingOverlay">
     <div style="text-align: center;">
@@ -2652,10 +2945,9 @@
           const module = item.dataset.module;
           if (module) {
             changeModule(module);
-            if (window.innerWidth < 768) {
-              sidebar.classList.remove('active');
-              sidebarOverlay.classList.remove('active');
-            }
+            // Cerrar sidebar siempre al navegar
+            sidebar.classList.remove('active');
+            sidebarOverlay.classList.remove('active');
           }
         });
       });
@@ -2681,6 +2973,12 @@
       });
 
       console.log(`📌 Módulo cambiado a: ${moduleId}`);
+
+      // Scroll to top suave
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
     }
 
     // ========================================
@@ -3520,6 +3818,16 @@
         filtrarClientesGestion(e.target.value);
       });
 
+      // Event listeners para carga masiva
+      document.getElementById('gestionCargaMasiva').addEventListener('click', mostrarModalCargaMasiva);
+      document.getElementById('btnParsearCargaMasiva').addEventListener('click', parsearYValidarCargaMasiva);
+      document.getElementById('btnGuardarCargaMasiva').addEventListener('click', ejecutarCargaMasiva);
+
+      document.getElementById('cargaMasivaTextarea').addEventListener('input', (e) => {
+        const lineas = e.target.value.split('\n').filter(l => l.trim()).length;
+        document.getElementById('cargaMasivaLineasCount').textContent = lineas;
+      });
+
       cargarTablaGestion();
     }
 
@@ -3676,6 +3984,197 @@
           })
           .crearNuevoClienteCompleto({ nombre, tel, email, limite: 100000, obs });
       }
+    }
+
+    // ============================================================================
+    // CARGA MASIVA DE CLIENTES
+    // ============================================================================
+
+    let cargaMasivaData = {
+      clientesParseados: [],
+      clientesValidos: [],
+      clientesConErrores: []
+    };
+
+    function mostrarModalCargaMasiva() {
+      document.getElementById('modalCargaMasivaOverlay').classList.add('active');
+      document.getElementById('modalCargaMasiva').style.display = 'block';
+
+      // Reset
+      document.getElementById('cargaMasivaTextarea').value = '';
+      document.getElementById('cargaMasivaPreview').style.display = 'none';
+      document.getElementById('btnGuardarCargaMasiva').style.display = 'none';
+      cargaMasivaData = { clientesParseados: [], clientesValidos: [], clientesConErrores: [] };
+    }
+
+    function cerrarModalCargaMasiva() {
+      document.getElementById('modalCargaMasivaOverlay').classList.remove('active');
+      document.getElementById('modalCargaMasiva').style.display = 'none';
+    }
+
+    function parsearYValidarCargaMasiva() {
+      const texto = document.getElementById('cargaMasivaTextarea').value.trim();
+
+      if (!texto) {
+        showToast('error', 'Error', 'Ingrese datos para procesar');
+        return;
+      }
+
+      const lineas = texto.split('\n').filter(l => l.trim());
+      cargaMasivaData.clientesParseados = [];
+      cargaMasivaData.clientesValidos = [];
+      cargaMasivaData.clientesConErrores = [];
+
+      lineas.forEach((linea, index) => {
+        const campos = linea.split(',').map(c => c.trim());
+        const numeroLinea = index + 1;
+
+        const cliente = {
+          linea: numeroLinea,
+          nombre: campos[0] ? campos[0].toUpperCase() : '',
+          tel: campos[1] || '',
+          email: campos[2] || '',
+          limite: parseFloat(campos[3]) || 100000,
+          saldoInicial: parseFloat(campos[4]) || 0,
+          obs: campos[5] || '',
+          errores: []
+        };
+
+        // Validaciones
+        if (!cliente.nombre) {
+          cliente.errores.push('Nombre obligatorio');
+        }
+
+        const yaExiste = AppState.clientesData.some(c =>
+          c.nombre.toUpperCase() === cliente.nombre
+        );
+        if (yaExiste) {
+          cliente.errores.push('Cliente ya existe');
+        }
+
+        const duplicadoEnLote = cargaMasivaData.clientesParseados.some(c =>
+          c.nombre === cliente.nombre
+        );
+        if (duplicadoEnLote) {
+          cliente.errores.push('Duplicado en lote');
+        }
+
+        if (cliente.limite < 0) {
+          cliente.errores.push('Límite debe ser positivo');
+        }
+
+        if (cliente.errores.length === 0) {
+          cargaMasivaData.clientesValidos.push(cliente);
+        } else {
+          cargaMasivaData.clientesConErrores.push(cliente);
+        }
+
+        cargaMasivaData.clientesParseados.push(cliente);
+      });
+
+      mostrarPreviewCargaMasiva();
+    }
+
+    function mostrarPreviewCargaMasiva() {
+      const tbody = document.getElementById('cargaMasivaPreviewBody');
+      tbody.innerHTML = '';
+
+      cargaMasivaData.clientesParseados.forEach(cliente => {
+        const estado = cliente.errores.length === 0
+          ? '<span style="color: #28a745;">✓ Válido</span>'
+          : `<span style="color: #dc3545;">✗ ${cliente.errores.join(', ')}</span>`;
+
+        const tr = document.createElement('tr');
+        tr.style.background = cliente.errores.length > 0 ? '#f8d7da' : '#d4edda';
+
+        tr.innerHTML = `
+          <td>${cliente.linea}</td>
+          <td><strong>${cliente.nombre}</strong></td>
+          <td>${cliente.tel}</td>
+          <td>${cliente.email}</td>
+          <td>$${cliente.limite.toLocaleString('es-AR')}</td>
+          <td style="color: ${cliente.saldoInicial >= 0 ? '#dc3545' : '#28a745'}; font-weight: bold;">
+            $${cliente.saldoInicial.toLocaleString('es-AR')}
+          </td>
+          <td>${cliente.obs}</td>
+          <td>${estado}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('cargaMasivaPreviewCount').textContent = cargaMasivaData.clientesParseados.length;
+      document.getElementById('cargaMasivaValidosCount').textContent = cargaMasivaData.clientesValidos.length;
+      document.getElementById('cargaMasivaErroresCount').textContent = cargaMasivaData.clientesConErrores.length;
+      document.getElementById('cargaMasivaGuardarCount').textContent = cargaMasivaData.clientesValidos.length;
+
+      if (cargaMasivaData.clientesConErrores.length > 0) {
+        const listaErrores = document.getElementById('cargaMasivaErroresLista');
+        listaErrores.innerHTML = '';
+
+        cargaMasivaData.clientesConErrores.forEach(cliente => {
+          const li = document.createElement('li');
+          li.textContent = `Línea ${cliente.linea} (${cliente.nombre || 'SIN NOMBRE'}): ${cliente.errores.join(', ')}`;
+          listaErrores.appendChild(li);
+        });
+
+        document.getElementById('cargaMasivaErrores').style.display = 'block';
+      } else {
+        document.getElementById('cargaMasivaErrores').style.display = 'none';
+      }
+
+      document.getElementById('cargaMasivaPreview').style.display = 'block';
+
+      if (cargaMasivaData.clientesValidos.length > 0) {
+        document.getElementById('btnGuardarCargaMasiva').style.display = 'inline-block';
+      } else {
+        document.getElementById('btnGuardarCargaMasiva').style.display = 'none';
+      }
+    }
+
+    function ejecutarCargaMasiva() {
+      if (cargaMasivaData.clientesValidos.length === 0) {
+        showToast('error', 'Error', 'No hay clientes válidos para guardar');
+        return;
+      }
+
+      if (!confirm(`¿Confirma la creación de ${cargaMasivaData.clientesValidos.length} clientes?\n\nEsto no se puede deshacer.`)) {
+        return;
+      }
+
+      showToast('info', 'Procesando', `Guardando ${cargaMasivaData.clientesValidos.length} clientes...`);
+
+      const payload = {
+        clientes: cargaMasivaData.clientesValidos.map(c => ({
+          nombre: c.nombre,
+          tel: c.tel,
+          email: c.email,
+          limite: c.limite,
+          saldoInicial: c.saldoInicial,
+          obs: c.obs
+        }))
+      };
+
+      google.script.run
+        .withSuccessHandler((resultado) => {
+          if (resultado.success) {
+            showToast('success', '✅ Completado',
+              `${resultado.exitosos} clientes creados. ${resultado.errores} errores.`);
+
+            if (resultado.errores > 0) {
+              console.log('Errores en carga masiva:', resultado.detalleErrores);
+            }
+
+            cerrarModalCargaMasiva();
+            cargarDatosIniciales();
+          } else {
+            showToast('error', 'Error', resultado.error || 'Error en carga masiva');
+          }
+        })
+        .withFailureHandler((error) => {
+          showToast('error', 'Error', error.message || 'Error al guardar');
+        })
+        .crearClientesMasivos(payload);
     }
 
     // ========================================

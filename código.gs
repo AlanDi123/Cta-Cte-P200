@@ -1271,6 +1271,98 @@ function analizarImagenVisualReasoning(imageBase64) {
   }
 }
 
+/**
+ * API 13: Crea múltiples clientes con saldo inicial
+ * @param {Object} payload - {clientes: Array}
+ * @returns {Object} Resultado con exitosos y errores
+ */
+function crearClientesMasivos(payload) {
+  try {
+    if (!payload.clientes || !Array.isArray(payload.clientes)) {
+      throw new Error('Payload inválido: se esperaba {clientes: Array}');
+    }
+
+    const resultados = {
+      exitosos: 0,
+      errores: 0,
+      detalleExitosos: [],
+      detalleErrores: []
+    };
+
+    const lock = LockService.getScriptLock();
+
+    payload.clientes.forEach((clienteData, index) => {
+      try {
+        lock.waitLock(30000);
+
+        // 1. Crear cliente con saldo 0
+        const cliente = ClientesRepository.crear({
+          nombre: clienteData.nombre,
+          tel: clienteData.tel,
+          email: clienteData.email,
+          limite: clienteData.limite || 100000,
+          obs: clienteData.obs
+        });
+
+        // 2. Si tiene saldo inicial ≠ 0, crear movimiento de ajuste
+        if (clienteData.saldoInicial && clienteData.saldoInicial !== 0) {
+          const tipoMovimiento = clienteData.saldoInicial > 0
+            ? CONFIG.TIPOS_MOVIMIENTO.DEBE
+            : CONFIG.TIPOS_MOVIMIENTO.HABER;
+
+          const montoAbsoluto = Math.abs(clienteData.saldoInicial);
+
+          MovimientosRepository.registrar({
+            cliente: clienteData.nombre,
+            tipo: tipoMovimiento,
+            monto: montoAbsoluto,
+            obs: `SALDO INICIAL (Carga Masiva)`
+          });
+
+          resultados.detalleExitosos.push({
+            nombre: clienteData.nombre,
+            saldoInicial: clienteData.saldoInicial,
+            movimientoCreado: true
+          });
+        } else {
+          resultados.detalleExitosos.push({
+            nombre: clienteData.nombre,
+            saldoInicial: 0,
+            movimientoCreado: false
+          });
+        }
+
+        resultados.exitosos++;
+        lock.releaseLock();
+
+      } catch (error) {
+        lock.releaseLock();
+        resultados.errores++;
+        resultados.detalleErrores.push({
+          indice: index,
+          nombre: clienteData.nombre,
+          error: error.message
+        });
+      }
+    });
+
+    return {
+      success: true,
+      exitosos: resultados.exitosos,
+      errores: resultados.errores,
+      detalleExitosos: resultados.detalleExitosos,
+      detalleErrores: resultados.detalleErrores
+    };
+
+  } catch (error) {
+    Logger.log('Error en crearClientesMasivos: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 
 // ============================================================================
 // FIN DEL ARCHIVO
