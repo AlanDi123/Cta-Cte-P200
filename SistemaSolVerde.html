@@ -1103,6 +1103,72 @@
     }
 
     /* ========================================
+       HELP MODAL - TABS Y CONTENIDO
+       ======================================== */
+
+    .help-tab {
+      padding: 8px 15px;
+      border: none;
+      background: var(--sv-fondo-card);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .help-tab.active {
+      background: var(--sv-primario);
+      color: white;
+    }
+
+    .help-tab:hover {
+      background: var(--sv-primario-hover);
+      color: white;
+    }
+
+    .help-content {
+      animation: fadeIn 0.3s ease-in;
+    }
+
+    .help-content h3 {
+      color: var(--sv-primario);
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+
+    .help-content h4 {
+      color: var(--sv-texto);
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .help-content p,
+    .help-content ul,
+    .help-content ol {
+      color: var(--sv-texto-secundario);
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+
+    .help-content code {
+      background: var(--sv-fondo);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: var(--sv-primario);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ========================================
        ESTILOS COMPLEMENTARIOS
        ======================================== */
 
@@ -1225,7 +1291,7 @@
       width: 100%;
       height: 100%;
       background: rgba(0, 0, 0, 0.7);
-      z-index: 9998;
+      z-index: 10000;
       display: none;
       align-items: center;
       justify-content: center;
@@ -1257,6 +1323,7 @@
       animation: modalSlideUp 0.3s ease-out;
       display: flex;
       flex-direction: column;
+      z-index: 10001;
     }
 
     @keyframes modalSlideUp {
@@ -2066,7 +2133,7 @@
                 <span class="form-label-icon">📅</span>
                 Fecha
               </label>
-              <input type="datetime-local" id="inputFecha" class="form-input" required>
+              <input type="date" id="inputFecha" class="form-input" required>
             </div>
 
             <div class="form-group">
@@ -2082,16 +2149,14 @@
                 <span class="form-label-icon">🔄</span>
                 Tipo de Movimiento
               </label>
-              <div style="display: flex; gap: 15px;">
-                <div style="flex: 1;">
-                  <input type="checkbox" id="checkFiado">
-                  <label for="checkFiado">🔴 FIADO</label>
-                </div>
-                <div style="flex: 1;">
-                  <input type="checkbox" id="checkPago">
-                  <label for="checkPago">🟢 PAGO</label>
-                </div>
-              </div>
+              <select id="selectTipoMovimiento" class="form-select">
+                <option value="">-- Seleccionar tipo --</option>
+                <option value="DEBE">🔴 FIADO (Cliente debe dinero)</option>
+                <option value="HABER">🟢 PAGO (Cliente paga/crédito)</option>
+              </select>
+              <small style="display: block; margin-top: 5px; color: var(--sv-texto-secundario);">
+                La selección se mantiene para facilitar carga múltiple
+              </small>
             </div>
 
             <div class="form-group">
@@ -2967,6 +3032,261 @@
     </div>
   </div>
 
+  <!-- MODAL: Ayuda -->
+  <div class="modal-overlay" id="modalAyudaOverlay"></div>
+  <div class="modal modal-large" id="modalAyuda">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <span>❓</span>
+        Centro de Ayuda - Sol & Verde V18.0
+      </h3>
+      <button class="modal-close" onclick="cerrarModalAyuda()">×</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Navegación por tabs -->
+      <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--sv-borde); padding-bottom: 10px;">
+        <button class="btn btn-secondary btn-sm help-tab active" data-tab="inicio" onclick="cambiarTabAyuda('inicio')">
+          🏠 Inicio
+        </button>
+        <button class="btn btn-secondary btn-sm help-tab" data-tab="modulos" onclick="cambiarTabAyuda('modulos')">
+          📁 Módulos
+        </button>
+        <button class="btn btn-secondary btn-sm help-tab" data-tab="atajos" onclick="cambiarTabAyuda('atajos')">
+          ⌨️ Atajos
+        </button>
+        <button class="btn btn-secondary btn-sm help-tab" data-tab="faq" onclick="cambiarTabAyuda('faq')">
+          ❔ FAQ
+        </button>
+      </div>
+
+      <!-- TAB: Inicio -->
+      <div class="help-content active" id="helpTab-inicio">
+        <div class="card mb-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>👋</span>
+              Bienvenido al Sistema Sol & Verde
+            </h2>
+          </div>
+          <p>
+            Sistema de gestión de cuentas corrientes para administrar clientes, movimientos (DEBE/HABER),
+            y generar estadísticas en tiempo real.
+          </p>
+          <h4 style="margin-top: 15px;">✨ Características Principales:</h4>
+          <ul style="margin-left: 20px; line-height: 1.8;">
+            <li><strong>Dashboard:</strong> Vista general de movimientos recientes y métricas</li>
+            <li><strong>Visual Reasoning:</strong> Análisis de imágenes con IA Claude (tickets, facturas)</li>
+            <li><strong>Visor de Clientes:</strong> Búsqueda avanzada y detalles de cuentas</li>
+            <li><strong>Estadísticas:</strong> Gráficos y reportes de movimientos por período</li>
+            <li><strong>Gestión de Clientes:</strong> Crear, editar y eliminar clientes</li>
+            <li><strong>Configuración:</strong> Personalizar preferencias y exportar datos</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- TAB: Módulos -->
+      <div class="help-content" id="helpTab-modulos" style="display: none;">
+        <div class="card mb-15">
+          <h3>📊 Dashboard</h3>
+          <p><strong>Función:</strong> Registrar movimientos (DEBE/HABER) y ver historial reciente.</p>
+          <p><strong>Cómo usar:</strong></p>
+          <ol style="margin-left: 20px;">
+            <li>Seleccionar cliente con búsqueda fuzzy (escribe parte del nombre)</li>
+            <li>Elegir tipo: FIADO (🔴 DEBE) o PAGO (🟢 HABER)</li>
+            <li>Ingresar monto y observaciones opcionales</li>
+            <li>Click en "💾 Guardar Movimiento"</li>
+          </ol>
+        </div>
+
+        <div class="card mb-15">
+          <h3>🔍 Visual Reasoning</h3>
+          <p><strong>Función:</strong> Analizar imágenes de tickets/facturas con IA Claude.</p>
+          <p><strong>Cómo usar:</strong></p>
+          <ol style="margin-left: 20px;">
+            <li>Configurar API Key de Claude en Configuración</li>
+            <li>Subir imagen (JPG, PNG) o pegar desde portapapeles (Ctrl+V)</li>
+            <li>IA extrae: cliente, monto, tipo (DEBE/HABER), fecha, descripción</li>
+            <li>Validar y ajustar datos detectados</li>
+            <li>Guardar movimientos en lote</li>
+          </ol>
+        </div>
+
+        <div class="card mb-15">
+          <h3>👥 Visor de Clientes</h3>
+          <p><strong>Función:</strong> Ver lista completa de clientes y sus movimientos.</p>
+          <p><strong>Filtros disponibles:</strong></p>
+          <ul style="margin-left: 20px;">
+            <li>🔴 CON DEUDA: Clientes con saldo positivo (deben dinero)</li>
+            <li>🟢 A FAVOR: Clientes con saldo negativo (tienen crédito)</li>
+            <li>🟡 SALDO CERO: Clientes al día</li>
+          </ul>
+        </div>
+
+        <div class="card mb-15">
+          <h3>📈 Estadísticas</h3>
+          <p><strong>Función:</strong> Gráficos de barras y métricas por período.</p>
+          <p><strong>Filtros:</strong></p>
+          <ul style="margin-left: 20px;">
+            <li>Fecha desde / hasta</li>
+            <li>Tipo de movimiento (Todos, DEBE, HABER)</li>
+            <li>Cliente específico</li>
+          </ul>
+        </div>
+
+        <div class="card mb-15">
+          <h3>⚙️ Gestión de Clientes</h3>
+          <p><strong>Crear cliente individual:</strong> Botón "Nuevo Cliente"</p>
+          <p><strong>Carga masiva:</strong> Importar múltiples clientes con CSV</p>
+          <p><strong>Formato CSV:</strong></p>
+          <code style="display: block; background: #f5f5f5; padding: 10px; margin: 10px 0;">
+            NOMBRE, TELÉFONO, EMAIL, LIMITE_CREDITO, SALDO_INICIAL, OBSERVACIONES
+          </code>
+        </div>
+
+        <div class="card mb-15">
+          <h3>🔧 Configuración</h3>
+          <p><strong>Opciones disponibles:</strong></p>
+          <ul style="margin-left: 20px;">
+            <li>API Key de Claude (para Visual Reasoning)</li>
+            <li>Tema (Claro/Oscuro)</li>
+            <li>Preferencias del sistema</li>
+            <li>Exportar datos (CSV/JSON)</li>
+            <li>Estadísticas del sistema</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- TAB: Atajos de Teclado -->
+      <div class="help-content" id="helpTab-atajos" style="display: none;">
+        <div class="card">
+          <h3 style="margin-bottom: 15px;">⌨️ Atajos de Teclado</h3>
+          <table class="tabla-movimientos">
+            <thead>
+              <tr>
+                <th>Atajo</th>
+                <th>Acción</th>
+                <th>Contexto</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Ctrl + 1</code></td>
+                <td>Ir a Dashboard</td>
+                <td>Global</td>
+              </tr>
+              <tr>
+                <td><code>Ctrl + 2</code></td>
+                <td>Ir a Visual Reasoning</td>
+                <td>Global</td>
+              </tr>
+              <tr>
+                <td><code>Ctrl + 3</code></td>
+                <td>Ir a Visor de Clientes</td>
+                <td>Global</td>
+              </tr>
+              <tr>
+                <td><code>Ctrl + 4</code></td>
+                <td>Ir a Estadísticas</td>
+                <td>Global</td>
+              </tr>
+              <tr>
+                <td><code>Ctrl + 5</code></td>
+                <td>Ir a Gestión de Clientes</td>
+                <td>Global</td>
+              </tr>
+              <tr>
+                <td><code>Ctrl + 6</code></td>
+                <td>Ir a Configuración</td>
+                <td>Global</td>
+              </tr>
+              <tr>
+                <td><code>Ctrl + V</code></td>
+                <td>Pegar imagen desde portapapeles</td>
+                <td>Visual Reasoning</td>
+              </tr>
+              <tr>
+                <td><code>F1</code></td>
+                <td>Abrir esta ayuda</td>
+                <td>Global</td>
+              </tr>
+              <tr>
+                <td><code>Esc</code></td>
+                <td>Cerrar modales/ayuda</td>
+                <td>Con modal abierto</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: FAQ -->
+      <div class="help-content" id="helpTab-faq" style="display: none;">
+        <div class="card mb-15">
+          <h4>❓ ¿Qué significa DEBE y HABER?</h4>
+          <p>
+            <strong>DEBE (🔴 FIADO):</strong> El cliente DEBE dinero (deuda). Aumenta el saldo.<br>
+            <strong>HABER (🟢 PAGO):</strong> El cliente PAGA o tiene crédito a favor. Disminuye el saldo.
+          </p>
+        </div>
+
+        <div class="card mb-15">
+          <h4>❓ ¿Cómo configuro la API Key de Claude?</h4>
+          <p>
+            1. Ir a <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a><br>
+            2. Crear una API Key<br>
+            3. Copiar la key (empieza con "sk-ant-...")<br>
+            4. Ir a Configuración → Pegar en el campo "API Key de Claude"<br>
+            5. Click en "Guardar API Key"
+          </p>
+        </div>
+
+        <div class="card mb-15">
+          <h4>❓ ¿Por qué no funciona Visual Reasoning?</h4>
+          <p>
+            <strong>Causas comunes:</strong><br>
+            • API Key no configurada o inválida<br>
+            • Imagen muy pesada (máx 5MB recomendado)<br>
+            • Formato no soportado (solo JPG/PNG)<br>
+            • Sin conexión a internet
+          </p>
+        </div>
+
+        <div class="card mb-15">
+          <h4>❓ ¿Puedo exportar mis datos?</h4>
+          <p>
+            Sí, en el módulo de Configuración puedes:<br>
+            • Exportar Clientes (CSV)<br>
+            • Exportar Movimientos (CSV)<br>
+            • Crear Backup Completo (JSON)
+          </p>
+        </div>
+
+        <div class="card mb-15">
+          <h4>❓ ¿Los datos se guardan automáticamente?</h4>
+          <p>
+            Sí, todos los cambios se guardan inmediatamente en Google Sheets.
+            El sistema usa caché de 5 minutos para mejor performance.
+          </p>
+        </div>
+
+        <div class="card mb-15">
+          <h4>❓ ¿Cómo elimino un cliente?</h4>
+          <p>
+            1. Ir a Visor de Clientes<br>
+            2. Click en el cliente<br>
+            3. Click en "🗑️ Eliminar Cliente"<br>
+            <strong>⚠️ ADVERTENCIA:</strong> Esto eliminará el cliente Y todos sus movimientos.
+          </p>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="cerrarModalAyuda()">Cerrar</button>
+    </div>
+  </div>
+
   <!-- LOADING OVERLAY GLOBAL -->
   <div class="loading-overlay" id="loadingOverlay">
     <div style="text-align: center;">
@@ -3020,6 +3340,10 @@
       initEstadisticas();
       initGestionClientes();
       initConfiguracion();
+
+      // Event listeners para el sistema de ayuda
+      document.getElementById('helpBtn').addEventListener('click', mostrarModalAyuda);
+      document.getElementById('modalAyudaOverlay').addEventListener('click', cerrarModalAyuda);
 
       cargarDatosIniciales();
     });
@@ -3184,13 +3508,60 @@
         }
         if (e.key === 'F1') {
           e.preventDefault();
-          showToast('info', 'Ayuda', 'Use Ctrl+1 a Ctrl+7 para navegar entre módulos');
+          mostrarModalAyuda();
         }
         if (e.key === 'Escape') {
-          document.getElementById('sidebar').classList.remove('active');
-          document.getElementById('sidebarOverlay').classList.remove('active');
+          // Cerrar modal de ayuda si está abierto
+          const modalAyuda = document.getElementById('modalAyuda');
+          if (modalAyuda && modalAyuda.style.display === 'block') {
+            cerrarModalAyuda();
+          } else {
+            // Si no hay modal de ayuda, cerrar sidebar
+            document.getElementById('sidebar').classList.remove('active');
+            document.getElementById('sidebarOverlay').classList.remove('active');
+          }
         }
       });
+    }
+
+    // ========================================
+    // SISTEMA DE AYUDA
+    // ========================================
+    function mostrarModalAyuda() {
+      document.getElementById('modalAyudaOverlay').classList.add('active');
+      document.getElementById('modalAyuda').style.display = 'block';
+
+      // Reset a tab "inicio"
+      cambiarTabAyuda('inicio');
+    }
+
+    function cerrarModalAyuda() {
+      document.getElementById('modalAyudaOverlay').classList.remove('active');
+      document.getElementById('modalAyuda').style.display = 'none';
+    }
+
+    function cambiarTabAyuda(tabId) {
+      // Ocultar todos los contenidos
+      document.querySelectorAll('.help-content').forEach(content => {
+        content.style.display = 'none';
+      });
+
+      // Remover active de todos los tabs
+      document.querySelectorAll('.help-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+
+      // Mostrar contenido seleccionado
+      const targetContent = document.getElementById(`helpTab-${tabId}`);
+      if (targetContent) {
+        targetContent.style.display = 'block';
+      }
+
+      // Activar tab seleccionado
+      const targetTab = document.querySelector(`.help-tab[data-tab="${tabId}"]`);
+      if (targetTab) {
+        targetTab.classList.add('active');
+      }
     }
 
     // ========================================
@@ -3241,18 +3612,8 @@
     // ========================================
     function initDashboard() {
       const now = new Date();
-      document.getElementById('inputFecha').value = now.toISOString().slice(0, 16);
-
-      const checkFiado = document.getElementById('checkFiado');
-      const checkPago = document.getElementById('checkPago');
-
-      checkFiado.addEventListener('change', () => {
-        if (checkFiado.checked) checkPago.checked = false;
-      });
-
-      checkPago.addEventListener('change', () => {
-        if (checkPago.checked) checkFiado.checked = false;
-      });
+      const fechaSolo = now.toISOString().slice(0, 10);  // "2025-01-24"
+      document.getElementById('inputFecha').value = fechaSolo;
 
       document.getElementById('dashboardForm').addEventListener('submit', handleGuardarMovimiento);
     }
@@ -3267,8 +3628,8 @@
 
       const fecha = document.getElementById('inputFecha').value;
       const clienteInput = document.getElementById('inputCliente').value.trim();
-      const checkFiado = document.getElementById('checkFiado').checked;
-      const checkPago = document.getElementById('checkPago').checked;
+      const tipoSelect = document.getElementById('selectTipoMovimiento');
+      const tipo = tipoSelect.value;
       const montoInput = document.getElementById('inputMonto').value;
       const obs = document.getElementById('inputObs').value.trim();
 
@@ -3277,8 +3638,9 @@
         return;
       }
 
-      if (!checkFiado && !checkPago) {
-        showToast('error', 'Error', 'Debe seleccionar FIADO o PAGO');
+      if (!tipo) {
+        showToast('error', 'Error', 'Debe seleccionar el tipo de movimiento');
+        tipoSelect.focus();
         return;
       }
 
@@ -3287,8 +3649,6 @@
         showToast('error', 'Error', 'Monto inválido');
         return;
       }
-
-      const tipo = checkFiado ? 'DEBE' : 'HABER';
 
       const movimientoData = {
         fecha: fecha,
@@ -3313,10 +3673,18 @@
       AppState.isLoading = false;
 
       if (result.exito) {
-        showToast('success', '✅ Éxito', `Movimiento ${result.id} registrado correctamente`);
-        document.getElementById('dashboardForm').reset();
-        document.getElementById('inputFecha').value = new Date().toISOString().slice(0, 16);
-        cargarDatosIniciales();
+        const tipoActual = document.getElementById('selectTipoMovimiento').value;
+        const tipoEmoji = tipoActual === 'DEBE' ? '🔴 FIADO' : '🟢 PAGO';
+
+        showToast('success', '✅ Guardado', `Movimiento registrado. Tipo ${tipoEmoji} se mantiene seleccionado`);
+
+        // Solo limpiar monto y observaciones (NO resetear tipo ni cliente)
+        document.getElementById('inputMonto').value = '';
+        document.getElementById('inputObs').value = '';
+        document.getElementById('inputCliente').focus();
+
+        invalidarCache();
+        cargarDatosIniciales(true);
       } else {
         showToast('error', 'Error', result.mensaje || 'Error desconocido');
       }
@@ -3392,6 +3760,14 @@
 
     function formatearFecha(fecha) {
       if (!fecha) return '-';
+
+      // Si ya es formato "YYYY-MM-DD", convertir directamente
+      if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = fecha.split('-');
+        return `${day}/${month}/${year.slice(2)}`;  // DD/MM/YY
+      }
+
+      // Si tiene hora (formato antiguo), parsear con Date
       const d = new Date(fecha);
       return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
     }
@@ -3542,7 +3918,7 @@
         return `
           <tr>
             <td><strong>${mov.indice}</strong></td>
-            <td>${mov.fecha || '-'}</td>
+            <td>${formatearFecha(mov.fecha)}</td>
             <td>
               <input type="text" class="form-input" value="${mov.cliente}"
                 onchange="VRState.movimientosValidados[${globalIndex}].cliente = this.value.toUpperCase();"
@@ -3623,7 +3999,7 @@
       if (!confirm(`¿Guardar ${VRState.movimientosValidados.length} movimientos?`)) return;
 
       const payload = VRState.movimientosValidados.map(m => ({
-        fecha: m.fecha || new Date().toISOString(),
+        fecha: m.fecha || new Date().toISOString().slice(0, 10),
         cliente: m.cliente.toUpperCase(),
         tipo: m.tipo,
         monto: parseInt(m.monto) || 0,
