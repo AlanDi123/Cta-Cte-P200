@@ -20,6 +20,22 @@
 
 
 // ============================================================================
+// FUNCIÓN PRINCIPAL PARA APLICACIÓN WEB
+// ============================================================================
+
+/**
+ * Función obligatoria para servir la aplicación web
+ * Google Apps Script llama a esta función cuando se accede a la URL de la app
+ * @returns {HtmlOutput} Página HTML del sistema
+ */
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('SistemaSolVerde')
+    .setTitle('Sol & Verde V18.0 - Sistema de Cuenta Corriente')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+
+// ============================================================================
 // 1. CONFIGURACIÓN GLOBAL
 // ============================================================================
 
