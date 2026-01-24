@@ -958,6 +958,772 @@
         padding: 10px 8px;
       }
     }
+
+    /* ========================================
+       PAGINACIÓN
+       ======================================== */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 16px 0;
+      padding: 12px;
+      background: var(--sv-fondo);
+      border-radius: 8px;
+    }
+
+    .pagination-btn {
+      padding: 8px 16px;
+      background: var(--sv-superficie);
+      border: 2px solid var(--sv-borde);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--sv-texto-primario);
+      transition: all var(--sv-transicion-rapida);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+      background: var(--sv-primario);
+      color: white;
+      border-color: var(--sv-primario);
+      transform: translateY(-2px);
+    }
+
+    .pagination-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .pagination-info {
+      font-size: 14px;
+      color: var(--sv-texto-secundario);
+      font-weight: 500;
+      padding: 0 10px;
+      white-space: nowrap;
+    }
+
+    /* ========================================
+       MODALES
+       ======================================== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 9998;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      animation: modalFadeIn 0.3s ease-out;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    .modal {
+      background: var(--sv-superficie);
+      border-radius: 12px;
+      padding: 0;
+      max-width: 600px;
+      width: 90%;
+      max-height: 85vh;
+      overflow: hidden;
+      box-shadow: var(--sv-sombra-lg);
+      animation: modalSlideUp 0.3s ease-out;
+      display: flex;
+      flex-direction: column;
+    }
+
+    @keyframes modalSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .modal-header {
+      padding: 24px;
+      border-bottom: 2px solid var(--sv-fondo);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, var(--sv-primario) 0%, var(--sv-verde-brillante) 100%);
+      color: white;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-close {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--sv-transicion-rapida);
+    }
+
+    .modal-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: rotate(90deg);
+    }
+
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-footer {
+      padding: 20px 24px;
+      border-top: 2px solid var(--sv-fondo);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      background: var(--sv-fondo);
+    }
+
+    /* ========================================
+       ZONA DE CARGA DE ARCHIVOS
+       ======================================== */
+    .upload-zone {
+      border: 3px dashed var(--sv-borde);
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      background: var(--sv-fondo);
+      cursor: pointer;
+      transition: all var(--sv-transicion-normal);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--sv-primario);
+      background: linear-gradient(135deg, rgba(46, 125, 50, 0.05) 0%, rgba(76, 175, 80, 0.05) 100%);
+      transform: scale(1.02);
+    }
+
+    .upload-zone.dragover {
+      border-color: var(--sv-verde-brillante);
+      background: linear-gradient(135deg, rgba(46, 125, 50, 0.1) 0%, rgba(76, 175, 80, 0.1) 100%);
+      box-shadow: var(--sv-sombra-lg);
+    }
+
+    .upload-zone-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .upload-zone-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--sv-primario);
+      margin-bottom: 8px;
+    }
+
+    .upload-zone-subtitle {
+      font-size: 14px;
+      color: var(--sv-texto-secundario);
+      margin-bottom: 20px;
+    }
+
+    .upload-zone-formats {
+      font-size: 12px;
+      color: var(--sv-texto-deshabilitado);
+      font-style: italic;
+    }
+
+    .file-input-hidden {
+      display: none;
+    }
+
+    .image-preview-container {
+      margin-top: 20px;
+      padding: 20px;
+      background: var(--sv-superficie);
+      border-radius: 12px;
+      box-shadow: var(--sv-sombra-sm);
+    }
+
+    .image-preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--sv-fondo);
+    }
+
+    .image-preview-info {
+      flex: 1;
+    }
+
+    .image-preview-filename {
+      font-weight: 600;
+      color: var(--sv-primario);
+      margin-bottom: 5px;
+    }
+
+    .image-preview-size {
+      font-size: 12px;
+      color: var(--sv-texto-secundario);
+    }
+
+    .image-preview-remove {
+      background: var(--sv-peligro);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all var(--sv-transicion-rapida);
+    }
+
+    .image-preview-remove:hover {
+      transform: scale(1.05);
+      box-shadow: var(--sv-sombra-sm);
+    }
+
+    .image-preview-img {
+      width: 100%;
+      max-height: 400px;
+      object-fit: contain;
+      border-radius: 8px;
+      border: 2px solid var(--sv-borde);
+    }
+
+    /* ========================================
+       BADGES Y ESTADOS
+       ======================================== */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-success {
+      background: rgba(76, 175, 80, 0.15);
+      color: var(--sv-exito);
+      border: 1px solid rgba(76, 175, 80, 0.3);
+    }
+
+    .badge-warning {
+      background: rgba(251, 192, 45, 0.15);
+      color: var(--sv-advertencia);
+      border: 1px solid rgba(251, 192, 45, 0.3);
+    }
+
+    .badge-danger {
+      background: rgba(198, 40, 40, 0.15);
+      color: var(--sv-peligro);
+      border: 1px solid rgba(198, 40, 40, 0.3);
+    }
+
+    .badge-info {
+      background: rgba(0, 172, 193, 0.15);
+      color: var(--sv-info);
+      border: 1px solid rgba(0, 172, 193, 0.3);
+    }
+
+    .badge-neutral {
+      background: var(--sv-fondo);
+      color: var(--sv-texto-secundario);
+      border: 1px solid var(--sv-borde);
+    }
+
+    /* ========================================
+       AUTOCOMPLETE
+       ======================================== */
+    .autocomplete-container {
+      position: relative;
+    }
+
+    .autocomplete-suggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--sv-superficie);
+      border: 2px solid var(--sv-primario);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow: var(--sv-sombra-md);
+      display: none;
+    }
+
+    .autocomplete-suggestions.active {
+      display: block;
+    }
+
+    .autocomplete-suggestion {
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background var(--sv-transicion-rapida);
+      border-bottom: 1px solid var(--sv-fondo);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .autocomplete-suggestion:last-child {
+      border-bottom: none;
+    }
+
+    .autocomplete-suggestion:hover,
+    .autocomplete-suggestion.selected {
+      background: linear-gradient(90deg, rgba(46, 125, 50, 0.1) 0%, transparent 100%);
+    }
+
+    .autocomplete-suggestion-icon {
+      font-size: 18px;
+    }
+
+    .autocomplete-suggestion-text {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .autocomplete-suggestion-saldo {
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* ========================================
+       TARJETAS DE MÉTRICAS
+       ======================================== */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .metric-card {
+      background: var(--sv-superficie);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--sv-sombra-sm);
+      border: 1px solid var(--sv-borde);
+      transition: all var(--sv-transicion-rapida);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--sv-primario), var(--sv-verde-brillante));
+    }
+
+    .metric-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--sv-sombra-lg);
+    }
+
+    .metric-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .metric-card-title {
+      font-size: 13px;
+      color: var(--sv-texto-secundario);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-card-icon {
+      font-size: 28px;
+      opacity: 0.8;
+    }
+
+    .metric-card-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--sv-primario);
+      margin-bottom: 8px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .metric-card-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--sv-texto-secundario);
+    }
+
+    .metric-trend {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .metric-trend.up {
+      color: var(--sv-exito);
+      background: rgba(76, 175, 80, 0.1);
+    }
+
+    .metric-trend.down {
+      color: var(--sv-peligro);
+      background: rgba(198, 40, 40, 0.1);
+    }
+
+    /* ========================================
+       GRÁFICOS
+       ======================================== */
+    .chart-container {
+      position: relative;
+      height: 350px;
+      background: var(--sv-superficie);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--sv-sombra-sm);
+      border: 1px solid var(--sv-borde);
+      margin-bottom: 20px;
+    }
+
+    .chart-header {
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--sv-fondo);
+    }
+
+    .chart-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--sv-primario);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .chart-subtitle {
+      font-size: 13px;
+      color: var(--sv-texto-secundario);
+      margin-top: 5px;
+    }
+
+    .chart-canvas {
+      max-height: 280px;
+    }
+
+    /* ========================================
+       FILTROS Y CONTROLES
+       ======================================== */
+    .filters-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .filter-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .btn-icon-only {
+      padding: 12px;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ========================================
+       LISTA DE CLIENTES
+       ======================================== */
+    .client-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .client-item {
+      background: var(--sv-superficie);
+      border: 2px solid var(--sv-borde);
+      border-radius: 10px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all var(--sv-transicion-rapida);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .client-item:hover {
+      border-color: var(--sv-primario);
+      background: var(--sv-fondo);
+      transform: translateX(5px);
+      box-shadow: var(--sv-sombra-sm);
+    }
+
+    .client-item.selected {
+      border-color: var(--sv-primario);
+      background: linear-gradient(90deg, rgba(46, 125, 50, 0.1) 0%, transparent 100%);
+      box-shadow: var(--sv-sombra-md);
+    }
+
+    .client-item-info {
+      flex: 1;
+    }
+
+    .client-item-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--sv-texto-primario);
+      margin-bottom: 5px;
+    }
+
+    .client-item-stats {
+      font-size: 13px;
+      color: var(--sv-texto-secundario);
+    }
+
+    .client-item-saldo {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: 'Courier New', monospace;
+    }
+
+    .client-item-saldo.positive {
+      color: var(--sv-exito);
+    }
+
+    .client-item-saldo.negative {
+      color: var(--sv-peligro);
+    }
+
+    /* ========================================
+       ESTILOS DE IMPRESIÓN
+       ======================================== */
+    @media print {
+      body {
+        background: white;
+        color: black;
+      }
+
+      .app-header,
+      .sidebar,
+      .sidebar-overlay,
+      .toast-container,
+      .btn,
+      .filters-row,
+      .pagination {
+        display: none !important;
+      }
+
+      .main-content {
+        padding: 0;
+        overflow: visible;
+      }
+
+      .module-view {
+        display: block !important;
+      }
+
+      .card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        page-break-inside: avoid;
+      }
+
+      .tabla-movimientos {
+        font-size: 10pt;
+        border-collapse: collapse;
+      }
+
+      .tabla-movimientos th,
+      .tabla-movimientos td {
+        border: 1px solid #333;
+        padding: 6px;
+      }
+
+      .tabla-movimientos thead {
+        background: #f0f0f0 !important;
+        color: black !important;
+      }
+
+      .print-header {
+        display: block;
+        text-align: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #333;
+      }
+
+      .print-title {
+        font-size: 18pt;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .print-subtitle {
+        font-size: 12pt;
+        color: #666;
+      }
+
+      @page {
+        size: A4;
+        margin: 2cm;
+      }
+
+      .page-break {
+        page-break-after: always;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .chart-container {
+        page-break-inside: avoid;
+      }
+    }
+
+    /* ========================================
+       ESTADOS DE CARGA
+       ======================================== */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loading-overlay.active {
+      display: flex;
+    }
+
+    .loading-spinner {
+      width: 80px;
+      height: 80px;
+      border: 6px solid rgba(255, 255, 255, 0.2);
+      border-top-color: var(--sv-verde-brillante);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: white;
+      font-size: 16px;
+      margin-top: 20px;
+      font-weight: 600;
+    }
+
+    /* ========================================
+       TABLAS RESPONSIVE
+       ======================================== */
+    .table-responsive {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ========================================
+       BÚSQUEDA
+       ======================================== */
+    .search-box {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 18px;
+      color: var(--sv-texto-secundario);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 16px 12px 45px;
+      border: 2px solid var(--sv-borde);
+      border-radius: 8px;
+      font-size: 15px;
+      background: var(--sv-fondo);
+      color: var(--sv-texto-primario);
+      transition: all var(--sv-transicion-rapida);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--sv-primario);
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
+    }
   </style>
 </head>
 <body>
@@ -1180,14 +1946,636 @@
         </div>
       </div>
 
-      <!-- Más módulos aquí (Visual Reasoning, Visor de Clientes, etc.) -->
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: VISUAL REASONING CON CLAUDE AI
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-visual-reasoning">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>🧠</span>
+            Visual Reasoning
+          </h1>
+          <p class="module-subtitle">Análisis inteligente de imágenes de libros contables con Claude AI</p>
+        </div>
+
+        <div class="card mb-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📷</span>
+              Cargar Imagen del Libro Contable
+            </h2>
+          </div>
+
+          <div class="upload-zone" id="vrUploadZone">
+            <input type="file" id="vrFileInput" class="file-input-hidden" accept="image/*">
+            <span class="upload-zone-icon">📸</span>
+            <div class="upload-zone-title">Arrastra una imagen aquí o haz clic para seleccionar</div>
+            <div class="upload-zone-subtitle">Soporta imágenes de libros de contabilidad manuscritos</div>
+            <div class="upload-zone-formats">Formatos: JPG, PNG, WEBP (Max 5MB)</div>
+          </div>
+
+          <div id="vrImagePreview" class="image-preview-container hidden">
+            <div class="image-preview-header">
+              <div class="image-preview-info">
+                <div class="image-preview-filename" id="vrFileName"></div>
+                <div class="image-preview-size" id="vrFileSize"></div>
+              </div>
+              <button class="image-preview-remove" id="vrRemoveImage">
+                <span>🗑️</span> Eliminar
+              </button>
+            </div>
+            <img id="vrImageImg" class="image-preview-img" alt="Vista previa">
+          </div>
+
+          <button type="button" class="btn btn-primary btn-block mt-20" id="vrAnalyzeBtn" disabled>
+            <span>🔍</span>
+            <span>ANALIZAR CON CLAUDE AI</span>
+          </button>
+        </div>
+
+        <div class="card hidden" id="vrResultsCard">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📊</span>
+              Movimientos Detectados
+              <span class="badge badge-info" id="vrCountBadge">0 movimientos</span>
+            </h2>
+          </div>
+
+          <div class="pagination" id="vrPagination">
+            <button class="pagination-btn" id="vrPrevPage" disabled>
+              <span>◀</span> Anterior
+            </button>
+            <span class="pagination-info" id="vrPageInfo">Página 1 de 1</span>
+            <button class="pagination-btn" id="vrNextPage" disabled>
+              Siguiente <span>▶</span>
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="tabla-movimientos">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Fecha</th>
+                  <th>Cliente Detectado</th>
+                  <th>Tipo</th>
+                  <th>Monto</th>
+                  <th>Confianza</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="vrTableBody">
+                <tr>
+                  <td colspan="7" class="tabla-empty">No hay datos analizados</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination" id="vrPaginationBottom">
+            <button class="pagination-btn" id="vrPrevPageBottom" disabled>
+              <span>◀</span> Anterior
+            </button>
+            <span class="pagination-info" id="vrPageInfoBottom">Página 1 de 1</span>
+            <button class="pagination-btn" id="vrNextPageBottom" disabled>
+              Siguiente <span>▶</span>
+            </button>
+          </div>
+
+          <div class="mt-20" style="display: flex; gap: 15px;">
+            <button class="btn btn-primary" id="vrGuardarTodos" style="flex: 1;">
+              <span>💾</span> Guardar Todos los Movimientos
+            </button>
+            <button class="btn btn-secondary" id="vrNuevoAnalisis" style="flex: 1;">
+              <span>🔄</span> Nuevo Análisis
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: VISOR DE CLIENTES
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-visor-clientes">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>👁️</span>
+            Visor de Clientes
+          </h1>
+          <p class="module-subtitle">Consulta el historial completo de movimientos de cada cliente</p>
+        </div>
+
+        <div class="card mb-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>🔍</span>
+              Seleccionar Cliente
+            </h2>
+          </div>
+
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="visorSearchCliente" class="search-input" placeholder="Buscar cliente por nombre...">
+          </div>
+
+          <div id="visorClientesList" class="client-list">
+            <div class="tabla-empty">Cargando clientes...</div>
+          </div>
+        </div>
+
+        <div class="card hidden" id="visorHistorialCard">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📋</span>
+              Historial de <span id="visorClienteNombre">Cliente</span>
+            </h2>
+          </div>
+
+          <div class="metrics-grid mb-20">
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <div class="metric-card-title">Saldo Actual</div>
+                <div class="metric-card-icon">💰</div>
+              </div>
+              <div class="metric-card-value" id="visorSaldoActual">$ 0</div>
+              <div class="metric-card-footer">
+                <span id="visorSaldoStatus">Al día</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <div class="metric-card-title">Total Fiado</div>
+                <div class="metric-card-icon">🔴</div>
+              </div>
+              <div class="metric-card-value" id="visorTotalFiado">$ 0</div>
+              <div class="metric-card-footer">
+                <span id="visorCountFiado">0 movimientos</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <div class="metric-card-title">Total Pagado</div>
+                <div class="metric-card-icon">🟢</div>
+              </div>
+              <div class="metric-card-value" id="visorTotalPagado">$ 0</div>
+              <div class="metric-card-footer">
+                <span id="visorCountPagado">0 movimientos</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <div class="metric-card-title">Movimientos</div>
+                <div class="metric-card-icon">📊</div>
+              </div>
+              <div class="metric-card-value" id="visorTotalMovs">0</div>
+              <div class="metric-card-footer">
+                <span id="visorPeriodoMovs">Último mes</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-20 no-print" style="display: flex; gap: 15px;">
+            <button class="btn btn-secondary" id="visorImprimirHoja">
+              <span>🖨️</span> Imprimir Hoja A4
+            </button>
+            <button class="btn btn-primary" id="visorExportarPDF">
+              <span>📄</span> Exportar PDF
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="tabla-movimientos">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Monto</th>
+                  <th>Saldo</th>
+                  <th>Observaciones</th>
+                </tr>
+              </thead>
+              <tbody id="visorHistorialBody">
+                <tr>
+                  <td colspan="6" class="tabla-empty">Seleccione un cliente para ver su historial</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: ESTADÍSTICAS
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-estadisticas">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>📊</span>
+            Estadísticas
+          </h1>
+          <p class="module-subtitle">Análisis y visualización de datos del sistema</p>
+        </div>
+
+        <div class="card mb-20">
+          <div class="filters-row">
+            <div class="filter-group">
+              <label class="form-label">Fecha Desde</label>
+              <input type="date" id="statsDateFrom" class="form-input">
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Fecha Hasta</label>
+              <input type="date" id="statsDateTo" class="form-input">
+            </div>
+            <button class="btn btn-primary btn-icon-only" id="statsApplyFilter" title="Aplicar filtros">
+              <span>🔍</span>
+            </button>
+            <button class="btn btn-secondary btn-icon-only" id="statsResetFilter" title="Restablecer">
+              <span>🔄</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="metrics-grid mb-20">
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <div class="metric-card-title">Total Fiado</div>
+              <div class="metric-card-icon">🔴</div>
+            </div>
+            <div class="metric-card-value" id="statsTotalFiado">$ 0</div>
+            <div class="metric-card-footer">
+              <span class="metric-trend up" id="statsTrendFiado">
+                <span>↑</span> <span>0%</span>
+              </span>
+              <span>vs período anterior</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <div class="metric-card-title">Total Pagado</div>
+              <div class="metric-card-icon">🟢</div>
+            </div>
+            <div class="metric-card-value" id="statsTotalPagado">$ 0</div>
+            <div class="metric-card-footer">
+              <span class="metric-trend up" id="statsTrendPagado">
+                <span>↑</span> <span>0%</span>
+              </span>
+              <span>vs período anterior</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <div class="metric-card-title">Saldo Total</div>
+              <div class="metric-card-icon">💰</div>
+            </div>
+            <div class="metric-card-value" id="statsSaldoTotal">$ 0</div>
+            <div class="metric-card-footer">
+              <span id="statsClientesDeudores">0 clientes con deuda</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <div class="metric-card-title">Clientes Activos</div>
+              <div class="metric-card-icon">👥</div>
+            </div>
+            <div class="metric-card-value" id="statsClientesActivos">0</div>
+            <div class="metric-card-footer">
+              <span id="statsMovimientosPeriodo">0 movimientos</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <div class="chart-header">
+            <div class="chart-title">
+              <span>📈</span>
+              Tendencia de Fiado vs Pagado
+            </div>
+            <div class="chart-subtitle">Evolución mensual del último año</div>
+          </div>
+          <canvas id="chartTendencia" class="chart-canvas"></canvas>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+          <div class="chart-container">
+            <div class="chart-header">
+              <div class="chart-title">
+                <span>🍩</span>
+                Distribución por Tipo
+              </div>
+              <div class="chart-subtitle">Proporción de movimientos</div>
+            </div>
+            <canvas id="chartDistribucion" class="chart-canvas"></canvas>
+          </div>
+
+          <div class="chart-container">
+            <div class="chart-header">
+              <div class="chart-title">
+                <span>📊</span>
+                Top 10 Clientes
+              </div>
+              <div class="chart-subtitle">Por saldo actual</div>
+            </div>
+            <canvas id="chartTopClientes" class="chart-canvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: GESTIÓN DE CLIENTES
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-gestion-clientes">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>👥</span>
+            Gestión de Clientes
+          </h1>
+          <p class="module-subtitle">Crear, editar y administrar clientes del sistema</p>
+        </div>
+
+        <div class="card mb-20">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="gestionSearchCliente" class="search-input" placeholder="Buscar cliente...">
+          </div>
+
+          <button class="btn btn-primary btn-block" id="gestionNuevoCliente">
+            <span>➕</span> Nuevo Cliente
+          </button>
+        </div>
+
+        <div class="metrics-grid mb-20">
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <div class="metric-card-title">Total Clientes</div>
+              <div class="metric-card-icon">👥</div>
+            </div>
+            <div class="metric-card-value" id="gestionTotalClientes">0</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <div class="metric-card-title">Clientes Activos</div>
+              <div class="metric-card-icon">✅</div>
+            </div>
+            <div class="metric-card-value" id="gestionClientesActivos">0</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <div class="metric-card-title">Con Deuda</div>
+              <div class="metric-card-icon">🔴</div>
+            </div>
+            <div class="metric-card-value" id="gestionClientesDeuda">0</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <div class="metric-card-title">A Favor</div>
+              <div class="metric-card-icon">🟢</div>
+            </div>
+            <div class="metric-card-value" id="gestionClientesFavor">0</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-responsive">
+            <table class="tabla-movimientos">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Saldo</th>
+                  <th>Movimientos</th>
+                  <th>Último Movimiento</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="gestionClientesBody">
+                <tr>
+                  <td colspan="5" class="tabla-empty">Cargando clientes...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: CONFIGURACIÓN
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-configuracion">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>⚙️</span>
+            Configuración
+          </h1>
+          <p class="module-subtitle">Ajustes del sistema y preferencias</p>
+        </div>
+
+        <div class="card mb-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>🔑</span>
+              API Keys
+            </h2>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <span class="form-label-icon">🤖</span>
+              Claude API Key (Anthropic)
+            </label>
+            <input type="password" id="configClaudeApiKey" class="form-input" placeholder="sk-ant-...">
+            <small style="display: block; margin-top: 5px; color: var(--sv-texto-secundario);">
+              Necesaria para la funcionalidad de Visual Reasoning
+            </small>
+          </div>
+
+          <button class="btn btn-primary" id="configGuardarApiKey">
+            <span>💾</span> Guardar API Key
+          </button>
+        </div>
+
+        <div class="card mb-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>🎨</span>
+              Apariencia
+            </h2>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <span class="form-label-icon">🌓</span>
+              Tema de la Interfaz
+            </label>
+            <select id="configThemeSelect" class="form-select">
+              <option value="light">☀️ Claro</option>
+              <option value="dark">🌙 Oscuro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>ℹ️</span>
+              Información del Sistema
+            </h2>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+              <div style="font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 5px;">Versión</div>
+              <div style="font-size: 18px;">V18.0 Enterprise</div>
+            </div>
+            <div>
+              <div style="font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 5px;">Sistema</div>
+              <div style="font-size: 18px;">Sol & Verde</div>
+            </div>
+            <div>
+              <div style="font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 5px;">Total Clientes</div>
+              <div style="font-size: 18px;" id="configTotalClientes">0</div>
+            </div>
+            <div>
+              <div style="font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 5px;">Total Movimientos</div>
+              <div style="font-size: 18px;" id="configTotalMovs">0</div>
+            </div>
+          </div>
+
+          <div class="mt-20">
+            <button class="btn btn-secondary btn-block" id="configRecargarDatos">
+              <span>🔄</span> Recargar Datos del Sistema
+            </button>
+          </div>
+        </div>
+      </div>
 
     </main>
 
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════════════
+       MODALES
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <!-- MODAL: Re-match de Clientes (Visual Reasoning) -->
+  <div class="modal-overlay" id="modalRematchOverlay"></div>
+  <div class="modal" id="modalRematch">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <span>🔍</span>
+        Buscar Cliente en Base de Datos
+      </h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">
+          <span class="form-label-icon">👤</span>
+          Nombre a buscar:
+        </label>
+        <input type="text" id="nombreRematch" class="form-input" placeholder="Escriba nombre completo o parcial">
+      </div>
+
+      <div style="text-align: center; margin: 15px 0;">
+        <button class="btn btn-primary" onclick="buscarSugerencias()">
+          <span>🔎</span> Buscar
+        </button>
+      </div>
+
+      <div id="loadingRematch" class="hidden" style="text-align: center; padding: 20px;">
+        <div class="loading-spinner" style="margin: 0 auto;"></div>
+        <p style="margin-top: 15px; color: var(--sv-texto-secundario);">Buscando...</p>
+      </div>
+
+      <div id="sugerenciasContainer" class="hidden">
+        <label style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: block; color: var(--sv-primario);">
+          Sugerencias encontradas (<span id="totalSugerencias">0</span>):
+        </label>
+        <div id="listaSugerencias" style="max-height: 300px; overflow-y: auto;"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- MODAL: Crear/Editar Cliente -->
+  <div class="modal-overlay" id="modalClienteOverlay"></div>
+  <div class="modal" id="modalCliente">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modalClienteTitulo">
+        <span>➕</span>
+        Crear Nuevo Cliente
+      </h3>
+      <button class="modal-close" onclick="cerrarModalCliente()">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="formCliente" onsubmit="event.preventDefault(); guardarCliente();">
+        <div class="form-group">
+          <label class="form-label">
+            <span class="form-label-icon">👤</span>
+            Nombre del Cliente *
+          </label>
+          <input type="text" id="clienteNombre" class="form-input" required placeholder="Ej: JUAN PÉREZ">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <span class="form-label-icon">📞</span>
+            Teléfono
+          </label>
+          <input type="tel" id="clienteTel" class="form-input" placeholder="Ej: 1234567890">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <span class="form-label-icon">📧</span>
+            Email
+          </label>
+          <input type="email" id="clienteEmail" class="form-input" placeholder="cliente@ejemplo.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            <span class="form-label-icon">📝</span>
+            Observaciones
+          </label>
+          <textarea id="clienteObs" class="form-textarea" placeholder="Información adicional del cliente..." rows="3"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" type="button" onclick="cerrarModalCliente()">Cancelar</button>
+      <button class="btn btn-primary" type="button" onclick="guardarCliente()">
+        <span>💾</span> Guardar Cliente
+      </button>
+    </div>
+  </div>
+
+  <!-- LOADING OVERLAY GLOBAL -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div style="text-align: center;">
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loadingText">Procesando...</div>
+    </div>
+  </div>
+
   <!-- TOAST CONTAINER -->
   <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       CHART.JS CDN
+       ═══════════════════════════════════════════════════════════════ -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <!-- ═══════════════════════════════════════════════════════════════
        JAVASCRIPT
@@ -1217,6 +2605,11 @@
       initThemeToggle();
       initShortcuts();
       initDashboard();
+      initVisualReasoning();
+      initVisorClientes();
+      initEstadisticas();
+      initGestionClientes();
+      initConfiguracion();
 
       cargarDatosIniciales();
     });
@@ -1543,6 +2936,887 @@
       if (!fecha) return '-';
       const d = new Date(fecha);
       return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    }
+
+    // ========================================
+    // MÓDULO: VISUAL REASONING
+    // ========================================
+    var VRState = {
+      archivoImagen: null,
+      imageBase64: null,
+      datosExtraidos: null,
+      movimientosValidados: [],
+      currentPage: 1,
+      itemsPerPage: 100,
+      totalPages: 1
+    };
+
+    function initVisualReasoning() {
+      const uploadZone = document.getElementById('vrUploadZone');
+      const fileInput = document.getElementById('vrFileInput');
+
+      uploadZone.addEventListener('click', () => fileInput.click());
+
+      uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+      });
+
+      uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+      });
+
+      uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) handleFileVR(files[0]);
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleFileVR(e.target.files[0]);
+      });
+
+      document.getElementById('vrRemoveImage').addEventListener('click', resetVR);
+      document.getElementById('vrAnalyzeBtn').addEventListener('click', analizarImagenVR);
+      document.getElementById('vrNuevoAnalisis').addEventListener('click', resetVR);
+      document.getElementById('vrGuardarTodos').addEventListener('click', guardarTodosVR);
+      document.getElementById('vrPrevPage').addEventListener('click', () => vrCambiarPagina(-1));
+      document.getElementById('vrNextPage').addEventListener('click', () => vrCambiarPagina(1));
+      document.getElementById('vrPrevPageBottom').addEventListener('click', () => vrCambiarPagina(-1));
+      document.getElementById('vrNextPageBottom').addEventListener('click', () => vrCambiarPagina(1));
+    }
+
+    function handleFileVR(file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('error', 'Archivo Inválido', 'Solo se permiten archivos de imagen');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('error', 'Archivo muy Grande', 'El tamaño máximo es 5MB');
+        return;
+      }
+
+      VRState.archivoImagen = file;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        VRState.imageBase64 = e.target.result.split(',')[1];
+        document.getElementById('vrImageImg').src = e.target.result;
+        document.getElementById('vrFileName').textContent = file.name;
+        document.getElementById('vrFileSize').textContent = (file.size / 1024).toFixed(1) + ' KB';
+        document.getElementById('vrUploadZone').parentElement.style.display = 'none';
+        document.getElementById('vrImagePreview').classList.remove('hidden');
+        document.getElementById('vrAnalyzeBtn').disabled = false;
+        showToast('success', 'Imagen Cargada', 'Lista para analizar con Claude AI');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function analizarImagenVR() {
+      if (!VRState.imageBase64) {
+        showToast('error', 'Error', 'No hay imagen cargada');
+        return;
+      }
+
+      showToast('info', 'Procesando', 'Analizando imagen con Claude AI...');
+      document.getElementById('vrAnalyzeBtn').disabled = true;
+      document.getElementById('vrAnalyzeBtn').innerHTML = '<span>⏳</span><span>PROCESANDO...</span>';
+
+      google.script.run
+        .withSuccessHandler(handleAnalisisVRSuccess)
+        .withFailureHandler(handleAnalisisVRError)
+        .analizarImagenVisualReasoning(VRState.imageBase64);
+    }
+
+    function handleAnalisisVRSuccess(resultado) {
+      document.getElementById('vrAnalyzeBtn').disabled = false;
+      document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
+
+      if (!resultado || !resultado.movimientos) {
+        showToast('error', 'Error', 'No se pudieron extraer datos de la imagen');
+        return;
+      }
+
+      VRState.datosExtraidos = resultado;
+      VRState.movimientosValidados = resultado.movimientos.map((m, idx) => ({ ...m, indice: idx + 1 }));
+
+      document.getElementById('vrResultsCard').classList.remove('hidden');
+      document.getElementById('vrCountBadge').textContent = resultado.movimientos.length + ' movimientos';
+
+      VRState.currentPage = 1;
+      calcularTotalPaginasVR();
+      renderTablaVR();
+      actualizarPaginacionVR();
+
+      showToast('success', '🎉 Análisis Completo', `${resultado.movimientos.length} movimientos detectados`);
+    }
+
+    function handleAnalisisVRError(error) {
+      document.getElementById('vrAnalyzeBtn').disabled = false;
+      document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
+      showToast('error', 'Error de Análisis', error.message || 'Error al procesar la imagen');
+    }
+
+    function calcularTotalPaginasVR() {
+      VRState.totalPages = Math.max(1, Math.ceil(VRState.movimientosValidados.length / VRState.itemsPerPage));
+      return VRState.totalPages;
+    }
+
+    function renderTablaVR() {
+      const tbody = document.getElementById('vrTableBody');
+      const totalItems = VRState.movimientosValidados.length;
+
+      if (totalItems === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="tabla-empty">No se detectaron movimientos</td></tr>';
+        return;
+      }
+
+      const startIndex = (VRState.currentPage - 1) * VRState.itemsPerPage;
+      const endIndex = Math.min(startIndex + VRState.itemsPerPage, totalItems);
+      const itemsToShow = VRState.movimientosValidados.slice(startIndex, endIndex);
+
+      tbody.innerHTML = itemsToShow.map((mov, idx) => {
+        const globalIndex = startIndex + idx;
+        const confPercent = Math.round((mov.confianza || 0.8) * 100);
+        const confBadgeClass = confPercent >= 85 ? 'success' : (confPercent >= 70 ? 'warning' : 'danger');
+
+        return `
+          <tr>
+            <td><strong>${mov.indice}</strong></td>
+            <td>${mov.fecha || '-'}</td>
+            <td>
+              <input type="text" class="form-input" value="${mov.cliente}"
+                onchange="VRState.movimientosValidados[${globalIndex}].cliente = this.value.toUpperCase();"
+                style="padding: 6px 10px; font-size: 13px; min-width: 150px;">
+            </td>
+            <td>
+              <select class="form-select" onchange="VRState.movimientosValidados[${globalIndex}].tipo = this.value;"
+                style="padding: 6px 10px; font-size: 13px;">
+                <option value="DEBE"${mov.tipo === 'DEBE' ? ' selected' : ''}>🔴 FIADO</option>
+                <option value="HABER"${mov.tipo === 'HABER' ? ' selected' : ''}>🟢 PAGO</option>
+              </select>
+            </td>
+            <td>
+              <input type="number" class="form-input" value="${mov.monto}"
+                onchange="VRState.movimientosValidados[${globalIndex}].monto = parseInt(this.value) || 0;"
+                style="padding: 6px 10px; font-size: 13px; width: 120px;">
+            </td>
+            <td><span class="badge badge-${confBadgeClass}">${confPercent}%</span></td>
+            <td>
+              <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="rematchClienteVR(${globalIndex}, '${mov.cliente.replace(/'/g, "\\'")}')">🔍</button>
+              <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="eliminarMovimientoVR(${globalIndex})">❌</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function actualizarPaginacionVR() {
+      const total = calcularTotalPaginasVR();
+      const infoText = `Página ${VRState.currentPage} de ${total}`;
+
+      document.getElementById('vrPageInfo').textContent = infoText;
+      document.getElementById('vrPageInfoBottom').textContent = infoText;
+
+      document.getElementById('vrPrevPage').disabled = VRState.currentPage <= 1;
+      document.getElementById('vrNextPage').disabled = VRState.currentPage >= total;
+      document.getElementById('vrPrevPageBottom').disabled = VRState.currentPage <= 1;
+      document.getElementById('vrNextPageBottom').disabled = VRState.currentPage >= total;
+    }
+
+    function vrCambiarPagina(direction) {
+      const nuevaPagina = VRState.currentPage + direction;
+      if (nuevaPagina < 1 || nuevaPagina > VRState.totalPages) return;
+      VRState.currentPage = nuevaPagina;
+      renderTablaVR();
+      actualizarPaginacionVR();
+    }
+
+    function rematchClienteVR(index, nombreActual) {
+      window.indiceRematchActual = index;
+      document.getElementById('nombreRematch').value = nombreActual;
+      document.getElementById('modalRematchOverlay').classList.add('active');
+      document.getElementById('modalRematch').style.display = 'block';
+    }
+
+    function eliminarMovimientoVR(index) {
+      if (!confirm('¿Está seguro de eliminar este movimiento?')) return;
+      VRState.movimientosValidados.splice(index, 1);
+      VRState.movimientosValidados.forEach((m, idx) => m.indice = idx + 1);
+
+      const totalPages = calcularTotalPaginasVR();
+      if (VRState.currentPage > totalPages) {
+        VRState.currentPage = Math.max(1, totalPages);
+      }
+
+      renderTablaVR();
+      actualizarPaginacionVR();
+      document.getElementById('vrCountBadge').textContent = VRState.movimientosValidados.length + ' movimientos';
+      showToast('success', 'Eliminado', 'Movimiento eliminado de la lista');
+    }
+
+    function guardarTodosVR() {
+      if (VRState.movimientosValidados.length === 0) {
+        showToast('error', 'Sin Movimientos', 'No hay movimientos válidos para guardar');
+        return;
+      }
+
+      if (!confirm(`¿Guardar ${VRState.movimientosValidados.length} movimientos?`)) return;
+
+      const payload = VRState.movimientosValidados.map(m => ({
+        fecha: m.fecha || new Date().toISOString(),
+        cliente: m.cliente.toUpperCase(),
+        tipo: m.tipo,
+        monto: parseInt(m.monto) || 0,
+        obs: `VR - Conf: ${Math.round((m.confianza || 0.8) * 100)}%`
+      }));
+
+      showToast('info', 'Guardando', `Procesando ${payload.length} movimientos...`);
+      document.getElementById('vrGuardarTodos').disabled = true;
+
+      google.script.run
+        .withSuccessHandler((resultado) => {
+          document.getElementById('vrGuardarTodos').disabled = false;
+          if (resultado.exito) {
+            showToast('success', '🎉 Éxito', `${resultado.guardados || payload.length} movimientos guardados`);
+            setTimeout(() => { resetVR(); cargarDatosIniciales(); }, 2000);
+          } else {
+            showToast('error', 'Error', resultado.mensaje || 'Error al guardar');
+          }
+        })
+        .withFailureHandler((error) => {
+          document.getElementById('vrGuardarTodos').disabled = false;
+          showToast('error', 'Error', error.message || 'Error al guardar movimientos');
+        })
+        .guardarMovimientosDesdeVR(payload);
+    }
+
+    function resetVR() {
+      VRState.archivoImagen = null;
+      VRState.imageBase64 = null;
+      VRState.datosExtraidos = null;
+      VRState.movimientosValidados = [];
+      VRState.currentPage = 1;
+
+      document.getElementById('vrUploadZone').parentElement.style.display = 'block';
+      document.getElementById('vrImagePreview').classList.add('hidden');
+      document.getElementById('vrResultsCard').classList.add('hidden');
+      document.getElementById('vrFileInput').value = '';
+      document.getElementById('vrAnalyzeBtn').disabled = true;
+    }
+
+    // ========================================
+    // MÓDULO: VISOR DE CLIENTES
+    // ========================================
+    function initVisorClientes() {
+      cargarListaClientesVisor();
+
+      document.getElementById('visorSearchCliente').addEventListener('input', (e) => {
+        filtrarClientesVisor(e.target.value);
+      });
+
+      document.getElementById('visorImprimirHoja').addEventListener('click', imprimirHojaVisor);
+      document.getElementById('visorExportarPDF').addEventListener('click', imprimirHojaVisor);
+    }
+
+    function cargarListaClientesVisor() {
+      if (!AppState.clientesData || AppState.clientesData.length === 0) {
+        document.getElementById('visorClientesList').innerHTML = '<div class="tabla-empty">No hay clientes cargados</div>';
+        return;
+      }
+      renderClientesVisor(AppState.clientesData);
+    }
+
+    function renderClientesVisor(clientes) {
+      const container = document.getElementById('visorClientesList');
+
+      if (clientes.length === 0) {
+        container.innerHTML = '<div class="tabla-empty">No se encontraron clientes</div>';
+        return;
+      }
+
+      container.innerHTML = clientes.map(cliente => {
+        const saldoClass = cliente.saldo > 0 ? 'negative' : (cliente.saldo < 0 ? 'positive' : '');
+        return `
+          <div class="client-item" onclick="cargarClienteVisor('${cliente.nombre.replace(/'/g, "\\'")}')">
+            <div class="client-item-info">
+              <div class="client-item-name">${cliente.nombre}</div>
+              <div class="client-item-stats">Últ. movimiento: ${formatearFecha(cliente.ultimoMov || cliente.alta)}</div>
+            </div>
+            <div class="client-item-saldo ${saldoClass}">$ ${cliente.saldo.toLocaleString('es-AR')}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function filtrarClientesVisor(query) {
+      if (!query || query.trim() === '') {
+        renderClientesVisor(AppState.clientesData);
+      } else {
+        const q = query.toUpperCase();
+        const filtrados = AppState.clientesData.filter(c => c.nombre.toUpperCase().includes(q));
+        renderClientesVisor(filtrados);
+      }
+    }
+
+    function cargarClienteVisor(nombreCliente) {
+      showToast('info', 'Cargando', 'Obteniendo historial completo...');
+
+      google.script.run
+        .withSuccessHandler((datos) => {
+          document.getElementById('visorHistorialCard').classList.remove('hidden');
+          document.getElementById('visorClienteNombre').textContent = nombreCliente;
+
+          const saldo = datos.saldo || 0;
+          const totalFiado = datos.totalFiado || 0;
+          const totalPagado = datos.totalPagado || 0;
+          const movimientos = datos.movimientos || [];
+
+          document.getElementById('visorSaldoActual').textContent = '$ ' + saldo.toLocaleString('es-AR');
+          document.getElementById('visorSaldoActual').style.color = saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)';
+          document.getElementById('visorSaldoStatus').textContent = saldo > 0 ? 'Con deuda' : (saldo < 0 ? 'A favor' : 'Al día');
+
+          document.getElementById('visorTotalFiado').textContent = '$ ' + totalFiado.toLocaleString('es-AR');
+          document.getElementById('visorCountFiado').textContent = movimientos.filter(m => m.tipo === 'DEBE').length + ' movimientos';
+
+          document.getElementById('visorTotalPagado').textContent = '$ ' + totalPagado.toLocaleString('es-AR');
+          document.getElementById('visorCountPagado').textContent = movimientos.filter(m => m.tipo === 'HABER').length + ' movimientos';
+
+          document.getElementById('visorTotalMovs').textContent = movimientos.length;
+
+          const tbody = document.getElementById('visorHistorialBody');
+          if (movimientos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="tabla-empty">Sin movimientos</td></tr>';
+          } else {
+            tbody.innerHTML = movimientos.map(mov => `
+              <tr>
+                <td><code>${mov.id || '-'}</code></td>
+                <td>${formatearFecha(mov.fecha)}</td>
+                <td><span class="tipo-badge ${mov.tipo === 'DEBE' ? 'debe' : 'haber'}">${mov.tipo === 'DEBE' ? '🔴 FIADO' : '🟢 PAGO'}</span></td>
+                <td class="monto-cell">$ ${mov.monto.toLocaleString('es-AR')}</td>
+                <td class="monto-cell">$ ${mov.saldo.toLocaleString('es-AR')}</td>
+                <td>${mov.obs || '-'}</td>
+              </tr>
+            `).join('');
+          }
+
+          showToast('success', 'Cargado', `${movimientos.length} movimientos encontrados`);
+        })
+        .withFailureHandler((error) => {
+          showToast('error', 'Error', 'No se pudo cargar el cliente');
+        })
+        .obtenerDatosCompletoCliente(nombreCliente);
+    }
+
+    function imprimirHojaVisor() {
+      window.print();
+    }
+
+    // ========================================
+    // MÓDULO: ESTADÍSTICAS CON CHART.JS
+    // ========================================
+    var ChartsState = {
+      chartTendencia: null,
+      chartDistribucion: null,
+      chartTopClientes: null
+    };
+
+    function initEstadisticas() {
+      const hoy = new Date();
+      const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      document.getElementById('statsDateFrom').valueAsDate = primerDiaMes;
+      document.getElementById('statsDateTo').valueAsDate = hoy;
+
+      document.getElementById('statsApplyFilter').addEventListener('click', cargarEstadisticas);
+      document.getElementById('statsResetFilter').addEventListener('click', () => {
+        document.getElementById('statsDateFrom').valueAsDate = primerDiaMes;
+        document.getElementById('statsDateTo').valueAsDate = hoy;
+        cargarEstadisticas();
+      });
+
+      setTimeout(cargarEstadisticas, 500);
+    }
+
+    function cargarEstadisticas() {
+      const desde = document.getElementById('statsDateFrom').value;
+      const hasta = document.getElementById('statsDateTo').value;
+
+      if (!desde || !hasta) {
+        showToast('error', 'Error', 'Debe seleccionar ambas fechas');
+        return;
+      }
+
+      showToast('info', 'Cargando', 'Generando estadísticas...');
+
+      google.script.run
+        .withSuccessHandler((datos) => {
+          renderEstadisticas(datos);
+          showToast('success', 'Completado', 'Estadísticas actualizadas');
+        })
+        .withFailureHandler((error) => {
+          showToast('error', 'Error', 'No se pudieron cargar las estadísticas');
+        })
+        .obtenerEstadisticas(desde, hasta);
+    }
+
+    function renderEstadisticas(datos) {
+      document.getElementById('statsTotalFiado').textContent = '$' + (datos.totalFiado || 0).toLocaleString('es-AR');
+      document.getElementById('statsTotalPagado').textContent = '$' + (datos.totalPagado || 0).toLocaleString('es-AR');
+      document.getElementById('statsSaldoTotal').textContent = '$' + ((datos.totalFiado || 0) - (datos.totalPagado || 0)).toLocaleString('es-AR');
+      document.getElementById('statsClientesActivos').textContent = datos.clientesActivos || 0;
+      document.getElementById('statsClientesDeudores').textContent = (datos.clientesConDeuda || 0) + ' clientes con deuda';
+      document.getElementById('statsMovimientosPeriodo').textContent = (datos.totalMovimientos || 0) + ' movimientos';
+
+      if (typeof Chart !== 'undefined') {
+        renderChartTendencia(datos.tendenciaTemporal || []);
+        renderChartDistribucion(datos);
+        renderChartTopClientes(datos.topClientes || []);
+      }
+    }
+
+    function renderChartTendencia(tendencia) {
+      const canvas = document.getElementById('chartTendencia');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      if (ChartsState.chartTendencia) {
+        ChartsState.chartTendencia.destroy();
+      }
+
+      if (!tendencia || tendencia.length === 0) {
+        canvas.parentElement.innerHTML = '<p style="text-align:center;padding:40px;color:var(--sv-texto-secundario);">Sin datos para mostrar</p>';
+        return;
+      }
+
+      ChartsState.chartTendencia = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: tendencia.map(d => d.fecha),
+          datasets: [
+            {
+              label: 'Fiado',
+              data: tendencia.map(d => d.fiado),
+              borderColor: '#C62828',
+              backgroundColor: 'rgba(198, 40, 40, 0.1)',
+              borderWidth: 3,
+              tension: 0.4,
+              fill: true
+            },
+            {
+              label: 'Cobrado',
+              data: tendencia.map(d => d.cobrado),
+              borderColor: '#4CAF50',
+              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              borderWidth: 3,
+              tension: 0.4,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { display: true, position: 'top' }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '$' + value.toLocaleString('es-AR');
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderChartDistribucion(datos) {
+      const canvas = document.getElementById('chartDistribucion');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      if (ChartsState.chartDistribucion) {
+        ChartsState.chartDistribucion.destroy();
+      }
+
+      ChartsState.chartDistribucion = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Fiado', 'Cobrado'],
+          datasets: [{
+            data: [datos.totalFiado || 0, datos.totalPagado || 0],
+            backgroundColor: ['rgba(198, 40, 40, 0.7)', 'rgba(76, 175, 80, 0.7)'],
+            borderColor: ['#C62828', '#4CAF50'],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true, position: 'bottom' }
+          }
+        }
+      });
+    }
+
+    function renderChartTopClientes(topClientes) {
+      const canvas = document.getElementById('chartTopClientes');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      if (ChartsState.chartTopClientes) {
+        ChartsState.chartTopClientes.destroy();
+      }
+
+      if (!topClientes || topClientes.length === 0) {
+        canvas.parentElement.innerHTML = '<p style="text-align:center;padding:40px;color:var(--sv-texto-secundario);">Sin datos para mostrar</p>';
+        return;
+      }
+
+      const top10 = topClientes.slice(0, 10);
+
+      ChartsState.chartTopClientes = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: top10.map(c => c.cliente),
+          datasets: [{
+            label: 'Deuda Actual',
+            data: top10.map(c => c.saldo),
+            backgroundColor: 'rgba(198, 40, 40, 0.7)',
+            borderColor: '#C62828',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '$' + value.toLocaleString('es-AR');
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ========================================
+    // MÓDULO: GESTIÓN DE CLIENTES
+    // ========================================
+    function initGestionClientes() {
+      document.getElementById('gestionNuevoCliente').addEventListener('click', mostrarModalNuevoCliente);
+      document.getElementById('gestionSearchCliente').addEventListener('input', (e) => {
+        filtrarClientesGestion(e.target.value);
+      });
+
+      cargarTablaGestion();
+    }
+
+    function cargarTablaGestion() {
+      renderTablaGestion(AppState.clientesData);
+      actualizarEstadisticasGestion();
+    }
+
+    function filtrarClientesGestion(query) {
+      if (!query || query.trim() === '') {
+        renderTablaGestion(AppState.clientesData);
+      } else {
+        const q = query.toUpperCase();
+        const filtrados = AppState.clientesData.filter(c => c.nombre.toUpperCase().includes(q));
+        renderTablaGestion(filtrados);
+      }
+    }
+
+    function renderTablaGestion(clientes) {
+      const tbody = document.getElementById('gestionClientesBody');
+
+      if (clientes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="tabla-empty">No se encontraron clientes</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = clientes.map(cliente => `
+        <tr>
+          <td><strong>${cliente.nombre}</strong></td>
+          <td class="monto-cell" style="color: ${cliente.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)'}">
+            $ ${cliente.saldo.toLocaleString('es-AR')}
+          </td>
+          <td>${cliente.totalMovimientos || 0}</td>
+          <td>${formatearFecha(cliente.ultimoMov || cliente.alta)}</td>
+          <td>
+            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; margin-right: 5px;" onclick="editarClienteGestion('${cliente.nombre.replace(/'/g, "\\'")}')">✏️</button>
+            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="eliminarClienteGestion('${cliente.nombre.replace(/'/g, "\\'")}')">🗑️</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function actualizarEstadisticasGestion() {
+      const total = AppState.clientesData.length;
+      const activos = AppState.clientesData.filter(c => (c.saldo || 0) !== 0).length;
+      const conDeuda = AppState.clientesData.filter(c => c.saldo > 0).length;
+      const aFavor = AppState.clientesData.filter(c => c.saldo < 0).length;
+
+      document.getElementById('gestionTotalClientes').textContent = total;
+      document.getElementById('gestionClientesActivos').textContent = activos;
+      document.getElementById('gestionClientesDeuda').textContent = conDeuda;
+      document.getElementById('gestionClientesFavor').textContent = aFavor;
+    }
+
+    function mostrarModalNuevoCliente() {
+      document.getElementById('modalClienteTitulo').innerHTML = '<span>➕</span> Crear Nuevo Cliente';
+      document.getElementById('clienteNombre').value = '';
+      document.getElementById('clienteNombre').disabled = false;
+      document.getElementById('clienteTel').value = '';
+      document.getElementById('clienteEmail').value = '';
+      document.getElementById('clienteObs').value = '';
+
+      document.getElementById('modalClienteOverlay').classList.add('active');
+      document.getElementById('modalCliente').style.display = 'block';
+      window.clienteEditandoNombre = null;
+    }
+
+    function editarClienteGestion(nombreCliente) {
+      const cliente = AppState.clientesData.find(c => c.nombre === nombreCliente);
+      if (!cliente) return;
+
+      document.getElementById('modalClienteTitulo').innerHTML = '<span>✏️</span> Editar Cliente';
+      document.getElementById('clienteNombre').value = cliente.nombre;
+      document.getElementById('clienteNombre').disabled = true;
+      document.getElementById('clienteTel').value = cliente.tel || '';
+      document.getElementById('clienteEmail').value = cliente.email || '';
+      document.getElementById('clienteObs').value = cliente.obs || '';
+
+      document.getElementById('modalClienteOverlay').classList.add('active');
+      document.getElementById('modalCliente').style.display = 'block';
+      window.clienteEditandoNombre = nombreCliente;
+    }
+
+    function eliminarClienteGestion(nombreCliente) {
+      if (!confirm(`¿Está SEGURO de eliminar al cliente "${nombreCliente}"?\n\n⚠️ Esta acción NO se puede deshacer.`)) {
+        return;
+      }
+
+      showToast('warning', 'Eliminando', 'Procesando eliminación...');
+
+      google.script.run
+        .withSuccessHandler((resultado) => {
+          if (resultado.exito) {
+            showToast('success', '✅ Eliminado', 'Cliente eliminado del sistema');
+            cargarDatosIniciales();
+          } else {
+            showToast('error', 'Error', resultado.mensaje || 'No se pudo eliminar');
+          }
+        })
+        .withFailureHandler((error) => {
+          showToast('error', 'Error', error.message || 'Error al eliminar');
+        })
+        .eliminarClienteCompleto(nombreCliente);
+    }
+
+    function cerrarModalCliente() {
+      document.getElementById('modalClienteOverlay').classList.remove('active');
+      document.getElementById('modalCliente').style.display = 'none';
+      document.getElementById('clienteNombre').disabled = false;
+      window.clienteEditandoNombre = null;
+    }
+
+    function guardarCliente() {
+      const nombre = document.getElementById('clienteNombre').value.trim().toUpperCase();
+      const tel = document.getElementById('clienteTel').value.trim();
+      const email = document.getElementById('clienteEmail').value.trim();
+      const obs = document.getElementById('clienteObs').value.trim();
+
+      if (!nombre) {
+        showToast('error', 'Error', 'Nombre es obligatorio');
+        return;
+      }
+
+      showToast('info', 'Guardando', 'Procesando...');
+
+      if (window.clienteEditandoNombre) {
+        google.script.run
+          .withSuccessHandler((resultado) => {
+            if (resultado.exito) {
+              showToast('success', '✅ Actualizado', 'Cliente actualizado exitosamente');
+              cerrarModalCliente();
+              cargarDatosIniciales();
+            } else {
+              showToast('error', 'Error', resultado.mensaje || 'No se pudo actualizar');
+            }
+          })
+          .withFailureHandler((error) => {
+            showToast('error', 'Error', error.message || 'Error al actualizar');
+          })
+          .actualizarDatosCliente(window.clienteEditandoNombre, { tel, email, obs });
+      } else {
+        google.script.run
+          .withSuccessHandler((resultado) => {
+            if (resultado.exito) {
+              showToast('success', '✅ Creado', `Cliente "${nombre}" creado exitosamente`);
+              cerrarModalCliente();
+              cargarDatosIniciales();
+            } else {
+              showToast('error', 'Error', resultado.mensaje || 'No se pudo crear el cliente');
+            }
+          })
+          .withFailureHandler((error) => {
+            showToast('error', 'Error', error.message || 'Error al crear cliente');
+          })
+          .crearNuevoClienteCompleto({ nombre, tel, email, limite: 100000, obs });
+      }
+    }
+
+    // ========================================
+    // MÓDULO: CONFIGURACIÓN
+    // ========================================
+    function initConfiguracion() {
+      verificarApiKey();
+      actualizarMetadatosConfig();
+
+      document.getElementById('configGuardarApiKey').addEventListener('click', mostrarModalApiKey);
+      document.getElementById('configThemeSelect').addEventListener('change', (e) => {
+        cambiarTemaConfig(e.target.value);
+      });
+      document.getElementById('configRecargarDatos').addEventListener('click', () => {
+        cargarDatosIniciales();
+        setTimeout(actualizarMetadatosConfig, 500);
+      });
+
+      // Sincronizar tema actual
+      document.getElementById('configThemeSelect').value = AppState.theme;
+    }
+
+    function actualizarMetadatosConfig() {
+      document.getElementById('configTotalClientes').textContent = AppState.clientesData.length;
+      document.getElementById('configTotalMovs').textContent = AppState.movimientosRecientes.length;
+    }
+
+    function verificarApiKey() {
+      google.script.run
+        .withSuccessHandler((presente) => {
+          if (presente) {
+            document.getElementById('configClaudeApiKey').placeholder = '••••••••••••••••';
+            showToast('info', 'API Key', 'API Key configurada correctamente');
+          } else {
+            document.getElementById('configClaudeApiKey').placeholder = 'sk-ant-api03-...';
+          }
+        })
+        .withFailureHandler(() => {
+          // Silencioso
+        })
+        .verificarApiKeyPresente();
+    }
+
+    function mostrarModalApiKey() {
+      const apiKey = document.getElementById('configClaudeApiKey').value.trim();
+
+      if (!apiKey) {
+        showToast('error', 'Error', 'Ingrese su API Key de Claude');
+        return;
+      }
+
+      if (!apiKey.startsWith('sk-ant-')) {
+        showToast('error', 'Formato Inválido', 'La API Key debe comenzar con "sk-ant-"');
+        return;
+      }
+
+      showToast('info', 'Guardando', 'Almacenando API Key...');
+
+      google.script.run
+        .withSuccessHandler((resultado) => {
+          if (resultado.exito) {
+            showToast('success', '✅ Guardada', 'API Key configurada correctamente');
+            document.getElementById('configClaudeApiKey').value = '';
+            document.getElementById('configClaudeApiKey').placeholder = '••••••••••••••••';
+          } else {
+            showToast('error', 'Error', resultado.mensaje || 'No se pudo guardar');
+          }
+        })
+        .withFailureHandler((error) => {
+          showToast('error', 'Error', error.message || 'Error al guardar API Key');
+        })
+        .guardarApiKey(apiKey);
+    }
+
+    function cambiarTemaConfig(tema) {
+      document.documentElement.setAttribute('data-theme', tema);
+      document.getElementById('themeIcon').textContent = tema === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('sv-theme', tema);
+      AppState.theme = tema;
+      showToast('success', 'Tema Aplicado', `Modo ${tema === 'dark' ? 'Oscuro' : 'Claro'} activado`);
+    }
+
+    // ========================================
+    // FUNCIONES GLOBALES DE MODALES
+    // ========================================
+    function cerrarModal() {
+      document.getElementById('modalRematchOverlay').classList.remove('active');
+      document.getElementById('modalRematch').style.display = 'none';
+    }
+
+    function buscarSugerencias() {
+      const nombre = document.getElementById('nombreRematch').value.trim();
+      if (nombre.length < 2) {
+        showToast('error', 'Error', 'Ingrese al menos 2 caracteres');
+        return;
+      }
+
+      document.getElementById('loadingRematch').classList.remove('hidden');
+      document.getElementById('sugerenciasContainer').classList.add('hidden');
+
+      google.script.run
+        .withSuccessHandler(mostrarSugerencias)
+        .withFailureHandler((err) => {
+          document.getElementById('loadingRematch').classList.add('hidden');
+          showToast('error', 'Error', 'Error al buscar: ' + err.message);
+        })
+        .rematchearNombreConSugerencias(nombre);
+    }
+
+    function mostrarSugerencias(resultado) {
+      document.getElementById('loadingRematch').classList.add('hidden');
+      document.getElementById('sugerenciasContainer').classList.remove('hidden');
+      document.getElementById('totalSugerencias').textContent = resultado.totalCandidatos || 0;
+
+      const lista = document.getElementById('listaSugerencias');
+      if (!resultado.sugerencias || resultado.sugerencias.length === 0) {
+        lista.innerHTML = '<p style="text-align:center;color:var(--sv-texto-secundario);padding:20px;">No se encontraron coincidencias</p>';
+        return;
+      }
+
+      lista.innerHTML = resultado.sugerencias.map(s => `
+        <div style="padding: 12px; background: var(--sv-fondo); border: 2px solid var(--sv-borde); border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: var(--sv-transicion-rapida);"
+          onclick="seleccionarSugerencia('${s.cliente.replace(/'/g, "\\'")}')"
+          onmouseover="this.style.borderColor='var(--sv-primario)'"
+          onmouseout="this.style.borderColor='var(--sv-borde)'">
+          <div style="font-weight: 600; color: var(--sv-primario); margin-bottom: 5px;">${s.cliente}</div>
+          <div style="font-size: 12px; color: var(--sv-texto-secundario);">
+            <span class="badge badge-${s.score >= 85 ? 'success' : s.score >= 70 ? 'warning' : 'danger'}">${s.score}%</span>
+            ${s.metodos || ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function seleccionarSugerencia(nombre) {
+      if (window.indiceRematchActual !== undefined) {
+        VRState.movimientosValidados[window.indiceRematchActual].cliente = nombre;
+        renderTablaVR();
+        showToast('success', 'Actualizado', `Cliente asignado: ${nombre}`);
+      }
+      cerrarModal();
     }
 
     console.log('✨ Sistema Sol & Verde V18.0 inicializado correctamente');
