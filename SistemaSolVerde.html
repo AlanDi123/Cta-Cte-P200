@@ -1137,6 +1137,34 @@
       box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
     }
 
+    .info-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: var(--sv-fondo-input);
+      border-radius: 6px;
+      border: 1px solid var(--sv-borde);
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: var(--sv-texto-secundario);
+      font-size: 13px;
+    }
+
+    .info-value {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--sv-texto);
+    }
+
     /* ========================================
        PAGINACIÓN
        ======================================== */
@@ -2600,30 +2628,115 @@
           </div>
         </div>
 
-        <div class="card">
+        <div class="card mb-20">
           <div class="card-header">
             <h2 class="card-title">
-              <span>ℹ️</span>
-              Información del Sistema
+              <span>⚙️</span>
+              Preferencias del Sistema
             </h2>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div>
-              <div style="font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 5px;">Versión</div>
-              <div style="font-size: 18px;">V18.0 Enterprise</div>
+          <div class="form-group">
+            <label class="form-label">
+              <span class="form-label-icon">📊</span>
+              Movimientos recientes a mostrar
+            </label>
+            <select id="configLimiteMovs" class="form-select">
+              <option value="10">10 movimientos</option>
+              <option value="20">20 movimientos</option>
+              <option value="50" selected>50 movimientos</option>
+              <option value="100">100 movimientos</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">
+              <span class="form-label-icon">⏱️</span>
+              Duración de notificaciones (ms)
+            </label>
+            <input type="number" id="configToastDuration" class="form-input"
+                   value="3000" min="1000" max="10000" step="500">
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="configConfirmDelete" checked>
+              <span>Confirmar antes de eliminar</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="configAutoReload" checked>
+              <span>Recargar datos automáticamente (5 min)</span>
+            </label>
+          </div>
+
+          <button class="btn btn-primary btn-block" id="configGuardarPreferencias">
+            <span>💾</span> Guardar Preferencias
+          </button>
+        </div>
+
+        <div class="card mb-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>💾</span>
+              Datos y Exportación
+            </h2>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button class="btn btn-secondary" id="configExportarClientesCSV">
+              <span>📥</span> Exportar Clientes
+            </button>
+            <button class="btn btn-secondary" id="configExportarMovimientosCSV">
+              <span>📥</span> Exportar Movimientos
+            </button>
+          </div>
+
+          <div style="margin-top: 10px;">
+            <button class="btn btn-success btn-block" id="configCrearBackup">
+              <span>💾</span> Crear Backup Completo
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📊</span>
+              Estadísticas del Sistema
+            </h2>
+          </div>
+
+          <div class="info-list">
+            <div class="info-item">
+              <span class="info-label">Versión del Sistema:</span>
+              <span class="info-value">V18.0 Enterprise</span>
             </div>
-            <div>
-              <div style="font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 5px;">Sistema</div>
-              <div style="font-size: 18px;">Sol & Verde</div>
+            <div class="info-item">
+              <span class="info-label">Total Clientes:</span>
+              <span class="info-value" id="configTotalClientes">0</span>
             </div>
-            <div>
-              <div style="font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 5px;">Total Clientes</div>
-              <div style="font-size: 18px;" id="configTotalClientes">0</div>
+            <div class="info-item">
+              <span class="info-label">Total Movimientos:</span>
+              <span class="info-value" id="configTotalMovs">0</span>
             </div>
-            <div>
-              <div style="font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 5px;">Total Movimientos</div>
-              <div style="font-size: 18px;" id="configTotalMovs">0</div>
+            <div class="info-item">
+              <span class="info-label">Saldo Total Sistema:</span>
+              <span class="info-value" id="configSaldoTotal">$0</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Última Actualización:</span>
+              <span class="info-value" id="configUltimaActualizacion">-</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">API Key Claude:</span>
+              <span class="info-value" id="configEstadoApiKey">-</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Caché del Sistema:</span>
+              <span class="info-value" id="configEstadoCache">-</span>
             </div>
           </div>
 
@@ -2883,7 +2996,11 @@
       clientesData: [],
       movimientosRecientes: [],
       clienteSeleccionado: null,
-      isLoading: false
+      isLoading: false,
+      cache: {
+        timestamp: null,
+        ttl: 5 * 60 * 1000  // 5 minutos
+      }
     };
 
     // ========================================
@@ -2979,6 +3096,35 @@
         top: 0,
         behavior: 'smooth'
       });
+    }
+
+    // ========================================
+    // PERFORMANCE - LOADING Y CACHÉ
+    // ========================================
+
+    function mostrarLoading(mensaje = 'Cargando...') {
+      document.getElementById('loadingOverlay').classList.add('active');
+      document.getElementById('loadingText').textContent = mensaje;
+      AppState.isLoading = true;
+    }
+
+    function ocultarLoading() {
+      document.getElementById('loadingOverlay').classList.remove('active');
+      AppState.isLoading = false;
+    }
+
+    function necesitaRecargar() {
+      if (!AppState.cache.timestamp) return true;
+      return Date.now() - AppState.cache.timestamp > AppState.cache.ttl;
+    }
+
+    function actualizarCacheTimestamp() {
+      AppState.cache.timestamp = Date.now();
+    }
+
+    function invalidarCache() {
+      AppState.cache.timestamp = null;
+      console.log('🔄 Caché invalidado');
     }
 
     // ========================================
@@ -3185,23 +3331,37 @@
     // ========================================
     // CARGAR DATOS
     // ========================================
-    function cargarDatosIniciales() {
-      console.log('📥 Cargando datos iniciales...');
+    function cargarDatosIniciales(forzar = false) {
+      // Verificar si necesita recargar desde el servidor
+      if (!forzar && !necesitaRecargar() && AppState.clientesData.length > 0) {
+        console.log('✅ Usando datos en caché (válido por ' + Math.round((AppState.cache.ttl - (Date.now() - AppState.cache.timestamp)) / 1000) + 's)');
+        actualizarTablaMovimientos();
+        return;
+      }
+
+      console.log('📥 Cargando datos desde servidor...');
+      mostrarLoading('Cargando datos del sistema...');
 
       google.script.run
         .withSuccessHandler(function(datos) {
           console.log('✅ Datos cargados:', datos);
 
-          AppState.clientesData = datos.clientes || [];
-          AppState.movimientosRecientes = datos.movimientosRecientes || [];
+          if (datos.success) {
+            AppState.clientesData = datos.clientes || [];
+            AppState.movimientosRecientes = datos.movimientos || [];
+            actualizarCacheTimestamp();
+            actualizarTablaMovimientos();
+            showToast('success', 'Sistema Listo', `${datos.clientes.length} clientes cargados`);
+          } else {
+            showToast('error', 'Error', datos.error || 'Error al cargar datos');
+          }
 
-          actualizarTablaMovimientos();
-
-          showToast('success', 'Sistema Listo', `${datos.clientes.length} clientes cargados`);
+          ocultarLoading();
         })
         .withFailureHandler(function(error) {
           console.error('Error al cargar datos:', error);
           showToast('error', 'Error', 'No se pudieron cargar los datos iniciales');
+          ocultarLoading();
         })
         .obtenerDatosParaHTML();
     }
@@ -3959,7 +4119,8 @@
             if (resultado.exito) {
               showToast('success', '✅ Actualizado', 'Cliente actualizado exitosamente');
               cerrarModalCliente();
-              cargarDatosIniciales();
+              invalidarCache();
+              cargarDatosIniciales(true);
             } else {
               showToast('error', 'Error', resultado.mensaje || 'No se pudo actualizar');
             }
@@ -3974,7 +4135,8 @@
             if (resultado.exito) {
               showToast('success', '✅ Creado', `Cliente "${nombre}" creado exitosamente`);
               cerrarModalCliente();
-              cargarDatosIniciales();
+              invalidarCache();
+              cargarDatosIniciales(true);
             } else {
               showToast('error', 'Error', resultado.mensaje || 'No se pudo crear el cliente');
             }
@@ -4166,7 +4328,8 @@
             }
 
             cerrarModalCargaMasiva();
-            cargarDatosIniciales();
+            invalidarCache();
+            cargarDatosIniciales(true);
           } else {
             showToast('error', 'Error', resultado.error || 'Error en carga masiva');
           }
@@ -4183,15 +4346,24 @@
     function initConfiguracion() {
       verificarApiKey();
       actualizarMetadatosConfig();
+      cargarPreferencias();
 
+      // Event listeners existentes
       document.getElementById('configGuardarApiKey').addEventListener('click', mostrarModalApiKey);
       document.getElementById('configThemeSelect').addEventListener('change', (e) => {
         cambiarTemaConfig(e.target.value);
       });
       document.getElementById('configRecargarDatos').addEventListener('click', () => {
-        cargarDatosIniciales();
+        invalidarCache();
+        cargarDatosIniciales(true);
         setTimeout(actualizarMetadatosConfig, 500);
       });
+
+      // Nuevos event listeners
+      document.getElementById('configGuardarPreferencias').addEventListener('click', guardarPreferencias);
+      document.getElementById('configExportarClientesCSV').addEventListener('click', exportarClientesCSV);
+      document.getElementById('configExportarMovimientosCSV').addEventListener('click', exportarMovimientosCSV);
+      document.getElementById('configCrearBackup').addEventListener('click', crearBackupCompleto);
 
       // Sincronizar tema actual
       document.getElementById('configThemeSelect').value = AppState.theme;
@@ -4200,6 +4372,134 @@
     function actualizarMetadatosConfig() {
       document.getElementById('configTotalClientes').textContent = AppState.clientesData.length;
       document.getElementById('configTotalMovs').textContent = AppState.movimientosRecientes.length;
+
+      // Calcular saldo total
+      const saldoTotal = AppState.clientesData.reduce((sum, c) => sum + (c.saldo || 0), 0);
+      document.getElementById('configSaldoTotal').textContent = '$' + saldoTotal.toLocaleString('es-AR');
+
+      // Última actualización
+      if (AppState.cache.timestamp) {
+        const fecha = new Date(AppState.cache.timestamp);
+        document.getElementById('configUltimaActualizacion').textContent = fecha.toLocaleString('es-AR');
+
+        // Estado de caché
+        const tiempoRestante = Math.max(0, AppState.cache.ttl - (Date.now() - AppState.cache.timestamp));
+        const minutosRestantes = Math.floor(tiempoRestante / 60000);
+        document.getElementById('configEstadoCache').textContent =
+          tiempoRestante > 0 ? `✅ Válido (${minutosRestantes}min)` : '❌ Expirado';
+      } else {
+        document.getElementById('configUltimaActualizacion').textContent = 'Sin datos';
+        document.getElementById('configEstadoCache').textContent = '❌ Vacío';
+      }
+
+      // Verificar estado API Key
+      google.script.run
+        .withSuccessHandler((resultado) => {
+          document.getElementById('configEstadoApiKey').textContent =
+            resultado.presente ? '✅ Configurada' : '❌ No configurada';
+        })
+        .verificarApiKeyPresente();
+    }
+
+    // ========================================
+    // PREFERENCIAS
+    // ========================================
+
+    function guardarPreferencias() {
+      const preferencias = {
+        limiteMovs: document.getElementById('configLimiteMovs').value,
+        toastDuration: document.getElementById('configToastDuration').value,
+        confirmDelete: document.getElementById('configConfirmDelete').checked,
+        autoReload: document.getElementById('configAutoReload').checked
+      };
+
+      localStorage.setItem('sv_preferencias', JSON.stringify(preferencias));
+      showToast('success', 'Guardado', 'Preferencias guardadas correctamente');
+    }
+
+    function cargarPreferencias() {
+      const saved = localStorage.getItem('sv_preferencias');
+      if (saved) {
+        const preferencias = JSON.parse(saved);
+        document.getElementById('configLimiteMovs').value = preferencias.limiteMovs || 50;
+        document.getElementById('configToastDuration').value = preferencias.toastDuration || 3000;
+        document.getElementById('configConfirmDelete').checked = preferencias.confirmDelete !== false;
+        document.getElementById('configAutoReload').checked = preferencias.autoReload !== false;
+      }
+    }
+
+    // ========================================
+    // EXPORTACIÓN
+    // ========================================
+
+    function exportarClientesCSV() {
+      const csv = ['NOMBRE,TELÉFONO,EMAIL,LÍMITE,SALDO,TOTAL_MOVS,ALTA,ÚLTIMO_MOV,OBS'];
+
+      AppState.clientesData.forEach(cliente => {
+        const linea = [
+          cliente.nombre,
+          cliente.tel,
+          cliente.email,
+          cliente.limite,
+          cliente.saldo,
+          cliente.totalMovs,
+          cliente.alta,
+          cliente.ultimoMov,
+          cliente.obs
+        ].map(v => `"${v}"`).join(',');
+
+        csv.push(linea);
+      });
+
+      descargarCSV('clientes.csv', csv.join('\n'));
+    }
+
+    function exportarMovimientosCSV() {
+      const csv = ['ID,FECHA,CLIENTE,TIPO,MONTO,SALDO_POST,OBS,USUARIO'];
+
+      AppState.movimientosRecientes.forEach(mov => {
+        const linea = [
+          mov.id,
+          mov.fecha,
+          mov.cliente,
+          mov.tipo,
+          mov.monto,
+          mov.saldoPost,
+          mov.obs,
+          mov.usuario
+        ].map(v => `"${v}"`).join(',');
+
+        csv.push(linea);
+      });
+
+      descargarCSV('movimientos.csv', csv.join('\n'));
+    }
+
+    function crearBackupCompleto() {
+      const backup = {
+        fecha: new Date().toISOString(),
+        version: 'V18.0',
+        clientes: AppState.clientesData,
+        movimientos: AppState.movimientosRecientes
+      };
+
+      const json = JSON.stringify(backup, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `backup-solyverde-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+
+      showToast('success', 'Backup Creado', 'Backup completo descargado correctamente');
+    }
+
+    function descargarCSV(filename, content) {
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      showToast('success', 'Exportado', `Archivo ${filename} descargado`);
     }
 
     function verificarApiKey() {
