@@ -3866,6 +3866,38 @@
     }
 
     // ========================================
+    // DIAGNÓSTICO DEL SISTEMA
+    // ========================================
+    function diagnosticar() {
+      console.log('🔍 Iniciando diagnóstico del sistema...');
+      google.script.run
+        .withSuccessHandler(function(resultado) {
+          console.log('═══════════════════════════════════════');
+          console.log('📊 DIAGNÓSTICO DEL SISTEMA');
+          console.log('═══════════════════════════════════════');
+          console.log('Success:', resultado.success);
+          if (resultado.success) {
+            console.log('Spreadsheet ID:', resultado.spreadsheetId);
+            console.log('Usuario:', resultado.usuario);
+            console.log('Timestamp:', resultado.timestamp);
+            console.log('Tiene Spreadsheet:', resultado.tieneSpreadsheet);
+            console.log('Mensaje:', resultado.mensaje);
+          } else {
+            console.log('Error:', resultado.error);
+            console.log('Stack:', resultado.stack);
+          }
+          console.log('═══════════════════════════════════════');
+        })
+        .withFailureHandler(function(error) {
+          console.error('❌ Error al ejecutar diagnóstico:', error);
+        })
+        .diagnosticoSistema();
+    }
+
+    // Exponer función para debugging desde consola
+    window.diagnosticar = diagnosticar;
+
+    // ========================================
     // CARGAR DATOS
     // ========================================
     function cargarDatosIniciales(forzar = false) {
@@ -3893,20 +3925,39 @@
       google.script.run
         .withSuccessHandler(function(datos) {
           clearTimeout(timeoutId); // Cancelar timeout si hay respuesta
-          console.log('✅ Datos cargados:', datos);
+          console.log('✅ Respuesta recibida del backend');
+          console.log('   Tipo:', typeof datos);
+          console.log('   Es null:', datos === null);
+          console.log('   Es undefined:', datos === undefined);
+          console.log('   Valor:', datos);
 
           // Validar que datos no sea null o undefined
           if (!datos) {
-            console.error('❌ Backend retornó null o undefined');
+            console.error('═══════════════════════════════════════');
+            console.error('❌ BACKEND RETORNÓ NULL O UNDEFINED');
+            console.error('═══════════════════════════════════════');
+            console.error('Esto puede indicar:');
+            console.error('1. Error de permisos en la Web App');
+            console.error('2. La función no se está ejecutando');
+            console.error('3. Error de serialización');
+            console.error('');
+            console.error('Para diagnosticar, ejecuta en consola:');
+            console.error('  diagnosticar()');
+            console.error('═══════════════════════════════════════');
+
             AppState.clientesData = [];
             AppState.movimientosRecientes = [];
             actualizarTablaMovimientos();
-            showToast('error', 'Error de Sistema', 'El backend no respondió correctamente. Verifique que el sistema esté inicializado.');
+            showToast('error', 'Error de Sistema', 'El backend retornó null. Ejecuta "diagnosticar()" en consola F12 para más info.');
             ocultarLoading();
             return;
           }
 
           if (datos.success) {
+            console.log('✅ Datos válidos recibidos:');
+            console.log('   Clientes:', datos.clientes.length);
+            console.log('   Movimientos:', datos.movimientos.length);
+
             AppState.clientesData = datos.clientes || [];
             AppState.movimientosRecientes = datos.movimientos || [];
             actualizarCacheTimestamp();

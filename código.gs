@@ -35,6 +35,32 @@ function doGet() {
 }
 
 /**
+ * Función de diagnóstico que retorna información del sistema
+ * Se puede llamar desde la Web App para debugging
+ */
+function diagnosticoSistema() {
+  try {
+    const propiedades = PropertiesService.getScriptProperties();
+    const spreadsheetId = propiedades.getProperty('SPREADSHEET_ID');
+
+    return {
+      success: true,
+      spreadsheetId: spreadsheetId,
+      usuario: Session.getEffectiveUser().getEmail(),
+      timestamp: new Date().toISOString(),
+      tieneSpreadsheet: spreadsheetId ? true : false,
+      mensaje: 'Sistema funcionando correctamente'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+/**
  * Función de prueba para verificar que el sistema funciona
  * Ejecutar desde el editor para verificar que todo esté OK
  */
@@ -1065,14 +1091,22 @@ Responde SOLO con el JSON, sin explicaciones adicionales.`
  * @returns {Object} {clientes: Array, movimientos: Array}
  */
 function obtenerDatosParaHTML() {
-  Logger.log('═══════════════════════════════════════════════════');
-  Logger.log('📥 obtenerDatosParaHTML - INICIO');
-  Logger.log('═══════════════════════════════════════════════════');
-
-  // Variables para el resultado
-  let resultado = null;
+  // IMPORTANTE: Definir objeto de respuesta por defecto al inicio
+  // para garantizar que SIEMPRE se retorne algo válido
+  const respuestaDefault = {
+    success: false,
+    error: 'Error inesperado - función no completada',
+    clientes: [],
+    movimientos: []
+  };
 
   try {
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('📥 obtenerDatosParaHTML - INICIO');
+    Logger.log('Contexto: ' + (Session ? 'Session disponible' : 'Session no disponible'));
+    Logger.log('Usuario: ' + Session.getEffectiveUser().getEmail());
+    Logger.log('═══════════════════════════════════════════════════');
+
     Logger.log('Paso 1: Intentando obtener clientes...');
     const todosLosClientes = ClientesRepository.obtenerTodos();
     Logger.log(`✅ Paso 1 completado: ${todosLosClientes.length} clientes encontrados`);
@@ -1088,7 +1122,7 @@ function obtenerDatosParaHTML() {
     Logger.log(`✅ Paso 3 completado: ${movimientos.length} movimientos encontrados`);
 
     Logger.log('Paso 4: Construyendo objeto de respuesta...');
-    resultado = {
+    const resultado = {
       success: true,
       clientes: clientes,
       movimientos: movimientos,
@@ -1101,16 +1135,18 @@ function obtenerDatosParaHTML() {
     Logger.log('✅ obtenerDatosParaHTML - ÉXITO');
     Logger.log('   Clientes: ' + resultado.clientes.length);
     Logger.log('   Movimientos: ' + resultado.movimientos.length);
+    Logger.log('   Preparando retorno...');
     Logger.log('═══════════════════════════════════════════════════');
 
+    // Retornar explícitamente
     return resultado;
 
   } catch (error) {
     Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('❌ ERROR en obtenerDatosParaHTML');
+    Logger.log('❌ ERROR CAPTURADO en obtenerDatosParaHTML');
     Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('Mensaje: ' + error.message);
-    Logger.log('Stack: ' + error.stack);
+    Logger.log('Mensaje: ' + (error.message || 'Sin mensaje'));
+    Logger.log('Stack: ' + (error.stack || 'Sin stack'));
     Logger.log('Tipo: ' + typeof error);
     Logger.log('═══════════════════════════════════════════════════');
 
@@ -1120,7 +1156,7 @@ function obtenerDatosParaHTML() {
       mensajeError = 'Sistema no inicializado. Ejecute la función "inicializarSistema()" desde el editor de scripts (Extensiones > Apps Script).';
     }
 
-    resultado = {
+    const resultadoError = {
       success: false,
       error: mensajeError,
       clientes: [],
@@ -1128,12 +1164,10 @@ function obtenerDatosParaHTML() {
     };
 
     Logger.log('Retornando objeto de error:');
-    Logger.log('  success: ' + resultado.success);
-    Logger.log('  error: ' + resultado.error);
-    Logger.log('  clientes: ' + resultado.clientes.length);
-    Logger.log('  movimientos: ' + resultado.movimientos.length);
+    Logger.log('  success: ' + resultadoError.success);
+    Logger.log('  error: ' + resultadoError.error);
 
-    return resultado;
+    return resultadoError;
   }
 }
 
