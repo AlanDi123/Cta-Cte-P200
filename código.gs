@@ -316,6 +316,46 @@ function getSpreadsheet() {
   }
 }
 
+/**
+ * Convierte objetos Date a strings ISO para serialización Web
+ * Procesa recursivamente objetos y arrays para asegurar que
+ * todos los Date objects se conviertan a strings antes de
+ * enviarlos a través de google.script.run
+ *
+ * @param {*} obj - Objeto a procesar (puede ser cualquier tipo)
+ * @returns {*} Objeto con fechas convertidas a strings ISO
+ */
+function serializarParaWeb(obj) {
+  // Manejar null y undefined
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  // Convertir Date a ISO string
+  if (obj instanceof Date) {
+    return obj.toISOString();
+  }
+
+  // Procesar arrays recursivamente
+  if (Array.isArray(obj)) {
+    return obj.map(item => serializarParaWeb(item));
+  }
+
+  // Procesar objetos recursivamente
+  if (typeof obj === 'object') {
+    const resultado = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        resultado[key] = serializarParaWeb(obj[key]);
+      }
+    }
+    return resultado;
+  }
+
+  // Retornar primitivos sin cambios
+  return obj;
+}
+
 
 // ============================================================================
 // 2. UTILIDADES
@@ -458,6 +498,11 @@ const ClientesRepository = {
     const clientes = [];
     for (let i = 1; i < datos.length; i++) {
       const fila = datos[i];
+
+      // Convertir fechas a ISO strings para serialización Web
+      const alta = fila[CONFIG.COLS_CLIENTES.ALTA];
+      const ultimoMov = fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV];
+
       clientes.push({
         nombre: fila[CONFIG.COLS_CLIENTES.NOMBRE] || '',
         tel: fila[CONFIG.COLS_CLIENTES.TEL] || '',
@@ -465,8 +510,8 @@ const ClientesRepository = {
         limite: fila[CONFIG.COLS_CLIENTES.LIMITE] || 100000,
         saldo: fila[CONFIG.COLS_CLIENTES.SALDO] || 0,
         totalMovs: fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS] || 0,
-        alta: fila[CONFIG.COLS_CLIENTES.ALTA] || '',
-        ultimoMov: fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV] || '',
+        alta: alta instanceof Date ? alta.toISOString() : (alta || ''),
+        ultimoMov: ultimoMov instanceof Date ? ultimoMov.toISOString() : (ultimoMov || ''),
         obs: fila[CONFIG.COLS_CLIENTES.OBS] || ''
       });
     }
@@ -549,7 +594,7 @@ const ClientesRepository = {
       limite: clienteData.limite || 100000,
       saldo: 0,
       totalMovs: 0,
-      alta: ahora,
+      alta: ahora.toISOString(),  // Convertir Date a ISO string
       ultimoMov: '',
       obs: clienteData.obs || ''
     };
@@ -765,7 +810,7 @@ const MovimientosRepository = {
 
       return {
         id: nuevoID,
-        fecha: fecha,
+        fecha: fecha.toISOString(),  // Convertir Date a ISO string
         cliente: clienteNorm,
         tipo: movimientoData.tipo,
         monto: movimientoData.monto,
@@ -824,9 +869,11 @@ const MovimientosRepository = {
     // Comenzar desde el final (más recientes primero)
     for (let i = datos.length - 1; i >= 1 && movimientos.length < limite; i--) {
       const fila = datos[i];
+      const fecha = fila[CONFIG.COLS_MOVS.FECHA];
+
       movimientos.push({
         id: fila[CONFIG.COLS_MOVS.ID],
-        fecha: fila[CONFIG.COLS_MOVS.FECHA],
+        fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
         cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
         tipo: fila[CONFIG.COLS_MOVS.TIPO],
         monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -858,9 +905,11 @@ const MovimientosRepository = {
       const clienteFila = normalizarString(fila[CONFIG.COLS_MOVS.CLIENTE]);
 
       if (clienteFila === nombreNorm) {
+        const fecha = fila[CONFIG.COLS_MOVS.FECHA];
+
         movimientos.push({
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fila[CONFIG.COLS_MOVS.FECHA],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -920,9 +969,11 @@ const MovimientosRepository = {
       const fechaMov = new Date(fila[CONFIG.COLS_MOVS.FECHA]);
 
       if (fechaMov >= fechaDesde && fechaMov <= fechaHasta) {
+        const fecha = fila[CONFIG.COLS_MOVS.FECHA];
+
         movimientos.push({
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fila[CONFIG.COLS_MOVS.FECHA],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -1130,6 +1181,18 @@ function obtenerDatosParaHTML() {
       cargaParcial: todosLosClientes.length > 100
     };
     Logger.log('✅ Paso 4 completado: Objeto construido correctamente');
+
+    Logger.log('Paso 5: Verificando serialización de fechas...');
+    // Verificar que las fechas sean strings (debug)
+    if (clientes.length > 0 && clientes[0].alta) {
+      Logger.log('   Tipo de fecha alta: ' + typeof clientes[0].alta);
+      Logger.log('   Valor fecha alta: ' + clientes[0].alta);
+    }
+    if (movimientos.length > 0 && movimientos[0].fecha) {
+      Logger.log('   Tipo de fecha movimiento: ' + typeof movimientos[0].fecha);
+      Logger.log('   Valor fecha movimiento: ' + movimientos[0].fecha);
+    }
+    Logger.log('✅ Paso 5 completado: Fechas verificadas');
 
     Logger.log('═══════════════════════════════════════════════════');
     Logger.log('✅ obtenerDatosParaHTML - ÉXITO');
