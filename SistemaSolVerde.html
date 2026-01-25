@@ -2952,6 +2952,16 @@
         </div>
       </div>
 
+      <!-- Botón Descargar Plantilla -->
+      <div style="margin-bottom: 20px; text-align: center;">
+        <button class="btn btn-primary btn-block" onclick="descargarPlantillaCSV()">
+          <span>📥</span> Descargar Plantilla CSV de Ejemplo
+        </button>
+        <small style="display: block; margin-top: 5px; color: var(--sv-texto-secundario);">
+          Descarga un archivo con ejemplos y formato correcto
+        </small>
+      </div>
+
       <!-- Textarea CSV -->
       <div class="form-group">
         <label class="form-label">
@@ -4684,6 +4694,33 @@
 
     function cerrarModalCargaMasiva() {
       cerrarModal('modalCargaMasiva');
+    }
+
+    /**
+     * Descarga una plantilla CSV con ejemplos para carga masiva
+     */
+    function descargarPlantillaCSV() {
+      const csvContent = [
+        'NOMBRE, TELEFONO, EMAIL, LIMITE_CREDITO, SALDO_INICIAL, OBSERVACIONES',
+        '',
+        '# EJEMPLOS (eliminar estas líneas antes de cargar):',
+        'JUAN PEREZ, 1234567890, juan.perez@email.com, 150000, 50000, Cliente VIP - Compras frecuentes',
+        'MARIA GOMEZ, 9876543210, maria.gomez@email.com, 100000, -25000, Tiene crédito a favor - Pago adelantado',
+        'PEDRO LOPEZ, 5555555555, , 100000, 0, Sin email - Sin saldo inicial',
+        'ANA MARTINEZ, 1122334455, ana@email.com, 200000, 75000, Cliente mayorista',
+        '',
+        '# INSTRUCCIONES:',
+        '# - NOMBRE: Obligatorio (se convertirá a mayúsculas)',
+        '# - TELEFONO: Opcional',
+        '# - EMAIL: Opcional',
+        '# - LIMITE_CREDITO: Opcional (por defecto: 100000)',
+        '# - SALDO_INICIAL: Positivo = DEBE, Negativo = HABER a favor',
+        '# - OBSERVACIONES: Opcional',
+        '# - Elimine todas las líneas que comiencen con # antes de cargar'
+      ];
+
+      const filename = `plantilla-clientes-${new Date().toISOString().split('T')[0]}.csv`;
+      descargarCSV(filename, csvContent.join('\n'));
     }
 
     function parsearYValidarCargaMasiva() {
