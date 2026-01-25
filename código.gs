@@ -35,6 +35,32 @@ function doGet() {
 }
 
 /**
+ * Función de diagnóstico que retorna información del sistema
+ * Se puede llamar desde la Web App para debugging
+ */
+function diagnosticoSistema() {
+  try {
+    const propiedades = PropertiesService.getScriptProperties();
+    const spreadsheetId = propiedades.getProperty('SPREADSHEET_ID');
+
+    return {
+      success: true,
+      spreadsheetId: spreadsheetId,
+      usuario: Session.getEffectiveUser().getEmail(),
+      timestamp: new Date().toISOString(),
+      tieneSpreadsheet: spreadsheetId ? true : false,
+      mensaje: 'Sistema funcionando correctamente'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      stack: error.stack
+    };
+  }
+}
+
+/**
  * Función de prueba para verificar que el sistema funciona
  * Ejecutar desde el editor para verificar que todo esté OK
  */
@@ -290,6 +316,46 @@ function getSpreadsheet() {
   }
 }
 
+/**
+ * Convierte objetos Date a strings ISO para serialización Web
+ * Procesa recursivamente objetos y arrays para asegurar que
+ * todos los Date objects se conviertan a strings antes de
+ * enviarlos a través de google.script.run
+ *
+ * @param {*} obj - Objeto a procesar (puede ser cualquier tipo)
+ * @returns {*} Objeto con fechas convertidas a strings ISO
+ */
+function serializarParaWeb(obj) {
+  // Manejar null y undefined
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  // Convertir Date a ISO string
+  if (obj instanceof Date) {
+    return obj.toISOString();
+  }
+
+  // Procesar arrays recursivamente
+  if (Array.isArray(obj)) {
+    return obj.map(item => serializarParaWeb(item));
+  }
+
+  // Procesar objetos recursivamente
+  if (typeof obj === 'object') {
+    const resultado = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        resultado[key] = serializarParaWeb(obj[key]);
+      }
+    }
+    return resultado;
+  }
+
+  // Retornar primitivos sin cambios
+  return obj;
+}
+
 
 // ============================================================================
 // 2. UTILIDADES
@@ -432,6 +498,11 @@ const ClientesRepository = {
     const clientes = [];
     for (let i = 1; i < datos.length; i++) {
       const fila = datos[i];
+
+      // Convertir fechas a ISO strings para serialización Web
+      const alta = fila[CONFIG.COLS_CLIENTES.ALTA];
+      const ultimoMov = fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV];
+
       clientes.push({
         nombre: fila[CONFIG.COLS_CLIENTES.NOMBRE] || '',
         tel: fila[CONFIG.COLS_CLIENTES.TEL] || '',
@@ -439,8 +510,8 @@ const ClientesRepository = {
         limite: fila[CONFIG.COLS_CLIENTES.LIMITE] || 100000,
         saldo: fila[CONFIG.COLS_CLIENTES.SALDO] || 0,
         totalMovs: fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS] || 0,
-        alta: fila[CONFIG.COLS_CLIENTES.ALTA] || '',
-        ultimoMov: fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV] || '',
+        alta: alta instanceof Date ? alta.toISOString() : (alta || ''),
+        ultimoMov: ultimoMov instanceof Date ? ultimoMov.toISOString() : (ultimoMov || ''),
         obs: fila[CONFIG.COLS_CLIENTES.OBS] || ''
       });
     }
@@ -523,7 +594,7 @@ const ClientesRepository = {
       limite: clienteData.limite || 100000,
       saldo: 0,
       totalMovs: 0,
-      alta: ahora,
+      alta: ahora.toISOString(),  // Convertir Date a ISO string
       ultimoMov: '',
       obs: clienteData.obs || ''
     };
@@ -739,7 +810,7 @@ const MovimientosRepository = {
 
       return {
         id: nuevoID,
-        fecha: fecha,
+        fecha: fecha.toISOString(),  // Convertir Date a ISO string
         cliente: clienteNorm,
         tipo: movimientoData.tipo,
         monto: movimientoData.monto,
@@ -798,9 +869,11 @@ const MovimientosRepository = {
     // Comenzar desde el final (más recientes primero)
     for (let i = datos.length - 1; i >= 1 && movimientos.length < limite; i--) {
       const fila = datos[i];
+      const fecha = fila[CONFIG.COLS_MOVS.FECHA];
+
       movimientos.push({
         id: fila[CONFIG.COLS_MOVS.ID],
-        fecha: fila[CONFIG.COLS_MOVS.FECHA],
+        fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
         cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
         tipo: fila[CONFIG.COLS_MOVS.TIPO],
         monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -832,9 +905,11 @@ const MovimientosRepository = {
       const clienteFila = normalizarString(fila[CONFIG.COLS_MOVS.CLIENTE]);
 
       if (clienteFila === nombreNorm) {
+        const fecha = fila[CONFIG.COLS_MOVS.FECHA];
+
         movimientos.push({
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fila[CONFIG.COLS_MOVS.FECHA],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -894,9 +969,11 @@ const MovimientosRepository = {
       const fechaMov = new Date(fila[CONFIG.COLS_MOVS.FECHA]);
 
       if (fechaMov >= fechaDesde && fechaMov <= fechaHasta) {
+        const fecha = fila[CONFIG.COLS_MOVS.FECHA];
+
         movimientos.push({
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fila[CONFIG.COLS_MOVS.FECHA],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -1065,14 +1142,22 @@ Responde SOLO con el JSON, sin explicaciones adicionales.`
  * @returns {Object} {clientes: Array, movimientos: Array}
  */
 function obtenerDatosParaHTML() {
-  Logger.log('═══════════════════════════════════════════════════');
-  Logger.log('📥 obtenerDatosParaHTML - INICIO');
-  Logger.log('═══════════════════════════════════════════════════');
-
-  // Variables para el resultado
-  let resultado = null;
+  // IMPORTANTE: Definir objeto de respuesta por defecto al inicio
+  // para garantizar que SIEMPRE se retorne algo válido
+  const respuestaDefault = {
+    success: false,
+    error: 'Error inesperado - función no completada',
+    clientes: [],
+    movimientos: []
+  };
 
   try {
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('📥 obtenerDatosParaHTML - INICIO');
+    Logger.log('Contexto: ' + (Session ? 'Session disponible' : 'Session no disponible'));
+    Logger.log('Usuario: ' + Session.getEffectiveUser().getEmail());
+    Logger.log('═══════════════════════════════════════════════════');
+
     Logger.log('Paso 1: Intentando obtener clientes...');
     const todosLosClientes = ClientesRepository.obtenerTodos();
     Logger.log(`✅ Paso 1 completado: ${todosLosClientes.length} clientes encontrados`);
@@ -1088,7 +1173,7 @@ function obtenerDatosParaHTML() {
     Logger.log(`✅ Paso 3 completado: ${movimientos.length} movimientos encontrados`);
 
     Logger.log('Paso 4: Construyendo objeto de respuesta...');
-    resultado = {
+    const resultado = {
       success: true,
       clientes: clientes,
       movimientos: movimientos,
@@ -1097,20 +1182,34 @@ function obtenerDatosParaHTML() {
     };
     Logger.log('✅ Paso 4 completado: Objeto construido correctamente');
 
+    Logger.log('Paso 5: Verificando serialización de fechas...');
+    // Verificar que las fechas sean strings (debug)
+    if (clientes.length > 0 && clientes[0].alta) {
+      Logger.log('   Tipo de fecha alta: ' + typeof clientes[0].alta);
+      Logger.log('   Valor fecha alta: ' + clientes[0].alta);
+    }
+    if (movimientos.length > 0 && movimientos[0].fecha) {
+      Logger.log('   Tipo de fecha movimiento: ' + typeof movimientos[0].fecha);
+      Logger.log('   Valor fecha movimiento: ' + movimientos[0].fecha);
+    }
+    Logger.log('✅ Paso 5 completado: Fechas verificadas');
+
     Logger.log('═══════════════════════════════════════════════════');
     Logger.log('✅ obtenerDatosParaHTML - ÉXITO');
     Logger.log('   Clientes: ' + resultado.clientes.length);
     Logger.log('   Movimientos: ' + resultado.movimientos.length);
+    Logger.log('   Preparando retorno...');
     Logger.log('═══════════════════════════════════════════════════');
 
+    // Retornar explícitamente
     return resultado;
 
   } catch (error) {
     Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('❌ ERROR en obtenerDatosParaHTML');
+    Logger.log('❌ ERROR CAPTURADO en obtenerDatosParaHTML');
     Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('Mensaje: ' + error.message);
-    Logger.log('Stack: ' + error.stack);
+    Logger.log('Mensaje: ' + (error.message || 'Sin mensaje'));
+    Logger.log('Stack: ' + (error.stack || 'Sin stack'));
     Logger.log('Tipo: ' + typeof error);
     Logger.log('═══════════════════════════════════════════════════');
 
@@ -1120,7 +1219,7 @@ function obtenerDatosParaHTML() {
       mensajeError = 'Sistema no inicializado. Ejecute la función "inicializarSistema()" desde el editor de scripts (Extensiones > Apps Script).';
     }
 
-    resultado = {
+    const resultadoError = {
       success: false,
       error: mensajeError,
       clientes: [],
@@ -1128,12 +1227,10 @@ function obtenerDatosParaHTML() {
     };
 
     Logger.log('Retornando objeto de error:');
-    Logger.log('  success: ' + resultado.success);
-    Logger.log('  error: ' + resultado.error);
-    Logger.log('  clientes: ' + resultado.clientes.length);
-    Logger.log('  movimientos: ' + resultado.movimientos.length);
+    Logger.log('  success: ' + resultadoError.success);
+    Logger.log('  error: ' + resultadoError.error);
 
-    return resultado;
+    return resultadoError;
   }
 }
 

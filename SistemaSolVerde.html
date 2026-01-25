@@ -3866,6 +3866,38 @@
     }
 
     // ========================================
+    // DIAGNÓSTICO DEL SISTEMA
+    // ========================================
+    function diagnosticar() {
+      console.log('🔍 Iniciando diagnóstico del sistema...');
+      google.script.run
+        .withSuccessHandler(function(resultado) {
+          console.log('═══════════════════════════════════════');
+          console.log('📊 DIAGNÓSTICO DEL SISTEMA');
+          console.log('═══════════════════════════════════════');
+          console.log('Success:', resultado.success);
+          if (resultado.success) {
+            console.log('Spreadsheet ID:', resultado.spreadsheetId);
+            console.log('Usuario:', resultado.usuario);
+            console.log('Timestamp:', resultado.timestamp);
+            console.log('Tiene Spreadsheet:', resultado.tieneSpreadsheet);
+            console.log('Mensaje:', resultado.mensaje);
+          } else {
+            console.log('Error:', resultado.error);
+            console.log('Stack:', resultado.stack);
+          }
+          console.log('═══════════════════════════════════════');
+        })
+        .withFailureHandler(function(error) {
+          console.error('❌ Error al ejecutar diagnóstico:', error);
+        })
+        .diagnosticoSistema();
+    }
+
+    // Exponer función para debugging desde consola
+    window.diagnosticar = diagnosticar;
+
+    // ========================================
     // CARGAR DATOS
     // ========================================
     function cargarDatosIniciales(forzar = false) {
@@ -3893,25 +3925,67 @@
       google.script.run
         .withSuccessHandler(function(datos) {
           clearTimeout(timeoutId); // Cancelar timeout si hay respuesta
-          console.log('✅ Datos cargados:', datos);
+          console.log('✅ Respuesta recibida del backend');
+          console.log('   Tipo:', typeof datos);
+          console.log('   Es null:', datos === null);
+          console.log('   Es undefined:', datos === undefined);
+          console.log('   Valor:', datos);
 
-          // Validar que datos no sea null o undefined
-          if (!datos) {
-            console.error('❌ Backend retornó null o undefined');
+          // Validar que datos no sea null o undefined (validación estricta)
+          if (datos === null || datos === undefined) {
+            console.error('═══════════════════════════════════════');
+            console.error('❌ BACKEND RETORNÓ NULL O UNDEFINED');
+            console.error('═══════════════════════════════════════');
+            console.error('Esto puede indicar:');
+            console.error('1. Error de permisos en la Web App');
+            console.error('2. La función no se está ejecutando');
+            console.error('3. Error de serialización de Date objects');
+            console.error('');
+            console.error('Para diagnosticar, ejecuta en consola:');
+            console.error('  diagnosticar()');
+            console.error('═══════════════════════════════════════');
+
             AppState.clientesData = [];
             AppState.movimientosRecientes = [];
             actualizarTablaMovimientos();
-            showToast('error', 'Error de Sistema', 'El backend no respondió correctamente. Verifique que el sistema esté inicializado.');
+            showToast('error', 'Error de Sistema', 'El backend retornó null. Ejecuta "diagnosticar()" en consola F12 para más info.');
+            ocultarLoading();
+            return;
+          }
+
+          // Validar que datos sea un objeto
+          if (typeof datos !== 'object') {
+            console.error('❌ Respuesta inválida: esperaba object, recibió ' + typeof datos);
+            AppState.clientesData = [];
+            AppState.movimientosRecientes = [];
+            actualizarTablaMovimientos();
+            showToast('error', 'Error de Sistema', 'Respuesta del backend con formato inválido');
             ocultarLoading();
             return;
           }
 
           if (datos.success) {
-            AppState.clientesData = datos.clientes || [];
-            AppState.movimientosRecientes = datos.movimientos || [];
+            // Validar que clientes y movimientos sean arrays antes de acceder .length
+            const clientesArray = Array.isArray(datos.clientes) ? datos.clientes : [];
+            const movimientosArray = Array.isArray(datos.movimientos) ? datos.movimientos : [];
+
+            console.log('✅ Datos válidos recibidos:');
+            console.log('   Clientes:', clientesArray.length);
+            console.log('   Movimientos:', movimientosArray.length);
+
+            // Verificar tipos de fechas (para debugging)
+            if (clientesArray.length > 0 && clientesArray[0].alta) {
+              console.log('   Tipo fecha cliente:', typeof clientesArray[0].alta);
+            }
+            if (movimientosArray.length > 0 && movimientosArray[0].fecha) {
+              console.log('   Tipo fecha movimiento:', typeof movimientosArray[0].fecha);
+            }
+
+            AppState.clientesData = clientesArray;
+            AppState.movimientosRecientes = movimientosArray;
             actualizarCacheTimestamp();
             actualizarTablaMovimientos();
-            showToast('success', 'Sistema Listo', `${datos.clientes.length} clientes cargados`);
+            showToast('success', 'Sistema Listo', `${clientesArray.length} clientes cargados`);
           } else {
             // Error del backend - mostrar mensaje detallado
             console.error('❌ Error del backend:', datos.error);
