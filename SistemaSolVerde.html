@@ -2830,7 +2830,7 @@
         <span>🔍</span>
         Buscar Cliente en Base de Datos
       </h3>
-      <button class="modal-close" onclick="cerrarModal()">×</button>
+      <button class="modal-close" onclick="cerrarModalRematch()">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -2860,7 +2860,7 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="cerrarModal()">Cerrar</button>
+      <button class="btn btn-secondary" onclick="cerrarModalRematch()">Cerrar</button>
     </div>
   </div>
 
@@ -3625,16 +3625,18 @@
     // SISTEMA DE AYUDA
     // ========================================
     function mostrarModalAyuda() {
-      document.getElementById('modalAyudaOverlay').classList.add('active');
-      document.getElementById('modalAyuda').style.display = 'block';
+      const existe = abrirModal('modalAyuda');
+      if (!existe) {
+        showToast('error', 'Error', 'Modal de ayuda no disponible');
+        return;
+      }
 
       // Reset a tab "inicio"
       cambiarTabAyuda('inicio');
     }
 
     function cerrarModalAyuda() {
-      document.getElementById('modalAyudaOverlay').classList.remove('active');
-      document.getElementById('modalAyuda').style.display = 'none';
+      cerrarModal('modalAyuda');
     }
 
     function cambiarTabAyuda(tabId) {
@@ -4065,10 +4067,14 @@
     }
 
     function rematchClienteVR(index, nombreActual) {
+      const existe = abrirModal('modalRematch');
+      if (!existe) {
+        showToast('error', 'Error', 'Modal de rematch no disponible');
+        return;
+      }
+
       window.indiceRematchActual = index;
       document.getElementById('nombreRematch').value = nombreActual;
-      document.getElementById('modalRematchOverlay').classList.add('active');
-      document.getElementById('modalRematch').style.display = 'block';
     }
 
     function eliminarMovimientoVR(index) {
@@ -4451,15 +4457,9 @@
         filtrarClientesGestion(e.target.value);
       });
 
-      // Event listeners para carga masiva
+      // Event listener para abrir modal de carga masiva
+      // Los event listeners internos del modal se inicializan en mostrarModalCargaMasiva()
       document.getElementById('gestionCargaMasiva').addEventListener('click', mostrarModalCargaMasiva);
-      document.getElementById('btnParsearCargaMasiva').addEventListener('click', parsearYValidarCargaMasiva);
-      document.getElementById('btnGuardarCargaMasiva').addEventListener('click', ejecutarCargaMasiva);
-
-      document.getElementById('cargaMasivaTextarea').addEventListener('input', (e) => {
-        const lineas = e.target.value.split('\n').filter(l => l.trim()).length;
-        document.getElementById('cargaMasivaLineasCount').textContent = lineas;
-      });
 
       cargarTablaGestion();
     }
@@ -4516,15 +4516,18 @@
     }
 
     function mostrarModalNuevoCliente() {
+      const existe = abrirModal('modalCliente');
+      if (!existe) {
+        showToast('error', 'Error', 'Modal de cliente no disponible');
+        return;
+      }
+
       document.getElementById('modalClienteTitulo').innerHTML = '<span>➕</span> Crear Nuevo Cliente';
       document.getElementById('clienteNombre').value = '';
       document.getElementById('clienteNombre').disabled = false;
       document.getElementById('clienteTel').value = '';
       document.getElementById('clienteEmail').value = '';
       document.getElementById('clienteObs').value = '';
-
-      document.getElementById('modalClienteOverlay').classList.add('active');
-      document.getElementById('modalCliente').style.display = 'block';
       window.clienteEditandoNombre = null;
     }
 
@@ -4532,15 +4535,18 @@
       const cliente = AppState.clientesData.find(c => c.nombre === nombreCliente);
       if (!cliente) return;
 
+      const existe = abrirModal('modalCliente');
+      if (!existe) {
+        showToast('error', 'Error', 'Modal de cliente no disponible');
+        return;
+      }
+
       document.getElementById('modalClienteTitulo').innerHTML = '<span>✏️</span> Editar Cliente';
       document.getElementById('clienteNombre').value = cliente.nombre;
       document.getElementById('clienteNombre').disabled = true;
       document.getElementById('clienteTel').value = cliente.tel || '';
       document.getElementById('clienteEmail').value = cliente.email || '';
       document.getElementById('clienteObs').value = cliente.obs || '';
-
-      document.getElementById('modalClienteOverlay').classList.add('active');
-      document.getElementById('modalCliente').style.display = 'block';
       window.clienteEditandoNombre = nombreCliente;
     }
 
@@ -4567,8 +4573,7 @@
     }
 
     function cerrarModalCliente() {
-      document.getElementById('modalClienteOverlay').classList.remove('active');
-      document.getElementById('modalCliente').style.display = 'none';
+      cerrarModal('modalCliente');
       document.getElementById('clienteNombre').disabled = false;
       window.clienteEditandoNombre = null;
     }
@@ -4632,19 +4637,43 @@
     };
 
     function mostrarModalCargaMasiva() {
-      document.getElementById('modalCargaMasivaOverlay').classList.add('active');
-      document.getElementById('modalCargaMasiva').style.display = 'block';
+      const existe = abrirModal('modalCargaMasiva');
+      if (!existe) {
+        showToast('error', 'Error', 'Modal de carga masiva no disponible');
+        return;
+      }
 
       // Reset
       document.getElementById('cargaMasivaTextarea').value = '';
       document.getElementById('cargaMasivaPreview').style.display = 'none';
       document.getElementById('btnGuardarCargaMasiva').style.display = 'none';
       cargaMasivaData = { clientesParseados: [], clientesValidos: [], clientesConErrores: [] };
+
+      // Inicializar event listeners AQUÍ (modal ya visible)
+      const btnParsear = document.getElementById('btnParsearCargaMasiva');
+      if (btnParsear && !btnParsear.dataset.initialized) {
+        btnParsear.addEventListener('click', parsearYValidarCargaMasiva);
+        btnParsear.dataset.initialized = 'true';
+      }
+
+      const btnGuardar = document.getElementById('btnGuardarCargaMasiva');
+      if (btnGuardar && !btnGuardar.dataset.initialized) {
+        btnGuardar.addEventListener('click', ejecutarCargaMasiva);
+        btnGuardar.dataset.initialized = 'true';
+      }
+
+      const textarea = document.getElementById('cargaMasivaTextarea');
+      if (textarea && !textarea.dataset.initialized) {
+        textarea.addEventListener('input', (e) => {
+          const lineas = e.target.value.split('\n').filter(l => l.trim()).length;
+          document.getElementById('cargaMasivaLineasCount').textContent = lineas;
+        });
+        textarea.dataset.initialized = 'true';
+      }
     }
 
     function cerrarModalCargaMasiva() {
-      document.getElementById('modalCargaMasivaOverlay').classList.remove('active');
-      document.getElementById('modalCargaMasiva').style.display = 'none';
+      cerrarModal('modalCargaMasiva');
     }
 
     function parsearYValidarCargaMasiva() {
@@ -5033,9 +5062,8 @@
     // ========================================
     // FUNCIONES GLOBALES DE MODALES
     // ========================================
-    function cerrarModal() {
-      document.getElementById('modalRematchOverlay').classList.remove('active');
-      document.getElementById('modalRematch').style.display = 'none';
+    function cerrarModalRematch() {
+      cerrarModal('modalRematch');
     }
 
     function buscarSugerencias() {
