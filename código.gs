@@ -35,6 +35,48 @@ function doGet() {
 }
 
 /**
+ * Función de prueba para verificar que el sistema funciona
+ * Ejecutar desde el editor para verificar que todo esté OK
+ */
+function probarSistema() {
+  Logger.log('🧪 Iniciando prueba del sistema...');
+  Logger.log('');
+
+  try {
+    // Probar obtenerDatosParaHTML
+    Logger.log('Probando obtenerDatosParaHTML()...');
+    const resultado = obtenerDatosParaHTML();
+
+    Logger.log('');
+    Logger.log('════════════════════════════════════════');
+    Logger.log('📊 RESULTADO DE LA PRUEBA:');
+    Logger.log('════════════════════════════════════════');
+    Logger.log('Tipo de resultado: ' + typeof resultado);
+    Logger.log('Es null?: ' + (resultado === null));
+    Logger.log('Es undefined?: ' + (resultado === undefined));
+
+    if (resultado) {
+      Logger.log('success: ' + resultado.success);
+      Logger.log('clientes: ' + (resultado.clientes ? resultado.clientes.length : 'undefined'));
+      Logger.log('movimientos: ' + (resultado.movimientos ? resultado.movimientos.length : 'undefined'));
+      if (!resultado.success) {
+        Logger.log('error: ' + resultado.error);
+      }
+    }
+    Logger.log('════════════════════════════════════════');
+    Logger.log('');
+
+    return resultado;
+
+  } catch (error) {
+    Logger.log('');
+    Logger.log('❌ Error en prueba: ' + error.message);
+    Logger.log('Stack: ' + error.stack);
+    return null;
+  }
+}
+
+/**
  * Función de inicialización del sistema
  * Ejecutar esta función una vez desde el editor de scripts para configurar el sistema
  * Guarda el ID del spreadsheet para que funcione como Web App
@@ -195,36 +237,55 @@ const CONFIG = {
  * @returns {Spreadsheet} El spreadsheet activo
  */
 function getSpreadsheet() {
+  Logger.log('🔍 getSpreadsheet() - Inicio');
+
   try {
     // Primero intentar obtener el ID guardado en propiedades
+    Logger.log('  → Intentando obtener propiedades del script...');
     const propiedades = PropertiesService.getScriptProperties();
+    Logger.log('  → Propiedades obtenidas correctamente');
+
     let spreadsheetId = propiedades.getProperty('SPREADSHEET_ID');
+    Logger.log('  → Spreadsheet ID guardado: ' + (spreadsheetId || 'ninguno'));
 
     // Si hay ID guardado, intentar abrir por ID
     if (spreadsheetId) {
       try {
-        Logger.log('📂 Usando spreadsheet guardado: ' + spreadsheetId);
-        return SpreadsheetApp.openById(spreadsheetId);
+        Logger.log('  → Intentando abrir spreadsheet por ID: ' + spreadsheetId);
+        const ss = SpreadsheetApp.openById(spreadsheetId);
+        Logger.log('  ✅ Spreadsheet abierto exitosamente por ID');
+        Logger.log('  → Nombre: ' + ss.getName());
+        return ss;
       } catch (errorId) {
-        Logger.log('⚠️ No se pudo abrir spreadsheet por ID guardado: ' + errorId.message);
-        // Continuar para intentar con getActiveSpreadsheet()
+        Logger.log('  ⚠️ Error al abrir por ID: ' + errorId.message);
+        Logger.log('  → Continuando con getActiveSpreadsheet()...');
       }
+    } else {
+      Logger.log('  → No hay ID guardado, intentando getActiveSpreadsheet()...');
     }
 
     // Intentar obtener el spreadsheet activo
+    Logger.log('  → Llamando a getActiveSpreadsheet()...');
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+
     if (!ss) {
+      Logger.log('  ❌ getActiveSpreadsheet() retornó null');
       throw new Error('No se pudo obtener el spreadsheet activo');
     }
 
+    Logger.log('  ✅ Spreadsheet activo obtenido');
+
     // Si se obtuvo exitosamente, guardar su ID para futuros usos
     spreadsheetId = ss.getId();
+    Logger.log('  → Guardando ID: ' + spreadsheetId);
     propiedades.setProperty('SPREADSHEET_ID', spreadsheetId);
-    Logger.log('✅ Spreadsheet ID guardado: ' + spreadsheetId);
+    Logger.log('  ✅ ID guardado en propiedades');
 
     return ss;
   } catch (error) {
-    Logger.log('❌ Error al obtener spreadsheet: ' + error.message);
+    Logger.log('❌ ERROR CRÍTICO en getSpreadsheet():');
+    Logger.log('   Mensaje: ' + error.message);
+    Logger.log('   Stack: ' + error.stack);
     throw new Error('No se pudo acceder a la base de datos. Por favor, ejecute la función inicializarSistema() desde el editor de scripts.');
   }
 }
@@ -1004,46 +1065,75 @@ Responde SOLO con el JSON, sin explicaciones adicionales.`
  * @returns {Object} {clientes: Array, movimientos: Array}
  */
 function obtenerDatosParaHTML() {
-  Logger.log('📥 obtenerDatosParaHTML - Inicio');
+  Logger.log('═══════════════════════════════════════════════════');
+  Logger.log('📥 obtenerDatosParaHTML - INICIO');
+  Logger.log('═══════════════════════════════════════════════════');
+
+  // Variables para el resultado
+  let resultado = null;
 
   try {
-    // Obtener clientes (limitado para optimizar)
+    Logger.log('Paso 1: Intentando obtener clientes...');
     const todosLosClientes = ClientesRepository.obtenerTodos();
-    Logger.log(`📊 Total clientes encontrados: ${todosLosClientes.length}`);
+    Logger.log(`✅ Paso 1 completado: ${todosLosClientes.length} clientes encontrados`);
 
-    // Si hay muchos clientes, solo enviar los primeros 100 para carga inicial
+    Logger.log('Paso 2: Limitando clientes para carga inicial...');
     const clientes = todosLosClientes.length > 100
       ? todosLosClientes.slice(0, 100)
       : todosLosClientes;
+    Logger.log(`✅ Paso 2 completado: ${clientes.length} clientes para enviar`);
 
-    // Obtener solo últimos 20 movimientos para carga rápida
+    Logger.log('Paso 3: Obteniendo movimientos recientes...');
     const movimientos = MovimientosRepository.obtenerRecientes(20);
-    Logger.log(`📊 Total movimientos encontrados: ${movimientos.length}`);
+    Logger.log(`✅ Paso 3 completado: ${movimientos.length} movimientos encontrados`);
 
-    Logger.log('✅ obtenerDatosParaHTML - Éxito');
-    return {
+    Logger.log('Paso 4: Construyendo objeto de respuesta...');
+    resultado = {
       success: true,
       clientes: clientes,
       movimientos: movimientos,
       totalClientes: todosLosClientes.length,
       cargaParcial: todosLosClientes.length > 100
     };
+    Logger.log('✅ Paso 4 completado: Objeto construido correctamente');
+
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('✅ obtenerDatosParaHTML - ÉXITO');
+    Logger.log('   Clientes: ' + resultado.clientes.length);
+    Logger.log('   Movimientos: ' + resultado.movimientos.length);
+    Logger.log('═══════════════════════════════════════════════════');
+
+    return resultado;
+
   } catch (error) {
-    Logger.log('❌ Error en obtenerDatosParaHTML: ' + error.message);
-    Logger.log('Stack trace: ' + error.stack);
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('❌ ERROR en obtenerDatosParaHTML');
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('Mensaje: ' + error.message);
+    Logger.log('Stack: ' + error.stack);
+    Logger.log('Tipo: ' + typeof error);
+    Logger.log('═══════════════════════════════════════════════════');
 
     // Verificar si es error de acceso a base de datos
-    let mensajeError = error.message;
+    let mensajeError = error.message || 'Error desconocido';
     if (mensajeError.includes('No se pudo acceder a la base de datos')) {
       mensajeError = 'Sistema no inicializado. Ejecute la función "inicializarSistema()" desde el editor de scripts (Extensiones > Apps Script).';
     }
 
-    return {
+    resultado = {
       success: false,
       error: mensajeError,
       clientes: [],
       movimientos: []
     };
+
+    Logger.log('Retornando objeto de error:');
+    Logger.log('  success: ' + resultado.success);
+    Logger.log('  error: ' + resultado.error);
+    Logger.log('  clientes: ' + resultado.clientes.length);
+    Logger.log('  movimientos: ' + resultado.movimientos.length);
+
+    return resultado;
   }
 }
 
