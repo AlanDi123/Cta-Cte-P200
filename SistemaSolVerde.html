@@ -3895,6 +3895,17 @@
           clearTimeout(timeoutId); // Cancelar timeout si hay respuesta
           console.log('✅ Datos cargados:', datos);
 
+          // Validar que datos no sea null o undefined
+          if (!datos) {
+            console.error('❌ Backend retornó null o undefined');
+            AppState.clientesData = [];
+            AppState.movimientosRecientes = [];
+            actualizarTablaMovimientos();
+            showToast('warning', 'Sin Datos', 'No se pudieron cargar datos. Sistema funcional con datos vacíos.');
+            ocultarLoading();
+            return;
+          }
+
           if (datos.success) {
             AppState.clientesData = datos.clientes || [];
             AppState.movimientosRecientes = datos.movimientos || [];
@@ -3903,6 +3914,9 @@
             showToast('success', 'Sistema Listo', `${datos.clientes.length} clientes cargados`);
           } else {
             showToast('error', 'Error', datos.error || 'Error al cargar datos');
+            AppState.clientesData = [];
+            AppState.movimientosRecientes = [];
+            actualizarTablaMovimientos();
           }
 
           ocultarLoading();
