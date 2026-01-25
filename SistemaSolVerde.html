@@ -1322,7 +1322,7 @@
       overflow: hidden;
       box-shadow: var(--sv-sombra-lg);
       animation: modalSlideUp 0.3s ease-out;
-      display: flex;
+      display: none;
       flex-direction: column;
       z-index: 10001;
     }
@@ -3480,6 +3480,9 @@
      * @returns {boolean} - true si se abrió, false si no existe
      */
     function abrirModal(modalId) {
+      // Asegurar que loading esté oculto antes de abrir modal
+      ocultarLoading();
+
       const modal = document.getElementById(modalId);
       const overlayId = modalId + 'Overlay';
       const overlay = document.getElementById(overlayId);
@@ -3496,7 +3499,7 @@
 
       // Activar overlay y modal
       overlay.classList.add('active');
-      modal.style.display = 'block';
+      modal.style.display = 'flex';
 
       console.log(`✅ Modal ${modalId} abierto correctamente`);
       return true;
@@ -3530,6 +3533,9 @@
       document.querySelectorAll('.modal').forEach(modal => {
         modal.style.display = 'none';
       });
+
+      // Cerrar loading overlay también
+      ocultarLoading();
 
       console.log('✅ Todos los modales cerrados');
     }
