@@ -3879,8 +3879,20 @@
       console.log('📥 Cargando datos desde servidor...');
       mostrarLoading('Cargando datos del sistema...');
 
+      // Timeout de seguridad: si pasa 30 segundos, ocultar loading y continuar
+      const timeoutId = setTimeout(() => {
+        console.warn('⚠️ Timeout al cargar datos del servidor');
+        ocultarLoading();
+        showToast('warning', 'Carga Lenta', 'Los datos tardan en cargar. Puedes continuar usando el sistema.');
+        // Permitir usar el sistema con datos vacíos
+        AppState.clientesData = AppState.clientesData || [];
+        AppState.movimientosRecientes = AppState.movimientosRecientes || [];
+        actualizarTablaMovimientos();
+      }, 30000); // 30 segundos
+
       google.script.run
         .withSuccessHandler(function(datos) {
+          clearTimeout(timeoutId); // Cancelar timeout si hay respuesta
           console.log('✅ Datos cargados:', datos);
 
           if (datos.success) {
@@ -3896,6 +3908,7 @@
           ocultarLoading();
         })
         .withFailureHandler(function(error) {
+          clearTimeout(timeoutId); // Cancelar timeout si hay error
           console.error('Error al cargar datos:', error);
           showToast('error', 'Error', 'No se pudieron cargar los datos iniciales');
           ocultarLoading();
