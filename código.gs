@@ -103,6 +103,36 @@ const CONFIG = {
 
 
 // ============================================================================
+// 1.5. FUNCIÓN HELPER PARA OBTENER SPREADSHEET
+// ============================================================================
+
+/**
+ * Obtiene el spreadsheet de forma robusta
+ * Usa getActive() pero con manejo de errores y cache
+ * @returns {Spreadsheet} El spreadsheet activo
+ */
+function getSpreadsheet() {
+  try {
+    // Intentar obtener el spreadsheet activo
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) {
+      throw new Error('No se pudo obtener el spreadsheet activo');
+    }
+    return ss;
+  } catch (error) {
+    Logger.log('❌ Error al obtener spreadsheet: ' + error.message);
+
+    // Fallback: Si getActive() falla, intentar abrir por ID
+    // NOTA: Descomentar y configurar SPREADSHEET_ID si se despliega como Web App
+    // const SPREADSHEET_ID = 'TU_ID_DE_SPREADSHEET_AQUI';
+    // return SpreadsheetApp.openById(SPREADSHEET_ID);
+
+    throw new Error('No se pudo acceder a la base de datos');
+  }
+}
+
+
+// ============================================================================
 // 2. UTILIDADES
 // ============================================================================
 
@@ -216,7 +246,7 @@ const ClientesRepository = {
    * @returns {GoogleAppsScript.Spreadsheet.Sheet}
    */
   getHoja: function() {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getSpreadsheet();
     let hoja = ss.getSheetByName(CONFIG.HOJAS.CLIENTES);
 
     // Crear hoja si no existe
@@ -449,7 +479,7 @@ const MovimientosRepository = {
    * @returns {GoogleAppsScript.Spreadsheet.Sheet}
    */
   getHoja: function() {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getSpreadsheet();
     let hoja = ss.getSheetByName(CONFIG.HOJAS.MOVIMIENTOS);
 
     // Crear hoja si no existe
@@ -1109,15 +1139,41 @@ function rematchearNombreConSugerencias(nombre) {
  * @returns {Object} Movimiento guardado
  */
 function guardarMovimientoDesdeHTML(movimientoData) {
+  Logger.log('📥 guardarMovimientoDesdeHTML - Inicio: ' + JSON.stringify(movimientoData));
+
   try {
+    // VALIDACIÓN OBLIGATORIA DE DATOS
+    if (!movimientoData || typeof movimientoData !== 'object') {
+      throw new Error('Datos inválidos: se esperaba un objeto');
+    }
+
+    if (!movimientoData.cliente || typeof movimientoData.cliente !== 'string' || movimientoData.cliente.trim() === '') {
+      throw new Error('Cliente inválido: debe ser un texto no vacío');
+    }
+
+    if (!movimientoData.tipo || !['DEBE', 'HABER'].includes(movimientoData.tipo)) {
+      throw new Error('Tipo de movimiento inválido: debe ser DEBE o HABER');
+    }
+
+    if (!movimientoData.monto || isNaN(movimientoData.monto) || movimientoData.monto <= 0) {
+      throw new Error('Monto inválido: debe ser un número positivo');
+    }
+
+    if (!movimientoData.fecha || typeof movimientoData.fecha !== 'string') {
+      throw new Error('Fecha inválida: debe ser una cadena de texto');
+    }
+
     const movimiento = MovimientosRepository.registrar(movimientoData);
+
+    Logger.log('✅ Movimiento guardado exitosamente - ID: ' + (movimiento.id || 'N/A'));
 
     return {
       success: true,
       movimiento: movimiento
     };
   } catch (error) {
-    Logger.log('Error en guardarMovimientoDesdeHTML: ' + error.message);
+    Logger.log('❌ Error en guardarMovimientoDesdeHTML: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
     return {
       success: false,
       error: error.message
@@ -1160,15 +1216,33 @@ function guardarMovimientosDesdeVR(payload) {
  * @returns {Object} Cliente creado
  */
 function crearNuevoClienteCompleto(clienteData) {
+  Logger.log('📥 crearNuevoClienteCompleto - Inicio: ' + JSON.stringify(clienteData));
+
   try {
+    // VALIDACIÓN OBLIGATORIA DE DATOS
+    if (!clienteData || typeof clienteData !== 'object') {
+      throw new Error('Datos inválidos: se esperaba un objeto');
+    }
+
+    if (!clienteData.nombre || typeof clienteData.nombre !== 'string' || clienteData.nombre.trim() === '') {
+      throw new Error('Nombre inválido: debe ser un texto no vacío');
+    }
+
+    if (clienteData.limite !== undefined && (isNaN(clienteData.limite) || clienteData.limite < 0)) {
+      throw new Error('Límite de crédito inválido: debe ser un número no negativo');
+    }
+
     const cliente = ClientesRepository.crear(clienteData);
+
+    Logger.log('✅ Cliente creado exitosamente: ' + clienteData.nombre);
 
     return {
       success: true,
       cliente: cliente
     };
   } catch (error) {
-    Logger.log('Error en crearNuevoClienteCompleto: ' + error.message);
+    Logger.log('❌ Error en crearNuevoClienteCompleto: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
     return {
       success: false,
       error: error.message
@@ -1183,15 +1257,33 @@ function crearNuevoClienteCompleto(clienteData) {
  * @returns {Object} Cliente actualizado
  */
 function actualizarDatosCliente(nombreCliente, datos) {
+  Logger.log('📥 actualizarDatosCliente - Cliente: ' + nombreCliente + ', Datos: ' + JSON.stringify(datos));
+
   try {
+    // VALIDACIÓN OBLIGATORIA DE DATOS
+    if (!nombreCliente || typeof nombreCliente !== 'string' || nombreCliente.trim() === '') {
+      throw new Error('Nombre de cliente inválido: debe ser un texto no vacío');
+    }
+
+    if (!datos || typeof datos !== 'object') {
+      throw new Error('Datos inválidos: se esperaba un objeto');
+    }
+
+    if (datos.limite !== undefined && (isNaN(datos.limite) || datos.limite < 0)) {
+      throw new Error('Límite de crédito inválido: debe ser un número no negativo');
+    }
+
     const cliente = ClientesRepository.actualizar(nombreCliente, datos);
+
+    Logger.log('✅ Cliente actualizado exitosamente: ' + nombreCliente);
 
     return {
       success: true,
       cliente: cliente
     };
   } catch (error) {
-    Logger.log('Error en actualizarDatosCliente: ' + error.message);
+    Logger.log('❌ Error en actualizarDatosCliente: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
     return {
       success: false,
       error: error.message
