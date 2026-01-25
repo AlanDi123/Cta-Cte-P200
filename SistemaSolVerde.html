@@ -2962,18 +2962,68 @@
         </small>
       </div>
 
-      <!-- Textarea CSV -->
+      <!-- Opciones de entrada: Pegar o Subir archivo -->
       <div class="form-group">
         <label class="form-label">
           <span class="form-label-icon">📋</span>
           Datos de Clientes (CSV)
         </label>
-        <textarea
-          id="cargaMasivaTextarea"
-          class="form-textarea"
-          rows="10"
-          placeholder="NOMBRE, TEL, EMAIL, LIMITE, SALDO_INICIAL, OBS&#10;JUAN PEREZ, 1234567890, juan@email.com, 150000, 50000, Cliente VIP&#10;MARIA GOMEZ, 9876543210, maria@email.com, 100000, -25000, Crédito a favor"
-        ></textarea>
+
+        <!-- Tabs para elegir método -->
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <button
+            type="button"
+            class="btn btn-primary"
+            id="btnTabPegar"
+            onclick="mostrarTabCargaMasiva('pegar')"
+            style="flex: 1;"
+          >
+            📝 Pegar Texto
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            id="btnTabSubir"
+            onclick="mostrarTabCargaMasiva('subir')"
+            style="flex: 1;"
+          >
+            📁 Subir Archivo
+          </button>
+        </div>
+
+        <!-- Tab 1: Pegar texto (default) -->
+        <div id="tabPegarCSV">
+          <textarea
+            id="cargaMasivaTextarea"
+            class="form-textarea"
+            rows="10"
+            placeholder="NOMBRE, TEL, EMAIL, LIMITE, SALDO_INICIAL, OBS&#10;JUAN PEREZ, 1234567890, juan@email.com, 150000, 50000, Cliente VIP&#10;MARIA GOMEZ, 9876543210, maria@email.com, 100000, -25000, Crédito a favor"
+          ></textarea>
+        </div>
+
+        <!-- Tab 2: Subir archivo -->
+        <div id="tabSubirCSV" style="display: none;">
+          <div style="border: 2px dashed var(--sv-primario); border-radius: 8px; padding: 20px; background: #f8f9fa; text-align: center;">
+            <input
+              type="file"
+              id="inputArchivoCSV"
+              accept=".csv, .txt"
+              style="display: none;"
+            >
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="document.getElementById('inputArchivoCSV').click()"
+            >
+              <span>📁</span> Seleccionar Archivo CSV
+            </button>
+            <p style="margin-top: 10px; font-size: 14px; color: var(--sv-texto-secundario);">
+              Formatos aceptados: .csv, .txt
+            </p>
+            <p id="archivoSeleccionado" style="margin-top: 10px; font-weight: bold; color: var(--sv-primario);"></p>
+          </div>
+        </div>
+
         <small style="display: block; margin-top: 5px; color: var(--sv-texto-secundario);">
           Total de líneas: <strong id="cargaMasivaLineasCount">0</strong>
         </small>
@@ -4690,6 +4740,13 @@
         });
         textarea.dataset.initialized = 'true';
       }
+
+      // Event listener para input file
+      const inputFile = document.getElementById('inputArchivoCSV');
+      if (inputFile && !inputFile.dataset.initialized) {
+        inputFile.addEventListener('change', cargarArchivoCSV);
+        inputFile.dataset.initialized = 'true';
+      }
     }
 
     function cerrarModalCargaMasiva() {
@@ -4721,6 +4778,75 @@
 
       const filename = `plantilla-clientes-${new Date().toISOString().split('T')[0]}.csv`;
       descargarCSV(filename, csvContent.join('\n'));
+    }
+
+    /**
+     * Alterna entre tabs de pegar/subir CSV
+     */
+    function mostrarTabCargaMasiva(tab) {
+      const tabPegar = document.getElementById('tabPegarCSV');
+      const tabSubir = document.getElementById('tabSubirCSV');
+      const btnPegar = document.getElementById('btnTabPegar');
+      const btnSubir = document.getElementById('btnTabSubir');
+
+      if (tab === 'pegar') {
+        tabPegar.style.display = 'block';
+        tabSubir.style.display = 'none';
+        btnPegar.classList.add('btn-primary');
+        btnPegar.classList.remove('btn-secondary');
+        btnSubir.classList.add('btn-secondary');
+        btnSubir.classList.remove('btn-primary');
+      } else {
+        tabPegar.style.display = 'none';
+        tabSubir.style.display = 'block';
+        btnSubir.classList.add('btn-primary');
+        btnSubir.classList.remove('btn-secondary');
+        btnPegar.classList.add('btn-secondary');
+        btnPegar.classList.remove('btn-primary');
+      }
+    }
+
+    /**
+     * Lee archivo CSV subido y lo carga en el textarea
+     */
+    function cargarArchivoCSV() {
+      const input = document.getElementById('inputArchivoCSV');
+      const file = input.files[0];
+
+      if (!file) {
+        showToast('error', 'Error', 'Seleccione un archivo CSV');
+        return;
+      }
+
+      // Mostrar nombre del archivo
+      document.getElementById('archivoSeleccionado').textContent = `📄 ${file.name}`;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const contenido = e.target.result;
+
+        // Filtrar líneas que comienzan con # (comentarios de la plantilla)
+        const lineasFiltradas = contenido.split('\n')
+          .filter(linea => !linea.trim().startsWith('#'))
+          .join('\n');
+
+        document.getElementById('cargaMasivaTextarea').value = lineasFiltradas;
+
+        // Actualizar contador
+        const lineas = lineasFiltradas.split('\n').filter(l => l.trim()).length;
+        document.getElementById('cargaMasivaLineasCount').textContent = lineas;
+
+        // Cambiar a tab de pegar para mostrar resultado
+        mostrarTabCargaMasiva('pegar');
+        showToast('success', 'Archivo Cargado', `${file.name} - ${lineas} líneas`);
+      };
+
+      reader.onerror = function() {
+        showToast('error', 'Error', 'No se pudo leer el archivo');
+        document.getElementById('archivoSeleccionado').textContent = '';
+      };
+
+      reader.readAsText(file, 'UTF-8');
     }
 
     function parsearYValidarCargaMasiva() {
