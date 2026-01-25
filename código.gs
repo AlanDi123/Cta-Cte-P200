@@ -43,10 +43,18 @@ function diagnosticoSistema() {
     const propiedades = PropertiesService.getScriptProperties();
     const spreadsheetId = propiedades.getProperty('SPREADSHEET_ID');
 
+    // Intentar obtener usuario de forma segura
+    let usuario = '(no disponible)';
+    try {
+      usuario = Session.getEffectiveUser().getEmail();
+    } catch (e) {
+      // Permisos insuficientes, usar valor por defecto
+    }
+
     return {
       success: true,
       spreadsheetId: spreadsheetId,
-      usuario: Session.getEffectiveUser().getEmail(),
+      usuario: usuario,
       timestamp: new Date().toISOString(),
       tieneSpreadsheet: spreadsheetId ? true : false,
       mensaje: 'Sistema funcionando correctamente'
@@ -1154,8 +1162,15 @@ function obtenerDatosParaHTML() {
   try {
     Logger.log('═══════════════════════════════════════════════════');
     Logger.log('📥 obtenerDatosParaHTML - INICIO');
-    Logger.log('Contexto: ' + (Session ? 'Session disponible' : 'Session no disponible'));
-    Logger.log('Usuario: ' + Session.getEffectiveUser().getEmail());
+
+    // Obtener usuario de forma segura (puede fallar por permisos)
+    try {
+      const usuario = Session.getEffectiveUser().getEmail();
+      Logger.log('Usuario: ' + usuario);
+    } catch (e) {
+      Logger.log('Usuario: (no disponible - permisos limitados)');
+    }
+
     Logger.log('═══════════════════════════════════════════════════');
 
     Logger.log('Paso 1: Intentando obtener clientes...');
