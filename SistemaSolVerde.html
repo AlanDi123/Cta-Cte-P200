@@ -3879,16 +3879,16 @@
       console.log('📥 Cargando datos desde servidor...');
       mostrarLoading('Cargando datos del sistema...');
 
-      // Timeout de seguridad: si pasa 30 segundos, ocultar loading y continuar
+      // Timeout de seguridad reducido: 10 segundos
       const timeoutId = setTimeout(() => {
-        console.warn('⚠️ Timeout al cargar datos del servidor');
+        console.warn('⚠️ Timeout al cargar datos del servidor (10s)');
         ocultarLoading();
-        showToast('warning', 'Carga Lenta', 'Los datos tardan en cargar. Puedes continuar usando el sistema.');
-        // Permitir usar el sistema con datos vacíos
+        showToast('info', 'Cargando en segundo plano', 'Los datos se están cargando. El sistema está listo para usar.');
+        // Permitir usar el sistema con datos vacíos o los que haya
         AppState.clientesData = AppState.clientesData || [];
         AppState.movimientosRecientes = AppState.movimientosRecientes || [];
         actualizarTablaMovimientos();
-      }, 30000); // 30 segundos
+      }, 10000); // Reducido a 10 segundos
 
       google.script.run
         .withSuccessHandler(function(datos) {

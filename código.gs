@@ -906,17 +906,33 @@ Responde SOLO con el JSON, sin explicaciones adicionales.`
  * @returns {Object} {clientes: Array, movimientos: Array}
  */
 function obtenerDatosParaHTML() {
-  try {
-    const clientes = ClientesRepository.obtenerTodos();
-    const movimientos = MovimientosRepository.obtenerRecientes(50); // Últimos 50 movimientos
+  Logger.log('📥 obtenerDatosParaHTML - Inicio');
 
+  try {
+    // Obtener clientes (limitado para optimizar)
+    const todosLosClientes = ClientesRepository.obtenerTodos();
+    Logger.log(`📊 Total clientes encontrados: ${todosLosClientes.length}`);
+
+    // Si hay muchos clientes, solo enviar los primeros 100 para carga inicial
+    const clientes = todosLosClientes.length > 100
+      ? todosLosClientes.slice(0, 100)
+      : todosLosClientes;
+
+    // Obtener solo últimos 20 movimientos para carga rápida
+    const movimientos = MovimientosRepository.obtenerRecientes(20);
+    Logger.log(`📊 Total movimientos encontrados: ${movimientos.length}`);
+
+    Logger.log('✅ obtenerDatosParaHTML - Éxito');
     return {
       success: true,
       clientes: clientes,
-      movimientos: movimientos
+      movimientos: movimientos,
+      totalClientes: todosLosClientes.length,
+      cargaParcial: todosLosClientes.length > 100
     };
   } catch (error) {
-    Logger.log('Error en obtenerDatosParaHTML: ' + error.message);
+    Logger.log('❌ Error en obtenerDatosParaHTML: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
     return {
       success: false,
       error: error.message
