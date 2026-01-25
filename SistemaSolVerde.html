@@ -1327,6 +1327,10 @@
       z-index: 10001;
     }
 
+    .modal.active {
+      display: flex !important;
+    }
+
     @keyframes modalSlideUp {
       from {
         opacity: 0;
@@ -3487,19 +3491,27 @@
       const overlayId = modalId + 'Overlay';
       const overlay = document.getElementById(overlayId);
 
+      // Validar existencia del modal
       if (!modal) {
         console.error(`❌ Modal ${modalId} no existe en el DOM`);
         return false;
       }
 
+      // Validar que el modal tenga la clase .modal (crítico para CSS)
+      if (!modal.classList.contains('modal')) {
+        console.error(`❌ Modal ${modalId} no tiene la clase .modal`);
+        return false;
+      }
+
+      // Validar existencia del overlay ANTES de activarlo
       if (!overlay) {
         console.error(`❌ Overlay ${overlayId} no existe en el DOM`);
         return false;
       }
 
-      // Activar overlay y modal
+      // Activar usando SOLO CLASES (no style.display)
       overlay.classList.add('active');
-      modal.style.display = 'flex';
+      modal.classList.add('active');
 
       console.log(`✅ Modal ${modalId} abierto correctamente`);
       return true;
@@ -3515,7 +3527,7 @@
       const overlay = document.getElementById(overlayId);
 
       if (overlay) overlay.classList.remove('active');
-      if (modal) modal.style.display = 'none';
+      if (modal) modal.classList.remove('active');
 
       console.log(`✅ Modal ${modalId} cerrado`);
     }
@@ -3529,9 +3541,9 @@
         overlay.classList.remove('active');
       });
 
-      // Cerrar todos los modales
+      // Cerrar todos los modales usando CLASES
       document.querySelectorAll('.modal').forEach(modal => {
-        modal.style.display = 'none';
+        modal.classList.remove('active');
       });
 
       // Cerrar loading overlay también
@@ -3616,7 +3628,7 @@
         if (e.key === 'Escape') {
           // Cerrar modal de ayuda si está abierto
           const modalAyuda = document.getElementById('modalAyuda');
-          if (modalAyuda && modalAyuda.style.display === 'block') {
+          if (modalAyuda && modalAyuda.classList.contains('active')) {
             cerrarModalAyuda();
           } else {
             // Si no hay modal de ayuda, cerrar sidebar
