@@ -3901,7 +3901,7 @@
             AppState.clientesData = [];
             AppState.movimientosRecientes = [];
             actualizarTablaMovimientos();
-            showToast('warning', 'Sin Datos', 'No se pudieron cargar datos. Sistema funcional con datos vacíos.');
+            showToast('error', 'Error de Sistema', 'El backend no respondió correctamente. Verifique que el sistema esté inicializado.');
             ocultarLoading();
             return;
           }
@@ -3913,10 +3913,15 @@
             actualizarTablaMovimientos();
             showToast('success', 'Sistema Listo', `${datos.clientes.length} clientes cargados`);
           } else {
-            showToast('error', 'Error', datos.error || 'Error al cargar datos');
-            AppState.clientesData = [];
-            AppState.movimientosRecientes = [];
+            // Error del backend - mostrar mensaje detallado
+            console.error('❌ Error del backend:', datos.error);
+            AppState.clientesData = datos.clientes || [];
+            AppState.movimientosRecientes = datos.movimientos || [];
             actualizarTablaMovimientos();
+
+            // Mostrar error con instrucciones
+            const mensajeError = datos.error || 'Error al cargar datos';
+            showToast('error', 'Error de Configuración', mensajeError);
           }
 
           ocultarLoading();
