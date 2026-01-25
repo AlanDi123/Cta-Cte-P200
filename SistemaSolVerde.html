@@ -1312,6 +1312,7 @@
     }
 
     .modal {
+      position: fixed;
       background: var(--sv-superficie);
       border-radius: 12px;
       padding: 0;
@@ -3345,6 +3346,31 @@
       document.getElementById('helpBtn').addEventListener('click', mostrarModalAyuda);
       document.getElementById('modalAyudaOverlay').addEventListener('click', cerrarModalAyuda);
 
+      // ========================================
+      // ESCAPE DE EMERGENCIA (CRÍTICO)
+      // ========================================
+
+      // Click en overlay cierra modal
+      document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) {
+          cerrarTodosLosModales();
+        }
+      });
+
+      // ESC cierra todos los modales
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          const modalActivo = document.querySelector('.modal-overlay.active');
+          if (modalActivo) {
+            cerrarTodosLosModales();
+          } else {
+            // Si no hay modal, cerrar sidebar
+            document.getElementById('sidebar').classList.remove('active');
+            document.getElementById('sidebarOverlay').classList.remove('active');
+          }
+        }
+      });
+
       cargarDatosIniciales();
     });
 
@@ -3427,6 +3453,13 @@
     // ========================================
 
     function mostrarLoading(mensaje = 'Cargando...') {
+      // NO mostrar loading si hay un modal activo (previene pantalla negra)
+      const modalActivo = document.querySelector('.modal-overlay.active');
+      if (modalActivo) {
+        console.log('⚠️ Modal activo detectado, omitiendo loading overlay');
+        return;
+      }
+
       document.getElementById('loadingOverlay').classList.add('active');
       document.getElementById('loadingText').textContent = mensaje;
       AppState.isLoading = true;
@@ -3435,6 +3468,70 @@
     function ocultarLoading() {
       document.getElementById('loadingOverlay').classList.remove('active');
       AppState.isLoading = false;
+    }
+
+    // ========================================
+    // FUNCIONES CENTRALIZADAS DE MODALES
+    // ========================================
+
+    /**
+     * Abre un modal de forma segura
+     * @param {string} modalId - ID del modal a abrir
+     * @returns {boolean} - true si se abrió, false si no existe
+     */
+    function abrirModal(modalId) {
+      const modal = document.getElementById(modalId);
+      const overlayId = modalId + 'Overlay';
+      const overlay = document.getElementById(overlayId);
+
+      if (!modal) {
+        console.error(`❌ Modal ${modalId} no existe en el DOM`);
+        return false;
+      }
+
+      if (!overlay) {
+        console.error(`❌ Overlay ${overlayId} no existe en el DOM`);
+        return false;
+      }
+
+      // Activar overlay y modal
+      overlay.classList.add('active');
+      modal.style.display = 'block';
+
+      console.log(`✅ Modal ${modalId} abierto correctamente`);
+      return true;
+    }
+
+    /**
+     * Cierra un modal de forma segura
+     * @param {string} modalId - ID del modal a cerrar
+     */
+    function cerrarModal(modalId) {
+      const modal = document.getElementById(modalId);
+      const overlayId = modalId + 'Overlay';
+      const overlay = document.getElementById(overlayId);
+
+      if (overlay) overlay.classList.remove('active');
+      if (modal) modal.style.display = 'none';
+
+      console.log(`✅ Modal ${modalId} cerrado`);
+    }
+
+    /**
+     * Cierra TODOS los modales (escape de emergencia)
+     */
+    function cerrarTodosLosModales() {
+      // Cerrar todos los overlays
+      document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.classList.remove('active');
+      });
+
+      // Cerrar todos los modales
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.style.display = 'none';
+      });
+
+      console.log('✅ Todos los modales cerrados');
     }
 
     function necesitaRecargar() {
