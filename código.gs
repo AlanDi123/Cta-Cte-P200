@@ -81,15 +81,18 @@ function inicializarSistema() {
 
     Logger.log('✅ Sistema inicializado correctamente');
     Logger.log('🌐 URL de la Web App: ' + ScriptApp.getService().getUrl());
-
-    // Mostrar mensaje al usuario
-    SpreadsheetApp.getUi().alert(
-      'Sistema Inicializado',
-      'El sistema ha sido configurado correctamente.\n\n' +
-      'Spreadsheet ID: ' + spreadsheetId + '\n\n' +
-      'Ahora puedes usar la aplicación web sin problemas.',
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
+    Logger.log('');
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('✅ ¡INICIALIZACIÓN COMPLETADA EXITOSAMENTE!');
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('📌 Spreadsheet ID: ' + spreadsheetId);
+    Logger.log('🌐 Web App URL: ' + ScriptApp.getService().getUrl());
+    Logger.log('');
+    Logger.log('👉 Próximos pasos:');
+    Logger.log('   1. Cierra esta ventana de ejecución');
+    Logger.log('   2. Refresca tu aplicación web');
+    Logger.log('   3. Los datos deberían cargarse correctamente');
+    Logger.log('═══════════════════════════════════════════════════');
 
     return {
       success: true,
@@ -100,18 +103,12 @@ function inicializarSistema() {
   } catch (error) {
     Logger.log('❌ Error al inicializar sistema: ' + error.message);
     Logger.log('Stack trace: ' + error.stack);
-
-    // Mostrar error al usuario
-    try {
-      SpreadsheetApp.getUi().alert(
-        'Error de Inicialización',
-        'No se pudo inicializar el sistema:\n\n' + error.message,
-        SpreadsheetApp.getUi().ButtonSet.OK
-      );
-    } catch (uiError) {
-      // Si no hay UI disponible, solo registrar
-      Logger.log('⚠️ No se pudo mostrar diálogo de error (probablemente ejecutado desde Web App)');
-    }
+    Logger.log('');
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('❌ ERROR DE INICIALIZACIÓN');
+    Logger.log('═══════════════════════════════════════════════════');
+    Logger.log('Error: ' + error.message);
+    Logger.log('═══════════════════════════════════════════════════');
 
     return {
       success: false,
