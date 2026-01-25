@@ -34,6 +34,92 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+/**
+ * Función de inicialización del sistema
+ * Ejecutar esta función una vez desde el editor de scripts para configurar el sistema
+ * Guarda el ID del spreadsheet para que funcione como Web App
+ */
+function inicializarSistema() {
+  try {
+    Logger.log('🔧 Iniciando configuración del sistema...');
+
+    // Obtener el spreadsheet activo
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) {
+      throw new Error('No se pudo obtener el spreadsheet activo. Asegúrate de ejecutar esta función desde el editor de scripts del spreadsheet.');
+    }
+
+    // Guardar el ID del spreadsheet
+    const spreadsheetId = ss.getId();
+    const propiedades = PropertiesService.getScriptProperties();
+    propiedades.setProperty('SPREADSHEET_ID', spreadsheetId);
+
+    Logger.log('✅ Spreadsheet ID guardado: ' + spreadsheetId);
+    Logger.log('📋 Nombre del spreadsheet: ' + ss.getName());
+
+    // Verificar/crear hojas necesarias
+    const hojasNecesarias = ['CLIENTES', 'MOVIMIENTOS'];
+    for (const nombreHoja of hojasNecesarias) {
+      let hoja = ss.getSheetByName(nombreHoja);
+      if (!hoja) {
+        Logger.log('📄 Creando hoja: ' + nombreHoja);
+        hoja = ss.insertSheet(nombreHoja);
+
+        // Agregar encabezados según el tipo de hoja
+        if (nombreHoja === 'CLIENTES') {
+          hoja.appendRow(['NOMBRE', 'TEL', 'EMAIL', 'LIMITE', 'SALDO', 'TOTAL_MOVS', 'ALTA', 'ULTIMO_MOV', 'OBS']);
+          hoja.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
+        } else if (nombreHoja === 'MOVIMIENTOS') {
+          hoja.appendRow(['ID', 'FECHA', 'CLIENTE', 'TIPO', 'MONTO', 'SALDO_POST', 'OBS', 'USUARIO']);
+          hoja.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
+        }
+        Logger.log('✅ Hoja creada: ' + nombreHoja);
+      } else {
+        Logger.log('✅ Hoja existente: ' + nombreHoja);
+      }
+    }
+
+    Logger.log('✅ Sistema inicializado correctamente');
+    Logger.log('🌐 URL de la Web App: ' + ScriptApp.getService().getUrl());
+
+    // Mostrar mensaje al usuario
+    SpreadsheetApp.getUi().alert(
+      'Sistema Inicializado',
+      'El sistema ha sido configurado correctamente.\n\n' +
+      'Spreadsheet ID: ' + spreadsheetId + '\n\n' +
+      'Ahora puedes usar la aplicación web sin problemas.',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    return {
+      success: true,
+      spreadsheetId: spreadsheetId,
+      mensaje: 'Sistema inicializado correctamente'
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error al inicializar sistema: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
+
+    // Mostrar error al usuario
+    try {
+      SpreadsheetApp.getUi().alert(
+        'Error de Inicialización',
+        'No se pudo inicializar el sistema:\n\n' + error.message,
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+    } catch (uiError) {
+      // Si no hay UI disponible, solo registrar
+      Logger.log('⚠️ No se pudo mostrar diálogo de error (probablemente ejecutado desde Web App)');
+    }
+
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 
 // ============================================================================
 // 1. CONFIGURACIÓN GLOBAL
@@ -113,21 +199,36 @@ const CONFIG = {
  */
 function getSpreadsheet() {
   try {
+    // Primero intentar obtener el ID guardado en propiedades
+    const propiedades = PropertiesService.getScriptProperties();
+    let spreadsheetId = propiedades.getProperty('SPREADSHEET_ID');
+
+    // Si hay ID guardado, intentar abrir por ID
+    if (spreadsheetId) {
+      try {
+        Logger.log('📂 Usando spreadsheet guardado: ' + spreadsheetId);
+        return SpreadsheetApp.openById(spreadsheetId);
+      } catch (errorId) {
+        Logger.log('⚠️ No se pudo abrir spreadsheet por ID guardado: ' + errorId.message);
+        // Continuar para intentar con getActiveSpreadsheet()
+      }
+    }
+
     // Intentar obtener el spreadsheet activo
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     if (!ss) {
       throw new Error('No se pudo obtener el spreadsheet activo');
     }
+
+    // Si se obtuvo exitosamente, guardar su ID para futuros usos
+    spreadsheetId = ss.getId();
+    propiedades.setProperty('SPREADSHEET_ID', spreadsheetId);
+    Logger.log('✅ Spreadsheet ID guardado: ' + spreadsheetId);
+
     return ss;
   } catch (error) {
     Logger.log('❌ Error al obtener spreadsheet: ' + error.message);
-
-    // Fallback: Si getActive() falla, intentar abrir por ID
-    // NOTA: Descomentar y configurar SPREADSHEET_ID si se despliega como Web App
-    // const SPREADSHEET_ID = 'TU_ID_DE_SPREADSHEET_AQUI';
-    // return SpreadsheetApp.openById(SPREADSHEET_ID);
-
-    throw new Error('No se pudo acceder a la base de datos');
+    throw new Error('No se pudo acceder a la base de datos. Por favor, ejecute la función inicializarSistema() desde el editor de scripts.');
   }
 }
 
@@ -933,9 +1034,18 @@ function obtenerDatosParaHTML() {
   } catch (error) {
     Logger.log('❌ Error en obtenerDatosParaHTML: ' + error.message);
     Logger.log('Stack trace: ' + error.stack);
+
+    // Verificar si es error de acceso a base de datos
+    let mensajeError = error.message;
+    if (mensajeError.includes('No se pudo acceder a la base de datos')) {
+      mensajeError = 'Sistema no inicializado. Ejecute la función "inicializarSistema()" desde el editor de scripts (Extensiones > Apps Script).';
+    }
+
     return {
       success: false,
-      error: error.message
+      error: mensajeError,
+      clientes: [],
+      movimientos: []
     };
   }
 }
