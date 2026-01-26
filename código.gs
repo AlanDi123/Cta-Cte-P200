@@ -2072,6 +2072,196 @@ function obtenerTotalesRecaudacionDia(fecha) {
   }
 }
 
+// ============================================================================
+// SISTEMA DE ARQUEO DE CAJA - Backend Functions
+// ============================================================================
+
+/**
+ * Inicializa las hojas necesarias para el sistema de Arqueo de Caja
+ * Crea "Config" y "Historial_Caja" si no existen
+ */
+function setupCashSystemSheets() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Crear hoja Config si no existe
+    if (!ss.getSheetByName('Config')) {
+      const configSheet = ss.insertSheet('Config');
+      configSheet.getRange('A1').setValue('Proveedores');
+      configSheet.getRange(1, 1, 1, 1).setFontWeight('bold').setBackground('#efefef');
+    }
+
+    // Crear hoja Historial_Caja si no existe
+    if (!ss.getSheetByName('Historial_Caja')) {
+      const historySheet = ss.insertSheet('Historial_Caja');
+      historySheet.appendRow([
+        'Fecha', 'Hora', 'Usuario',
+        'Total Efectivo', 'Pagos Prov.', 'Extras', 'Aportes',
+        'Recaudación Total',
+        'Detalles (JSON)'
+      ]);
+      historySheet.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#efefef');
+      historySheet.setFrozenRows(1);
+    }
+
+    return { success: true, message: 'Hojas inicializadas correctamente' };
+  } catch (error) {
+    Logger.log('Error en setupCashSystemSheets: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Obtiene la configuración del sistema de Arqueo (lista de proveedores)
+ * @returns {Object} {providers: [...]}
+ */
+function getCashSystemConfig() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSheet = ss.getSheetByName('Config');
+
+    if (!configSheet) {
+      return { providers: [] };
+    }
+
+    const lastRow = configSheet.getLastRow();
+    const providers = [];
+
+    if (lastRow > 0) {
+      const data = configSheet.getRange(1, 1, lastRow, 1).getValues();
+      providers = data.flat().filter(String);
+    }
+
+    return { providers: providers };
+  } catch (error) {
+    Logger.log('Error en getCashSystemConfig: ' + error.message);
+    return { providers: [] };
+  }
+}
+
+/**
+ * Obtiene el historial de cierres de caja de manera inteligente
+ * Busca el JSON en cualquier columna y lo parsea correctamente
+ * @returns {Array} Array de entradas históricas
+ */
+function getCashHistoryEntries() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Historial_Caja');
+
+    if (!sheet) return [];
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return [];
+
+    const lastCol = sheet.getLastColumn();
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    const entries = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      let jsonStr = "";
+      let balance = 0;
+
+      // Buscar la columna que tiene el JSON (empieza con "{")
+      for (let j = row.length - 1; j >= 0; j--) {
+        const cell = row[j];
+        if (typeof cell === 'string' && cell.trim().startsWith('{')) {
+          jsonStr = cell;
+          // Intentar obtener el balance de la columna anterior
+          if (j > 0) balance = row[j - 1];
+          break;
+        }
+      }
+
+      // Si no encontramos JSON, saltamos esta fila
+      if (!jsonStr) continue;
+
+      // Formatear fecha
+      let dateStr = "";
+      try {
+        const dateObj = row[0];
+        if (dateObj instanceof Date) {
+          dateStr = Utilities.formatDate(dateObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
+        } else {
+          dateStr = String(dateObj);
+        }
+      } catch (e) {
+        dateStr = "Fecha desc.";
+      }
+
+      const timeStr = row[1] ? String(row[1]) : "";
+
+      entries.push({
+        date: dateStr,
+        time: timeStr,
+        balance: balance,
+        jsonData: jsonStr
+      });
+    }
+
+    // Devolver invertido para ver lo más reciente arriba
+    return entries.reverse();
+  } catch (error) {
+    Logger.log('Error en getCashHistoryEntries: ' + error.message);
+    return [];
+  }
+}
+
+/**
+ * Guarda los datos de una sesión de arqueo de caja
+ * @param {Object} data - {details: {...}, totals: {...}}
+ * @returns {Object} {success, message}
+ */
+function saveCashSessionData(data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let historySheet = ss.getSheetByName('Historial_Caja');
+
+    // Si la hoja no existe, crearla
+    if (!historySheet) {
+      historySheet = ss.insertSheet('Historial_Caja');
+      historySheet.appendRow([
+        'Fecha', 'Hora', 'Usuario',
+        'Total Efectivo', 'Pagos Prov.', 'Extras', 'Aportes',
+        'Recaudación Total',
+        'Detalles (JSON)'
+      ]);
+      historySheet.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#efefef');
+      historySheet.setFrozenRows(1);
+    }
+
+    const now = new Date();
+    let user = "Sistema";
+    try {
+      user = Session.getActiveUser().getEmail();
+    } catch (e) {
+      user = "Sistema";
+    }
+
+    const timeStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm:ss");
+    const jsonDetails = JSON.stringify(data);
+
+    historySheet.appendRow([
+      now,
+      timeStr,
+      user,
+      data.totals.cash || 0,
+      data.totals.providers || 0,
+      data.totals.extras || 0,
+      data.totals.injections || 0,
+      data.totals.balance || 0,
+      jsonDetails
+    ]);
+
+    return { success: true, message: 'Cierre guardado correctamente.' };
+  } catch (error) {
+    Logger.log('Error en saveCashSessionData: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 
 // ============================================================================
 // FIN DEL ARCHIVO

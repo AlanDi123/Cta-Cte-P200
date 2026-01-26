@@ -2346,6 +2346,30 @@
       </div>
 
       <div class="menu-section">
+        <div class="menu-section-title">Arqueo de Caja</div>
+        <a class="menu-item" data-module="arqueo-efectivo">
+          <span class="menu-item-icon">🧮</span>
+          <span class="menu-item-text">Arqueo de Efectivo</span>
+          <span class="menu-item-shortcut">Ctrl+9</span>
+        </a>
+        <a class="menu-item" data-module="arqueo-gastos">
+          <span class="menu-item-icon">📊</span>
+          <span class="menu-item-text">Gastos y Proveedores</span>
+          <span class="menu-item-shortcut"></span>
+        </a>
+        <a class="menu-item" data-module="arqueo-ruta">
+          <span class="menu-item-icon">🚚</span>
+          <span class="menu-item-text">Hoja de Ruta</span>
+          <span class="menu-item-shortcut"></span>
+        </a>
+        <a class="menu-item" data-module="arqueo-historial">
+          <span class="menu-item-icon">📂</span>
+          <span class="menu-item-text">Historial de Cierres</span>
+          <span class="menu-item-shortcut"></span>
+        </a>
+      </div>
+
+      <div class="menu-section">
         <div class="menu-section-title">Gestión</div>
         <a class="menu-item" data-module="gestion-clientes">
           <span class="menu-item-icon">👥</span>
@@ -3356,6 +3380,223 @@
         </div>
       </div>
 
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: ARQUEO DE CAJA - ARQUEO DE EFECTIVO
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-arqueo-efectivo">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>🧮</span>
+            Arqueo de Efectivo
+          </h1>
+          <p class="module-subtitle">Conteo de denominaciones y efectivo disponible</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>💵</span>
+              Denominaciones
+            </h2>
+          </div>
+          <div id="billContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;"></div>
+        </div>
+
+        <div class="card mt-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📊</span>
+              Total Efectivo
+            </h2>
+          </div>
+          <div style="text-align: center; font-size: 32px; font-weight: bold; color: var(--sv-primario); padding: 20px;">
+            <span id="displayCash">$0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: ARQUEO DE CAJA - GASTOS Y PROVEEDORES
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-arqueo-gastos">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>📊</span>
+            Gastos y Proveedores
+          </h1>
+          <p class="module-subtitle">Registra pagos a proveedores y gastos adicionales</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>🚚</span>
+              Proveedores (Hoy)
+            </h2>
+          </div>
+          <ul id="providerList" style="list-style: none; padding: 0; margin: 0;"></ul>
+          <div style="display: flex; gap: 10px; margin-top: 10px; align-items: flex-end;">
+            <div style="flex: 2;">
+              <select id="newProvSelect" class="form-select"></select>
+            </div>
+            <input type="text" id="newProvCustom" class="form-input" placeholder="Nombre..." style="display: none; flex: 2;">
+            <input type="number" id="newProvAmount" class="form-input" placeholder="$" style="flex: 1;">
+            <button class="btn btn-primary" onclick="addProvider()" style="width: auto; margin: 0;">+</button>
+          </div>
+          <div style="text-align: right; font-size: 0.8rem; margin-top: 5px;">
+            <a href="#" onclick="toggleCustomProv(); return false;" style="color: var(--sv-primario);">Escribir Manual</a>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span>📥</span>
+                Ingresos Extras
+              </h2>
+            </div>
+            <ul id="injectionList" style="list-style: none; padding: 0; margin: 0;"></ul>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+              <input type="text" id="injDesc" class="form-input" placeholder="Detalle">
+              <input type="number" id="injAmount" class="form-input" placeholder="$" style="width: 70px;">
+              <button class="btn btn-primary" onclick="addInjection()" style="width: auto; margin: 0;">+</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span>📤</span>
+                Gastos/Salidas
+              </h2>
+            </div>
+            <ul id="extraList" style="list-style: none; padding: 0; margin: 0;"></ul>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+              <input type="text" id="extDesc" class="form-input" placeholder="Detalle">
+              <input type="number" id="extAmount" class="form-input" placeholder="$" style="width: 70px;">
+              <button class="btn btn-primary" onclick="addExtra()" style="width: auto; margin: 0;">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>💰</span>
+              Resumen de Balance
+            </h2>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sv-borde);">
+            <span>(+) Efectivo</span>
+            <span id="displayCash2" style="font-weight: bold;">$0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sv-borde);">
+            <span>(+) Ingresos Ext.</span>
+            <span id="displayInjections" style="font-weight: bold;">$0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; color: var(--sv-peligro); border-bottom: 1px solid var(--sv-borde);">
+            <span>(-) Proveedores</span>
+            <span id="displayProviders" style="font-weight: bold;">$0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; color: var(--sv-peligro);">
+            <span>(-) Gastos Ext.</span>
+            <span id="displayExtras" style="font-weight: bold;">$0</span>
+          </div>
+          <div style="text-align: center; background: var(--sv-primario); color: white; padding: 15px; border-radius: 8px; margin-top: 15px;">
+            <div style="font-size: 12px; margin-bottom: 5px;">RECAUDACIÓN TOTAL</div>
+            <div style="font-size: 24px; font-weight: bold;" id="displayRealRevenue">$0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: ARQUEO DE CAJA - HOJA DE RUTA
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-arqueo-ruta">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>🚚</span>
+            Hoja de Ruta
+          </h1>
+          <p class="module-subtitle">Vista previa de pagos pendientes y entrega</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>➕</span>
+              Agregar Pago Pendiente
+            </h2>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: flex-end;">
+            <input type="text" id="routeAddName" class="form-input" placeholder="Proveedor Pendiente..." style="flex: 2;">
+            <input type="number" id="routeAddAmount" class="form-input" placeholder="$ Importe" style="flex: 1;">
+            <button class="btn btn-secondary" onclick="addRouteProvider()" style="width: auto;">+</button>
+          </div>
+          <small style="margin-top: 10px; display: block; color: var(--sv-texto-secundario);">Estos items NO afectan al arqueo de hoy. Se guardan hasta el cierre.</small>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span>🚚</span>
+                Proveedores / Pagos
+              </h2>
+            </div>
+            <ul id="routePreviewProviders" style="list-style: none; padding: 0; margin: 0;"></ul>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">
+                <span>📤</span>
+                Gastos
+              </h2>
+            </div>
+            <ul id="routePreviewExtras" style="list-style: none; padding: 0; margin: 0;"></ul>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+          <button class="btn btn-primary" onclick="printRouteSheet()" style="width: 300px;">
+            <span>🖨️</span> IMPRIMIR HOJA DE RUTA
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: ARQUEO DE CAJA - HISTORIAL DE CIERRES
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-arqueo-historial">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>📂</span>
+            Historial de Cierres
+          </h1>
+          <p class="module-subtitle">Consulta y restaura cierres anteriores</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📋</span>
+              Cierres Registrados
+            </h2>
+          </div>
+          <div id="historyListContainer" style="max-height: 500px; overflow-y: auto;">
+            <p style="text-align: center; color: var(--sv-texto-secundario);">Cargando historial...</p>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+          <button class="btn btn-primary" onclick="loadCashHistoryData()" style="width: 200px;">
+            <span>🔄</span> Recargar Historial
+          </button>
+        </div>
+      </div>
+
     </main>
 
   </div>
@@ -3945,6 +4186,10 @@
       initGestionClientes();
       initRecaudacionEntrada();
       initRecaudacionHistorial();
+      initArqueoEfectivo();
+      initArqueoGastos();
+      initArqueoRuta();
+      initArqueoHistorial();
       initConfiguracion();
 
       // Event listeners para el sistema de ayuda
@@ -4203,9 +4448,9 @@
     function initShortcuts() {
       document.addEventListener('keydown', (e) => {
         if (e.ctrlKey && !e.shiftKey && !e.altKey) {
-          const modules = ['dashboard', 'visual-reasoning', 'visor-clientes', 'estadisticas', 'reporte-diario', 'gestion-clientes', 'edicion-movimientos'];
+          const modules = ['dashboard', 'visual-reasoning', 'visor-clientes', 'estadisticas', 'impresion-diaria', 'gestion-clientes', 'recaudacion-entrada', 'recaudacion-historial', 'arqueo-efectivo'];
           const num = parseInt(e.key);
-          if (num >= 1 && num <= 7) {
+          if (num >= 1 && num <= 9) {
             e.preventDefault();
             changeModule(modules[num - 1]);
           }
@@ -6171,6 +6416,329 @@
 
     function buscarRecaudacionesHistorial() {
       showToast('info', 'Funcionalidad', 'Búsqueda de historial disponible en próximas actualizaciones');
+    }
+
+    // ========================================
+    // MÓDULO: ARQUEO DE CAJA
+    // ========================================
+    const denominaciones = [20000, 10000, 2000, 1000, 500, 200, 100, 50, 20, 10];
+    const LS_KEY = 'cash_system_v2';
+    let arqueoState = { bills: {}, providers: [], injections: [], extras: [], routeAdditions: [] };
+    let arqueoRouteState = { providers: [], extras: [] };
+
+    function initArqueoEfectivo() {
+      try {
+        if (typeof google !== 'undefined') {
+          google.script.run.withSuccessHandler(cargarConfigProveedores).getCashSystemConfig();
+        }
+
+        const container = document.getElementById('billContainer');
+        if (!container) return;
+
+        container.innerHTML = '';
+        denominaciones.forEach(val => {
+          container.innerHTML += `
+            <div style="display: flex; align-items: center; background: var(--sv-fondo); padding: 8px; border-radius: 6px; border: 1px solid var(--sv-borde);">
+              <label style="font-weight: 700; color: var(--sv-texto-primario); margin-right: 5px; min-width: 65px;">$${val}</label>
+              <input type="number" placeholder="0" data-denom="${val}" oninput="updateBill(${val}, this.value)" onfocus="this.select()" style="flex: 1; border: none; background: transparent; text-align: right; font-size: 1.1rem; font-weight: 500; outline: none; width: 100%;">
+              <span class="subtotal-tag" id="subtotal-${val}" style="font-size: 0.85rem; color: var(--sv-texto-secundario); min-width: 70px; text-align: right;">$0</span>
+            </div>`;
+        });
+
+        denominaciones.forEach(d => { if(typeof arqueoState.bills[d] === 'undefined') arqueoState.bills[d] = 0; });
+        cargarEstadoArqueo();
+      } catch (e) {
+        console.error('Error inicializando Arqueo de Efectivo:', e);
+      }
+    }
+
+    function initArqueoGastos() {
+      try {
+        const sel = document.getElementById('newProvSelect');
+        if (sel) {
+          sel.innerHTML = '<option value="">Seleccionar...</option>';
+          if (typeof google !== 'undefined') {
+            google.script.run.withSuccessHandler((config) => {
+              if (config && config.providers) {
+                config.providers.forEach(p => {
+                  sel.innerHTML += `<option value="${p}">${p}</option>`;
+                });
+              }
+            }).getCashSystemConfig();
+          }
+        }
+
+        const form = document.getElementById('recaudacionForm');
+        if (form) {
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+          });
+        }
+
+        cargarEstadoArqueo();
+        calc();
+      } catch (e) {
+        console.error('Error inicializando Arqueo Gastos:', e);
+      }
+    }
+
+    function initArqueoRuta() {
+      try {
+        arqueoRouteState.providers = JSON.parse(JSON.stringify(arqueoState.providers));
+        arqueoRouteState.extras = JSON.parse(JSON.stringify(arqueoState.extras));
+        renderRoutePreview();
+      } catch (e) {
+        console.error('Error inicializando Arqueo Ruta:', e);
+      }
+    }
+
+    function initArqueoHistorial() {
+      try {
+        if (typeof google !== 'undefined') {
+          google.script.run.withSuccessHandler(renderArqueoHistory).getCashHistoryEntries();
+        } else {
+          document.getElementById('historyListContainer').innerHTML = '<p style="text-align: center;">No hay historial disponible</p>';
+        }
+      } catch (e) {
+        console.error('Error inicializando Arqueo Historial:', e);
+      }
+    }
+
+    function loadCashHistoryData() {
+      if (typeof google !== 'undefined') {
+        google.script.run.withSuccessHandler(renderArqueoHistory).getCashHistoryEntries();
+      }
+    }
+
+    function cargarConfigProveedores(config) {
+      if (!config || !config.providers) return;
+      const sel = document.getElementById('newProvSelect');
+      if (sel) {
+        sel.innerHTML = '<option value="">Seleccionar...</option>';
+        config.providers.forEach(p => {
+          sel.innerHTML += `<option value="${p}">${p}</option>`;
+        });
+      }
+    }
+
+    function updateBill(denom, count) {
+      arqueoState.bills[denom] = parseInt(count) || 0;
+      const subtotalEl = document.getElementById(`subtotal-${denom}`);
+      if (subtotalEl) {
+        subtotalEl.innerText = fmt(arqueoState.bills[denom] * denom);
+      }
+      calc();
+    }
+
+    function addItem(type) {
+      let name='', amt=0, elName, elAmt, arrName, listId;
+      if(type==='prov') {
+        const s = document.getElementById('newProvSelect'), c = document.getElementById('newProvCustom');
+        name = (c.style.display!=='none' && c.value) ? c.value : s.value;
+        elAmt=document.getElementById('newProvAmount'); elName=c.style.display!=='none'?c:s;
+        arrName='providers'; listId='providerList';
+      } else if(type==='inj') {
+        elName=document.getElementById('injDesc'); elAmt=document.getElementById('injAmount');
+        name=elName.value; arrName='injections'; listId='injectionList';
+      } else {
+        elName=document.getElementById('extDesc'); elAmt=document.getElementById('extAmount');
+        name=elName.value; arrName='extras'; listId='extraList';
+      }
+      amt = parseFloat(elAmt.value);
+
+      if(name && amt) {
+        arqueoState[arrName].push({ name, amount: amt });
+        renderList(listId, arqueoState[arrName], type);
+        if(type==='prov') { document.getElementById('newProvAmount').value=''; document.getElementById('newProvCustom').value=''; }
+        else { elName.value=''; elAmt.value=''; }
+        calc();
+        if(elName.focus) elName.focus();
+      }
+    }
+    function addProvider(){ addItem('prov'); }
+    function addInjection(){ addItem('inj'); }
+    function addExtra(){ addItem('ext'); }
+
+    function removeItem(type, idx) {
+      let arr = type==='prov'?'providers':type==='inj'?'injections':'extras';
+      let lst = type==='prov'?'providerList':type==='inj'?'injectionList':'extraList';
+      arqueoState[arr].splice(idx,1);
+      renderList(lst, arqueoState[arr], type);
+      calc();
+    }
+
+    function renderList(id, arr, type) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML='';
+      arr.forEach((item, idx) => {
+        el.innerHTML += `<li style="display: flex; justify-content: space-between; padding: 8px 5px; border-bottom: 1px solid var(--sv-borde); font-size: 0.95rem; align-items: center;"><span>${item.name}</span><div style="display:flex;align-items:center;"><strong>${fmt(item.amount)}</strong><span style="color: #94a3b8; cursor: pointer; padding: 4px; margin-left: 8px; transition: color 0.2s;" onclick="removeItem('${type}', ${idx})" onmouseover="this.style.color='var(--sv-peligro)'" onmouseout="this.style.color='#94a3b8'">✕</span></div></li>`;
+      });
+    }
+
+    function calc(save=true) {
+      let tc=0;
+      for(let[d,c] of Object.entries(arqueoState.bills)) tc+=d*c;
+      const tp = arqueoState.providers.reduce((a,b)=>a+b.amount,0);
+      const te = arqueoState.extras.reduce((a,b)=>a+b.amount,0);
+      const ti = arqueoState.injections.reduce((a,b)=>a+b.amount,0);
+      const bal = (tc+ti)-(tp+te);
+
+      const displayCash = document.getElementById('displayCash');
+      const displayCash2 = document.getElementById('displayCash2');
+      const displayProviders = document.getElementById('displayProviders');
+      const displayExtras = document.getElementById('displayExtras');
+      const displayInjections = document.getElementById('displayInjections');
+      const displayRealRevenue = document.getElementById('displayRealRevenue');
+
+      if(displayCash) displayCash.innerText=fmt(tc);
+      if(displayCash2) displayCash2.innerText=fmt(tc);
+      if(displayProviders) displayProviders.innerText=fmt(tp);
+      if(displayExtras) displayExtras.innerText=fmt(te);
+      if(displayInjections) displayInjections.innerText=fmt(ti);
+      if(displayRealRevenue) displayRealRevenue.innerText=fmt(bal);
+
+      if(save) guardarEstadoArqueo();
+    }
+
+    function openRouteModal() {
+      const live = arqueoState.providers.map(p => ({...p, isPending: false}));
+      if (!arqueoState.routeAdditions) arqueoState.routeAdditions = [];
+      const pending = arqueoState.routeAdditions;
+      arqueoRouteState.providers = [...live, ...pending];
+      arqueoRouteState.extras = JSON.parse(JSON.stringify(arqueoState.extras));
+      renderRoutePreview();
+    }
+
+    function addRouteProvider() {
+      const n = document.getElementById('routeAddName');
+      const a = document.getElementById('routeAddAmount');
+      const name = n.value;
+      const amt = parseFloat(a.value);
+
+      if(name && amt) {
+        const newItem = {name, amount:amt, isPending: true};
+        if (!arqueoState.routeAdditions) arqueoState.routeAdditions = [];
+        arqueoState.routeAdditions.push(newItem);
+        guardarEstadoArqueo();
+        arqueoRouteState.providers.push(newItem);
+        renderRoutePreview();
+        n.value=''; a.value=''; n.focus();
+      }
+    }
+
+    function removeRouteItem(type, idx) {
+      const item = arqueoRouteState[type][idx];
+      arqueoRouteState[type].splice(idx, 1);
+
+      if (type === 'providers' && item.isPending) {
+        const pIdx = arqueoState.routeAdditions.findIndex(p => p.name === item.name && p.amount === item.amount && p.isPending);
+        if (pIdx !== -1) {
+          arqueoState.routeAdditions.splice(pIdx, 1);
+          guardarEstadoArqueo();
+        }
+      }
+      renderRoutePreview();
+    }
+
+    function renderRoutePreview() {
+      const pl = document.getElementById('routePreviewProviders');
+      const el = document.getElementById('routePreviewExtras');
+      if (!pl || !el) return;
+
+      pl.innerHTML='';
+      el.innerHTML='';
+
+      arqueoRouteState.providers.forEach((i,x)=>{
+        const tag = i.isPending ? '<span style="font-size: 0.75rem; background-color: #fff7ed; color: #ea580c; padding: 1px 6px; border-radius: 4px; border: 1px solid #fdba74; margin-left: 6px; font-weight: 600; display: inline-block; vertical-align: middle;">PENDIENTE</span>' : '';
+        pl.innerHTML += `<li style="display: flex; justify-content: space-between; padding: 8px 5px; border-bottom: 1px solid var(--sv-borde);"><span>${i.name}${tag} (${fmt(i.amount)})</span><span style="color: #94a3b8; cursor: pointer;" onclick="removeRouteItem('providers', ${x})">Quitar</span></li>`;
+      });
+
+      arqueoRouteState.extras.forEach((i,x)=>{
+        el.innerHTML += `<li style="display: flex; justify-content: space-between; padding: 8px 5px; border-bottom: 1px solid var(--sv-borde);"><span>${i.name} (${fmt(i.amount)})</span><span style="color: #94a3b8; cursor: pointer;" onclick="removeRouteItem('extras', ${x})">Quitar</span></li>`;
+      });
+    }
+
+    function printRouteSheet() {
+      showToast('info', 'Impresión', 'Abriendo vista previa...');
+      setTimeout(() => window.print(), 500);
+    }
+
+    function renderArqueoHistory(entries) {
+      const c = document.getElementById('historyListContainer');
+      if(!c) return;
+      if(!entries || !entries.length) {
+        c.innerHTML='<p style="text-align: center; color: var(--sv-texto-secundario);">No se encontró historial</p>';
+        return;
+      }
+      let h = '';
+      entries.forEach(e => {
+        let jsonSafe = encodeURIComponent(e.jsonData);
+        h += `<div style="padding: 12px; border: 1px solid var(--sv-borde); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center;" onclick="loadArqueoHist('${jsonSafe}')" onmouseover="this.style.borderColor='var(--sv-primario)'; this.style.background='var(--sv-fondo)'" onmouseout="this.style.borderColor='var(--sv-borde)'; this.style.background='white'"><div><div style="font-weight: 600; color: var(--sv-primario); margin-bottom: 5px;">${e.date} - ${e.time}</div></div><div style="font-weight: bold; color: var(--sv-texto-primario);">${fmt(e.balance)}</div></div>`;
+      });
+      c.innerHTML=h;
+    }
+
+    function loadArqueoHist(json) {
+      if(!confirm("Esto reemplazará lo que tienes en pantalla. ¿Seguro?")) return;
+      try {
+        const data = JSON.parse(decodeURIComponent(json));
+        arqueoState = data.details || data;
+        if(!arqueoState.routeAdditions) arqueoState.routeAdditions = [];
+
+        denominaciones.forEach(d=>{
+          const c = arqueoState.bills[d]||0;
+          const i=document.querySelector(`input[data-denom="${d}"]`);
+          if(i) i.value=c>0?c:'';
+          const subtotal = document.getElementById(`subtotal-${d}`);
+          if(subtotal) subtotal.innerText=fmt(c*d);
+        });
+        renderList('providerList', arqueoState.providers, 'prov');
+        renderList('injectionList', arqueoState.injections, 'inj');
+        renderList('extraList', arqueoState.extras, 'ext');
+        calc();
+        showToast('success', 'Cargado', 'Cierre anterior restaurado');
+      } catch(e) {
+        showToast('error', 'Error', 'No se pudo cargar: ' + e.message);
+      }
+    }
+
+    function guardarEstadoArqueo() {
+      localStorage.setItem(LS_KEY, JSON.stringify(arqueoState));
+    }
+
+    function cargarEstadoArqueo() {
+      const s=localStorage.getItem(LS_KEY);
+      if(s) {
+        try{
+          arqueoState=JSON.parse(s);
+          if(!arqueoState.routeAdditions) arqueoState.routeAdditions = [];
+          denominaciones.forEach(d=>{
+            const c=arqueoState.bills[d]||0;
+            const i=document.querySelector(`input[data-denom="${d}"]`);
+            if(i && c>0)i.value=c;
+            const subtotal = document.getElementById(`subtotal-${d}`);
+            if(subtotal) subtotal.innerText=fmt(c*d);
+          });
+          renderList('providerList',arqueoState.providers,'prov');
+          renderList('injectionList',arqueoState.injections,'inj');
+          renderList('extraList',arqueoState.extras,'ext');
+          calc(false);
+        }catch(e){}
+      }
+    }
+
+    function fmt(n) {
+      return '$'+n.toLocaleString('es-AR',{minimumFractionDigits:0, maximumFractionDigits:2});
+    }
+
+    function toggleCustomProv() {
+      const c=document.getElementById('newProvCustom');
+      const s=document.getElementById('newProvSelect');
+      const v=c.style.display==='none';
+      c.style.display=v?'block':'none';
+      s.style.display=v?'none':'block';
+      if(v)c.focus();
     }
 
     console.log('✨ Sistema Sol & Verde V18.0 inicializado correctamente');
