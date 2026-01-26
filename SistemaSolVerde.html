@@ -4808,13 +4808,25 @@
         VRState.imageBase64 = parts[1];
         console.log('✓ Base64 extraído, longitud:', VRState.imageBase64.length);
 
+        // VALIDAR que se guardó correctamente
+        if (!VRState.imageBase64 || VRState.imageBase64.length === 0) {
+          console.error('❌ ERROR: VRState.imageBase64 quedó vacío después de asignación');
+          showToast('error', 'Error', 'No se pudo guardar la imagen en memoria');
+          return;
+        }
+
+        console.log('✅ VRState.imageBase64 confirmado - tipo:', typeof VRState.imageBase64, 'longitud:', VRState.imageBase64.length);
+
         document.getElementById('vrImageImg').src = fullDataUrl;
         document.getElementById('vrFileName').textContent = file.name;
         document.getElementById('vrFileSize').textContent = (file.size / 1024).toFixed(1) + ' KB';
         document.getElementById('vrUploadZone').parentElement.style.display = 'none';
         document.getElementById('vrImagePreview').classList.remove('hidden');
         document.getElementById('vrAnalyzeBtn').disabled = false;
-        showToast('success', 'Imagen Cargada', 'Tamaño: ' + (VRState.imageBase64.length / 1024).toFixed(0) + ' KB - Lista para analizar');
+
+        const sizeKB = (VRState.imageBase64.length / 1024).toFixed(0);
+        console.log('✅ Mostrando toast con tamaño:', sizeKB + ' KB');
+        showToast('success', 'Imagen Cargada', 'Tamaño: ' + sizeKB + ' KB - Lista para analizar');
       };
       reader.readAsDataURL(file);
     }
@@ -4831,20 +4843,28 @@
         return;
       }
 
-      console.log('✅ Procediendo a enviar al backend, tamaño:', (VRState.imageBase64.length / 1024).toFixed(2), 'KB');
+      // FIX: Copiar a variable local para evitar que VRState se modifique durante transmisión
+      const imageBase64ToSend = VRState.imageBase64;
+
+      console.log('✅ Copiado a variable local, tamaño:', (imageBase64ToSend.length / 1024).toFixed(2), 'KB');
+      console.log('✅ Tipo de imageBase64ToSend:', typeof imageBase64ToSend);
+      console.log('✅ Longitud de imageBase64ToSend:', imageBase64ToSend.length);
+
       showToast('info', 'Procesando', 'Analizando imagen con Claude AI...');
       document.getElementById('vrAnalyzeBtn').disabled = true;
       document.getElementById('vrAnalyzeBtn').innerHTML = '<span>⏳</span><span>PROCESANDO...</span>';
 
       // Log justo antes de enviar
       console.log('📤 Enviando al backend:');
-      console.log('  - Tamaño Base64: ' + VRState.imageBase64.length + ' caracteres');
-      console.log('  - Primeros 50 chars: ' + VRState.imageBase64.substring(0, 50));
+      console.log('  - Tamaño Base64: ' + imageBase64ToSend.length + ' caracteres');
+      console.log('  - Primeros 50 chars: ' + imageBase64ToSend.substring(0, 50));
+      console.log('  - Últimos 50 chars: ' + imageBase64ToSend.substring(imageBase64ToSend.length - 50));
 
+      // Enviar la copia local, no VRState.imageBase64
       google.script.run
         .withSuccessHandler(handleAnalisisVRSuccess)
         .withFailureHandler(handleAnalisisVRError)
-        .analizarImagenVisualReasoning(VRState.imageBase64);
+        .analizarImagenVisualReasoning(imageBase64ToSend);
     }
 
     function handleAnalisisVRSuccess(resultado) {
