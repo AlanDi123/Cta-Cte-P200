@@ -1326,11 +1326,22 @@ const ClaudeService = {
       throw new Error(error);
     }
 
-    // PASO 2: Validar imagen Base64
+    // PASO 2: Validar imagen Base64 - FIX: Validar que no sea undefined primero
     Logger.log('📋 Paso 2: Validando imagen Base64...');
+    Logger.log('✓ imageBase64 tipo: ' + typeof imageBase64);
+    Logger.log('✓ imageBase64 === undefined: ' + (imageBase64 === undefined));
+    Logger.log('✓ imageBase64 === null: ' + (imageBase64 === null));
+    Logger.log('✓ imageBase64 === "": ' + (imageBase64 === ""));
+
+    if (imageBase64 === undefined || imageBase64 === null || imageBase64 === '') {
+      const error = 'Image Base64 no fue recibida (undefined/null/empty). Esto puede ocurrir si: 1) El archivo es muy grande (>5MB), 2) La conexión fue interrumpida, 3) Browser bloqueó el acceso a FileReader. Por favor, recarga la página e intenta de nuevo.';
+      Logger.log('❌ ' + error);
+      throw new Error(error);
+    }
+
     Logger.log('✓ Longitud imagen: ' + imageBase64.length + ' caracteres');
     if (imageBase64.length < 100) {
-      const error = 'Imagen demasiado pequeña o inválida';
+      const error = 'Imagen demasiado pequeña o inválida (< 100 caracteres Base64)';
       Logger.log('❌ ' + error);
       throw new Error(error);
     }

@@ -4790,15 +4790,31 @@
       VRState.archivoImagen = file;
 
       const reader = new FileReader();
+      reader.onerror = (e) => {
+        console.error('❌ FileReader error:', e);
+        showToast('error', 'Error al cargar imagen', 'No se pudo leer el archivo. Intenta de nuevo.');
+      };
       reader.onload = (e) => {
-        VRState.imageBase64 = e.target.result.split(',')[1];
-        document.getElementById('vrImageImg').src = e.target.result;
+        console.log('✅ FileReader completado, tamaño result:', e.target.result.length);
+        const fullDataUrl = e.target.result;
+        const parts = fullDataUrl.split(',');
+
+        if (parts.length !== 2) {
+          console.error('❌ DataURL inválida - no tiene comma:', fullDataUrl.substring(0, 100));
+          showToast('error', 'Error', 'No se pudo procesar la imagen');
+          return;
+        }
+
+        VRState.imageBase64 = parts[1];
+        console.log('✓ Base64 extraído, longitud:', VRState.imageBase64.length);
+
+        document.getElementById('vrImageImg').src = fullDataUrl;
         document.getElementById('vrFileName').textContent = file.name;
         document.getElementById('vrFileSize').textContent = (file.size / 1024).toFixed(1) + ' KB';
         document.getElementById('vrUploadZone').parentElement.style.display = 'none';
         document.getElementById('vrImagePreview').classList.remove('hidden');
         document.getElementById('vrAnalyzeBtn').disabled = false;
-        showToast('success', 'Imagen Cargada', 'Lista para analizar con Claude AI');
+        showToast('success', 'Imagen Cargada', 'Tamaño: ' + (VRState.imageBase64.length / 1024).toFixed(0) + ' KB - Lista para analizar');
       };
       reader.readAsDataURL(file);
     }
