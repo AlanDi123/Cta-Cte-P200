@@ -2039,12 +2039,24 @@ function analizarImagenVisualReasoning(imageBase64) {
   try {
     Logger.log('═══════════════════════════════════════════════════════════');
     Logger.log('📞 LLAMADA: analizarImagenVisualReasoning (wrapper API)');
+    Logger.log('📊 imageBase64 tipo: ' + typeof imageBase64);
+    Logger.log('📊 imageBase64 === undefined: ' + (imageBase64 === undefined));
+    Logger.log('📊 imageBase64 === null: ' + (imageBase64 === null));
+    Logger.log('📊 imageBase64 === "": ' + (imageBase64 === ""));
     Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
+
+    if (imageBase64 && imageBase64.length > 0) {
+      Logger.log('📊 Primeros 100 chars: ' + imageBase64.substring(0, 100));
+    }
+
     Logger.log('═══════════════════════════════════════════════════════════');
 
     // Validar input básico
     if (!imageBase64 || imageBase64.length < 100) {
-      throw new Error('Image Base64 inválida o muy pequeña (< 100 caracteres)');
+      const errorMsg = !imageBase64 ? 'imageBase64 es null/undefined/empty' :
+                       'imageBase64 muy pequeño (' + imageBase64.length + ' < 100 caracteres)';
+      Logger.log('❌ VALIDATION FAILED: ' + errorMsg);
+      throw new Error('Image Base64 inválida: ' + errorMsg);
     }
 
     // Llamar al servicio de Claude

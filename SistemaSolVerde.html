@@ -4820,14 +4820,26 @@
     }
 
     function analizarImagenVR() {
-      if (!VRState.imageBase64) {
-        showToast('error', 'Error', 'No hay imagen cargada');
+      console.log('🔍 analizarImagenVR() llamado');
+      console.log('✓ VRState.imageBase64 definido:', !!VRState.imageBase64);
+      console.log('✓ VRState.imageBase64 longitud:', VRState.imageBase64 ? VRState.imageBase64.length : 'undefined');
+      console.log('✓ VRState.imageBase64 primeros 100 chars:', VRState.imageBase64 ? VRState.imageBase64.substring(0, 100) : 'undefined');
+
+      if (!VRState.imageBase64 || VRState.imageBase64.length === 0) {
+        console.error('❌ VRState.imageBase64 está vacío o undefined');
+        showToast('error', 'Error', 'No hay imagen cargada. Por favor, carga una imagen primero.');
         return;
       }
 
+      console.log('✅ Procediendo a enviar al backend, tamaño:', (VRState.imageBase64.length / 1024).toFixed(2), 'KB');
       showToast('info', 'Procesando', 'Analizando imagen con Claude AI...');
       document.getElementById('vrAnalyzeBtn').disabled = true;
       document.getElementById('vrAnalyzeBtn').innerHTML = '<span>⏳</span><span>PROCESANDO...</span>';
+
+      // Log justo antes de enviar
+      console.log('📤 Enviando al backend:');
+      console.log('  - Tamaño Base64: ' + VRState.imageBase64.length + ' caracteres');
+      console.log('  - Primeros 50 chars: ' + VRState.imageBase64.substring(0, 50));
 
       google.script.run
         .withSuccessHandler(handleAnalisisVRSuccess)
