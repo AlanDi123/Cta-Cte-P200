@@ -4499,7 +4499,11 @@
         return;
       }
 
-      tbody.innerHTML = AppState.movimientosRecientes.slice(0, 10).map(mov => `
+      tbody.innerHTML = AppState.movimientosRecientes.slice(0, 10).map(mov => {
+        const monto = typeof mov.monto === 'number' ? mov.monto : (typeof mov.monto === 'string' ? parseFloat(mov.monto) : 0);
+        const saldo = typeof mov.saldoPost === 'number' ? mov.saldoPost : (typeof mov.saldoPost === 'string' ? parseFloat(mov.saldoPost) : 0);
+
+        return `
         <tr>
           <td><code>${mov.id}</code></td>
           <td>${formatearFecha(mov.fecha)}</td>
@@ -4509,10 +4513,11 @@
               ${mov.tipo === 'DEBE' ? '🔴 FIADO' : '🟢 PAGO'}
             </span>
           </td>
-          <td class="monto-cell">$ ${mov.monto.toLocaleString('es-AR')}</td>
-          <td class="monto-cell">$ ${mov.saldo.toLocaleString('es-AR')}</td>
+          <td class="monto-cell">$ ${monto.toLocaleString('es-AR')}</td>
+          <td class="monto-cell">$ ${saldo.toLocaleString('es-AR')}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function formatearFecha(fecha) {
@@ -4884,16 +4889,20 @@
           if (movimientos.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="tabla-empty">Sin movimientos</td></tr>';
           } else {
-            tbody.innerHTML = movimientos.map(mov => `
+            tbody.innerHTML = movimientos.map(mov => {
+              const monto = typeof mov.monto === 'number' ? mov.monto : (typeof mov.monto === 'string' ? parseFloat(mov.monto) : 0);
+              const saldo = typeof mov.saldoPost === 'number' ? mov.saldoPost : (typeof mov.saldoPost === 'string' ? parseFloat(mov.saldoPost) : 0);
+              return `
               <tr>
                 <td><code>${mov.id || '-'}</code></td>
                 <td>${formatearFecha(mov.fecha)}</td>
                 <td><span class="tipo-badge ${mov.tipo === 'DEBE' ? 'debe' : 'haber'}">${mov.tipo === 'DEBE' ? '🔴 FIADO' : '🟢 PAGO'}</span></td>
-                <td class="monto-cell">$ ${mov.monto.toLocaleString('es-AR')}</td>
-                <td class="monto-cell">$ ${mov.saldo.toLocaleString('es-AR')}</td>
+                <td class="monto-cell">$ ${monto.toLocaleString('es-AR')}</td>
+                <td class="monto-cell">$ ${saldo.toLocaleString('es-AR')}</td>
                 <td>${mov.obs || '-'}</td>
               </tr>
-            `).join('');
+            `;
+            }).join('');
           }
 
           showToast('success', 'Cargado', `${movimientos.length} movimientos encontrados`);
