@@ -4832,10 +4832,9 @@
     }
 
     function analizarImagenVR() {
-      console.log('🔍 analizarImagenVR() llamado');
+      console.log('🔍 analizarImagenVR() llamado - Iniciando proceso de dos pasos con CacheService');
       console.log('✓ VRState.imageBase64 definido:', !!VRState.imageBase64);
       console.log('✓ VRState.imageBase64 longitud:', VRState.imageBase64 ? VRState.imageBase64.length : 'undefined');
-      console.log('✓ VRState.imageBase64 primeros 100 chars:', VRState.imageBase64 ? VRState.imageBase64.substring(0, 100) : 'undefined');
 
       if (!VRState.imageBase64 || VRState.imageBase64.length === 0) {
         console.error('❌ VRState.imageBase64 está vacío o undefined');
@@ -4843,28 +4842,38 @@
         return;
       }
 
-      // FIX: Copiar a variable local para evitar que VRState se modifique durante transmisión
       const imageBase64ToSend = VRState.imageBase64;
+      const imageSizeKB = (imageBase64ToSend.length / 1024).toFixed(2);
 
-      console.log('✅ Copiado a variable local, tamaño:', (imageBase64ToSend.length / 1024).toFixed(2), 'KB');
-      console.log('✅ Tipo de imageBase64ToSend:', typeof imageBase64ToSend);
-      console.log('✅ Longitud de imageBase64ToSend:', imageBase64ToSend.length);
+      console.log('📦 Tamaño de imagen: ' + imageSizeKB + ' KB');
+      console.log('📤 Paso 1: Guardando imagen en CacheService del backend...');
 
-      showToast('info', 'Procesando', 'Analizando imagen con Claude AI...');
+      showToast('info', 'Procesando', 'Guardando imagen (' + imageSizeKB + ' KB) en servidor...');
       document.getElementById('vrAnalyzeBtn').disabled = true;
       document.getElementById('vrAnalyzeBtn').innerHTML = '<span>⏳</span><span>PROCESANDO...</span>';
 
-      // Log justo antes de enviar
-      console.log('📤 Enviando al backend:');
-      console.log('  - Tamaño Base64: ' + imageBase64ToSend.length + ' caracteres');
-      console.log('  - Primeros 50 chars: ' + imageBase64ToSend.substring(0, 50));
-      console.log('  - Últimos 50 chars: ' + imageBase64ToSend.substring(imageBase64ToSend.length - 50));
-
-      // Enviar la copia local, no VRState.imageBase64
+      // PASO 1: Guardar Base64 en CacheService backend y obtener token
       google.script.run
-        .withSuccessHandler(handleAnalisisVRSuccess)
-        .withFailureHandler(handleAnalisisVRError)
-        .analizarImagenVisualReasoning(imageBase64ToSend);
+        .withSuccessHandler(function(token) {
+          console.log('✅ PASO 1 EXITOSO: Token recibido del backend:', token);
+          console.log('🔐 Token tamaño:', token.length, 'bytes (muy pequeño, no hay problemas de serialización)');
+
+          // PASO 2: Usar el token para analizar la imagen
+          console.log('📊 Paso 2: Enviando token al backend para análisis de imagen...');
+          showToast('info', 'Analizando', 'Analizando imagen con Claude AI...');
+
+          google.script.run
+            .withSuccessHandler(handleAnalisisVRSuccess)
+            .withFailureHandler(handleAnalisisVRError)
+            .analizarImagenVisualReasoning(token);
+        })
+        .withFailureHandler(function(error) {
+          console.error('❌ PASO 1 FALLO: Error guardando imagen en CacheService:', error);
+          showToast('error', 'Error', 'Fallo al procesar la imagen: ' + (error || 'error desconocido'));
+          document.getElementById('vrAnalyzeBtn').disabled = false;
+          document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
+        })
+        .guardarImagenTemporalVR(imageBase64ToSend);
     }
 
     function handleAnalisisVRSuccess(resultado) {

@@ -2035,29 +2035,32 @@ function guardarApiKey(apiKey) {
  * @param {string} imageBase64 - Imagen en Base64
  * @returns {Object} Movimientos extraídos
  */
-function analizarImagenVisualReasoning(imageBase64) {
+/**
+ * FIX: Recibe token en lugar de Base64 directamente
+ * El Base64 se guarda en el frontend en sessionStorage y luego en backend CacheService
+ * Esto evita el límite de serialización silencioso de google.script.run
+ */
+function analizarImagenVisualReasoning(vrDataToken) {
   try {
     Logger.log('═══════════════════════════════════════════════════════════');
-    Logger.log('📞 LLAMADA: analizarImagenVisualReasoning (wrapper API)');
-    Logger.log('📊 imageBase64 tipo: ' + typeof imageBase64);
-    Logger.log('📊 imageBase64 === undefined: ' + (imageBase64 === undefined));
-    Logger.log('📊 imageBase64 === null: ' + (imageBase64 === null));
-    Logger.log('📊 imageBase64 === "": ' + (imageBase64 === ""));
-    Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
+    Logger.log('📞 LLAMADA: analizarImagenVisualReasoning (usando CacheService)');
+    Logger.log('📊 Token recibido: ' + vrDataToken);
 
-    if (imageBase64 && imageBase64.length > 0) {
-      Logger.log('📊 Primeros 100 chars: ' + imageBase64.substring(0, 100));
-    }
+    // Recuperar Base64 del cache usando el token
+    Logger.log('📋 Paso 1: Recuperando Base64 del cache...');
+    const cache = CacheService.getUserCache();
+    const imageBase64 = cache.get('vr_image_' + vrDataToken);
 
-    Logger.log('═══════════════════════════════════════════════════════════');
+    Logger.log('✓ Base64 recuperado del cache, longitud: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
 
-    // Validar input básico
     if (!imageBase64 || imageBase64.length < 100) {
-      const errorMsg = !imageBase64 ? 'imageBase64 es null/undefined/empty' :
-                       'imageBase64 muy pequeño (' + imageBase64.length + ' < 100 caracteres)';
+      const errorMsg = !imageBase64 ? 'No se encontró Base64 en cache con este token' :
+                       'Base64 muy pequeño (' + imageBase64.length + ' < 100 caracteres)';
       Logger.log('❌ VALIDATION FAILED: ' + errorMsg);
       throw new Error('Image Base64 inválida: ' + errorMsg);
     }
+
+    Logger.log('📋 Paso 2: Base64 validado, iniciando análisis...');
 
     // Llamar al servicio de Claude
     Logger.log('🚀 Llamando ClaudeService.analizarImagen()...');
@@ -2065,6 +2068,10 @@ function analizarImagenVisualReasoning(imageBase64) {
 
     Logger.log('✅ ClaudeService completado exitosamente');
     Logger.log('📊 Movimientos extraídos: ' + resultado.totalExtraidos);
+
+    // Limpiar el cache después de usarlo
+    cache.remove('vr_image_' + vrDataToken);
+    Logger.log('✅ Cache limpiado después de análisis');
 
     return {
       success: true,
@@ -2083,6 +2090,43 @@ function analizarImagenVisualReasoning(imageBase64) {
       success: false,
       error: error.message,
       stack: error.stack || 'No stack trace available'
+    };
+  }
+}
+
+/**
+ * Nueva función: Recibe el Base64 y lo guarda en CacheService
+ * Retorna un token que se pasa a analizarImagenVisualReasoning
+ */
+function guardarImagenTemporalVR(imageBase64) {
+  try {
+    Logger.log('📞 LLAMADA: guardarImagenTemporalVR');
+    Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
+
+    if (!imageBase64 || imageBase64.length < 100) {
+      throw new Error('Base64 inválido o muy pequeño');
+    }
+
+    // Generar token aleatorio
+    const token = Utilities.getUuid();
+    Logger.log('✓ Token generado: ' + token);
+
+    // Guardar en cache por 15 minutos
+    const cache = CacheService.getUserCache();
+    cache.put('vr_image_' + token, imageBase64, 900); // 900 segundos = 15 minutos
+
+    Logger.log('✅ Base64 guardado en cache con token: ' + token);
+
+    return {
+      success: true,
+      token: token,
+      dataSize: imageBase64.length
+    };
+  } catch (error) {
+    Logger.log('❌ ERROR en guardarImagenTemporalVR: ' + error.message);
+    return {
+      success: false,
+      error: error.message
     };
   }
 }
