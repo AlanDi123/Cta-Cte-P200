@@ -1907,6 +1907,39 @@
     }
 
     /* ========================================
+       ESTILOS ESPECÍFICOS PARA MODO OSCURO
+       ======================================== */
+    [data-theme="dark"] .form-input,
+    [data-theme="dark"] .form-select,
+    [data-theme="dark"] .form-textarea,
+    [data-theme="dark"] input[type="number"],
+    [data-theme="dark"] input[type="text"],
+    [data-theme="dark"] input[type="email"],
+    [data-theme="dark"] input[type="date"],
+    [data-theme="dark"] input[type="time"],
+    [data-theme="dark"] select,
+    [data-theme="dark"] textarea {
+      background: white !important;
+      color: #333 !important;
+      border: 2px solid var(--sv-borde);
+    }
+
+    [data-theme="dark"] .form-input:focus,
+    [data-theme="dark"] .form-select:focus,
+    [data-theme="dark"] .form-textarea:focus,
+    [data-theme="dark"] input[type="number"]:focus,
+    [data-theme="dark"] input[type="text"]:focus,
+    [data-theme="dark"] input[type="email"]:focus,
+    [data-theme="dark"] input[type="date"]:focus,
+    [data-theme="dark"] input[type="time"]:focus,
+    [data-theme="dark"] select:focus,
+    [data-theme="dark"] textarea:focus {
+      outline: none;
+      border-color: var(--sv-primario);
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.2);
+    }
+
+    /* ========================================
        ESTILOS DE IMPRESIÓN - A4 OPTIMIZADO
        ======================================== */
     @media print {
@@ -3178,6 +3211,17 @@
           <div style="text-align: center; font-size: 32px; font-weight: bold; color: var(--sv-primario); padding: 20px;">
             <span id="displayCash">$0</span>
           </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px;">
+          <button class="btn btn-success" onclick="guardarMovimientoArqueo()" style="width: 100%; background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);">
+            <span>💾</span>
+            Guardar Movimiento
+          </button>
+          <button class="btn btn-danger" onclick="limpiarArqueo()" style="width: 100%; background: linear-gradient(135deg, #f44336 0%, #ef5350 100%);">
+            <span>🗑️</span>
+            Limpiar Todo
+          </button>
         </div>
       </div>
 
@@ -6348,6 +6392,101 @@
       c.style.display=v?'block':'none';
       s.style.display=v?'none':'block';
       if(v)c.focus();
+    }
+
+    function guardarMovimientoArqueo() {
+      try {
+        mostrarLoading('Guardando movimiento en historial...');
+
+        // Calcular totales actuales
+        let totalCash=0;
+        for(let[d,c] of Object.entries(arqueoState.bills)) totalCash+=d*c;
+        const totalProviders = arqueoState.providers.reduce((a,b)=>a+b.amount,0);
+        const totalExtras = arqueoState.extras.reduce((a,b)=>a+b.amount,0);
+        const totalInjections = arqueoState.injections.reduce((a,b)=>a+b.amount,0);
+        const balance = (totalCash+totalInjections)-(totalProviders+totalExtras);
+
+        const now = new Date();
+        const fecha = now.toISOString().split('T')[0];
+        const hora = now.toTimeString().split(' ')[0];
+        const usuario = Session ? 'usuario-actual' : 'anonimo';
+
+        const sessionData = {
+          fecha: fecha,
+          hora: hora,
+          usuario: usuario,
+          cash: totalCash,
+          providers: totalProviders,
+          extras: totalExtras,
+          injections: totalInjections,
+          balance: balance,
+          details: {
+            bills: JSON.parse(JSON.stringify(arqueoState.bills)),
+            providers: JSON.parse(JSON.stringify(arqueoState.providers)),
+            injections: JSON.parse(JSON.stringify(arqueoState.injections)),
+            extras: JSON.parse(JSON.stringify(arqueoState.extras))
+          }
+        };
+
+        if (typeof google !== 'undefined' && google.script.run && google.script.run.saveCashSessionData) {
+          google.script.run
+            .withSuccessHandler(function(result) {
+              ocultarLoading();
+              if (result && result.success) {
+                showToast('success', 'Guardado ✓', 'Movimiento de arqueo registrado en el historial');
+                // Recargar historial
+                if (typeof loadCashHistoryData === 'function') {
+                  setTimeout(loadCashHistoryData, 1000);
+                }
+              } else {
+                showToast('error', 'Error', (result && result.error) || 'Error al guardar');
+              }
+            })
+            .withFailureHandler(function(err) {
+              ocultarLoading();
+              showToast('error', 'Error', 'Error al guardar: ' + (err.message || 'desconocido'));
+            })
+            .saveCashSessionData(sessionData);
+        } else {
+          ocultarLoading();
+          showToast('warning', 'Función no disponible', 'Ejecuta inicializarSistema() primero');
+        }
+      } catch (e) {
+        ocultarLoading();
+        showToast('error', 'Error', 'Error: ' + e.message);
+      }
+    }
+
+    function limpiarArqueo() {
+      if (!confirm('⚠️ ¿Deseas limpiar TODO el arqueo actual? Esta acción no se puede deshacer.')) {
+        return;
+      }
+
+      try {
+        // Limpiar el estado
+        arqueoState = { bills: {}, providers: [], injections: [], extras: [], routeAdditions: [] };
+
+        // Limpiar localStorage
+        localStorage.removeItem(LS_KEY);
+
+        // Limpiar UI
+        denominaciones.forEach(d => {
+          const i = document.querySelector(`input[data-denom="${d}"]`);
+          if (i) i.value = '';
+          const subtotal = document.getElementById(`subtotal-${d}`);
+          if (subtotal) subtotal.innerText = '$0';
+        });
+
+        renderList('providerList', [], 'prov');
+        renderList('injectionList', [], 'inj');
+        renderList('extraList', [], 'ext');
+
+        calc(false);
+
+        showToast('success', 'Limpiado ✓', 'Arqueo limpiado correctamente. Listo para el siguiente cierre.');
+      } catch (e) {
+        showToast('error', 'Error', 'Error al limpiar: ' + e.message);
+      }
     }
 
     console.log('✨ Sistema Sol & Verde V18.0 inicializado correctamente');
