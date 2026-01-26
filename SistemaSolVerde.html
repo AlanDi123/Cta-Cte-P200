@@ -4854,9 +4854,21 @@
 
       // PASO 1: Guardar Base64 en CacheService backend y obtener token
       google.script.run
-        .withSuccessHandler(function(token) {
-          console.log('✅ PASO 1 EXITOSO: Token recibido del backend:', token);
-          console.log('🔐 Token tamaño:', token.length, 'bytes (muy pequeño, no hay problemas de serialización)');
+        .withSuccessHandler(function(response) {
+          console.log('✅ PASO 1 EXITOSO: Respuesta del backend:', response);
+
+          if (!response || !response.token) {
+            console.error('❌ PASO 1 FALLO: No token en response:', response);
+            showToast('error', 'Error', 'No se recibió token del servidor');
+            document.getElementById('vrAnalyzeBtn').disabled = false;
+            document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
+            return;
+          }
+
+          const token = response.token;
+          console.log('✅ Token extraído:', token);
+          console.log('🔐 Token tamaño:', token.length, 'bytes');
+          console.log('📊 Datos almacenados en backend:', response.dataSize, 'bytes');
 
           // PASO 2: Usar el token para analizar la imagen
           console.log('📊 Paso 2: Enviando token al backend para análisis de imagen...');
