@@ -5003,15 +5003,34 @@
     function cargarClienteVisor(nombreCliente) {
       showToast('info', 'Cargando', 'Obteniendo historial completo...');
 
+      // Invalidate cache to ensure fresh data
+      invalidarCache('visor_' + nombreCliente);
+
       google.script.run
         .withSuccessHandler((datos) => {
+          if (!datos || !datos.success) {
+            showToast('error', 'Error', datos?.error || 'Error cargando cliente');
+            return;
+          }
+
           document.getElementById('visorHistorialCard').classList.remove('hidden');
           document.getElementById('visorClienteNombre').textContent = nombreCliente;
 
-          const saldo = datos.saldo || 0;
-          const totalFiado = datos.totalFiado || 0;
-          const totalPagado = datos.totalPagado || 0;
+          // Extract data from backend structure: {success, cliente: {...}, movimientos: [...]}
+          const saldo = (datos.cliente && datos.cliente.saldo) || 0;
           const movimientos = datos.movimientos || [];
+
+          // Calculate totals by summing movimientos amounts by type
+          let totalFiado = 0;
+          let totalPagado = 0;
+          movimientos.forEach(mov => {
+            const monto = typeof mov.monto === 'number' ? mov.monto : (typeof mov.monto === 'string' ? parseFloat(mov.monto) : 0);
+            if (mov.tipo === 'DEBE') {
+              totalFiado += monto;
+            } else if (mov.tipo === 'HABER') {
+              totalPagado += monto;
+            }
+          });
 
           document.getElementById('visorSaldoActual').textContent = '$ ' + saldo.toLocaleString('es-AR');
           document.getElementById('visorSaldoActual').style.color = saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)';
@@ -5031,14 +5050,14 @@
           } else {
             tbody.innerHTML = movimientos.map(mov => {
               const monto = typeof mov.monto === 'number' ? mov.monto : (typeof mov.monto === 'string' ? parseFloat(mov.monto) : 0);
-              const saldo = typeof mov.saldoPost === 'number' ? mov.saldoPost : (typeof mov.saldoPost === 'string' ? parseFloat(mov.saldoPost) : 0);
+              const saldoPost = typeof mov.saldoPost === 'number' ? mov.saldoPost : (typeof mov.saldoPost === 'string' ? parseFloat(mov.saldoPost) : 0);
               return `
               <tr>
                 <td><code>${mov.id || '-'}</code></td>
                 <td>${formatearFecha(mov.fecha)}</td>
                 <td><span class="tipo-badge ${mov.tipo === 'DEBE' ? 'debe' : 'haber'}">${mov.tipo === 'DEBE' ? '🔴 FIADO' : '🟢 PAGO'}</span></td>
                 <td class="monto-cell">$ ${monto.toLocaleString('es-AR')}</td>
-                <td class="monto-cell">$ ${saldo.toLocaleString('es-AR')}</td>
+                <td class="monto-cell">$ ${saldoPost.toLocaleString('es-AR')}</td>
                 <td>${mov.obs || '-'}</td>
               </tr>
             `;
@@ -5948,12 +5967,12 @@
 
       google.script.run
         .withSuccessHandler((resultado) => {
-          if (resultado.exito) {
+          if (resultado.success) {
             showToast('success', '✅ Guardada', 'API Key configurada correctamente');
             document.getElementById('configClaudeApiKey').value = '';
             document.getElementById('configClaudeApiKey').placeholder = '••••••••••••••••';
           } else {
-            showToast('error', 'Error', resultado.mensaje || 'No se pudo guardar');
+            showToast('error', 'Error', resultado.error || resultado.mensaje || 'No se pudo guardar');
           }
         })
         .withFailureHandler((error) => {
