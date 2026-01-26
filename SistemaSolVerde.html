@@ -4823,6 +4823,14 @@
       document.getElementById('vrAnalyzeBtn').disabled = false;
       document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
 
+      // Check if the backend returned an error (success: false)
+      if (resultado.success === false) {
+        console.error('❌ Backend error:', resultado);
+        showToast('error', 'Error de Análisis',
+          resultado.error || 'Error desconocido al analizar imagen');
+        return;
+      }
+
       if (!resultado || !resultado.movimientos) {
         showToast('error', 'Error', 'No se pudieron extraer datos de la imagen');
         return;

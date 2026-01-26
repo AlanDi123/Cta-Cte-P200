@@ -2026,7 +2026,22 @@ function guardarApiKey(apiKey) {
  */
 function analizarImagenVisualReasoning(imageBase64) {
   try {
+    Logger.log('═══════════════════════════════════════════════════════════');
+    Logger.log('📞 LLAMADA: analizarImagenVisualReasoning (wrapper API)');
+    Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
+    Logger.log('═══════════════════════════════════════════════════════════');
+
+    // Validar input básico
+    if (!imageBase64 || imageBase64.length < 100) {
+      throw new Error('Image Base64 inválida o muy pequeña (< 100 caracteres)');
+    }
+
+    // Llamar al servicio de Claude
+    Logger.log('🚀 Llamando ClaudeService.analizarImagen()...');
     const resultado = ClaudeService.analizarImagen(imageBase64);
+
+    Logger.log('✅ ClaudeService completado exitosamente');
+    Logger.log('📊 Movimientos extraídos: ' + resultado.totalExtraidos);
 
     return {
       success: true,
@@ -2034,10 +2049,17 @@ function analizarImagenVisualReasoning(imageBase64) {
       totalExtraidos: resultado.totalExtraidos
     };
   } catch (error) {
-    Logger.log('Error en analizarImagenVisualReasoning: ' + error.message);
+    Logger.log('═══════════════════════════════════════════════════════════');
+    Logger.log('❌ ERROR EN WRAPPER analizarImagenVisualReasoning');
+    Logger.log('Error message: ' + error.message);
+    Logger.log('Error stack: ' + error.stack);
+    Logger.log('═══════════════════════════════════════════════════════════');
+
+    // Devolver error detallado
     return {
       success: false,
-      error: error.message
+      error: error.message,
+      stack: error.stack || 'No stack trace available'
     };
   }
 }
