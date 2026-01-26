@@ -4028,7 +4028,7 @@
             </span>
           </td>
           <td class="monto-cell">$ ${mov.monto.toLocaleString('es-AR')}</td>
-          <td class="monto-cell">$ ${mov.saldo.toLocaleString('es-AR')}</td>
+          <td class="monto-cell">$ ${mov.saldoPost.toLocaleString('es-AR')}</td>
         </tr>
       `).join('');
     }
@@ -4408,7 +4408,7 @@
                 <td>${formatearFecha(mov.fecha)}</td>
                 <td><span class="tipo-badge ${mov.tipo === 'DEBE' ? 'debe' : 'haber'}">${mov.tipo === 'DEBE' ? '🔴 FIADO' : '🟢 PAGO'}</span></td>
                 <td class="monto-cell">$ ${mov.monto.toLocaleString('es-AR')}</td>
-                <td class="monto-cell">$ ${mov.saldo.toLocaleString('es-AR')}</td>
+                <td class="monto-cell">$ ${mov.saldoPost.toLocaleString('es-AR')}</td>
                 <td>${mov.obs || '-'}</td>
               </tr>
             `).join('');
