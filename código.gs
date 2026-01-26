@@ -126,7 +126,7 @@ function inicializarSistema() {
     Logger.log('📋 Nombre del spreadsheet: ' + ss.getName());
 
     // Verificar/crear hojas necesarias
-    const hojasNecesarias = ['CLIENTES', 'MOVIMIENTOS'];
+    const hojasNecesarias = ['CLIENTES', 'MOVIMIENTOS', 'RECAUDACION_EFECTIVO'];
     for (const nombreHoja of hojasNecesarias) {
       let hoja = ss.getSheetByName(nombreHoja);
       if (!hoja) {
@@ -140,6 +140,9 @@ function inicializarSistema() {
         } else if (nombreHoja === 'MOVIMIENTOS') {
           hoja.appendRow(['ID', 'FECHA', 'CLIENTE', 'TIPO', 'MONTO', 'SALDO_POST', 'OBS', 'USUARIO']);
           hoja.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
+        } else if (nombreHoja === 'RECAUDACION_EFECTIVO') {
+          hoja.appendRow(['ID', 'FECHA', 'CLIENTE', 'MONTO', 'FORMA_PAGO', 'OBS', 'USUARIO', 'TIMESTAMP', 'ESTADO']);
+          hoja.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#FF6F00').setFontColor('#FFFFFF');
         }
         Logger.log('✅ Hoja creada: ' + nombreHoja);
       } else {
@@ -990,6 +993,236 @@ const MovimientosRepository = {
 
 
 // ============================================================================
+// 4B. RECAUDACIÓN REPOSITORY - SISTEMA INDEPENDIENTE DE COBROS
+// ============================================================================
+
+/**
+ * Configuración específica para Recaudación
+ */
+const RECAUDACION_CONFIG = {
+  HOJA: 'RECAUDACION_EFECTIVO',
+  COLS: {
+    ID: 0,
+    FECHA: 1,
+    CLIENTE: 2,
+    MONTO: 3,
+    FORMA_PAGO: 4,
+    OBS: 5,
+    USUARIO: 6,
+    TIMESTAMP: 7,
+    ESTADO: 8
+  },
+  FORMAS_PAGO: ['EFECTIVO', 'CHEQUE', 'TRANSFERENCIA', 'TARJETA', 'OTRO'],
+  ESTADOS: ['REGISTRADO', 'DEPOSITADO', 'CONCILIADO']
+};
+
+const RecaudacionRepository = {
+  /**
+   * Obtiene o crea la hoja RECAUDACION_EFECTIVO
+   */
+  getHoja: function() {
+    const ss = getSpreadsheet();
+    let hoja = ss.getSheetByName(RECAUDACION_CONFIG.HOJA);
+
+    if (!hoja) {
+      hoja = ss.insertSheet(RECAUDACION_CONFIG.HOJA);
+      hoja.appendRow([
+        'ID', 'FECHA', 'CLIENTE', 'MONTO', 'FORMA_PAGO',
+        'OBS', 'USUARIO', 'TIMESTAMP', 'ESTADO'
+      ]);
+      hoja.getRange(1, 1, 1, 9)
+        .setFontWeight('bold')
+        .setBackground('#FF6F00')
+        .setFontColor('#FFFFFF');
+      Logger.log('✅ Hoja RECAUDACION_EFECTIVO creada');
+    }
+
+    return hoja;
+  },
+
+  /**
+   * Genera nuevo ID autoincremental
+   */
+  generarNuevoID: function() {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return 1;
+
+    let maxId = 0;
+    for (let i = 1; i < datos.length; i++) {
+      const id = datos[i][RECAUDACION_CONFIG.COLS.ID];
+      if (typeof id === 'number' && id > maxId) maxId = id;
+    }
+
+    return maxId + 1;
+  },
+
+  /**
+   * Registra una recaudación nueva
+   */
+  registrar: function(recaudacionData) {
+    const lock = LockService.getScriptLock();
+
+    try {
+      lock.waitLock(30000);
+
+      // Validaciones
+      const clienteNorm = normalizarString(recaudacionData.cliente);
+      if (!clienteNorm) {
+        throw new Error('Cliente requerido');
+      }
+
+      if (!ClientesRepository.buscarPorNombre(clienteNorm)) {
+        throw new Error(`Cliente "${clienteNorm}" no encontrado`);
+      }
+
+      if (!recaudacionData.monto || recaudacionData.monto <= 0) {
+        throw new Error('Monto debe ser positivo');
+      }
+
+      const formaPago = String(recaudacionData.forma_pago || 'EFECTIVO').toUpperCase();
+      if (!RECAUDACION_CONFIG.FORMAS_PAGO.includes(formaPago)) {
+        throw new Error('Forma de pago inválida');
+      }
+
+      // Registrar recaudación
+      const hoja = this.getHoja();
+      const nuevoID = this.generarNuevoID();
+      const fecha = new Date();
+      const usuario = Session.getActiveUser().getEmail();
+
+      const nuevaFila = [
+        nuevoID,
+        fecha,
+        clienteNorm,
+        recaudacionData.monto,
+        formaPago,
+        recaudacionData.obs || '',
+        usuario,
+        fecha,
+        'REGISTRADO'
+      ];
+
+      hoja.appendRow(nuevaFila);
+
+      lock.releaseLock();
+
+      return {
+        id: nuevoID,
+        fecha: fecha.toISOString(),
+        cliente: clienteNorm,
+        monto: recaudacionData.monto,
+        forma_pago: formaPago,
+        obs: recaudacionData.obs || '',
+        usuario: usuario,
+        estado: 'REGISTRADO'
+      };
+
+    } catch (error) {
+      lock.releaseLock();
+      throw error;
+    }
+  },
+
+  /**
+   * Obtiene recaudaciones por cliente
+   */
+  obtenerPorCliente: function(nombreCliente) {
+    const nombreNorm = normalizarString(nombreCliente);
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return [];
+
+    const recaudaciones = [];
+    for (let i = 1; i < datos.length; i++) {
+      const clienteFila = normalizarString(datos[i][RECAUDACION_CONFIG.COLS.CLIENTE]);
+
+      if (clienteFila === nombreNorm) {
+        const fecha = datos[i][RECAUDACION_CONFIG.COLS.FECHA];
+        recaudaciones.push({
+          id: datos[i][RECAUDACION_CONFIG.COLS.ID],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+          cliente: datos[i][RECAUDACION_CONFIG.COLS.CLIENTE],
+          monto: datos[i][RECAUDACION_CONFIG.COLS.MONTO],
+          forma_pago: datos[i][RECAUDACION_CONFIG.COLS.FORMA_PAGO],
+          obs: datos[i][RECAUDACION_CONFIG.COLS.OBS] || '',
+          usuario: datos[i][RECAUDACION_CONFIG.COLS.USUARIO] || '',
+          timestamp: datos[i][RECAUDACION_CONFIG.COLS.TIMESTAMP],
+          estado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
+        });
+      }
+    }
+
+    return recaudaciones.sort((a, b) => b.id - a.id);
+  },
+
+  /**
+   * Obtiene recaudaciones en rango de fechas
+   */
+  obtenerPorRango: function(desde, hasta) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return [];
+
+    const fechaDesde = new Date(desde);
+    const fechaHasta = new Date(hasta);
+    fechaDesde.setHours(0, 0, 0, 0);
+    fechaHasta.setHours(23, 59, 59, 999);
+
+    const recaudaciones = [];
+    for (let i = 1; i < datos.length; i++) {
+      const fechaMov = new Date(datos[i][RECAUDACION_CONFIG.COLS.FECHA]);
+
+      if (fechaMov >= fechaDesde && fechaMov <= fechaHasta) {
+        const fecha = datos[i][RECAUDACION_CONFIG.COLS.FECHA];
+        recaudaciones.push({
+          id: datos[i][RECAUDACION_CONFIG.COLS.ID],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+          cliente: datos[i][RECAUDACION_CONFIG.COLS.CLIENTE],
+          monto: datos[i][RECAUDACION_CONFIG.COLS.MONTO],
+          forma_pago: datos[i][RECAUDACION_CONFIG.COLS.FORMA_PAGO],
+          obs: datos[i][RECAUDACION_CONFIG.COLS.OBS] || '',
+          usuario: datos[i][RECAUDACION_CONFIG.COLS.USUARIO] || '',
+          estado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
+        });
+      }
+    }
+
+    return recaudaciones;
+  },
+
+  /**
+   * Obtiene totales diarios
+   */
+  obtenerTotalesDiarios: function(fecha) {
+    const recaudaciones = this.obtenerPorRango(fecha, fecha);
+
+    const totales = {
+      fecha: fecha instanceof Date ? fecha.toISOString().split('T')[0] : fecha,
+      total_recaudado: 0,
+      cantidad_movimientos: recaudaciones.length,
+      por_forma_pago: {}
+    };
+
+    RECAUDACION_CONFIG.FORMAS_PAGO.forEach(forma => {
+      totales.por_forma_pago[forma] = 0;
+    });
+
+    recaudaciones.forEach(rec => {
+      totales.total_recaudado += rec.monto;
+      totales.por_forma_pago[rec.forma_pago] =
+        (totales.por_forma_pago[rec.forma_pago] || 0) + rec.monto;
+    });
+
+    return totales;
+  }
+};
+
+
+// ============================================================================
 // 5. CLAUDE SERVICE
 // ============================================================================
 
@@ -1758,6 +1991,80 @@ function crearClientesMasivos(payload) {
 
   } catch (error) {
     Logger.log('Error en crearClientesMasivos: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * API 14: Registra una recaudación de efectivo
+ * @param {Object} recaudacionData - {cliente, monto, forma_pago, obs}
+ * @returns {Object} {success, recaudacion} o {success: false, error}
+ */
+function guardarRecaudacion(recaudacionData) {
+  Logger.log('📥 guardarRecaudacion - Inicio: ' + JSON.stringify(recaudacionData));
+
+  try {
+    if (!recaudacionData || typeof recaudacionData !== 'object') {
+      throw new Error('Datos inválidos');
+    }
+
+    const recaudacion = RecaudacionRepository.registrar(recaudacionData);
+
+    Logger.log('✅ Recaudación guardada - ID: ' + recaudacion.id);
+
+    return {
+      success: true,
+      recaudacion: recaudacion
+    };
+  } catch (error) {
+    Logger.log('❌ Error en guardarRecaudacion: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * API 15: Obtiene recaudaciones por cliente
+ * @param {string} nombreCliente - Nombre del cliente
+ * @returns {Object} {success, recaudaciones: Array}
+ */
+function obtenerRecaudacionesPorCliente(nombreCliente) {
+  try {
+    const recaudaciones = RecaudacionRepository.obtenerPorCliente(nombreCliente);
+
+    return {
+      success: true,
+      recaudaciones: recaudaciones
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerRecaudacionesPorCliente: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * API 16: Obtiene totales diarios de recaudación
+ * @param {string} fecha - Fecha en formato YYYY-MM-DD
+ * @returns {Object} {success, totales}
+ */
+function obtenerTotalesRecaudacionDia(fecha) {
+  try {
+    const totales = RecaudacionRepository.obtenerTotalesDiarios(new Date(fecha));
+
+    return {
+      success: true,
+      totales: totales
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerTotalesRecaudacionDia: ' + error.message);
     return {
       success: false,
       error: error.message

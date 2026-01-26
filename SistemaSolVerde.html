@@ -1052,6 +1052,37 @@
       }
     }
 
+    /* Mobile Medium (iPhone 12-14, 420-480px) - NUEVO BREAKPOINT */
+    @media (max-width: 420px) {
+      .btn {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .menu-item {
+        padding: 16px 20px;
+        min-height: 48px;
+      }
+
+      .form-input,
+      .form-select,
+      .form-textarea {
+        min-height: 44px;
+        padding: 12px 14px;
+        font-size: 16px;
+      }
+
+      .header-title {
+        font-size: 14px;
+      }
+
+      .module-title {
+        font-size: 22px;
+      }
+    }
+
     /* Mobile Extra Small (iPhone SE, pequeños) */
     @media (max-width: 360px) {
       .header-title {
@@ -1065,6 +1096,7 @@
       .btn {
         padding: 10px 12px;
         font-size: 12px;
+        min-height: 44px;
       }
 
       .card {
@@ -1083,6 +1115,12 @@
       .tabla-movimientos td {
         padding: 6px 4px;
       }
+
+      .form-input,
+      .form-select,
+      .form-textarea {
+        min-height: 44px;
+      }
     }
 
     /* Landscape en móviles */
@@ -1099,6 +1137,49 @@
 
       .modal {
         max-height: 95vh;
+      }
+    }
+
+    /* ========================================
+       OPTIMIZACIONES DE PERFORMANCE Y HARDWARE
+       ======================================== */
+    .sidebar {
+      will-change: transform;
+      backface-visibility: hidden;
+      perspective: 1000px;
+    }
+
+    .module-view {
+      will-change: opacity;
+      backface-visibility: hidden;
+    }
+
+    .menu-item {
+      will-change: background-color, border-color;
+    }
+
+    .btn {
+      will-change: background-color, transform;
+      backface-visibility: hidden;
+    }
+
+    /* Touch-friendly button sizes para todos los dispositivos */
+    @media (hover: none) and (pointer: coarse) {
+      .btn {
+        min-height: 48px;
+        min-width: 48px;
+        padding: 12px 20px;
+      }
+
+      .menu-item {
+        min-height: 48px;
+      }
+
+      .form-input,
+      .form-select,
+      .form-textarea {
+        min-height: 44px;
+        font-size: 16px;
       }
     }
 
@@ -1826,89 +1907,140 @@
     }
 
     /* ========================================
-       ESTILOS DE IMPRESIÓN
+       ESTILOS DE IMPRESIÓN - A4 OPTIMIZADO
        ======================================== */
     @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
       body {
         background: white;
         color: black;
+        font-size: 11pt;
       }
 
       .app-header,
       .sidebar,
       .sidebar-overlay,
       .toast-container,
-      .btn,
       .filters-row,
-      .pagination {
+      .pagination,
+      .no-print {
+        display: none !important;
+      }
+
+      .btn {
         display: none !important;
       }
 
       .main-content {
         padding: 0;
         overflow: visible;
+        width: 100%;
       }
 
       .module-view {
         display: block !important;
       }
 
+      .module-view.active {
+        display: block !important;
+      }
+
       .card {
         box-shadow: none;
-        border: 1px solid #ddd;
+        border: 1px solid #333;
         page-break-inside: avoid;
+        padding: 0;
+        margin: 0 0 10mm 0;
+      }
+
+      .card-header {
+        page-break-inside: avoid;
+      }
+
+      .card-title {
+        font-size: 12pt;
+        margin: 0;
       }
 
       .tabla-movimientos {
         font-size: 10pt;
         border-collapse: collapse;
+        width: 100%;
       }
 
       .tabla-movimientos th,
       .tabla-movimientos td {
         border: 1px solid #333;
-        padding: 6px;
+        padding: 5pt 4pt;
+        text-align: left;
       }
 
       .tabla-movimientos thead {
-        background: #f0f0f0 !important;
-        color: black !important;
+        background: #2E7D32 !important;
+        color: white !important;
+        font-weight: bold;
+      }
+
+      .tabla-movimientos tfoot {
+        background: #1B5E20 !important;
+        color: white !important;
+        font-weight: bold;
       }
 
       .print-header {
         display: block;
         text-align: center;
-        margin-bottom: 20px;
-        padding-bottom: 15px;
+        margin-bottom: 15mm;
+        padding-bottom: 10mm;
         border-bottom: 2px solid #333;
+        page-break-inside: avoid;
       }
 
       .print-title {
-        font-size: 18pt;
+        font-size: 14pt;
         font-weight: bold;
-        margin-bottom: 5px;
+        margin-bottom: 3mm;
+        letter-spacing: 0.5pt;
       }
 
-      .print-subtitle {
-        font-size: 12pt;
-        color: #666;
+      .print-date {
+        font-size: 10pt;
+        color: #333;
+      }
+
+      .print-table-wrapper {
+        margin-top: 5mm;
       }
 
       @page {
-        size: A4;
-        margin: 2cm;
+        size: A4 portrait;
+        margin: 15mm 10mm;
+      }
+
+      @page :first {
+        margin-top: 20mm;
       }
 
       .page-break {
         page-break-after: always;
       }
 
-      .no-print {
-        display: none !important;
-      }
-
       .chart-container {
         page-break-inside: avoid;
+      }
+
+      /* Prevent orphans and widows */
+      table {
+        page-break-inside: avoid;
+      }
+
+      tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
       }
     }
 
@@ -1958,6 +2090,47 @@
     .table-responsive {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+    }
+
+    /* ========================================
+       IMPRESIÓN DIARIA - ESTILOS
+       ======================================== */
+    .print-container {
+      margin: 20px 0;
+    }
+
+    .print-header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--sv-primario);
+    }
+
+    .print-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--sv-primario);
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .print-date {
+      font-size: 14px;
+      color: var(--sv-texto-secundario);
+      font-style: italic;
+    }
+
+    .print-table-wrapper {
+      margin-top: 20px;
+    }
+
+    #tablaImpresion tfoot tr {
+      background: linear-gradient(90deg, #1B5E20 0%, #2E7D32 100%);
+    }
+
+    #tablaImpresion tfoot td {
+      color: white;
+      font-weight: 700;
     }
 
     /* ========================================
@@ -2083,6 +2256,25 @@
           <span class="menu-item-icon">📊</span>
           <span class="menu-item-text">Estadísticas</span>
           <span class="menu-item-shortcut">Ctrl+4</span>
+        </a>
+        <a class="menu-item" data-module="impresion-diaria">
+          <span class="menu-item-icon">🖨️</span>
+          <span class="menu-item-text">Impresión Diaria</span>
+          <span class="menu-item-shortcut">Ctrl+5</span>
+        </a>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-section-title">Recaudación</div>
+        <a class="menu-item" data-module="recaudacion-entrada">
+          <span class="menu-item-icon">💰</span>
+          <span class="menu-item-text">Registrar Cobro</span>
+          <span class="menu-item-shortcut">Ctrl+7</span>
+        </a>
+        <a class="menu-item" data-module="recaudacion-historial">
+          <span class="menu-item-icon">📋</span>
+          <span class="menu-item-text">Historial de Cobros</span>
+          <span class="menu-item-shortcut">Ctrl+8</span>
         </a>
       </div>
 
@@ -2810,6 +3002,293 @@
         </div>
       </div>
 
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: IMPRESIÓN DIARIA CLIENTES
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-impresion-diaria">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>🖨️</span>
+            Impresión Diaria Clientes
+          </h1>
+          <p class="module-subtitle">Reporte diario con estado de clientes (Pagos/Fiados/Saldo)</p>
+        </div>
+
+        <div class="card mb-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📅</span>
+              Filtros
+            </h2>
+          </div>
+
+          <div class="filters-row">
+            <div class="filter-group">
+              <label class="form-label">Fecha del Reporte</label>
+              <input type="date" id="impresionFecha" class="form-input">
+            </div>
+            <button class="btn btn-primary" id="btnActualizarImpresion" style="margin-top: 22px;">
+              <span>🔄</span> Actualizar
+            </button>
+            <button class="btn btn-secondary" id="btnImprimirReporte" style="margin-top: 22px;">
+              <span>🖨️</span> Imprimir
+            </button>
+          </div>
+        </div>
+
+        <div class="card print-container">
+          <div class="print-header" id="reportHeader">
+            <div class="print-title">SOL & VERDE - IMPRESIÓN DIARIA DE CLIENTES</div>
+            <div class="print-date" id="reportDate"></div>
+          </div>
+
+          <div style="overflow-x: auto;" class="print-table-wrapper">
+            <table class="tabla-movimientos" id="tablaImpresion">
+              <thead>
+                <tr style="background-color: #2E7D32; color: white;">
+                  <th style="text-align: left;">CLIENTE</th>
+                  <th style="text-align: right;">PAGOS</th>
+                  <th style="text-align: right;">FIADOS</th>
+                  <th style="text-align: right;">SALDO</th>
+                </tr>
+              </thead>
+              <tbody id="impresionBody">
+                <tr><td colspan="4" class="tabla-empty">Cargando datos...</td></tr>
+              </tbody>
+              <tfoot>
+                <tr style="background-color: #1B5E20; color: white; font-weight: bold;">
+                  <td style="text-align: left;">TOTALES</td>
+                  <td style="text-align: right; font-family: 'Courier New';" id="totalPagos">$ 0</td>
+                  <td style="text-align: right; font-family: 'Courier New';" id="totalFiados">$ 0</td>
+                  <td style="text-align: right; font-family: 'Courier New';" id="totalSaldo">$ 0</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: RECAUDACIÓN - REGISTRAR COBRO
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-recaudacion-entrada">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>💰</span>
+            Registrar Cobro
+          </h1>
+          <p class="module-subtitle">Registro de recaudación de efectivo o formas de pago</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>💳</span>
+              Nuevo Cobro
+            </h2>
+          </div>
+
+          <form id="recaudacionForm">
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">📅</span>
+                Fecha
+              </label>
+              <input type="date" id="recaudacionFecha" class="form-input" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">👤</span>
+                Cliente
+              </label>
+              <input type="text" id="recaudacionCliente" class="form-input"
+                     placeholder="Buscar cliente..." autocomplete="off" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">💲</span>
+                Monto
+              </label>
+              <input type="text" id="recaudacionMonto" class="form-input"
+                     placeholder="$ 0" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">💳</span>
+                Forma de Pago
+              </label>
+              <select id="recaudacionForma" class="form-select" required>
+                <option value="">-- Seleccionar forma --</option>
+                <option value="EFECTIVO">💵 Efectivo</option>
+                <option value="CHEQUE">✓ Cheque</option>
+                <option value="TRANSFERENCIA">🔄 Transferencia</option>
+                <option value="TARJETA">💳 Tarjeta</option>
+                <option value="OTRO">❓ Otro</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <span class="form-label-icon">📝</span>
+                Observaciones (Opcional)
+              </label>
+              <textarea id="recaudacionObs" class="form-textarea"
+                        placeholder="Detalles adicionales..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-secondary btn-block" id="btnGuardarRecaudacion">
+              <span>💾</span>
+              <span>REGISTRAR COBRO</span>
+            </button>
+          </form>
+        </div>
+
+        <div class="card mt-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📊</span>
+              Últimos Cobros Hoy
+            </h2>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="tabla-movimientos">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Cliente</th>
+                  <th>Monto</th>
+                  <th>Forma</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="recaudacionTodayBody">
+                <tr>
+                  <td colspan="5" class="tabla-empty">Cargando...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           MÓDULO: RECAUDACIÓN - HISTORIAL
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-recaudacion-historial">
+        <div class="module-header">
+          <h1 class="module-title">
+            <span>📋</span>
+            Historial de Cobros
+          </h1>
+          <p class="module-subtitle">Consulta de cobros registrados por fecha y cliente</p>
+        </div>
+
+        <div class="card mb-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>🔍</span>
+              Filtros
+            </h2>
+          </div>
+
+          <div class="filters-row">
+            <div class="filter-group">
+              <label class="form-label">Desde</label>
+              <input type="date" id="recaudacionDesde" class="form-input">
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Hasta</label>
+              <input type="date" id="recaudacionHasta" class="form-input">
+            </div>
+            <div class="filter-group">
+              <label class="form-label">Cliente (Opcional)</label>
+              <input type="text" id="recaudacionClienteFiltro" class="form-input"
+                     placeholder="Filtrar por cliente...">
+            </div>
+            <button class="btn btn-primary" id="btnBuscarRecaudaciones" style="margin-top: 22px;">
+              <span>🔍</span> Buscar
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>💰</span>
+              Cobros Registrados
+              <span class="badge badge-info" id="recaudacionCountBadge">0 cobros</span>
+            </h2>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="tabla-movimientos">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>Monto</th>
+                  <th>Forma Pago</th>
+                  <th>Obs</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="recaudacionHistorialBody">
+                <tr>
+                  <td colspan="6" class="tabla-empty">Selecciona un rango de fechas</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card mt-20">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📊</span>
+              Resumen
+            </h2>
+          </div>
+
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <div class="metric-card-title">Total Recaudado</div>
+                <div class="metric-card-icon">💰</div>
+              </div>
+              <div class="metric-card-value" id="recaudacionTotalMonto">$ 0</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <div class="metric-card-title">Cantidad de Cobros</div>
+                <div class="metric-card-icon">📋</div>
+              </div>
+              <div class="metric-card-value" id="recaudacionTotalCobros">0</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <div class="metric-card-title">Efectivo</div>
+                <div class="metric-card-icon">💵</div>
+              </div>
+              <div class="metric-card-value" id="recaudacionEfectivo">$ 0</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-card-header">
+                <div class="metric-card-title">Otros Métodos</div>
+                <div class="metric-card-icon">💳</div>
+              </div>
+              <div class="metric-card-value" id="recaudacionOtros">$ 0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </main>
 
   </div>
@@ -3395,7 +3874,10 @@
       initVisualReasoning();
       initVisorClientes();
       initEstadisticas();
+      initImpresionDiaria();
       initGestionClientes();
+      initRecaudacionEntrada();
+      initRecaudacionHistorial();
       initConfiguracion();
 
       // Event listeners para el sistema de ayuda
@@ -5396,6 +5878,164 @@
         showToast('success', 'Actualizado', `Cliente asignado: ${nombre}`);
       }
       cerrarModal('modalRematch');
+    }
+
+    // ========================================
+    // MÓDULO: IMPRESIÓN DIARIA CLIENTES
+    // ========================================
+    function initImpresionDiaria() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('impresionFecha').value = today;
+
+      document.getElementById('btnActualizarImpresion').addEventListener('click', cargarReporteImpresion);
+      document.getElementById('btnImprimirReporte').addEventListener('click', imprimirReporte);
+
+      cargarReporteImpresion();
+    }
+
+    function cargarReporteImpresion() {
+      mostrarLoading('Generando reporte...');
+
+      const fecha = document.getElementById('impresionFecha').value;
+      document.getElementById('reportDate').textContent =
+        `Generado: ${new Date(fecha).toLocaleDateString('es-AR')}`;
+
+      // Usar AppState.clientesData (ya cargado en cargarDatosIniciales)
+      const clientes = AppState.clientesData || [];
+
+      let totalPagos = 0;
+      let totalFiados = 0;
+
+      const rows = clientes.map(cliente => {
+        const pagos = (cliente.saldo < 0) ? Math.abs(cliente.saldo) : 0;
+        const fiados = (cliente.saldo > 0) ? cliente.saldo : 0;
+
+        totalPagos += pagos;
+        totalFiados += fiados;
+
+        return `
+          <tr>
+            <td style="text-align: left;"><strong>${cliente.nombre}</strong></td>
+            <td style="text-align: right; font-family: 'Courier New';">$ ${pagos.toLocaleString('es-AR')}</td>
+            <td style="text-align: right; font-family: 'Courier New';">$ ${fiados.toLocaleString('es-AR')}</td>
+            <td style="text-align: right; font-family: 'Courier New';">$ ${cliente.saldo.toLocaleString('es-AR')}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const totalSaldo = totalFiados - totalPagos;
+
+      document.getElementById('impresionBody').innerHTML = rows ||
+        '<tr><td colspan="4" class="tabla-empty">No hay clientes</td></tr>';
+
+      document.getElementById('totalPagos').textContent = `$ ${totalPagos.toLocaleString('es-AR')}`;
+      document.getElementById('totalFiados').textContent = `$ ${totalFiados.toLocaleString('es-AR')}`;
+      document.getElementById('totalSaldo').textContent = `$ ${totalSaldo.toLocaleString('es-AR')}`;
+
+      ocultarLoading();
+    }
+
+    function imprimirReporte() {
+      window.print();
+    }
+
+    // ========================================
+    // MÓDULO: RECAUDACIÓN - REGISTRAR COBRO
+    // ========================================
+    function initRecaudacionEntrada() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('recaudacionFecha').value = today;
+
+      document.getElementById('recaudacionForm').addEventListener('submit', guardarRecaudacionNueva);
+
+      cargarRecaudacionesHoy();
+    }
+
+    function guardarRecaudacionNueva(e) {
+      e.preventDefault();
+      mostrarLoading('Registrando cobro...');
+
+      const recaudacionData = {
+        fecha: document.getElementById('recaudacionFecha').value,
+        cliente: document.getElementById('recaudacionCliente').value,
+        monto: parseFloat(document.getElementById('recaudacionMonto').value.replace(/[$,]/g, '')),
+        forma_pago: document.getElementById('recaudacionForma').value,
+        obs: document.getElementById('recaudacionObs').value
+      };
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          ocultarLoading();
+          if (result.success) {
+            showToast('success', 'Cobro Registrado',
+              `Cobro de $${recaudacionData.monto.toLocaleString('es-AR')} registrado`);
+            document.getElementById('recaudacionForm').reset();
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('recaudacionFecha').value = today;
+            cargarRecaudacionesHoy();
+          } else {
+            showToast('error', 'Error', result.error);
+          }
+        })
+        .withFailureHandler(function(err) {
+          ocultarLoading();
+          showToast('error', 'Error', 'Error al guardar: ' + err.message);
+        })
+        .guardarRecaudacion(recaudacionData);
+    }
+
+    function cargarRecaudacionesHoy() {
+      const today = new Date().toISOString().split('T')[0];
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            renderRecaudacionesToday(result.totales);
+          }
+        })
+        .withFailureHandler(function(err) {
+          console.log('Error cargando recaudaciones hoy: ' + err.message);
+        })
+        .obtenerTotalesRecaudacionDia(today);
+    }
+
+    function renderRecaudacionesToday(totales) {
+      const tbody = document.getElementById('recaudacionTodayBody');
+
+      if (!totales || totales.cantidad_movimientos === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="tabla-empty">Sin cobros hoy</td></tr>';
+        return;
+      }
+
+      // Fila resumen
+      let html = `
+        <tr style="background: #f0f0f0; font-weight: bold;">
+          <td>--</td>
+          <td>TOTAL DEL DÍA</td>
+          <td>$ ${totales.total_recaudado.toLocaleString('es-AR')}</td>
+          <td>${totales.cantidad_movimientos} cobros</td>
+          <td style="color: #4CAF50;">✓ ACTIVO</td>
+        </tr>
+      `;
+
+      tbody.innerHTML = html;
+    }
+
+    // ========================================
+    // MÓDULO: RECAUDACIÓN - HISTORIAL
+    // ========================================
+    function initRecaudacionHistorial() {
+      const today = new Date();
+      const primerDiaDelMes = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      document.getElementById('recaudacionDesde').value = primerDiaDelMes.toISOString().split('T')[0];
+      document.getElementById('recaudacionHasta').value = today.toISOString().split('T')[0];
+
+      document.getElementById('btnBuscarRecaudaciones').addEventListener('click', buscarRecaudacionesHistorial);
+    }
+
+    function buscarRecaudacionesHistorial() {
+      showToast('info', 'Funcionalidad', 'Búsqueda de historial disponible en próximas actualizaciones');
     }
 
     console.log('✨ Sistema Sol & Verde V18.0 inicializado correctamente');
