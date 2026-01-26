@@ -5943,60 +5943,106 @@
     // MÓDULO: RECAUDACIÓN - REGISTRAR COBRO
     // ========================================
     function initRecaudacionEntrada() {
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('recaudacionFecha').value = today;
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const fechaInput = document.getElementById('recaudacionFecha');
+        if (fechaInput) {
+          fechaInput.value = today;
+        }
 
-      document.getElementById('recaudacionForm').addEventListener('submit', guardarRecaudacionNueva);
+        const form = document.getElementById('recaudacionForm');
+        if (form) {
+          form.addEventListener('submit', guardarRecaudacionNueva);
+        }
 
-      cargarRecaudacionesHoy();
+        // Cargar datos de hoy de forma segura (no crítico si falla)
+        setTimeout(() => {
+          try {
+            cargarRecaudacionesHoy();
+          } catch (e) {
+            console.log('⚠️ Nota: Cargar recaudaciones hoy no disponible aún. Ejecuta inicializarSistema()');
+          }
+        }, 1000);
+      } catch (e) {
+        console.error('Error inicializando recaudación:', e);
+      }
     }
 
     function guardarRecaudacionNueva(e) {
-      e.preventDefault();
-      mostrarLoading('Registrando cobro...');
+      try {
+        e.preventDefault();
+        mostrarLoading('Registrando cobro...');
 
-      const recaudacionData = {
-        fecha: document.getElementById('recaudacionFecha').value,
-        cliente: document.getElementById('recaudacionCliente').value,
-        monto: parseFloat(document.getElementById('recaudacionMonto').value.replace(/[$,]/g, '')),
-        forma_pago: document.getElementById('recaudacionForma').value,
-        obs: document.getElementById('recaudacionObs').value
-      };
+        const montoStr = document.getElementById('recaudacionMonto').value.replace(/[$,]/g, '');
+        const monto = isNaN(parseFloat(montoStr)) ? 0 : parseFloat(montoStr);
 
-      google.script.run
-        .withSuccessHandler(function(result) {
+        const recaudacionData = {
+          fecha: document.getElementById('recaudacionFecha').value,
+          cliente: document.getElementById('recaudacionCliente').value,
+          monto: monto,
+          forma_pago: document.getElementById('recaudacionForma').value,
+          obs: document.getElementById('recaudacionObs').value
+        };
+
+        if (!recaudacionData.cliente || recaudacionData.monto <= 0) {
           ocultarLoading();
-          if (result.success) {
-            showToast('success', 'Cobro Registrado',
-              `Cobro de $${recaudacionData.monto.toLocaleString('es-AR')} registrado`);
-            document.getElementById('recaudacionForm').reset();
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('recaudacionFecha').value = today;
-            cargarRecaudacionesHoy();
-          } else {
-            showToast('error', 'Error', result.error);
-          }
-        })
-        .withFailureHandler(function(err) {
+          showToast('error', 'Error', 'Cliente y monto son requeridos');
+          return;
+        }
+
+        if (google.script.run && google.script.run.guardarRecaudacion) {
+          google.script.run
+            .withSuccessHandler(function(result) {
+              ocultarLoading();
+              if (result && result.success) {
+                showToast('success', 'Cobro Registrado',
+                  `Cobro de $${recaudacionData.monto.toLocaleString('es-AR')} registrado`);
+                document.getElementById('recaudacionForm').reset();
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('recaudacionFecha').value = today;
+                cargarRecaudacionesHoy();
+              } else {
+                showToast('error', 'Error', (result && result.error) || 'Error desconocido');
+              }
+            })
+            .withFailureHandler(function(err) {
+              ocultarLoading();
+              showToast('error', 'Error', 'Error al guardar: ' + (err.message || 'desconocido'));
+            })
+            .guardarRecaudacion(recaudacionData);
+        } else {
           ocultarLoading();
-          showToast('error', 'Error', 'Error al guardar: ' + err.message);
-        })
-        .guardarRecaudacion(recaudacionData);
+          showToast('warning', 'Función no disponible', 'Ejecuta inicializarSistema() en Apps Script primero');
+        }
+      } catch (e) {
+        ocultarLoading();
+        showToast('error', 'Error', 'Error: ' + e.message);
+      }
     }
 
     function cargarRecaudacionesHoy() {
-      const today = new Date().toISOString().split('T')[0];
+      try {
+        const today = new Date().toISOString().split('T')[0];
 
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            renderRecaudacionesToday(result.totales);
-          }
-        })
-        .withFailureHandler(function(err) {
-          console.log('Error cargando recaudaciones hoy: ' + err.message);
-        })
-        .obtenerTotalesRecaudacionDia(today);
+        if (google.script.run && google.script.run.obtenerTotalesRecaudacionDia) {
+          google.script.run
+            .withSuccessHandler(function(result) {
+              if (result && result.success) {
+                renderRecaudacionesToday(result.totales);
+              } else if (result && result.error) {
+                console.log('⚠️ ' + result.error);
+              }
+            })
+            .withFailureHandler(function(err) {
+              console.log('⚠️ Nota: Función de recaudación no disponible aún');
+            })
+            .obtenerTotalesRecaudacionDia(today);
+        } else {
+          console.log('⚠️ obtenerTotalesRecaudacionDia no disponible');
+        }
+      } catch (e) {
+        console.log('⚠️ Error en cargarRecaudacionesHoy: ' + e.message);
+      }
     }
 
     function renderRecaudacionesToday(totales) {
@@ -6025,13 +6071,26 @@
     // MÓDULO: RECAUDACIÓN - HISTORIAL
     // ========================================
     function initRecaudacionHistorial() {
-      const today = new Date();
-      const primerDiaDelMes = new Date(today.getFullYear(), today.getMonth(), 1);
+      try {
+        const today = new Date();
+        const primerDiaDelMes = new Date(today.getFullYear(), today.getMonth(), 1);
 
-      document.getElementById('recaudacionDesde').value = primerDiaDelMes.toISOString().split('T')[0];
-      document.getElementById('recaudacionHasta').value = today.toISOString().split('T')[0];
+        const desdeInput = document.getElementById('recaudacionDesde');
+        const hastaInput = document.getElementById('recaudacionHasta');
+        const buscarBtn = document.getElementById('btnBuscarRecaudaciones');
 
-      document.getElementById('btnBuscarRecaudaciones').addEventListener('click', buscarRecaudacionesHistorial);
+        if (desdeInput) {
+          desdeInput.value = primerDiaDelMes.toISOString().split('T')[0];
+        }
+        if (hastaInput) {
+          hastaInput.value = today.toISOString().split('T')[0];
+        }
+        if (buscarBtn) {
+          buscarBtn.addEventListener('click', buscarRecaudacionesHistorial);
+        }
+      } catch (e) {
+        console.error('Error inicializando historial recaudación:', e);
+      }
     }
 
     function buscarRecaudacionesHistorial() {
