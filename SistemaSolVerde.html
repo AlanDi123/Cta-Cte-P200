@@ -6222,7 +6222,8 @@
         `Generado: ${new Date(fecha).toLocaleDateString('es-AR')}`;
 
       // Usar AppState.clientesData (ya cargado en cargarDatosIniciales)
-      const clientes = AppState.clientesData || [];
+      // FILTRAR: Solo incluir clientes con saldo diferente de 0
+      const clientes = (AppState.clientesData || []).filter(cliente => cliente.saldo !== 0);
 
       let totalPagos = 0;
       let totalFiados = 0;
