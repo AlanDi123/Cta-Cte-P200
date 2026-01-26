@@ -492,14 +492,26 @@ const ClientesRepository = {
    * Obtiene todos los clientes
    * @returns {Array<Object>} Array de objetos cliente
    */
-  obtenerTodos: function() {
+  obtenerTodos: function(offset = 0, limit = 0) {
     const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
+    const lastRow = hoja.getLastRow();
 
-    if (datos.length <= 1) return []; // Solo encabezados o vacío
+    if (lastRow <= 1) return []; // Solo encabezados o vacío (backward compatible)
+
+    // Calculate actual range to read
+    const totalClientes = lastRow - 1; // Exclude header
+    const actualLimit = limit === 0 ? totalClientes : Math.min(limit, totalClientes);
+    const startRow = Math.min(offset + 2, lastRow + 1); // +2: skip header row 1, +offset from row 2
+    const rowCount = Math.max(0, Math.min(actualLimit, lastRow - offset - 1));
+
+    // Read only the specific range instead of entire sheet (PERFORMANCE FIX)
+    let datos = [];
+    if (rowCount > 0) {
+      datos = hoja.getRange(startRow, 1, rowCount, 9).getValues();
+    }
 
     const clientes = [];
-    for (let i = 1; i < datos.length; i++) {
+    for (let i = 0; i < datos.length; i++) {
       const fila = datos[i];
 
       // Convertir fechas a ISO strings para serialización Web
@@ -519,7 +531,18 @@ const ClientesRepository = {
       });
     }
 
-    return clientes;
+    // If no pagination requested (limit = 0, offset = 0), return just array for backward compatibility
+    if (limit === 0 && offset === 0) {
+      return clientes;
+    }
+
+    // Pagination mode: return object with metadata
+    return {
+      clientes: clientes,
+      total: totalClientes,
+      offset: offset,
+      limit: actualLimit
+    };
   },
 
   /**
@@ -667,6 +690,37 @@ const ClientesRepository = {
 
     // Actualizar ULTIMO_MOV
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(fechaMov);
+  },
+
+  /**
+   * PERFORMANCE: Actualiza SOLO saldo, contadores y fecha sin recargar todo
+   * @param {string} nombreCliente - Nombre del cliente
+   * @param {number} nuevoSaldo - Nuevo saldo
+   * @param {Date} fechaMov - Fecha del movimiento
+   * @returns {Object} Cliente actualizado
+   */
+  actualizarSaldoRapido: function(nombreCliente, nuevoSaldo, fechaMov) {
+    const resultado = this.buscarPorNombre(nombreCliente);
+
+    if (!resultado) {
+      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+    }
+
+    const hoja = this.getHoja();
+    const fila = resultado.fila;
+
+    // Actualizar solo 3 celdas (muy rápido, no recarga datos)
+    hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldo);
+    hoja.getRange(fila, CONFIG.COLS_CLIENTES.TOTAL_MOVS + 1).setValue((resultado.cliente.totalMovs || 0) + 1);
+    hoja.getRange(fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(fechaMov);
+
+    // Retornar cliente actualizado sin recargar del sheet
+    return {
+      nombre: resultado.cliente.nombre,
+      saldo: nuevoSaldo,
+      totalMovs: (resultado.cliente.totalMovs || 0) + 1,
+      ultimoMov: fechaMov instanceof Date ? fechaMov.toISOString() : fechaMov
+    };
   },
 
   /**
@@ -868,14 +922,25 @@ const MovimientosRepository = {
    */
   obtenerRecientes: function(limite) {
     const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
+    const lastRow = hoja.getLastRow();
 
-    if (datos.length <= 1) return [];
+    if (lastRow <= 1) return []; // Solo encabezados o vacío
+
+    // PERFORMANCE FIX: Instead of reading entire sheet, read only last N+buffer rows
+    // Buffer of 50% extra to ensure we get all we need (sorted by date, not insertion order)
+    const buffer = Math.ceil(limite * 1.5);
+    const rowsToRead = Math.min(buffer, lastRow - 1); // Don't read more than available
+    const startRow = Math.max(2, lastRow - rowsToRead + 1); // Start from appropriate row
+
+    let datos = [];
+    if (rowsToRead > 0) {
+      datos = hoja.getRange(startRow, 1, rowsToRead, 8).getValues();
+    }
 
     const movimientos = [];
 
     // Comenzar desde el final (más recientes primero)
-    for (let i = datos.length - 1; i >= 1 && movimientos.length < limite; i--) {
+    for (let i = datos.length - 1; i >= 0 && movimientos.length < limite; i--) {
       const fila = datos[i];
       const fecha = fila[CONFIG.COLS_MOVS.FECHA];
 
