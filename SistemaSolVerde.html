@@ -2440,7 +2440,8 @@
                 <span class="form-label-icon">👤</span>
                 Cliente
               </label>
-              <input type="text" id="inputCliente" class="form-input" placeholder="Buscar cliente..." autocomplete="off" required>
+              <input type="text" id="inputCliente" class="form-input" placeholder="Buscar cliente..." list="clientesList" autocomplete="off" required>
+              <datalist id="clientesList"></datalist>
             </div>
 
             <div class="form-group">
@@ -4445,7 +4446,7 @@
     function handleGuardarExito(result) {
       AppState.isLoading = false;
 
-      if (result.exito) {
+      if (result.success) {
         const tipoActual = document.getElementById('selectTipoMovimiento').value;
         const tipoEmoji = tipoActual === 'DEBE' ? '🔴 FIADO' : '🟢 PAGO';
 
@@ -4459,7 +4460,7 @@
         invalidarCache();
         cargarDatosIniciales(true);
       } else {
-        showToast('error', 'Error', result.mensaje || 'Error desconocido');
+        showToast('error', 'Error', result.error || result.mensaje || 'Error desconocido');
       }
     }
 
@@ -4640,6 +4641,18 @@
         </tr>
       `;
       }).join('');
+
+      // Actualizar datalist de clientes para autocomplete
+      actualizarDatalistClientes();
+    }
+
+    function actualizarDatalistClientes() {
+      const datalist = document.getElementById('clientesList');
+      if (!datalist || !AppState.clientesData) return;
+
+      datalist.innerHTML = AppState.clientesData
+        .map(c => `<option value="${c.nombre}"></option>`)
+        .join('');
     }
 
     function formatearFecha(fecha) {
@@ -6418,7 +6431,7 @@
         const now = new Date();
         const fecha = now.toISOString().split('T')[0];
         const hora = now.toTimeString().split(' ')[0];
-        const usuario = Session ? 'usuario-actual' : 'anonimo';
+        const usuario = 'usuario-sistema'; // Session no existe en frontend, usar valor genérico
 
         const sessionData = {
           fecha: fecha,

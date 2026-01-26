@@ -2243,21 +2243,25 @@ function getCashSystemConfig() {
     const configSheet = ss.getSheetByName('Config');
 
     if (!configSheet) {
-      return { providers: [] };
+      return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
     }
 
     const lastRow = configSheet.getLastRow();
     const providers = [];
 
-    if (lastRow > 0) {
-      const data = configSheet.getRange(1, 1, lastRow, 1).getValues();
-      providers = data.flat().filter(String);
+    if (lastRow > 1) {  // Cambiar a > 1 para skipear header
+      const data = configSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      const filtered = data.flat().filter(String);
+      if (filtered.length > 0) {
+        return { providers: filtered };
+      }
     }
 
-    return { providers: providers };
+    // Si no hay datos, retornar proveedores predeterminados
+    return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
   } catch (error) {
     Logger.log('Error en getCashSystemConfig: ' + error.message);
-    return { providers: [] };
+    return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
   }
 }
 
