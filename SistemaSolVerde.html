@@ -4590,6 +4590,11 @@
             AppState.movimientosRecientes = movimientosArray;
             actualizarCacheTimestamp();
             actualizarTablaMovimientos();
+
+            // Actualizar módulos que dependen de los datos de clientes
+            cargarTablaGestion();
+            cargarEstadisticas();
+
             showToast('success', 'Sistema Listo', `${clientesArray.length} clientes cargados`);
           } else {
             // Error del backend - mostrar mensaje detallado
@@ -5263,7 +5268,8 @@
       // Los event listeners internos del modal se inicializan en mostrarModalCargaMasiva()
       document.getElementById('gestionCargaMasiva').addEventListener('click', mostrarModalCargaMasiva);
 
-      cargarTablaGestion();
+      // NO llamar cargarTablaGestion() aquí - los datos aún no están cargados
+      // Se llamará desde cargarDatosIniciales() después de obtener los datos
     }
 
     function cargarTablaGestion() {
