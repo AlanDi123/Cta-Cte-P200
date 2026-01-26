@@ -536,6 +536,11 @@ const ClientesRepository = {
       const nombreFila = normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]);
       if (nombreFila === nombreNorm) {
         const fila = datos[i];
+
+        // Convertir fechas a ISO strings para serialización Web (FIX visor de clientes)
+        const alta = fila[CONFIG.COLS_CLIENTES.ALTA];
+        const ultimoMov = fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV];
+
         return {
           cliente: {
             nombre: fila[CONFIG.COLS_CLIENTES.NOMBRE],
@@ -544,8 +549,8 @@ const ClientesRepository = {
             limite: fila[CONFIG.COLS_CLIENTES.LIMITE] || 100000,
             saldo: fila[CONFIG.COLS_CLIENTES.SALDO] || 0,
             totalMovs: fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS] || 0,
-            alta: fila[CONFIG.COLS_CLIENTES.ALTA] || '',
-            ultimoMov: fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV] || '',
+            alta: alta instanceof Date ? alta.toISOString() : (alta || ''),
+            ultimoMov: ultimoMov instanceof Date ? ultimoMov.toISOString() : (ultimoMov || ''),
             obs: fila[CONFIG.COLS_CLIENTES.OBS] || ''
           },
           fila: i + 1 // Número de fila (1-indexed)
@@ -1242,13 +1247,31 @@ const ClaudeService = {
    * @returns {Object} Resultado del análisis
    */
   analizarImagen: function(imageBase64) {
+    Logger.log('🔍 INICIO: analizarImagen - Diagnóstico Visual Reasoning');
+
+    // PASO 1: Verificar API Key
+    Logger.log('📋 Paso 1: Verificando API Key...');
     const apiKey = this.getApiKey();
+    Logger.log('✓ API Key presente: ' + !!apiKey);
+    Logger.log('✓ Longitud API Key: ' + (apiKey ? apiKey.length : 0) + ' caracteres');
 
     if (!apiKey) {
-      throw new Error('API Key de Claude no configurada. Por favor, configure la API Key en el módulo de Configuración.');
+      const error = 'API Key de Claude no configurada. Por favor, configure la API Key en el módulo de Configuración.';
+      Logger.log('❌ ' + error);
+      throw new Error(error);
     }
 
-    // Detectar tipo de imagen desde el prefijo Base64
+    // PASO 2: Validar imagen Base64
+    Logger.log('📋 Paso 2: Validando imagen Base64...');
+    Logger.log('✓ Longitud imagen: ' + imageBase64.length + ' caracteres');
+    if (imageBase64.length < 100) {
+      const error = 'Imagen demasiado pequeña o inválida';
+      Logger.log('❌ ' + error);
+      throw new Error(error);
+    }
+
+    // PASO 3: Detectar tipo de imagen desde el prefijo Base64
+    Logger.log('📋 Paso 3: Detectando tipo de imagen...');
     let mediaType = 'image/jpeg';
     if (imageBase64.includes('data:image/png')) {
       mediaType = 'image/png';
@@ -1257,11 +1280,15 @@ const ClaudeService = {
     } else if (imageBase64.includes('data:image/gif')) {
       mediaType = 'image/gif';
     }
+    Logger.log('✓ Tipo de imagen detectado: ' + mediaType);
 
-    // Limpiar prefijo Base64
+    // PASO 4: Limpiar prefijo Base64
+    Logger.log('📋 Paso 4: Limpiando prefijo Base64...');
     const base64Clean = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+    Logger.log('✓ Base64 limpio, longitud: ' + base64Clean.length + ' caracteres');
 
-    // Construir payload para Claude API
+    // PASO 5: Construir payload para Claude API
+    Logger.log('📋 Paso 5: Construyendo payload para Claude API...');
     const payload = {
       model: CONFIG.CLAUDE.MODEL,
       max_tokens: CONFIG.CLAUDE.MAX_TOKENS,
@@ -1308,8 +1335,10 @@ Responde SOLO con el JSON, sin explicaciones adicionales.`
         }
       ]
     };
+    Logger.log('✓ Payload construido, modelo: ' + CONFIG.CLAUDE.MODEL);
 
-    // Hacer request a Claude API
+    // PASO 6: Preparar options de fetch
+    Logger.log('📋 Paso 6: Preparando opciones de UrlFetch...');
     const options = {
       method: 'post',
       headers: {
@@ -1320,46 +1349,80 @@ Responde SOLO con el JSON, sin explicaciones adicionales.`
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     };
+    Logger.log('✓ Headers configurados, URL: ' + CONFIG.CLAUDE.API_URL);
 
     try {
+      // PASO 7: Hacer request a Claude API
+      Logger.log('📋 Paso 7: Enviando request a Claude API...');
       const response = UrlFetchApp.fetch(CONFIG.CLAUDE.API_URL, options);
       const responseCode = response.getResponseCode();
       const responseText = response.getContentText();
 
+      Logger.log('✓ Response recibida, código: ' + responseCode);
+      Logger.log('✓ Response longitud: ' + responseText.length + ' caracteres');
+
+      // PASO 8: Validar código de respuesta
+      Logger.log('📋 Paso 8: Validando código de respuesta...');
       if (responseCode !== 200) {
-        Logger.log('Error de Claude API: ' + responseText);
-        throw new Error(`Error de Claude API (${responseCode}): ${responseText}`);
+        Logger.log('❌ Error de Claude API (código ' + responseCode + ')');
+        Logger.log('❌ Respuesta: ' + responseText.substring(0, 500));
+        throw new Error(`Error de Claude API (${responseCode}): ${responseText.substring(0, 200)}`);
       }
+      Logger.log('✓ Código 200 OK');
 
+      // PASO 9: Parsear respuesta JSON
+      Logger.log('📋 Paso 9: Parseando respuesta JSON...');
       const resultado = JSON.parse(responseText);
+      Logger.log('✓ JSON parseado correctamente');
 
-      // Extraer texto de la respuesta
+      // PASO 10: Extraer texto de la respuesta
+      Logger.log('📋 Paso 10: Extrayendo texto de contenido...');
       if (!resultado.content || !resultado.content[0] || !resultado.content[0].text) {
-        throw new Error('Respuesta de Claude API inválida');
+        Logger.log('❌ Estructura de respuesta inválida');
+        Logger.log('❌ Response content: ' + JSON.stringify(resultado).substring(0, 300));
+        throw new Error('Respuesta de Claude API inválida: falta content.text');
       }
 
       const textoRespuesta = resultado.content[0].text;
+      Logger.log('✓ Texto extraído, longitud: ' + textoRespuesta.length + ' caracteres');
 
-      // Parsear JSON de la respuesta
-      // Claude a veces envuelve el JSON en ```json ... ```, limpiarlo
+      // PASO 11: Limpiar JSON de la respuesta
+      Logger.log('📋 Paso 11: Limpiando JSON de markdown...');
       let jsonLimpio = textoRespuesta.trim();
-      jsonLimpio = jsonLimpio.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      const originalLength = jsonLimpio.length;
+      jsonLimpio = jsonLimpio.replace(/^```json\n?/i, '').replace(/\n?```$/i, '');
+      Logger.log('✓ JSON limpio, tamaño: ' + originalLength + ' → ' + jsonLimpio.length + ' caracteres');
 
+      // PASO 12: Parsear JSON extraído
+      Logger.log('📋 Paso 12: Parseando JSON de movimientos...');
       const datosExtraidos = JSON.parse(jsonLimpio);
+      Logger.log('✓ JSON de movimientos parseado correctamente');
 
-      // Validar estructura
+      // PASO 13: Validar estructura de datos
+      Logger.log('📋 Paso 13: Validando estructura de datos...');
       if (!datosExtraidos.movimientos || !Array.isArray(datosExtraidos.movimientos)) {
+        Logger.log('❌ Falta array "movimientos" en respuesta');
+        Logger.log('❌ Estructura recibida: ' + JSON.stringify(datosExtraidos).substring(0, 300));
         throw new Error('Formato de respuesta inválido: falta array "movimientos"');
       }
 
-      return {
+      const totalMovimientos = datosExtraidos.movimientos.length;
+      Logger.log('✓ Estructura válida, movimientos extraídos: ' + totalMovimientos);
+
+      // PASO 14: Retornar resultado
+      Logger.log('📋 Paso 14: Preparando respuesta final...');
+      const resultado_final = {
         success: true,
         movimientos: datosExtraidos.movimientos,
-        totalExtraidos: datosExtraidos.movimientos.length
+        totalExtraidos: totalMovimientos
       };
+      Logger.log('✅ ÉXITO: Visual Reasoning completado - ' + totalMovimientos + ' movimientos extraídos');
+
+      return resultado_final;
 
     } catch (error) {
-      Logger.log('Error en analizarImagen: ' + error.message);
+      Logger.log('❌ ERROR EN PASO ANTERIOR: ' + error.message);
+      Logger.log('❌ Stack: ' + error.stack);
       throw new Error('Error al analizar imagen: ' + error.message);
     }
   }
@@ -2342,6 +2405,11 @@ function getCashHistoryEntries() {
  */
 function saveCashSessionData(data) {
   try {
+    // FIX: Validar que hay efectivo antes de guardar
+    if (!data || !data.totals || data.totals.cash <= 0) {
+      throw new Error('El total de efectivo debe ser mayor a 0. Por favor, ingrese montos en las denominaciones.');
+    }
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let historySheet = ss.getSheetByName('Historial_Caja');
 
