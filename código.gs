@@ -724,6 +724,24 @@ const ClientesRepository = {
   },
 
   /**
+   * Actualiza SOLO el saldo (para operaciones de edit/delete de movimientos)
+   * @param {string} nombreCliente - Nombre del cliente
+   * @param {number} nuevoSaldo - Nuevo saldo
+   */
+  actualizarSaldoDirecto: function(nombreCliente, nuevoSaldo) {
+    const resultado = this.buscarPorNombre(nombreCliente);
+
+    if (!resultado) {
+      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+    }
+
+    const hoja = this.getHoja();
+    const fila = resultado.fila;
+
+    hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldo);
+  },
+
+  /**
    * Elimina un cliente (solo si no tiene movimientos)
    * @param {string} nombreCliente - Nombre del cliente a eliminar
    */
@@ -1901,6 +1919,121 @@ function guardarMovimientosDesdeVR(payload) {
 }
 
 /**
+ * API 8a: Actualizar movimiento existente
+ */
+function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
+  try {
+    const repo = MovimientosRepository;
+    const hoja = repo.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    // Find row by ID
+    let rowIndex = -1;
+    for (let i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG.COLS_MOVS.ID] == idMovimiento) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Movimiento no encontrado');
+    }
+
+    const movimientoRow = datos[rowIndex - 1];
+    const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
+    const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
+    const montoAnterior = movimientoRow[CONFIG.COLS_MOVS.MONTO];
+
+    // Update monto and obs
+    hoja.getRange(rowIndex, CONFIG.COLS_MOVS.MONTO + 1).setValue(nuevoMonto);
+    hoja.getRange(rowIndex, CONFIG.COLS_MOVS.OBS + 1).setValue(nuevaObs);
+
+    // Recalculate balance
+    const clientesRepo = ClientesRepository;
+    const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
+    const montoDiff = nuevoMonto - montoAnterior;
+    const nuevoSaldo = tipoMov === 'DEBE' ?
+      (clienteData.saldo + montoDiff) :
+      (clienteData.saldo - montoDiff);
+
+    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
+
+    Logger.log('✅ Movimiento ' + idMovimiento + ' actualizado');
+
+    return {
+      success: true,
+      movimiento: {
+        id: idMovimiento,
+        monto: nuevoMonto,
+        obs: nuevaObs,
+        nuevoSaldo: nuevoSaldo
+      }
+    };
+  } catch (error) {
+    Logger.log('❌ ERROR en actualizarMovimiento: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * API 8b: Eliminar movimiento existente
+ */
+function eliminarMovimiento(idMovimiento) {
+  try {
+    const repo = MovimientosRepository;
+    const hoja = repo.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    let rowIndex = -1;
+    for (let i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG.COLS_MOVS.ID] == idMovimiento) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Movimiento no encontrado');
+    }
+
+    const movimientoRow = datos[rowIndex - 1];
+    const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
+    const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
+    const monto = movimientoRow[CONFIG.COLS_MOVS.MONTO];
+
+    // Delete the row
+    hoja.deleteRow(rowIndex);
+
+    // Recalculate client balance (reverse the movement)
+    const clientesRepo = ClientesRepository;
+    const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
+    const nuevoSaldo = tipoMov === 'DEBE' ?
+      (clienteData.saldo - monto) :
+      (clienteData.saldo + monto);
+
+    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
+
+    Logger.log('✅ Movimiento ' + idMovimiento + ' eliminado');
+
+    return {
+      success: true,
+      mensaje: 'Movimiento eliminado',
+      nuevoSaldo: nuevoSaldo
+    };
+  } catch (error) {
+    Logger.log('❌ ERROR en eliminarMovimiento: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
  * API 8: Crea un nuevo cliente completo
  * @param {Object} clienteData - Datos del cliente
  * @returns {Object} Cliente creado
@@ -2040,38 +2173,26 @@ function guardarApiKey(apiKey) {
  * El Base64 se guarda en el frontend en sessionStorage y luego en backend CacheService
  * Esto evita el límite de serialización silencioso de google.script.run
  */
-function analizarImagenVisualReasoning(vrDataToken) {
+/**
+ * API 12: Analiza imagen con Claude Vision - Versión Simplificada
+ * Recibe directamente el Base64 del frontend
+ * @param {string} imageBase64 - Imagen en Base64
+ * @returns {Object} Movimientos extraídos
+ */
+function analizarImagenVisualReasoningSimple(imageBase64) {
   try {
-    Logger.log('═══════════════════════════════════════════════════════════');
-    Logger.log('📞 LLAMADA: analizarImagenVisualReasoning (usando CacheService)');
-    Logger.log('📊 Token recibido: ' + vrDataToken);
-
-    // Recuperar Base64 del cache usando el token
-    Logger.log('📋 Paso 1: Recuperando Base64 del cache...');
-    const cache = CacheService.getUserCache();
-    const imageBase64 = cache.get('vr_image_' + vrDataToken);
-
-    Logger.log('✓ Base64 recuperado del cache, longitud: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
+    Logger.log('📞 LLAMADA: analizarImagenVisualReasoningSimple');
+    Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
 
     if (!imageBase64 || imageBase64.length < 100) {
-      const errorMsg = !imageBase64 ? 'No se encontró Base64 en cache con este token' :
-                       'Base64 muy pequeño (' + imageBase64.length + ' < 100 caracteres)';
-      Logger.log('❌ VALIDATION FAILED: ' + errorMsg);
-      throw new Error('Image Base64 inválida: ' + errorMsg);
+      throw new Error('Base64 inválido o muy pequeño');
     }
 
-    Logger.log('📋 Paso 2: Base64 validado, iniciando análisis...');
-
-    // Llamar al servicio de Claude
     Logger.log('🚀 Llamando ClaudeService.analizarImagen()...');
     const resultado = ClaudeService.analizarImagen(imageBase64);
 
-    Logger.log('✅ ClaudeService completado exitosamente');
+    Logger.log('✅ Análisis completado');
     Logger.log('📊 Movimientos extraídos: ' + resultado.totalExtraidos);
-
-    // Limpiar el cache después de usarlo
-    cache.remove('vr_image_' + vrDataToken);
-    Logger.log('✅ Cache limpiado después de análisis');
 
     return {
       success: true,
@@ -2079,51 +2200,7 @@ function analizarImagenVisualReasoning(vrDataToken) {
       totalExtraidos: resultado.totalExtraidos
     };
   } catch (error) {
-    Logger.log('═══════════════════════════════════════════════════════════');
-    Logger.log('❌ ERROR EN WRAPPER analizarImagenVisualReasoning');
-    Logger.log('Error message: ' + error.message);
-    Logger.log('Error stack: ' + error.stack);
-    Logger.log('═══════════════════════════════════════════════════════════');
-
-    // Devolver error detallado
-    return {
-      success: false,
-      error: error.message,
-      stack: error.stack || 'No stack trace available'
-    };
-  }
-}
-
-/**
- * Nueva función: Recibe el Base64 y lo guarda en CacheService
- * Retorna un token que se pasa a analizarImagenVisualReasoning
- */
-function guardarImagenTemporalVR(imageBase64) {
-  try {
-    Logger.log('📞 LLAMADA: guardarImagenTemporalVR');
-    Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
-
-    if (!imageBase64 || imageBase64.length < 100) {
-      throw new Error('Base64 inválido o muy pequeño');
-    }
-
-    // Generar token aleatorio
-    const token = Utilities.getUuid();
-    Logger.log('✓ Token generado: ' + token);
-
-    // Guardar en cache por 15 minutos
-    const cache = CacheService.getUserCache();
-    cache.put('vr_image_' + token, imageBase64, 900); // 900 segundos = 15 minutos
-
-    Logger.log('✅ Base64 guardado en cache con token: ' + token);
-
-    return {
-      success: true,
-      token: token,
-      dataSize: imageBase64.length
-    };
-  } catch (error) {
-    Logger.log('❌ ERROR en guardarImagenTemporalVR: ' + error.message);
+    Logger.log('❌ ERROR: ' + error.message);
     return {
       success: false,
       error: error.message

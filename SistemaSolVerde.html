@@ -796,6 +796,21 @@
       transform: none !important;
     }
 
+    .btn-action {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px 8px;
+      margin: 0 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    .btn-action:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+
     /* ========================================
        TABLAS
        ======================================== */
@@ -2500,11 +2515,12 @@
                   <th>Tipo</th>
                   <th>Monto</th>
                   <th>Saldo</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody id="tablaMovimientosBody">
                 <tr>
-                  <td colspan="6" class="tabla-empty">Cargando movimientos...</td>
+                  <td colspan="7" class="tabla-empty">Cargando movimientos...</td>
                 </tr>
               </tbody>
             </table>
@@ -2620,6 +2636,27 @@
         </div>
       </div>
 
+      <!-- MODAL: Editar Movimiento -->
+      <div class="modal-overlay" id="modalEditarMovimiento">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>✏️ Editar Movimiento</h2>
+            <button class="btn-close" onclick="cerrarModal('modalEditarMovimiento')">×</button>
+          </div>
+          <div class="modal-body">
+            <label class="form-label">Nuevo Monto:</label>
+            <input type="number" id="inputMontoEditar" class="form-input" step="0.01" min="0">
+
+            <label class="form-label">Observaciones:</label>
+            <input type="text" id="inputObsEditar" class="form-input" placeholder="Opcional">
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" onclick="guardarEdicionMovimiento()">Guardar Cambios</button>
+            <button class="btn btn-secondary" onclick="cerrarModal('modalEditarMovimiento')">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══════════════════════════════════════════════════════════════
            MÓDULO: VISOR DE CLIENTES
            ═══════════════════════════════════════════════════════════════ -->
@@ -2723,11 +2760,12 @@
                   <th>Monto</th>
                   <th>Saldo</th>
                   <th>Observaciones</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody id="visorHistorialBody">
                 <tr>
-                  <td colspan="6" class="tabla-empty">Seleccione un cliente para ver su historial</td>
+                  <td colspan="7" class="tabla-empty">Seleccione un cliente para ver su historial</td>
                 </tr>
               </tbody>
             </table>
@@ -4677,7 +4715,7 @@
       const tbody = document.getElementById('tablaMovimientosBody');
 
       if (!AppState.movimientosRecientes || AppState.movimientosRecientes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="tabla-empty">No hay movimientos recientes</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="tabla-empty">No hay movimientos recientes</td></tr>';
         return;
       }
 
@@ -4697,6 +4735,10 @@
           </td>
           <td class="monto-cell">$ ${monto.toLocaleString('es-AR')}</td>
           <td class="monto-cell">$ ${saldo.toLocaleString('es-AR')}</td>
+          <td style="text-align: center; font-size: 14px;">
+            <button class="btn-action" onclick="abrirEditarMovimiento(${mov.id}, ${monto}, '${(mov.obs || '').replace(/'/g, "\\'")}')">✏️</button>
+            <button class="btn-action" onclick="confirmarEliminarMovimiento(${mov.id})">🗑️</button>
+          </td>
         </tr>
       `;
       }).join('');
@@ -4832,60 +4874,43 @@
     }
 
     function analizarImagenVR() {
-      console.log('🔍 analizarImagenVR() llamado - Iniciando proceso de dos pasos con CacheService');
-      console.log('✓ VRState.imageBase64 definido:', !!VRState.imageBase64);
-      console.log('✓ VRState.imageBase64 longitud:', VRState.imageBase64 ? VRState.imageBase64.length : 'undefined');
-
       if (!VRState.imageBase64 || VRState.imageBase64.length === 0) {
-        console.error('❌ VRState.imageBase64 está vacío o undefined');
-        showToast('error', 'Error', 'No hay imagen cargada. Por favor, carga una imagen primero.');
+        showToast('error', 'Error', 'No hay imagen cargada.');
         return;
       }
 
-      const imageBase64ToSend = VRState.imageBase64;
-      const imageSizeKB = (imageBase64ToSend.length / 1024).toFixed(2);
-
-      console.log('📦 Tamaño de imagen: ' + imageSizeKB + ' KB');
-      console.log('📤 Paso 1: Guardando imagen en CacheService del backend...');
-
-      showToast('info', 'Procesando', 'Guardando imagen (' + imageSizeKB + ' KB) en servidor...');
+      showToast('info', 'Procesando', 'Analizando imagen...');
       document.getElementById('vrAnalyzeBtn').disabled = true;
       document.getElementById('vrAnalyzeBtn').innerHTML = '<span>⏳</span><span>PROCESANDO...</span>';
 
-      // PASO 1: Guardar Base64 en CacheService backend y obtener token
       google.script.run
-        .withSuccessHandler(function(response) {
-          console.log('✅ PASO 1 EXITOSO: Respuesta del backend:', response);
+        .withSuccessHandler(function(resultado) {
+          document.getElementById('vrAnalyzeBtn').disabled = false;
+          document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
 
-          if (!response || !response.token) {
-            console.error('❌ PASO 1 FALLO: No token en response:', response);
-            showToast('error', 'Error', 'No se recibió token del servidor');
-            document.getElementById('vrAnalyzeBtn').disabled = false;
-            document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
+          if (!resultado.success) {
+            showToast('error', 'Error', resultado.error);
             return;
           }
 
-          const token = response.token;
-          console.log('✅ Token extraído:', token);
-          console.log('🔐 Token tamaño:', token.length, 'bytes');
-          console.log('📊 Datos almacenados en backend:', response.dataSize, 'bytes');
+          if (!resultado.movimientos) {
+            showToast('error', 'Error', 'No se extrajeron movimientos');
+            return;
+          }
 
-          // PASO 2: Usar el token para analizar la imagen
-          console.log('📊 Paso 2: Enviando token al backend para análisis de imagen...');
-          showToast('info', 'Analizando', 'Analizando imagen con Claude AI...');
-
-          google.script.run
-            .withSuccessHandler(handleAnalisisVRSuccess)
-            .withFailureHandler(handleAnalisisVRError)
-            .analizarImagenVisualReasoning(token);
+          VRState.movimientosValidados = resultado.movimientos.map((m, idx) => ({...m, indice: idx + 1}));
+          VRState.currentPage = 1;
+          calcularTotalPaginasVR();
+          renderTablaVR();
+          document.getElementById('vrResultsCard').classList.remove('hidden');
+          showToast('success', 'Listo', 'Se extrajeron ' + resultado.movimientos.length + ' movimientos. Revisa y edita si es necesario.');
         })
         .withFailureHandler(function(error) {
-          console.error('❌ PASO 1 FALLO: Error guardando imagen en CacheService:', error);
-          showToast('error', 'Error', 'Fallo al procesar la imagen: ' + (error || 'error desconocido'));
           document.getElementById('vrAnalyzeBtn').disabled = false;
           document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
+          showToast('error', 'Error', 'No se pudo analizar: ' + error);
         })
-        .guardarImagenTemporalVR(imageBase64ToSend);
+        .analizarImagenVisualReasoningSimple(VRState.imageBase64);
     }
 
     function handleAnalisisVRSuccess(resultado) {
@@ -5078,6 +5103,59 @@
     }
 
     // ========================================
+    // EDITAR/ELIMINAR MOVIMIENTOS
+    // ========================================
+    var movimientoEnEdicion = null;
+
+    function abrirEditarMovimiento(id, monto, obs) {
+      movimientoEnEdicion = id;
+      document.getElementById('inputMontoEditar').value = monto;
+      document.getElementById('inputObsEditar').value = obs || '';
+      abrirModal('modalEditarMovimiento');
+    }
+
+    function guardarEdicionMovimiento() {
+      if (!movimientoEnEdicion) return;
+
+      const nuevoMonto = parseFloat(document.getElementById('inputMontoEditar').value);
+      const nuevaObs = document.getElementById('inputObsEditar').value;
+
+      if (!nuevoMonto || nuevoMonto <= 0) {
+        showToast('error', 'Error', 'Monto debe ser mayor a 0');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(resultado) {
+          if (resultado.success) {
+            showToast('success', 'Listo', 'Movimiento actualizado');
+            cerrarModal('modalEditarMovimiento');
+            invalidarCache();
+            cargarDatosIniciales();
+          } else {
+            showToast('error', 'Error', resultado.error);
+          }
+        })
+        .actualizarMovimiento(movimientoEnEdicion, nuevoMonto, nuevaObs);
+    }
+
+    function confirmarEliminarMovimiento(id) {
+      if (confirm('¿Eliminar este movimiento permanentemente? Esta acción no se puede deshacer.')) {
+        google.script.run
+          .withSuccessHandler(function(resultado) {
+            if (resultado.success) {
+              showToast('success', 'Listo', 'Movimiento eliminado');
+              invalidarCache();
+              cargarDatosIniciales();
+            } else {
+              showToast('error', 'Error', resultado.error);
+            }
+          })
+          .eliminarMovimiento(id);
+      }
+    }
+
+    // ========================================
     // MÓDULO: VISOR DE CLIENTES
     // ========================================
     function initVisorClientes() {
@@ -5177,7 +5255,7 @@
 
           const tbody = document.getElementById('visorHistorialBody');
           if (movimientos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="tabla-empty">Sin movimientos</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="tabla-empty">Sin movimientos</td></tr>';
           } else {
             tbody.innerHTML = movimientos.map(mov => {
               const monto = typeof mov.monto === 'number' ? mov.monto : (typeof mov.monto === 'string' ? parseFloat(mov.monto) : 0);
@@ -5190,6 +5268,10 @@
                 <td class="monto-cell">$ ${monto.toLocaleString('es-AR')}</td>
                 <td class="monto-cell">$ ${saldoPost.toLocaleString('es-AR')}</td>
                 <td>${mov.obs || '-'}</td>
+                <td style="text-align: center; font-size: 14px;">
+                  <button class="btn-action" onclick="abrirEditarMovimiento(${mov.id}, ${monto}, '${(mov.obs || '').replace(/'/g, "\\'")}')">✏️</button>
+                  <button class="btn-action" onclick="confirmarEliminarMovimiento(${mov.id})">🗑️</button>
+                </td>
               </tr>
             `;
             }).join('');
