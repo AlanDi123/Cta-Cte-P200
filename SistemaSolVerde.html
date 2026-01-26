@@ -67,7 +67,7 @@
       --sv-fondo: #0D1B0E;
       --sv-superficie: #1B5E20;
       --sv-superficie-elevada: #2E7D32;
-      --sv-borde: #33691E;
+      --sv-borde: #55AA52;
       --sv-texto-primario: #E8F5E9;
       --sv-texto-secundario: #C8E6C9;
       --sv-texto-deshabilitado: #558B2F;
@@ -4253,12 +4253,14 @@
     // ========================================
     // SHORTCUTS
     // ========================================
+    // ATAJOS DE TECLADO
+    // ========================================
     function initShortcuts() {
       document.addEventListener('keydown', (e) => {
         if (e.ctrlKey && !e.shiftKey && !e.altKey) {
           const modules = ['dashboard', 'visual-reasoning', 'visor-clientes', 'estadisticas', 'impresion-diaria', 'gestion-clientes', 'arqueo-efectivo'];
           const num = parseInt(e.key);
-          if (num >= 1 && num <= 9) {
+          if (num >= 1 && num <= modules.length) {
             e.preventDefault();
             changeModule(modules[num - 1]);
           }
@@ -6405,6 +6407,13 @@
         const totalExtras = arqueoState.extras.reduce((a,b)=>a+b.amount,0);
         const totalInjections = arqueoState.injections.reduce((a,b)=>a+b.amount,0);
         const balance = (totalCash+totalInjections)-(totalProviders+totalExtras);
+
+        // Validar que haya efectivo > 0
+        if (totalCash <= 0) {
+          ocultarLoading();
+          showToast('warning', 'Advertencia', 'Debe ingresar efectivo mayor a $0 antes de guardar');
+          return;
+        }
 
         const now = new Date();
         const fecha = now.toISOString().split('T')[0];
