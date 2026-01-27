@@ -1935,32 +1935,20 @@ function obtenerDatosParaHTML() {
     return resultado;
 
   } catch (error) {
-    Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('❌ ERROR CAPTURADO en obtenerDatosParaHTML');
-    Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('Mensaje: ' + (error.message || 'Sin mensaje'));
-    Logger.log('Stack: ' + (error.stack || 'Sin stack'));
-    Logger.log('Tipo: ' + typeof error);
-    Logger.log('═══════════════════════════════════════════════════');
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'obtenerDatosParaHTML', step: 'data_loading' };
+    const errorResponse = ErrorHandler.log(
+      'Error al obtener datos para HTML',
+      error,
+      'ERROR',
+      context
+    );
 
-    // Verificar si es error de acceso a base de datos
-    let mensajeError = error.message || 'Error desconocido';
-    if (mensajeError.includes('No se pudo acceder a la base de datos')) {
-      mensajeError = 'Sistema no inicializado. Ejecute la función "inicializarSistema()" desde el editor de scripts (Extensiones > Apps Script).';
-    }
+    // Add expected response structure for this API
+    errorResponse.clientes = [];
+    errorResponse.movimientos = [];
 
-    const resultadoError = {
-      success: false,
-      error: mensajeError,
-      clientes: [],
-      movimientos: []
-    };
-
-    Logger.log('Retornando objeto de error:');
-    Logger.log('  success: ' + resultadoError.success);
-    Logger.log('  error: ' + resultadoError.error);
-
-    return resultadoError;
+    return errorResponse;
   }
 }
 
@@ -1985,11 +1973,16 @@ function obtenerDatosCompletoCliente(nombreCliente) {
       movimientos: movimientos
     };
   } catch (error) {
-    Logger.log('Error en obtenerDatosCompletoCliente: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'obtenerDatosCompletoCliente', cliente: nombreCliente };
+    const errorResponse = ErrorHandler.log(
+      'Error al obtener datos completo del cliente',
+      error,
+      'ERROR',
+      context
+    );
+    errorResponse.movimientos = [];
+    return errorResponse;
   }
 }
 
@@ -2089,11 +2082,16 @@ function obtenerEstadisticas(desde, hasta) {
       }
     };
   } catch (error) {
-    Logger.log('Error en obtenerEstadisticas: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'obtenerEstadisticas', desde: desde, hasta: hasta };
+    const errorResponse = ErrorHandler.log(
+      'Error al obtener estadísticas',
+      error,
+      'ERROR',
+      context
+    );
+    errorResponse.estadisticas = {};
+    return errorResponse;
   }
 }
 
@@ -2111,11 +2109,17 @@ function verificarApiKeyPresente() {
       configurada: !!apiKey
     };
   } catch (error) {
-    Logger.log('Error en verificarApiKeyPresente: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'verificarApiKeyPresente' };
+    const errorResponse = ErrorHandler.log(
+      'Error al verificar API Key',
+      error,
+      'WARN',
+      context
+    );
+    errorResponse.presente = false;
+    errorResponse.configurada = false;
+    return errorResponse;
   }
 }
 
@@ -2165,11 +2169,17 @@ function rematchearNombreConSugerencias(nombre) {
       total: sugerenciasLimitadas.length
     };
   } catch (error) {
-    Logger.log('Error en rematchearNombreConSugerencias: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'rematchearNombreConSugerencias', nombre: nombre };
+    const errorResponse = ErrorHandler.log(
+      'Error al buscar sugerencias de clientes',
+      error,
+      'WARN',
+      context
+    );
+    errorResponse.sugerencias = [];
+    errorResponse.total = 0;
+    return errorResponse;
   }
 }
 
@@ -2179,8 +2189,6 @@ function rematchearNombreConSugerencias(nombre) {
  * @returns {Object} Movimiento guardado
  */
 function guardarMovimientoDesdeHTML(movimientoData) {
-  Logger.log('📥 guardarMovimientoDesdeHTML - Inicio: ' + JSON.stringify(movimientoData));
-
   try {
     // VALIDACIÓN OBLIGATORIA DE DATOS
     if (!movimientoData || typeof movimientoData !== 'object') {
@@ -2205,19 +2213,20 @@ function guardarMovimientoDesdeHTML(movimientoData) {
 
     const movimiento = MovimientosRepository.registrar(movimientoData);
 
-    Logger.log('✅ Movimiento guardado exitosamente - ID: ' + (movimiento.id || 'N/A'));
-
     return {
       success: true,
       movimiento: movimiento
     };
   } catch (error) {
-    Logger.log('❌ Error en guardarMovimientoDesdeHTML: ' + error.message);
-    Logger.log('Stack trace: ' + error.stack);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'guardarMovimientoDesdeHTML', movimientoCliente: movimientoData?.cliente };
+    const errorResponse = ErrorHandler.log(
+      'Error al guardar movimiento desde HTML',
+      error,
+      'ERROR',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2242,11 +2251,15 @@ function guardarMovimientosDesdeVR(payload) {
       totalErrores: resultado.errores.length
     };
   } catch (error) {
-    Logger.log('Error en guardarMovimientosDesdeVR: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'guardarMovimientosDesdeVR', payloadSize: payload?.movimientos?.length || 0 };
+    const errorResponse = ErrorHandler.log(
+      'Error al guardar movimientos desde Visual Reasoning',
+      error,
+      'ERROR',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2291,8 +2304,6 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
 
     ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
 
-    Logger.log('✅ Movimiento ' + idMovimiento + ' actualizado');
-
     return {
       success: true,
       movimiento: {
@@ -2303,11 +2314,15 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
       }
     };
   } catch (error) {
-    Logger.log('❌ ERROR en actualizarMovimiento: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'actualizarMovimiento', movimientoId: idMovimiento, nuevoMonto: nuevoMonto };
+    const errorResponse = ErrorHandler.log(
+      'Error al actualizar movimiento',
+      error,
+      'ERROR',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2349,19 +2364,21 @@ function eliminarMovimiento(idMovimiento) {
 
     ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
 
-    Logger.log('✅ Movimiento ' + idMovimiento + ' eliminado');
-
     return {
       success: true,
       mensaje: 'Movimiento eliminado',
       nuevoSaldo: nuevoSaldo
     };
   } catch (error) {
-    Logger.log('❌ ERROR en eliminarMovimiento: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'eliminarMovimiento', movimientoId: idMovimiento };
+    const errorResponse = ErrorHandler.log(
+      'Error al eliminar movimiento',
+      error,
+      'ERROR',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2399,7 +2416,6 @@ function recalcularTodosSaldos() {
       }
     }
 
-    Logger.log('✅ Recálculo completado: ' + clientesActualizados + ' clientes corregidos');
     return {
       success: true,
       mensaje: clientesActualizados + ' clientes fueron recalculados',
@@ -2408,11 +2424,16 @@ function recalcularTodosSaldos() {
     };
 
   } catch (error) {
-    Logger.log('❌ Error en recalcularTodosSaldos: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'recalcularTodosSaldos' };
+    const errorResponse = ErrorHandler.log(
+      'Error al recalcular todos los saldos',
+      error,
+      'CRITICAL',
+      context
+    );
+    errorResponse.clientesActualizados = 0;
+    return errorResponse;
   }
 }
 
@@ -2422,8 +2443,6 @@ function recalcularTodosSaldos() {
  * @returns {Object} Cliente creado
  */
 function crearNuevoClienteCompleto(clienteData) {
-  Logger.log('📥 crearNuevoClienteCompleto - Inicio: ' + JSON.stringify(clienteData));
-
   try {
     // VALIDACIÓN OBLIGATORIA DE DATOS
     if (!clienteData || typeof clienteData !== 'object') {
@@ -2440,19 +2459,20 @@ function crearNuevoClienteCompleto(clienteData) {
 
     const cliente = ClientesRepository.crear(clienteData);
 
-    Logger.log('✅ Cliente creado exitosamente: ' + clienteData.nombre);
-
     return {
       success: true,
       cliente: cliente
     };
   } catch (error) {
-    Logger.log('❌ Error en crearNuevoClienteCompleto: ' + error.message);
-    Logger.log('Stack trace: ' + error.stack);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'crearNuevoClienteCompleto', nombreCliente: clienteData?.nombre };
+    const errorResponse = ErrorHandler.log(
+      'Error al crear nuevo cliente',
+      error,
+      'ERROR',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2463,8 +2483,6 @@ function crearNuevoClienteCompleto(clienteData) {
  * @returns {Object} Cliente actualizado
  */
 function actualizarDatosCliente(nombreCliente, datos) {
-  Logger.log('📥 actualizarDatosCliente - Cliente: ' + nombreCliente + ', Datos: ' + JSON.stringify(datos));
-
   try {
     // VALIDACIÓN OBLIGATORIA DE DATOS
     if (!nombreCliente || typeof nombreCliente !== 'string' || nombreCliente.trim() === '') {
@@ -2481,19 +2499,20 @@ function actualizarDatosCliente(nombreCliente, datos) {
 
     const cliente = ClientesRepository.actualizar(nombreCliente, datos);
 
-    Logger.log('✅ Cliente actualizado exitosamente: ' + nombreCliente);
-
     return {
       success: true,
       cliente: cliente
     };
   } catch (error) {
-    Logger.log('❌ Error en actualizarDatosCliente: ' + error.message);
-    Logger.log('Stack trace: ' + error.stack);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'actualizarDatosCliente', nombreCliente: nombreCliente };
+    const errorResponse = ErrorHandler.log(
+      'Error al actualizar datos del cliente',
+      error,
+      'ERROR',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2511,11 +2530,15 @@ function eliminarClienteCompleto(nombreCliente) {
       mensaje: `Cliente "${nombreCliente}" eliminado correctamente`
     };
   } catch (error) {
-    Logger.log('Error en eliminarClienteCompleto: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'eliminarClienteCompleto', nombreCliente: nombreCliente };
+    const errorResponse = ErrorHandler.log(
+      'Error al eliminar cliente',
+      error,
+      'ERROR',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2538,11 +2561,15 @@ function guardarApiKey(apiKey) {
       mensaje: 'API Key guardada correctamente'
     };
   } catch (error) {
-    Logger.log('Error en guardarApiKey: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'guardarApiKey', apiKeyLength: apiKey?.length || 0 };
+    const errorResponse = ErrorHandler.log(
+      'Error al guardar API Key',
+      error,
+      'CRITICAL',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2564,18 +2591,11 @@ function guardarApiKey(apiKey) {
  */
 function analizarImagenVisualReasoningSimple(imageBase64) {
   try {
-    Logger.log('📞 LLAMADA: analizarImagenVisualReasoningSimple');
-    Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
-
     if (!imageBase64 || imageBase64.length < 100) {
       throw new Error('Base64 inválido o muy pequeño');
     }
 
-    Logger.log('🚀 Llamando ClaudeService.analizarImagen()...');
     const resultado = ClaudeService.analizarImagen(imageBase64);
-
-    Logger.log('✅ Análisis completado');
-    Logger.log('📊 Movimientos extraídos: ' + resultado.totalExtraidos);
 
     return {
       success: true,
@@ -2583,11 +2603,17 @@ function analizarImagenVisualReasoningSimple(imageBase64) {
       totalExtraidos: resultado.totalExtraidos
     };
   } catch (error) {
-    Logger.log('❌ ERROR: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'analizarImagenVisualReasoningSimple', imageSize: imageBase64?.length || 0 };
+    const errorResponse = ErrorHandler.log(
+      'Error al analizar imagen con Visual Reasoning',
+      error,
+      'ERROR',
+      context
+    );
+    errorResponse.movimientos = [];
+    errorResponse.totalExtraidos = 0;
+    return errorResponse;
   }
 }
 
@@ -2747,11 +2773,17 @@ function crearClientesMasivos(payload) {
     };
 
   } catch (error) {
-    Logger.log('Error en crearClientesMasivos: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'crearClientesMasivos', clientesCount: payload?.clientes?.length || 0 };
+    const errorResponse = ErrorHandler.log(
+      'Error al crear clientes masivos',
+      error,
+      'ERROR',
+      context
+    );
+    errorResponse.exitosos = 0;
+    errorResponse.errores = 0;
+    return errorResponse;
   }
 }
 
@@ -2761,8 +2793,6 @@ function crearClientesMasivos(payload) {
  * @returns {Object} {success, recaudacion} o {success: false, error}
  */
 function guardarRecaudacion(recaudacionData) {
-  Logger.log('📥 guardarRecaudacion - Inicio: ' + JSON.stringify(recaudacionData));
-
   try {
     if (!recaudacionData || typeof recaudacionData !== 'object') {
       throw new Error('Datos inválidos');
@@ -2770,18 +2800,20 @@ function guardarRecaudacion(recaudacionData) {
 
     const recaudacion = RecaudacionRepository.registrar(recaudacionData);
 
-    Logger.log('✅ Recaudación guardada - ID: ' + recaudacion.id);
-
     return {
       success: true,
       recaudacion: recaudacion
     };
   } catch (error) {
-    Logger.log('❌ Error en guardarRecaudacion: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'guardarRecaudacion', cliente: recaudacionData?.cliente };
+    const errorResponse = ErrorHandler.log(
+      'Error al guardar recaudación',
+      error,
+      'ERROR',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2799,11 +2831,16 @@ function obtenerRecaudacionesPorCliente(nombreCliente) {
       recaudaciones: recaudaciones
     };
   } catch (error) {
-    Logger.log('Error en obtenerRecaudacionesPorCliente: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'obtenerRecaudacionesPorCliente', cliente: nombreCliente };
+    const errorResponse = ErrorHandler.log(
+      'Error al obtener recaudaciones por cliente',
+      error,
+      'WARN',
+      context
+    );
+    errorResponse.recaudaciones = [];
+    return errorResponse;
   }
 }
 
@@ -2821,11 +2858,16 @@ function obtenerTotalesRecaudacionDia(fecha) {
       totales: totales
     };
   } catch (error) {
-    Logger.log('Error en obtenerTotalesRecaudacionDia: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'obtenerTotalesRecaudacionDia', fecha: fecha };
+    const errorResponse = ErrorHandler.log(
+      'Error al obtener totales de recaudación del día',
+      error,
+      'WARN',
+      context
+    );
+    errorResponse.totales = {};
+    return errorResponse;
   }
 }
 
@@ -2863,8 +2905,15 @@ function setupCashSystemSheets() {
 
     return { success: true, message: 'Hojas inicializadas correctamente' };
   } catch (error) {
-    Logger.log('Error en setupCashSystemSheets: ' + error.message);
-    return { success: false, error: error.message };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'setupCashSystemSheets' };
+    const errorResponse = ErrorHandler.log(
+      'Error al inicializar hojas del sistema de caja',
+      error,
+      'ERROR',
+      context
+    );
+    return errorResponse;
   }
 }
 
@@ -2973,12 +3022,19 @@ function initializeHistoricalCashData() {
       recordsAdded++;
     }
 
-    Logger.log(`✅ Historial_Caja inicializado con ${recordsAdded} registros históricos`);
     return { success: true, recordsAdded: recordsAdded };
 
   } catch (error) {
-    Logger.log('Error en initializeHistoricalCashData: ' + error.message);
-    return { success: false, error: error.message };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'initializeHistoricalCashData' };
+    const errorResponse = ErrorHandler.log(
+      'Error al inicializar datos históricos de caja',
+      error,
+      'WARN',
+      context
+    );
+    errorResponse.recordsAdded = 0;
+    return errorResponse;
   }
 }
 
@@ -3009,7 +3065,15 @@ function getCashSystemConfig() {
     // Si no hay datos, retornar proveedores predeterminados
     return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
   } catch (error) {
-    Logger.log('Error en getCashSystemConfig: ' + error.message);
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'getCashSystemConfig' };
+    ErrorHandler.log(
+      'Error al obtener configuración del sistema de caja',
+      error,
+      'WARN',
+      context
+    );
+    // Return defaults on error (silent fail pattern - caching not critical here)
     return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
   }
 }
@@ -3079,7 +3143,15 @@ function getCashHistoryEntries() {
     // Devolver invertido para ver lo más reciente arriba
     return entries.reverse();
   } catch (error) {
-    Logger.log('Error en getCashHistoryEntries: ' + error.message);
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'getCashHistoryEntries' };
+    ErrorHandler.log(
+      'Error al obtener historial de cierres de caja',
+      error,
+      'WARN',
+      context
+    );
+    // Return empty array on error (silent fail pattern - history not critical)
     return [];
   }
 }
@@ -3137,8 +3209,15 @@ function saveCashSessionData(data) {
 
     return { success: true, message: 'Cierre guardado correctamente.' };
   } catch (error) {
-    Logger.log('Error en saveCashSessionData: ' + error.message);
-    return { success: false, error: error.message };
+    // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
+    const context = { function: 'saveCashSessionData', cashAmount: data?.totals?.cash };
+    const errorResponse = ErrorHandler.log(
+      'Error al guardar sesión de cierre de caja',
+      error,
+      'CRITICAL',
+      context
+    );
+    return errorResponse;
   }
 }
 
