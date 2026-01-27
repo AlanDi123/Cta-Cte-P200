@@ -5098,11 +5098,13 @@
       google.script.run
         .withSuccessHandler((resultado) => {
           document.getElementById('vrGuardarTodos').disabled = false;
-          if (resultado.exito) {
-            showToast('success', '🎉 Éxito', `${resultado.guardados || payload.length} movimientos guardados`);
+          if (resultado.success) {
+            const totalGuardados = resultado.totalExitosos || 0;
+            const totalErrores = resultado.totalErrores || 0;
+            showToast('success', '🎉 Éxito', `${totalGuardados} movimientos guardados${totalErrores > 0 ? `, ${totalErrores} errores` : ''}`);
             setTimeout(() => { resetVR(); cargarDatosIniciales(); }, 2000);
           } else {
-            showToast('error', 'Error', resultado.mensaje || 'Error al guardar');
+            showToast('error', 'Error', resultado.error || 'Error al guardar');
           }
         })
         .withFailureHandler((error) => {
@@ -6334,7 +6336,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           if (!result.success) {
-            mostrarNotificacion('error', result.error || 'Error al cargar reporte');
+            showToast('error', 'Error', result.error || 'Error al cargar reporte');
             ocultarLoading();
             return;
           }
@@ -6386,7 +6388,7 @@
           ocultarLoading();
         })
         .withFailureHandler(function(error) {
-          mostrarNotificacion('error', 'Error al cargar reporte: ' + error.message);
+          showToast('error', 'Error', 'Error al cargar reporte: ' + error.message);
           ocultarLoading();
         })
         .obtenerResumenMovimientosPorCliente();
