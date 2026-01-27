@@ -1747,7 +1747,7 @@ function obtenerDatosCompletoCliente(nombreCliente) {
       movimientos: movimientos
     };
   } catch (error) {
-    Logger.log('Error en obtenerDatosCompletoCliente: ' + error.message);
+    log('Error en obtenerDatosCompletoCliente: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -2121,7 +2121,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
 
     ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
 
-    Logger.log('✅ Movimiento ' + idMovimiento + ' actualizado');
+    log('✅ Movimiento ' + idMovimiento + ' actualizado', 'debug');
 
     return {
       success: true,
@@ -2133,7 +2133,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
       }
     };
   } catch (error) {
-    Logger.log('❌ ERROR en actualizarMovimiento: ' + error.message);
+    log('❌ ERROR en actualizarMovimiento: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -2185,7 +2185,7 @@ function eliminarMovimiento(idMovimiento) {
 
     ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
 
-    Logger.log('✅ Movimiento ' + idMovimiento + ' eliminado');
+    log('✅ Movimiento ' + idMovimiento + ' eliminado', 'debug');
 
     return {
       success: true,
@@ -2193,7 +2193,7 @@ function eliminarMovimiento(idMovimiento) {
       nuevoSaldo: nuevoSaldo
     };
   } catch (error) {
-    Logger.log('❌ ERROR en eliminarMovimiento: ' + error.message);
+    log('❌ ERROR en eliminarMovimiento: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -2205,6 +2205,7 @@ function eliminarMovimiento(idMovimiento) {
 
 /**
  * Recalcula todos los saldos de clientes basándose en los movimientos
+ * Optimizado con operaciones batch para mejor rendimiento
  * Útil cuando hay inconsistencias en los datos
  */
 function recalcularTodosSaldos() {
@@ -2213,9 +2214,10 @@ function recalcularTodosSaldos() {
     const movimientosRepo = MovimientosRepository;
     const todosClientes = clientesRepo.obtenerTodos();
 
-    Logger.log('🔄 Iniciando recálculo de saldos para ' + todosClientes.length + ' clientes');
+    log('🔄 Iniciando recálculo de saldos para ' + todosClientes.length + ' clientes', 'info');
 
     let clientesActualizados = 0;
+    const actualizaciones = []; // Array para batch updates
 
     for (const cliente of todosClientes) {
       const movimientos = movimientosRepo.obtenerPorCliente(cliente.nombre);
@@ -2231,13 +2233,47 @@ function recalcularTodosSaldos() {
       }
 
       if (saldoCalculado !== cliente.saldo) {
-        Logger.log(`⚠️ Corrigiendo ${cliente.nombre}: ${cliente.saldo} → ${saldoCalculado}`);
-        clientesRepo.actualizarSaldoDirecto(cliente.nombre, saldoCalculado);
+        log(`⚠️ Corrigiendo ${cliente.nombre}: ${cliente.saldo} → ${saldoCalculado}`, 'debug');
+        actualizaciones.push({
+          nombre: cliente.nombre,
+          saldo: saldoCalculado
+        });
         clientesActualizados++;
       }
     }
 
-    Logger.log('✅ Recálculo completado: ' + clientesActualizados + ' clientes corregidos');
+    // Batch update all at once for better performance
+    if (actualizaciones.length > 0) {
+      const hoja = clientesRepo.getHoja();
+      const datos = hoja.getDataRange().getValues();
+      
+      // Build a map for quick lookup
+      const actualizacionesMap = new Map(
+        actualizaciones.map(a => [normalizarString(a.nombre), a.saldo])
+      );
+      
+      // Collect all updates to apply in batch
+      const rangesToUpdate = [];
+      
+      for (let i = 1; i < datos.length; i++) {
+        const nombreFila = normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]);
+        if (actualizacionesMap.has(nombreFila)) {
+          const nuevoSaldo = actualizacionesMap.get(nombreFila);
+          const fila = i + 1; // 1-indexed
+          rangesToUpdate.push({
+            range: hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1),
+            value: nuevoSaldo
+          });
+        }
+      }
+      
+      // Apply all updates in batch
+      rangesToUpdate.forEach(update => {
+        update.range.setValue(update.value);
+      });
+    }
+
+    log('✅ Recálculo completado: ' + clientesActualizados + ' clientes corregidos', 'info');
     return {
       success: true,
       mensaje: clientesActualizados + ' clientes fueron recalculados',
@@ -2246,7 +2282,7 @@ function recalcularTodosSaldos() {
     };
 
   } catch (error) {
-    Logger.log('❌ Error en recalcularTodosSaldos: ' + error.message);
+    log('❌ Error en recalcularTodosSaldos: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
