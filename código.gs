@@ -2895,6 +2895,9 @@ function rematchearNombreConSugerencias(nombre) {
  */
 function guardarMovimientoDesdeHTML(movimientoData) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     // VALIDACIÓN OBLIGATORIA DE DATOS
     if (!movimientoData || typeof movimientoData !== 'object') {
       throw new Error('Datos inválidos: se esperaba un objeto');
@@ -2916,7 +2919,7 @@ function guardarMovimientoDesdeHTML(movimientoData) {
       throw new Error('Fecha inválida: debe ser una cadena de texto');
     }
 
-    const movimiento = MovimientosRepository.registrar(movimientoData);
+    const movimiento = MovimientosRepository.registrar(movimientoData, auth.companyId);
 
     return {
       success: true,
@@ -2942,11 +2945,19 @@ function guardarMovimientoDesdeHTML(movimientoData) {
  */
 function guardarMovimientosDesdeVR(payload) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     if (!payload.movimientos || !Array.isArray(payload.movimientos)) {
       throw new Error('Payload inválido: se esperaba {movimientos: Array}');
     }
 
-    const resultado = MovimientosRepository.registrarLote(payload.movimientos);
+    // Update companyId in all movimientos antes de registrar
+    payload.movimientos.forEach(mov => {
+      mov.companyId = auth.companyId;
+    });
+
+    const resultado = MovimientosRepository.registrarLote(payload.movimientos, auth.companyId);
 
     return {
       success: true,
@@ -2973,21 +2984,25 @@ function guardarMovimientosDesdeVR(payload) {
  */
 function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     const repo = MovimientosRepository;
     const hoja = repo.getHoja();
     const datos = hoja.getDataRange().getValues();
 
-    // Find row by ID
+    // Find row by ID (MULTI-TENANT: Filter by COMPANY_ID)
     let rowIndex = -1;
     for (let i = 1; i < datos.length; i++) {
-      if (datos[i][CONFIG.COLS_MOVS.ID] == idMovimiento) {
+      const filaCompanyId = datos[i][CONFIG.COLS_MOVS.COMPANY_ID] || 'DEFAULT_COMPANY';
+      if (filaCompanyId === auth.companyId && datos[i][CONFIG.COLS_MOVS.ID] == idMovimiento) {
         rowIndex = i + 1;
         break;
       }
     }
 
     if (rowIndex === -1) {
-      throw new Error('Movimiento no encontrado');
+      throw new Error('Movimiento no encontrado en esta empresa');
     }
 
     const movimientoRow = datos[rowIndex - 1];
@@ -2999,15 +3014,15 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
     hoja.getRange(rowIndex, CONFIG.COLS_MOVS.MONTO + 1).setValue(nuevoMonto);
     hoja.getRange(rowIndex, CONFIG.COLS_MOVS.OBS + 1).setValue(nuevaObs);
 
-    // Recalculate balance
+    // Recalculate balance (with companyId filtering)
     const clientesRepo = ClientesRepository;
-    const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
+    const clienteData = clientesRepo.buscarPorNombre(clienteNombre, auth.companyId);
     const montoDiff = Number(nuevoMonto) - montoAnterior;
     const nuevoSaldo = tipoMov === 'DEBE' ?
-      (clienteData.saldo + montoDiff) :
-      (clienteData.saldo - montoDiff);
+      (clienteData.cliente.saldo + montoDiff) :
+      (clienteData.cliente.saldo - montoDiff);
 
-    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
+    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo, auth.companyId);
 
     return {
       success: true,
@@ -3036,20 +3051,25 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
  */
 function eliminarMovimiento(idMovimiento) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     const repo = MovimientosRepository;
     const hoja = repo.getHoja();
     const datos = hoja.getDataRange().getValues();
 
     let rowIndex = -1;
     for (let i = 1; i < datos.length; i++) {
-      if (datos[i][CONFIG.COLS_MOVS.ID] == idMovimiento) {
+      // MULTI-TENANT: Filter by COMPANY_ID
+      const filaCompanyId = datos[i][CONFIG.COLS_MOVS.COMPANY_ID] || 'DEFAULT_COMPANY';
+      if (filaCompanyId === auth.companyId && datos[i][CONFIG.COLS_MOVS.ID] == idMovimiento) {
         rowIndex = i + 1;
         break;
       }
     }
 
     if (rowIndex === -1) {
-      throw new Error('Movimiento no encontrado');
+      throw new Error('Movimiento no encontrado en esta empresa');
     }
 
     const movimientoRow = datos[rowIndex - 1];
@@ -3060,14 +3080,14 @@ function eliminarMovimiento(idMovimiento) {
     // Delete the row
     hoja.deleteRow(rowIndex);
 
-    // Recalculate client balance (reverse the movement)
+    // Recalculate client balance (reverse the movement) with companyId filtering
     const clientesRepo = ClientesRepository;
-    const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
+    const clienteData = clientesRepo.buscarPorNombre(clienteNombre, auth.companyId);
     const nuevoSaldo = tipoMov === 'DEBE' ?
-      (clienteData.saldo - monto) :
-      (clienteData.saldo + monto);
+      (clienteData.cliente.saldo - monto) :
+      (clienteData.cliente.saldo + monto);
 
-    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
+    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo, auth.companyId);
 
     return {
       success: true,
@@ -3093,16 +3113,19 @@ function eliminarMovimiento(idMovimiento) {
  */
 function recalcularTodosSaldos() {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     const clientesRepo = ClientesRepository;
     const movimientosRepo = MovimientosRepository;
-    const todosClientes = clientesRepo.obtenerTodos();
+    const todosClientes = clientesRepo.obtenerTodos(auth.companyId);
 
     Logger.log('🔄 Iniciando recálculo de saldos para ' + todosClientes.length + ' clientes');
 
     let clientesActualizados = 0;
 
     for (const cliente of todosClientes) {
-      const movimientos = movimientosRepo.obtenerPorCliente(cliente.nombre);
+      const movimientos = movimientosRepo.obtenerPorCliente(cliente.nombre, auth.companyId);
       let saldoCalculado = 0;
 
       for (const mov of movimientos) {
@@ -3116,7 +3139,7 @@ function recalcularTodosSaldos() {
 
       if (saldoCalculado !== cliente.saldo) {
         Logger.log(`⚠️ Corrigiendo ${cliente.nombre}: ${cliente.saldo} → ${saldoCalculado}`);
-        clientesRepo.actualizarSaldoDirecto(cliente.nombre, saldoCalculado);
+        clientesRepo.actualizarSaldoDirecto(cliente.nombre, saldoCalculado, auth.companyId);
         clientesActualizados++;
       }
     }
@@ -3149,6 +3172,9 @@ function recalcularTodosSaldos() {
  */
 function crearNuevoClienteCompleto(clienteData) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     // VALIDACIÓN OBLIGATORIA DE DATOS
     if (!clienteData || typeof clienteData !== 'object') {
       throw new Error('Datos inválidos: se esperaba un objeto');
@@ -3162,7 +3188,7 @@ function crearNuevoClienteCompleto(clienteData) {
       throw new Error('Límite de crédito inválido: debe ser un número no negativo');
     }
 
-    const cliente = ClientesRepository.crear(clienteData);
+    const cliente = ClientesRepository.crear(clienteData, auth.companyId);
 
     return {
       success: true,
@@ -3189,6 +3215,9 @@ function crearNuevoClienteCompleto(clienteData) {
  */
 function actualizarDatosCliente(nombreCliente, datos) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     // VALIDACIÓN OBLIGATORIA DE DATOS
     if (!nombreCliente || typeof nombreCliente !== 'string' || nombreCliente.trim() === '') {
       throw new Error('Nombre de cliente inválido: debe ser un texto no vacío');
@@ -3202,7 +3231,7 @@ function actualizarDatosCliente(nombreCliente, datos) {
       throw new Error('Límite de crédito inválido: debe ser un número no negativo');
     }
 
-    const cliente = ClientesRepository.actualizar(nombreCliente, datos);
+    const cliente = ClientesRepository.actualizar(nombreCliente, datos, auth.companyId);
 
     return {
       success: true,
@@ -3228,7 +3257,10 @@ function actualizarDatosCliente(nombreCliente, datos) {
  */
 function eliminarClienteCompleto(nombreCliente) {
   try {
-    ClientesRepository.eliminar(nombreCliente);
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
+    ClientesRepository.eliminar(nombreCliente, auth.companyId);
 
     return {
       success: true,
@@ -3401,6 +3433,9 @@ function analizarImagenConToken(vrDataToken) {
  */
 function crearClientesMasivos(payload) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     if (!payload.clientes || !Array.isArray(payload.clientes)) {
       throw new Error('Payload inválido: se esperaba {clientes: Array}');
     }
@@ -3418,14 +3453,14 @@ function crearClientesMasivos(payload) {
       try {
         lock.waitLock(30000);
 
-        // 1. Crear cliente con saldo 0
+        // 1. Crear cliente con saldo 0 (with companyId)
         const cliente = ClientesRepository.crear({
           nombre: clienteData.nombre,
           tel: clienteData.tel,
           email: clienteData.email,
           limite: clienteData.limite || 100000,
           obs: clienteData.obs
-        });
+        }, auth.companyId);
 
         // 2. Si tiene saldo inicial ≠ 0, crear movimiento de ajuste
         if (clienteData.saldoInicial && clienteData.saldoInicial !== 0) {
@@ -3440,7 +3475,7 @@ function crearClientesMasivos(payload) {
             tipo: tipoMovimiento,
             monto: montoAbsoluto,
             obs: `SALDO INICIAL (Carga Masiva)`
-          });
+          }, auth.companyId);
 
           resultados.detalleExitosos.push({
             nombre: clienteData.nombre,
@@ -3499,11 +3534,14 @@ function crearClientesMasivos(payload) {
  */
 function guardarRecaudacion(recaudacionData) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     if (!recaudacionData || typeof recaudacionData !== 'object') {
       throw new Error('Datos inválidos');
     }
 
-    const recaudacion = RecaudacionRepository.registrar(recaudacionData);
+    const recaudacion = RecaudacionRepository.registrar(recaudacionData, auth.companyId);
 
     return {
       success: true,
@@ -3529,7 +3567,10 @@ function guardarRecaudacion(recaudacionData) {
  */
 function obtenerRecaudacionesPorCliente(nombreCliente) {
   try {
-    const recaudaciones = RecaudacionRepository.obtenerPorCliente(nombreCliente);
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
+    const recaudaciones = RecaudacionRepository.obtenerPorCliente(nombreCliente, auth.companyId);
 
     return {
       success: true,
@@ -3556,7 +3597,10 @@ function obtenerRecaudacionesPorCliente(nombreCliente) {
  */
 function obtenerTotalesRecaudacionDia(fecha) {
   try {
-    const totales = RecaudacionRepository.obtenerTotalesDiarios(new Date(fecha));
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
+    const totales = RecaudacionRepository.obtenerTotalesDiarios(new Date(fecha), auth.companyId);
 
     return {
       success: true,
