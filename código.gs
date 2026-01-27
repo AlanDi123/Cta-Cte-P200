@@ -1980,7 +1980,11 @@ function guardarMovimientosDesdeVR(payload) {
  * API 8a: Actualizar movimiento existente
  */
 function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
+  const lock = LockService.getScriptLock();
+  
   try {
+    lock.waitLock(30000); // Timeout de 30 segundos
+    
     const repo = MovimientosRepository;
     const hoja = repo.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -2002,15 +2006,20 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
     const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
     const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
     const montoAnterior = Number(movimientoRow[CONFIG.COLS_MOVS.MONTO]);
+    const saldoPostAnterior = Number(movimientoRow[CONFIG.COLS_MOVS.SALDO_POST]);
 
-    // Update monto and obs
+    // Calculate balance difference and new saldoPost
+    const montoDiff = Number(nuevoMonto) - montoAnterior;
+    const nuevoSaldoPost = saldoPostAnterior + (tipoMov === 'DEBE' ? montoDiff : -montoDiff);
+
+    // Update monto, obs, and saldoPost
     hoja.getRange(rowIndex, CONFIG.COLS_MOVS.MONTO + 1).setValue(nuevoMonto);
     hoja.getRange(rowIndex, CONFIG.COLS_MOVS.OBS + 1).setValue(nuevaObs);
+    hoja.getRange(rowIndex, CONFIG.COLS_MOVS.SALDO_POST + 1).setValue(nuevoSaldoPost);
 
-    // Recalculate balance
+    // Recalculate client balance
     const clientesRepo = ClientesRepository;
     const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
-    const montoDiff = Number(nuevoMonto) - montoAnterior;
     const nuevoSaldo = tipoMov === 'DEBE' ?
       (clienteData.saldo + montoDiff) :
       (clienteData.saldo - montoDiff);
@@ -2034,6 +2043,8 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
       success: false,
       error: error.message
     };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -2041,7 +2052,11 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
  * API 8b: Eliminar movimiento existente
  */
 function eliminarMovimiento(idMovimiento) {
+  const lock = LockService.getScriptLock();
+  
   try {
+    lock.waitLock(30000); // Timeout de 30 segundos
+    
     const repo = MovimientosRepository;
     const hoja = repo.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -2088,6 +2103,8 @@ function eliminarMovimiento(idMovimiento) {
       success: false,
       error: error.message
     };
+  } finally {
+    lock.releaseLock();
   }
 }
 
