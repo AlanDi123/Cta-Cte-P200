@@ -234,7 +234,7 @@ const CONFIG = {
   // Configuración de Claude AI
   CLAUDE: {
     API_URL: 'https://api.anthropic.com/v1/messages',
-    MODEL: 'claude-3-5-sonnet-20241022',
+    MODEL: 'claude-opus-4-5-20251101',
     MAX_TOKENS: 4096,
     VERSION: '2023-06-01'
   },
@@ -522,9 +522,9 @@ const ClientesRepository = {
         nombre: fila[CONFIG.COLS_CLIENTES.NOMBRE] || '',
         tel: fila[CONFIG.COLS_CLIENTES.TEL] || '',
         email: fila[CONFIG.COLS_CLIENTES.EMAIL] || '',
-        limite: fila[CONFIG.COLS_CLIENTES.LIMITE] || 100000,
-        saldo: fila[CONFIG.COLS_CLIENTES.SALDO] || 0,
-        totalMovs: fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS] || 0,
+        limite: Number(fila[CONFIG.COLS_CLIENTES.LIMITE]) || 100000,
+        saldo: Number(fila[CONFIG.COLS_CLIENTES.SALDO]) || 0,
+        totalMovs: Number(fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS]) || 0,
         alta: alta instanceof Date ? alta.toISOString() : (alta || ''),
         ultimoMov: ultimoMov instanceof Date ? ultimoMov.toISOString() : (ultimoMov || ''),
         obs: fila[CONFIG.COLS_CLIENTES.OBS] || ''

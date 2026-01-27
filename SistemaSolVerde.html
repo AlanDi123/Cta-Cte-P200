@@ -5210,14 +5210,19 @@
       }
 
       container.innerHTML = clientes.map(cliente => {
-        const saldoClass = cliente.saldo > 0 ? 'negative' : (cliente.saldo < 0 ? 'positive' : '');
+        // Safely convert saldo to number, handling error values like "#NUM!"
+        const saldoNumerico = typeof cliente.saldo === 'number' ? cliente.saldo :
+                             (typeof cliente.saldo === 'string' ? (isNaN(parseFloat(cliente.saldo)) ? 0 : parseFloat(cliente.saldo)) : 0);
+        const saldoClass = saldoNumerico > 0 ? 'negative' : (saldoNumerico < 0 ? 'positive' : '');
+        const saldoDisplay = saldoNumerico.toLocaleString('es-AR');
+
         return `
           <div class="client-item" onclick="cargarClienteVisor('${cliente.nombre.replace(/'/g, "\\'")}')">
             <div class="client-item-info">
               <div class="client-item-name">${cliente.nombre}</div>
               <div class="client-item-stats">Últ. movimiento: ${formatearFecha(cliente.ultimoMov || cliente.alta)}</div>
             </div>
-            <div class="client-item-saldo ${saldoClass}">$ ${cliente.saldo.toLocaleString('es-AR')}</div>
+            <div class="client-item-saldo ${saldoClass}">$ ${saldoDisplay}</div>
           </div>
         `;
       }).join('');
@@ -5551,11 +5556,17 @@
         return;
       }
 
-      tbody.innerHTML = clientes.map(cliente => `
+      tbody.innerHTML = clientes.map(cliente => {
+        // Safely convert saldo to number, handling error values like "#NUM!"
+        const saldoNumerico = typeof cliente.saldo === 'number' ? cliente.saldo :
+                             (typeof cliente.saldo === 'string' ? (isNaN(parseFloat(cliente.saldo)) ? 0 : parseFloat(cliente.saldo)) : 0);
+        const saldoDisplay = saldoNumerico.toLocaleString('es-AR');
+
+        return `
         <tr>
           <td><strong>${cliente.nombre}</strong></td>
-          <td class="monto-cell" style="color: ${cliente.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)'}">
-            $ ${cliente.saldo.toLocaleString('es-AR')}
+          <td class="monto-cell" style="color: ${saldoNumerico > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)'}">
+            $ ${saldoDisplay}
           </td>
           <td>${cliente.totalMovimientos || 0}</td>
           <td>${formatearFecha(cliente.ultimoMov || cliente.alta)}</td>
@@ -5564,14 +5575,24 @@
             <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="eliminarClienteGestion('${cliente.nombre.replace(/'/g, "\\'")}')">🗑️</button>
           </td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function actualizarEstadisticasGestion() {
       const total = AppState.clientesData.length;
-      const activos = AppState.clientesData.filter(c => (c.saldo || 0) !== 0).length;
-      const conDeuda = AppState.clientesData.filter(c => c.saldo > 0).length;
-      const aFavor = AppState.clientesData.filter(c => c.saldo < 0).length;
+      const activos = AppState.clientesData.filter(c => {
+        const saldo = typeof c.saldo === 'number' ? c.saldo : (typeof c.saldo === 'string' ? (isNaN(parseFloat(c.saldo)) ? 0 : parseFloat(c.saldo)) : 0);
+        return saldo !== 0;
+      }).length;
+      const conDeuda = AppState.clientesData.filter(c => {
+        const saldo = typeof c.saldo === 'number' ? c.saldo : (typeof c.saldo === 'string' ? (isNaN(parseFloat(c.saldo)) ? 0 : parseFloat(c.saldo)) : 0);
+        return saldo > 0;
+      }).length;
+      const aFavor = AppState.clientesData.filter(c => {
+        const saldo = typeof c.saldo === 'number' ? c.saldo : (typeof c.saldo === 'string' ? (isNaN(parseFloat(c.saldo)) ? 0 : parseFloat(c.saldo)) : 0);
+        return saldo < 0;
+      }).length;
 
       document.getElementById('gestionTotalClientes').textContent = total;
       document.getElementById('gestionClientesActivos').textContent = activos;
@@ -6043,7 +6064,10 @@
       document.getElementById('configTotalMovs').textContent = AppState.movimientosRecientes.length;
 
       // Calcular saldo total
-      const saldoTotal = AppState.clientesData.reduce((sum, c) => sum + (c.saldo || 0), 0);
+      const saldoTotal = AppState.clientesData.reduce((sum, c) => {
+        const saldo = typeof c.saldo === 'number' ? c.saldo : (typeof c.saldo === 'string' ? (isNaN(parseFloat(c.saldo)) ? 0 : parseFloat(c.saldo)) : 0);
+        return sum + (saldo || 0);
+      }, 0);
       document.getElementById('configSaldoTotal').textContent = '$' + saldoTotal.toLocaleString('es-AR');
 
       // Última actualización
@@ -6308,14 +6332,18 @@
 
       // Usar AppState.clientesData (ya cargado en cargarDatosIniciales)
       // FILTRAR: Solo incluir clientes con saldo diferente de 0
-      const clientes = (AppState.clientesData || []).filter(cliente => cliente.saldo !== 0);
+      const clientes = (AppState.clientesData || []).filter(cliente => {
+        const saldo = typeof cliente.saldo === 'number' ? cliente.saldo : (typeof cliente.saldo === 'string' ? (isNaN(parseFloat(cliente.saldo)) ? 0 : parseFloat(cliente.saldo)) : 0);
+        return saldo !== 0;
+      });
 
       let totalPagos = 0;
       let totalFiados = 0;
 
       const rows = clientes.map(cliente => {
-        const pagos = (cliente.saldo < 0) ? Math.abs(cliente.saldo) : 0;
-        const fiados = (cliente.saldo > 0) ? cliente.saldo : 0;
+        const saldo = typeof cliente.saldo === 'number' ? cliente.saldo : (typeof cliente.saldo === 'string' ? (isNaN(parseFloat(cliente.saldo)) ? 0 : parseFloat(cliente.saldo)) : 0);
+        const pagos = (saldo < 0) ? Math.abs(saldo) : 0;
+        const fiados = (saldo > 0) ? saldo : 0;
 
         totalPagos += pagos;
         totalFiados += fiados;
@@ -6325,7 +6353,7 @@
             <td style="text-align: left;"><strong>${cliente.nombre}</strong></td>
             <td style="text-align: right; font-family: 'Courier New';">$ ${pagos.toLocaleString('es-AR')}</td>
             <td style="text-align: right; font-family: 'Courier New';">$ ${fiados.toLocaleString('es-AR')}</td>
-            <td style="text-align: right; font-family: 'Courier New';">$ ${cliente.saldo.toLocaleString('es-AR')}</td>
+            <td style="text-align: right; font-family: 'Courier New';">$ ${saldo.toLocaleString('es-AR')}</td>
           </tr>
         `;
       }).join('');
