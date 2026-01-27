@@ -2034,6 +2034,57 @@ function eliminarMovimiento(idMovimiento) {
 }
 
 /**
+ * Recalcula todos los saldos de clientes basándose en los movimientos
+ * Útil cuando hay inconsistencias en los datos
+ */
+function recalcularTodosSaldos() {
+  try {
+    const clientesRepo = ClientesRepository;
+    const movimientosRepo = MovimientosRepository;
+    const todosClientes = clientesRepo.obtenerTodos();
+
+    Logger.log('🔄 Iniciando recálculo de saldos para ' + todosClientes.length + ' clientes');
+
+    let clientesActualizados = 0;
+
+    for (const cliente of todosClientes) {
+      const movimientos = movimientosRepo.obtenerPorCliente(cliente.nombre);
+      let saldoCalculado = 0;
+
+      for (const mov of movimientos) {
+        const monto = Number(mov.monto) || 0;
+        if (mov.tipo === 'DEBE') {
+          saldoCalculado += monto;
+        } else if (mov.tipo === 'HABER') {
+          saldoCalculado -= monto;
+        }
+      }
+
+      if (saldoCalculado !== cliente.saldo) {
+        Logger.log(`⚠️ Corrigiendo ${cliente.nombre}: ${cliente.saldo} → ${saldoCalculado}`);
+        clientesRepo.actualizarSaldoDirecto(cliente.nombre, saldoCalculado);
+        clientesActualizados++;
+      }
+    }
+
+    Logger.log('✅ Recálculo completado: ' + clientesActualizados + ' clientes corregidos');
+    return {
+      success: true,
+      mensaje: clientesActualizados + ' clientes fueron recalculados',
+      clientesActualizados: clientesActualizados,
+      totalClientes: todosClientes.length
+    };
+
+  } catch (error) {
+    Logger.log('❌ Error en recalcularTodosSaldos: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
  * API 8: Crea un nuevo cliente completo
  * @param {Object} clienteData - Datos del cliente
  * @returns {Object} Cliente creado
