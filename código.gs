@@ -34,6 +34,228 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+// ============================================================================
+// PHASE 0: SECTION I.A - ERRORHANDLER SERVICE (Centralized Error Logging)
+// ============================================================================
+
+/**
+ * ErrorHandler Service: Centralized error logging and reporting
+ * - Catches all exceptions
+ * - Logs to AUDIT_LOG sheet for debugging
+ * - Provides consistent error response format
+ * - Preserves stack traces for production debugging
+ */
+const ErrorHandler = {
+  // Error severity levels
+  LEVELS: {
+    INFO: 'INFO',
+    WARN: 'WARN',
+    ERROR: 'ERROR',
+    CRITICAL: 'CRITICAL'
+  },
+
+  // Error categories
+  TYPES: {
+    VALIDATION: 'VALIDATION',
+    DATABASE: 'DATABASE',
+    API: 'API',
+    AUTH: 'AUTH',
+    UNKNOWN: 'UNKNOWN'
+  },
+
+  /**
+   * Log error to console and optionally to AUDIT_LOG sheet
+   * @param {string} message - Error message
+   * @param {Error} error - Error object (optional)
+   * @param {string} level - WARN, ERROR, CRITICAL (default: ERROR)
+   * @param {object} context - Additional context (function name, etc.)
+   * @returns {object} Error response object for client
+   */
+  log: function(message, error, level = 'ERROR', context = {}) {
+    const timestamp = new Date().toISOString();
+    const errorType = error ? (error.message ? error.message : String(error)) : '';
+    const stackTrace = error && error.stack ? error.stack : 'No stack trace';
+
+    // Log to console (always visible in Apps Script logs)
+    if (level === 'CRITICAL') {
+      console.error(`🔴 [${level}] ${message}: ${errorType}`);
+      console.error(`Stack: ${stackTrace}`);
+    } else if (level === 'ERROR') {
+      console.error(`❌ [${level}] ${message}: ${errorType}`);
+    } else if (level === 'WARN') {
+      console.warn(`⚠️  [${level}] ${message}: ${errorType}`);
+    } else {
+      console.log(`ℹ️  [${level}] ${message}`);
+    }
+
+    // Optionally log to AUDIT_LOG sheet (for production debugging)
+    try {
+      if (level === 'ERROR' || level === 'CRITICAL') {
+        this._logToSheet(message, errorType, stackTrace, level, context);
+      }
+    } catch (logError) {
+      // Don't throw if logging to sheet fails
+      console.error('Failed to log to sheet:', logError.message);
+    }
+
+    // Generate error ID for user reference
+    const errorId = 'ERR-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    return {
+      success: false,
+      error: message,
+      errorId: errorId,
+      details: level === 'CRITICAL' ? errorType : undefined,
+      timestamp: timestamp
+    };
+  },
+
+  /**
+   * Internal: Log error to AUDIT_LOG sheet
+   */
+  _logToSheet: function(message, errorType, stackTrace, level, context) {
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      let auditSheet = ss.getSheetByName('AUDIT_LOG');
+
+      // Create sheet if doesn't exist
+      if (!auditSheet) {
+        auditSheet = ss.insertSheet('AUDIT_LOG', 0);
+        auditSheet.getRange(1, 1, 1, 6).setValues([['TIMESTAMP', 'LEVEL', 'MESSAGE', 'ERROR_TYPE', 'STACK', 'CONTEXT']]);
+      }
+
+      const lastRow = auditSheet.getLastRow() + 1;
+      auditSheet.getRange(lastRow, 1, 1, 6).setValues([[
+        new Date().toISOString(),
+        level,
+        message,
+        errorType,
+        stackTrace.substring(0, 500), // Truncate if too long
+        JSON.stringify(context || {})
+      ]]);
+    } catch (e) {
+      // Silently fail - don't break error handling
+    }
+  },
+
+  /**
+   * Create standardized error response for client
+   */
+  createResponse: function(message, errorId = null) {
+    return {
+      success: false,
+      error: message,
+      errorId: errorId || ('ERR-' + Math.random().toString(36).substring(2, 10).toUpperCase()),
+      timestamp: new Date().toISOString()
+    };
+  }
+};
+
+// ============================================================================
+// PHASE 0: SECTION I.B - REQUESTVALIDATOR UTILITY (Input Validation)
+// ============================================================================
+
+/**
+ * RequestValidator: Schema-based input validation
+ * - Prevents invalid data from entering system
+ * - Provides consistent validation rules
+ * - Early error throwing with detailed messages
+ */
+const RequestValidator = {
+  /**
+   * Validate a field against a rule
+   * @param {*} value - Value to validate
+   * @param {object} rule - {type, required, min, max, pattern}
+   * @param {string} fieldName - Field name for error messages
+   * @throws {Error} if validation fails
+   */
+  validate: function(value, rule, fieldName) {
+    if (rule.required && (value === null || value === undefined || value === '')) {
+      throw new Error(`${fieldName} es requerido`);
+    }
+
+    if (value === null || value === undefined || value === '') {
+      return; // Optional field is empty - OK
+    }
+
+    // Type validation
+    switch (rule.type) {
+      case 'string':
+        if (typeof value !== 'string') {
+          throw new Error(`${fieldName} debe ser texto`);
+        }
+        if (rule.min && value.length < rule.min) {
+          throw new Error(`${fieldName} debe tener al menos ${rule.min} caracteres`);
+        }
+        if (rule.max && value.length > rule.max) {
+          throw new Error(`${fieldName} no puede exceder ${rule.max} caracteres`);
+        }
+        if (rule.pattern && !rule.pattern.test(value)) {
+          throw new Error(`${fieldName} tiene formato inválido`);
+        }
+        break;
+
+      case 'number':
+        const numValue = Number(value);
+        if (isNaN(numValue) || !isFinite(numValue)) {
+          throw new Error(`${fieldName} debe ser un número válido`);
+        }
+        if (rule.min !== undefined && numValue < rule.min) {
+          throw new Error(`${fieldName} debe ser mayor o igual a ${rule.min}`);
+        }
+        if (rule.max !== undefined && numValue > rule.max) {
+          throw new Error(`${fieldName} debe ser menor o igual a ${rule.max}`);
+        }
+        break;
+
+      case 'email':
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          throw new Error(`${fieldName} no es un email válido`);
+        }
+        break;
+
+      case 'phone':
+        // Argentina format: +54 9 1234 567890
+        if (!/^(\+|[0-9])[0-9\s\-\(\)\.]{7,}$/.test(value)) {
+          throw new Error(`${fieldName} no es un teléfono válido`);
+        }
+        break;
+
+      case 'date':
+        const dateValue = new Date(value);
+        if (isNaN(dateValue.getTime())) {
+          throw new Error(`${fieldName} no es una fecha válida`);
+        }
+        break;
+
+      case 'enum':
+        if (!Array.isArray(rule.values) || !rule.values.includes(value)) {
+          throw new Error(`${fieldName} debe ser uno de: ${rule.values.join(', ')}`);
+        }
+        break;
+
+      default:
+        throw new Error(`Tipo de validación desconocido: ${rule.type}`);
+    }
+  },
+
+  /**
+   * Validate entire object against schema
+   * @param {object} data - Object to validate
+   * @param {object} schema - {fieldName: {type, required, ...}}
+   * @throws {Error} if any field fails validation
+   */
+  validateObject: function(data, schema) {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Los datos deben ser un objeto');
+    }
+
+    for (const [fieldName, rule] of Object.entries(schema)) {
+      this.validate(data[fieldName], rule, fieldName);
+    }
+  }
+};
+
 /**
  * Función de diagnóstico que retorna información del sistema
  * Se puede llamar desde la Web App para debugging
@@ -188,6 +410,116 @@ function inicializarSistema() {
   }
 }
 
+// ============================================================================
+// PHASE 0: SECTION IV.A - CACHEMANAGER SERVICE (Performance Caching)
+// ============================================================================
+
+/**
+ * CacheManager: Centralized caching with TTL support
+ * - Uses CacheService for performance
+ * - Automatic TTL-based expiration
+ * - Different TTL for different data types
+ */
+const CacheManager = {
+  // Cache configuration by data type
+  CONFIG: {
+    METADATA: { ttl: 3600, key: 'META_' },        // Config, column defs: 1 hour
+    CLIENTS: { ttl: 600, key: 'CLIENTS_' },       // Client list: 10 minutes
+    MOVEMENTS: { ttl: 300, key: 'MOVS_' },        // Movements: 5 minutes
+    SEARCH: { ttl: 180, key: 'SEARCH_' }          // Search results: 3 minutes
+  },
+
+  /**
+   * Get value from cache
+   * @param {string} type - METADATA, CLIENTS, MOVEMENTS, SEARCH
+   * @param {string} key - Cache key (optional, combines with type)
+   * @returns {*} Cached value or null if expired/missing
+   */
+  get: function(type, key = '') {
+    try {
+      const cache = CacheService.getScriptCache();
+      const config = this.CONFIG[type];
+      if (!config) throw new Error(`Cache type desconocido: ${type}`);
+
+      const fullKey = config.key + key;
+      const cached = cache.get(fullKey);
+
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {
+          // If parsing fails, value is corrupted - clear it
+          cache.remove(fullKey);
+          return null;
+        }
+      }
+      return null;
+    } catch (e) {
+      // Silently fail - return null instead of throwing
+      console.warn(`Cache.get error: ${e.message}`);
+      return null;
+    }
+  },
+
+  /**
+   * Set value in cache
+   * @param {string} type - METADATA, CLIENTS, MOVEMENTS, SEARCH
+   * @param {*} value - Value to cache (will be JSON stringified)
+   * @param {string} key - Cache key (optional)
+   */
+  set: function(type, value, key = '') {
+    try {
+      const cache = CacheService.getScriptCache();
+      const config = this.CONFIG[type];
+      if (!config) throw new Error(`Cache type desconocido: ${type}`);
+
+      const fullKey = config.key + key;
+      cache.put(fullKey, JSON.stringify(value), config.ttl);
+    } catch (e) {
+      // Silently fail - don't break if caching fails
+      console.warn(`Cache.set error: ${e.message}`);
+    }
+  },
+
+  /**
+   * Remove specific cached value
+   * @param {string} type - Cache type
+   * @param {string} key - Cache key (optional)
+   */
+  remove: function(type, key = '') {
+    try {
+      const cache = CacheService.getScriptCache();
+      const config = this.CONFIG[type];
+      if (!config) throw new Error(`Cache type desconocido: ${type}`);
+
+      cache.remove(config.key + key);
+    } catch (e) {
+      console.warn(`Cache.remove error: ${e.message}`);
+    }
+  },
+
+  /**
+   * Clear all cache for a type
+   * @param {string} type - METADATA, CLIENTS, MOVEMENTS, SEARCH
+   */
+  clear: function(type) {
+    try {
+      const cache = CacheService.getScriptCache();
+      const config = this.CONFIG[type];
+      if (!config) throw new Error(`Cache type desconocido: ${type}`);
+
+      // CacheService doesn't have wildcard clear, so we clear by pattern
+      // For now, just remove common keys
+      cache.removeAll([
+        config.key + 'all',
+        config.key + 'default',
+        config.key + 'main'
+      ]);
+    } catch (e) {
+      console.warn(`Cache.clear error: ${e.message}`);
+    }
+  }
+};
 
 // ============================================================================
 // 1. CONFIGURACIÓN GLOBAL
