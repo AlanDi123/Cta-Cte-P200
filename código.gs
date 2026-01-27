@@ -252,6 +252,24 @@ const CONFIG = {
   // Claves de PropertiesService
   PROPS: {
     API_KEY: 'CLAUDE_API_KEY'
+  },
+
+  // Configuración de cache
+  CACHE: {
+    CLIENTES_TTL: 60,        // Segundos de cache para clientes
+    ENABLED: true             // Habilitar/deshabilitar cache
+  },
+
+  // Configuración de paginación
+  PAGINATION: {
+    DEFAULT_PAGE_SIZE: 50,   // Tamaño de página por defecto (reducido de 100)
+    MAX_PAGE_SIZE: 100       // Tamaño máximo de página
+  },
+
+  // Configuración de logging
+  LOGGING: {
+    ENABLED: false,          // Deshabilitar logging verbose en producción
+    DEBUG_MODE: false        // Modo debug solo para desarrollo
   }
 };
 
@@ -261,60 +279,72 @@ const CONFIG = {
 // ============================================================================
 
 /**
+ * Helper para logging condicional basado en configuración
+ * @param {string} mensaje - Mensaje a loggear
+ * @param {string} nivel - Nivel: 'info', 'debug', 'error'
+ */
+function log(mensaje, nivel = 'info') {
+  if (nivel === 'error' || CONFIG.LOGGING.ENABLED) {
+    if (nivel === 'debug' && !CONFIG.LOGGING.DEBUG_MODE) return;
+    Logger.log(mensaje);
+  }
+}
+
+/**
  * Obtiene el spreadsheet de forma robusta
  * Usa getActive() pero con manejo de errores y cache
  * @returns {Spreadsheet} El spreadsheet activo
  */
 function getSpreadsheet() {
-  Logger.log('🔍 getSpreadsheet() - Inicio');
+  log('🔍 getSpreadsheet() - Inicio', 'debug');
 
   try {
     // Primero intentar obtener el ID guardado en propiedades
-    Logger.log('  → Intentando obtener propiedades del script...');
+    log('  → Intentando obtener propiedades del script...', 'debug');
     const propiedades = PropertiesService.getScriptProperties();
-    Logger.log('  → Propiedades obtenidas correctamente');
+    log('  → Propiedades obtenidas correctamente', 'debug');
 
     let spreadsheetId = propiedades.getProperty('SPREADSHEET_ID');
-    Logger.log('  → Spreadsheet ID guardado: ' + (spreadsheetId || 'ninguno'));
+    log('  → Spreadsheet ID guardado: ' + (spreadsheetId || 'ninguno'), 'debug');
 
     // Si hay ID guardado, intentar abrir por ID
     if (spreadsheetId) {
       try {
-        Logger.log('  → Intentando abrir spreadsheet por ID: ' + spreadsheetId);
+        log('  → Intentando abrir spreadsheet por ID: ' + spreadsheetId, 'debug');
         const ss = SpreadsheetApp.openById(spreadsheetId);
-        Logger.log('  ✅ Spreadsheet abierto exitosamente por ID');
-        Logger.log('  → Nombre: ' + ss.getName());
+        log('  ✅ Spreadsheet abierto exitosamente por ID', 'debug');
+        log('  → Nombre: ' + ss.getName(), 'debug');
         return ss;
       } catch (errorId) {
-        Logger.log('  ⚠️ Error al abrir por ID: ' + errorId.message);
-        Logger.log('  → Continuando con getActiveSpreadsheet()...');
+        log('  ⚠️ Error al abrir por ID: ' + errorId.message, 'debug');
+        log('  → Continuando con getActiveSpreadsheet()...', 'debug');
       }
     } else {
-      Logger.log('  → No hay ID guardado, intentando getActiveSpreadsheet()...');
+      log('  → No hay ID guardado, intentando getActiveSpreadsheet()...', 'debug');
     }
 
     // Intentar obtener el spreadsheet activo
-    Logger.log('  → Llamando a getActiveSpreadsheet()...');
+    log('  → Llamando a getActiveSpreadsheet()...', 'debug');
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     if (!ss) {
-      Logger.log('  ❌ getActiveSpreadsheet() retornó null');
+      log('  ❌ getActiveSpreadsheet() retornó null', 'error');
       throw new Error('No se pudo obtener el spreadsheet activo');
     }
 
-    Logger.log('  ✅ Spreadsheet activo obtenido');
+    log('  ✅ Spreadsheet activo obtenido', 'debug');
 
     // Si se obtuvo exitosamente, guardar su ID para futuros usos
     spreadsheetId = ss.getId();
-    Logger.log('  → Guardando ID: ' + spreadsheetId);
+    log('  → Guardando ID: ' + spreadsheetId, 'debug');
     propiedades.setProperty('SPREADSHEET_ID', spreadsheetId);
-    Logger.log('  ✅ ID guardado en propiedades');
+    log('  ✅ ID guardado en propiedades', 'debug');
 
     return ss;
   } catch (error) {
-    Logger.log('❌ ERROR CRÍTICO en getSpreadsheet():');
-    Logger.log('   Mensaje: ' + error.message);
-    Logger.log('   Stack: ' + error.stack);
+    log('❌ ERROR CRÍTICO en getSpreadsheet():', 'error');
+    log('   Mensaje: ' + error.message, 'error');
+    log('   Stack: ' + error.stack, 'error');
     throw new Error('No se pudo acceder a la base de datos. Por favor, ejecute la función inicializarSistema() desde el editor de scripts.');
   }
 }
@@ -366,16 +396,24 @@ function serializarParaWeb(obj) {
 
 /**
  * Calcula la distancia de Levenshtein entre dos strings
+ * Optimizado con early termination para búsquedas fuzzy
  * @param {string} a - Primer string
  * @param {string} b - Segundo string
- * @returns {number} Distancia de Levenshtein
+ * @param {number} maxDistance - Distancia máxima antes de abandonar (opcional)
+ * @returns {number} Distancia de Levenshtein (o maxDistance+1 si excede)
  */
-function levenshteinDistance(a, b) {
-  const matrix = [];
-
+function levenshteinDistance(a, b, maxDistance = Infinity) {
   // Caso base: strings vacíos
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
+  
+  // Optimización: si la diferencia de longitud ya excede maxDistance, retornar temprano
+  const lengthDiff = Math.abs(a.length - b.length);
+  if (lengthDiff > maxDistance) {
+    return maxDistance + 1;
+  }
+
+  const matrix = [];
 
   // Inicializar primera fila y columna
   for (let i = 0; i <= b.length; i++) {
@@ -385,8 +423,10 @@ function levenshteinDistance(a, b) {
     matrix[0][j] = j;
   }
 
-  // Llenar matriz
+  // Llenar matriz con early termination
   for (let i = 1; i <= b.length; i++) {
+    let minInRow = Infinity;
+    
     for (let j = 1; j <= a.length; j++) {
       if (b.charAt(i - 1) === a.charAt(j - 1)) {
         matrix[i][j] = matrix[i - 1][j - 1];
@@ -397,6 +437,13 @@ function levenshteinDistance(a, b) {
           matrix[i - 1][j] + 1      // Eliminación
         );
       }
+      
+      minInRow = Math.min(minInRow, matrix[i][j]);
+    }
+    
+    // Early termination: si el mínimo en esta fila excede maxDistance, no hay match posible
+    if (minInRow > maxDistance) {
+      return maxDistance + 1;
     }
   }
 
@@ -405,29 +452,39 @@ function levenshteinDistance(a, b) {
 
 /**
  * Calcula un score de similitud fuzzy entre dos strings
+ * Optimizado con early returns
  * @param {string} busqueda - String de búsqueda (normalizado)
  * @param {string} candidato - String candidato (normalizado)
  * @returns {number} Score de 0-100
  */
 function calcularScoreFuzzy(busqueda, candidato) {
-  // Match exacto
+  // Match exacto - retornar inmediatamente
   if (busqueda === candidato) {
     return CONFIG.FUZZY.PESO_EXACTO;
   }
 
-  // Comienza con
+  // Comienza con - retornar inmediatamente
   if (candidato.startsWith(busqueda)) {
     return CONFIG.FUZZY.PESO_COMIENZA;
   }
 
-  // Contiene
+  // Contiene - retornar inmediatamente
   if (candidato.includes(busqueda)) {
     return CONFIG.FUZZY.PESO_CONTIENE;
   }
 
-  // Distancia Levenshtein
-  const distancia = levenshteinDistance(busqueda, candidato);
+  // Distancia Levenshtein solo si los anteriores fallaron
   const maxLen = Math.max(busqueda.length, candidato.length);
+  
+  // Calcular distancia máxima aceptable basada en MIN_SCORE
+  const maxDistanceAllowed = Math.floor(maxLen * (1 - CONFIG.FUZZY.MIN_SCORE / 100));
+  
+  const distancia = levenshteinDistance(busqueda, candidato, maxDistanceAllowed);
+  
+  // Si excede la distancia máxima, retornar score bajo
+  if (distancia > maxDistanceAllowed) {
+    return 0;
+  }
 
   // Convertir distancia a score (0-100)
   const similitud = 1 - (distancia / maxLen);
@@ -461,6 +518,68 @@ function estipoMovimientoValido(tipo) {
  */
 function esMontoValido(monto) {
   return typeof monto === 'number' && monto > 0 && isFinite(monto);
+}
+
+/**
+ * Valida y convierte una fecha de entrada
+ * @param {string|Date} fecha - Fecha a validar
+ * @returns {Date|null} Objeto Date válido o null si es inválido
+ */
+function validarFecha(fecha) {
+  if (!fecha) return null;
+  
+  try {
+    const fechaObj = fecha instanceof Date ? fecha : new Date(fecha);
+    
+    // Verificar si la fecha es válida
+    if (isNaN(fechaObj.getTime())) {
+      log('⚠️ Fecha inválida: ' + fecha, 'error');
+      return null;
+    }
+    
+    // Verificar que la fecha esté en un rango razonable (1900-2100)
+    const year = fechaObj.getFullYear();
+    if (year < 1900 || year > 2100) {
+      log('⚠️ Año fuera de rango: ' + year, 'error');
+      return null;
+    }
+    
+    return fechaObj;
+  } catch (error) {
+    log('❌ Error al validar fecha: ' + error.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Valida un objeto de movimiento completo
+ * @param {Object} mov - Objeto movimiento
+ * @returns {Object} {valid: boolean, errors: Array}
+ */
+function validarMovimiento(mov) {
+  const errors = [];
+  
+  if (!mov.cliente || typeof mov.cliente !== 'string' || mov.cliente.trim() === '') {
+    errors.push('Cliente es requerido');
+  }
+  
+  if (!estipoMovimientoValido(mov.tipo)) {
+    errors.push('Tipo de movimiento inválido (debe ser DEBE o HABER)');
+  }
+  
+  if (!esMontoValido(mov.monto)) {
+    errors.push('Monto inválido (debe ser un número positivo)');
+  }
+  
+  const fechaVal = validarFecha(mov.fecha);
+  if (!fechaVal) {
+    errors.push('Fecha inválida');
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors: errors
+  };
 }
 
 
@@ -531,18 +650,17 @@ const ClientesRepository = {
       });
     }
 
-    // If no pagination requested (limit = 0, offset = 0), return just array for backward compatibility
-    if (limit === 0 && offset === 0) {
-      return clientes;
-    }
+    return clientes;
+  },
 
-    // Pagination mode: return object with metadata
-    return {
-      clientes: clientes,
-      total: totalClientes,
-      offset: offset,
-      limit: actualLimit
-    };
+  /**
+   * Cuenta el total de clientes sin cargar todos los datos
+   * @returns {number} Total de clientes
+   */
+  contarTodos: function() {
+    const hoja = this.getHoja();
+    const lastRow = hoja.getLastRow();
+    return Math.max(0, lastRow - 1); // Exclude header
   },
 
   /**
@@ -1548,69 +1666,47 @@ function obtenerDatosParaHTML() {
       setupCashSystemSheets();
       initializeHistoricalCashData();
     } catch (e) {
-      Logger.log('⚠️ Nota: Error inicializando Arqueo (no crítico): ' + e.message);
+      log('⚠️ Nota: Error inicializando Arqueo (no crítico): ' + e.message, 'debug');
     }
 
-    Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('📥 obtenerDatosParaHTML - INICIO');
-    Logger.log('Contexto: ' + (Session ? 'Session disponible' : 'Session no disponible'));
-    Logger.log('Usuario: ' + Session.getEffectiveUser().getEmail());
-    Logger.log('═══════════════════════════════════════════════════');
+    log('═══════════════════════════════════════════════════', 'debug');
+    log('📥 obtenerDatosParaHTML - INICIO', 'debug');
+    log('Usuario: ' + Session.getEffectiveUser().getEmail(), 'debug');
+    log('═══════════════════════════════════════════════════', 'debug');
 
-    Logger.log('Paso 1: Intentando obtener clientes...');
-    const todosLosClientes = ClientesRepository.obtenerTodos();
-    Logger.log(`✅ Paso 1 completado: ${todosLosClientes.length} clientes encontrados`);
+    // Optimización: usar paginación desde el repository
+    const pageSize = CONFIG.PAGINATION.DEFAULT_PAGE_SIZE;
+    const clientes = ClientesRepository.obtenerTodos(0, pageSize);
+    const totalClientes = ClientesRepository.contarTodos();
+    
+    log(`✅ Clientes cargados: ${clientes.length} de ${totalClientes}`, 'debug');
 
-    Logger.log('Paso 2: Limitando clientes para carga inicial...');
-    const clientes = todosLosClientes.length > 100
-      ? todosLosClientes.slice(0, 100)
-      : todosLosClientes;
-    Logger.log(`✅ Paso 2 completado: ${clientes.length} clientes para enviar`);
-
-    Logger.log('Paso 3: Obteniendo movimientos recientes...');
     const movimientos = MovimientosRepository.obtenerRecientes(20);
-    Logger.log(`✅ Paso 3 completado: ${movimientos.length} movimientos encontrados`);
+    log(`✅ Movimientos cargados: ${movimientos.length}`, 'debug');
 
-    Logger.log('Paso 4: Construyendo objeto de respuesta...');
     const resultado = {
       success: true,
       clientes: clientes,
       movimientos: movimientos,
-      totalClientes: todosLosClientes.length,
-      cargaParcial: todosLosClientes.length > 100
+      totalClientes: totalClientes,
+      cargaParcial: totalClientes > pageSize
     };
-    Logger.log('✅ Paso 4 completado: Objeto construido correctamente');
 
-    Logger.log('Paso 5: Verificando serialización de fechas...');
-    // Verificar que las fechas sean strings (debug)
-    if (clientes.length > 0 && clientes[0].alta) {
-      Logger.log('   Tipo de fecha alta: ' + typeof clientes[0].alta);
-      Logger.log('   Valor fecha alta: ' + clientes[0].alta);
-    }
-    if (movimientos.length > 0 && movimientos[0].fecha) {
-      Logger.log('   Tipo de fecha movimiento: ' + typeof movimientos[0].fecha);
-      Logger.log('   Valor fecha movimiento: ' + movimientos[0].fecha);
-    }
-    Logger.log('✅ Paso 5 completado: Fechas verificadas');
-
-    Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('✅ obtenerDatosParaHTML - ÉXITO');
-    Logger.log('   Clientes: ' + resultado.clientes.length);
-    Logger.log('   Movimientos: ' + resultado.movimientos.length);
-    Logger.log('   Preparando retorno...');
-    Logger.log('═══════════════════════════════════════════════════');
+    log('═══════════════════════════════════════════════════', 'debug');
+    log('✅ obtenerDatosParaHTML - ÉXITO', 'debug');
+    log('   Clientes: ' + resultado.clientes.length, 'debug');
+    log('   Movimientos: ' + resultado.movimientos.length, 'debug');
+    log('═══════════════════════════════════════════════════', 'debug');
 
     // Retornar explícitamente
     return resultado;
 
   } catch (error) {
-    Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('❌ ERROR CAPTURADO en obtenerDatosParaHTML');
-    Logger.log('═══════════════════════════════════════════════════');
-    Logger.log('Mensaje: ' + (error.message || 'Sin mensaje'));
-    Logger.log('Stack: ' + (error.stack || 'Sin stack'));
-    Logger.log('Tipo: ' + typeof error);
-    Logger.log('═══════════════════════════════════════════════════');
+    log('═══════════════════════════════════════════════════', 'error');
+    log('❌ ERROR CAPTURADO en obtenerDatosParaHTML', 'error');
+    log('Mensaje: ' + (error.message || 'Sin mensaje'), 'error');
+    log('Stack: ' + (error.stack || 'Sin stack'), 'error');
+    log('═══════════════════════════════════════════════════', 'error');
 
     // Verificar si es error de acceso a base de datos
     let mensajeError = error.message || 'Error desconocido';
@@ -1625,10 +1721,7 @@ function obtenerDatosParaHTML() {
       movimientos: []
     };
 
-    Logger.log('Retornando objeto de error:');
-    Logger.log('  success: ' + resultadoError.success);
-    Logger.log('  error: ' + resultadoError.error);
-
+    log('Retornando objeto de error', 'error');
     return resultadoError;
   }
 }
@@ -1654,7 +1747,7 @@ function obtenerDatosCompletoCliente(nombreCliente) {
       movimientos: movimientos
     };
   } catch (error) {
-    Logger.log('Error en obtenerDatosCompletoCliente: ' + error.message);
+    log('Error en obtenerDatosCompletoCliente: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -1847,6 +1940,7 @@ function obtenerResumenMovimientosPorCliente() {
 
 /**
  * API 5: Fuzzy matching para buscar clientes con sugerencias
+ * Optimizado para early termination
  * @param {string} nombre - Nombre a buscar
  * @returns {Object} {sugerencias: Array}
  */
@@ -1864,8 +1958,9 @@ function rematchearNombreConSugerencias(nombre) {
     const clientes = ClientesRepository.obtenerTodos();
     const sugerencias = [];
 
-    // Calcular score para cada cliente
-    clientes.forEach(cliente => {
+    // Calcular score para cada cliente con early termination
+    for (let i = 0; i < clientes.length; i++) {
+      const cliente = clientes[i];
       const nombreCliente = normalizarString(cliente.nombre);
       const score = calcularScoreFuzzy(nombreBusqueda, nombreCliente);
 
@@ -1876,8 +1971,13 @@ function rematchearNombreConSugerencias(nombre) {
           saldo: cliente.saldo,
           tel: cliente.tel
         });
+
+        // Early termination: si ya tenemos un match exacto, no seguir buscando
+        if (score === CONFIG.FUZZY.PESO_EXACTO) {
+          break;
+        }
       }
-    });
+    }
 
     // Ordenar por score descendente
     sugerencias.sort((a, b) => b.score - a.score);
@@ -1891,7 +1991,7 @@ function rematchearNombreConSugerencias(nombre) {
       total: sugerenciasLimitadas.length
     };
   } catch (error) {
-    Logger.log('Error en rematchearNombreConSugerencias: ' + error.message);
+    log('Error en rematchearNombreConSugerencias: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -1905,41 +2005,36 @@ function rematchearNombreConSugerencias(nombre) {
  * @returns {Object} Movimiento guardado
  */
 function guardarMovimientoDesdeHTML(movimientoData) {
-  Logger.log('📥 guardarMovimientoDesdeHTML - Inicio: ' + JSON.stringify(movimientoData));
+  log('📥 guardarMovimientoDesdeHTML - Inicio', 'debug');
 
   try {
-    // VALIDACIÓN OBLIGATORIA DE DATOS
-    if (!movimientoData || typeof movimientoData !== 'object') {
-      throw new Error('Datos inválidos: se esperaba un objeto');
+    // VALIDACIÓN OBLIGATORIA DE DATOS usando función de validación
+    const validacion = validarMovimiento(movimientoData);
+    
+    if (!validacion.valid) {
+      throw new Error('Datos inválidos: ' + validacion.errors.join(', '));
     }
 
-    if (!movimientoData.cliente || typeof movimientoData.cliente !== 'string' || movimientoData.cliente.trim() === '') {
-      throw new Error('Cliente inválido: debe ser un texto no vacío');
+    // Validar fecha específicamente
+    const fechaValidada = validarFecha(movimientoData.fecha);
+    if (!fechaValidada) {
+      throw new Error('Fecha inválida: no se pudo convertir a fecha válida');
     }
 
-    if (!movimientoData.tipo || !['DEBE', 'HABER'].includes(movimientoData.tipo)) {
-      throw new Error('Tipo de movimiento inválido: debe ser DEBE o HABER');
-    }
-
-    if (!movimientoData.monto || isNaN(movimientoData.monto) || movimientoData.monto <= 0) {
-      throw new Error('Monto inválido: debe ser un número positivo');
-    }
-
-    if (!movimientoData.fecha || typeof movimientoData.fecha !== 'string') {
-      throw new Error('Fecha inválida: debe ser una cadena de texto');
-    }
+    // Normalizar cliente
+    movimientoData.cliente = normalizarString(movimientoData.cliente);
 
     const movimiento = MovimientosRepository.registrar(movimientoData);
 
-    Logger.log('✅ Movimiento guardado exitosamente - ID: ' + (movimiento.id || 'N/A'));
+    log('✅ Movimiento guardado exitosamente - ID: ' + (movimiento.id || 'N/A'), 'debug');
 
     return {
       success: true,
       movimiento: movimiento
     };
   } catch (error) {
-    Logger.log('❌ Error en guardarMovimientoDesdeHTML: ' + error.message);
-    Logger.log('Stack trace: ' + error.stack);
+    log('❌ Error en guardarMovimientoDesdeHTML: ' + error.message, 'error');
+    log('Stack trace: ' + error.stack, 'error');
     return {
       success: false,
       error: error.message
@@ -2026,7 +2121,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
 
     ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
 
-    Logger.log('✅ Movimiento ' + idMovimiento + ' actualizado');
+    log('✅ Movimiento ' + idMovimiento + ' actualizado', 'debug');
 
     return {
       success: true,
@@ -2038,7 +2133,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
       }
     };
   } catch (error) {
-    Logger.log('❌ ERROR en actualizarMovimiento: ' + error.message);
+    log('❌ ERROR en actualizarMovimiento: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -2090,7 +2185,7 @@ function eliminarMovimiento(idMovimiento) {
 
     ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
 
-    Logger.log('✅ Movimiento ' + idMovimiento + ' eliminado');
+    log('✅ Movimiento ' + idMovimiento + ' eliminado', 'debug');
 
     return {
       success: true,
@@ -2098,7 +2193,7 @@ function eliminarMovimiento(idMovimiento) {
       nuevoSaldo: nuevoSaldo
     };
   } catch (error) {
-    Logger.log('❌ ERROR en eliminarMovimiento: ' + error.message);
+    log('❌ ERROR en eliminarMovimiento: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -2110,6 +2205,7 @@ function eliminarMovimiento(idMovimiento) {
 
 /**
  * Recalcula todos los saldos de clientes basándose en los movimientos
+ * Optimizado con operaciones batch para mejor rendimiento
  * Útil cuando hay inconsistencias en los datos
  */
 function recalcularTodosSaldos() {
@@ -2118,9 +2214,10 @@ function recalcularTodosSaldos() {
     const movimientosRepo = MovimientosRepository;
     const todosClientes = clientesRepo.obtenerTodos();
 
-    Logger.log('🔄 Iniciando recálculo de saldos para ' + todosClientes.length + ' clientes');
+    log('🔄 Iniciando recálculo de saldos para ' + todosClientes.length + ' clientes', 'info');
 
     let clientesActualizados = 0;
+    const actualizaciones = []; // Array para batch updates
 
     for (const cliente of todosClientes) {
       const movimientos = movimientosRepo.obtenerPorCliente(cliente.nombre);
@@ -2136,13 +2233,47 @@ function recalcularTodosSaldos() {
       }
 
       if (saldoCalculado !== cliente.saldo) {
-        Logger.log(`⚠️ Corrigiendo ${cliente.nombre}: ${cliente.saldo} → ${saldoCalculado}`);
-        clientesRepo.actualizarSaldoDirecto(cliente.nombre, saldoCalculado);
+        log(`⚠️ Corrigiendo ${cliente.nombre}: ${cliente.saldo} → ${saldoCalculado}`, 'debug');
+        actualizaciones.push({
+          nombre: cliente.nombre,
+          saldo: saldoCalculado
+        });
         clientesActualizados++;
       }
     }
 
-    Logger.log('✅ Recálculo completado: ' + clientesActualizados + ' clientes corregidos');
+    // Batch update all at once for better performance
+    if (actualizaciones.length > 0) {
+      const hoja = clientesRepo.getHoja();
+      const datos = hoja.getDataRange().getValues();
+      
+      // Build a map for quick lookup
+      const actualizacionesMap = new Map(
+        actualizaciones.map(a => [normalizarString(a.nombre), a.saldo])
+      );
+      
+      // Collect all updates to apply in batch
+      const rangesToUpdate = [];
+      
+      for (let i = 1; i < datos.length; i++) {
+        const nombreFila = normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]);
+        if (actualizacionesMap.has(nombreFila)) {
+          const nuevoSaldo = actualizacionesMap.get(nombreFila);
+          const fila = i + 1; // 1-indexed
+          rangesToUpdate.push({
+            range: hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1),
+            value: nuevoSaldo
+          });
+        }
+      }
+      
+      // Apply all updates in batch
+      rangesToUpdate.forEach(update => {
+        update.range.setValue(update.value);
+      });
+    }
+
+    log('✅ Recálculo completado: ' + clientesActualizados + ' clientes corregidos', 'info');
     return {
       success: true,
       mensaje: clientesActualizados + ' clientes fueron recalculados',
@@ -2151,7 +2282,7 @@ function recalcularTodosSaldos() {
     };
 
   } catch (error) {
-    Logger.log('❌ Error en recalcularTodosSaldos: ' + error.message);
+    log('❌ Error en recalcularTodosSaldos: ' + error.message, 'error');
     return {
       success: false,
       error: error.message

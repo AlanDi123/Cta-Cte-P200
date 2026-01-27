@@ -2282,6 +2282,56 @@
       border-color: var(--sv-primario);
       box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
     }
+
+    /* ========================================
+       UTILITY CLASSES - OPTIMIZACIÓN
+       ======================================== */
+    /* Reduce inline styles repetition and improve performance */
+    
+    .form-input-inline {
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+    
+    .list-item-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 5px;
+      border-bottom: 1px solid var(--sv-borde);
+    }
+    
+    .flex-row {
+      display: flex;
+    }
+    
+    .flex-row-gap {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .flex-row-gap-sm {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .flex-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    
+    .flex-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .flex-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
   </style>
 </head>
 <body>
@@ -4000,6 +4050,14 @@
        ═══════════════════════════════════════════════════════════════ -->
   <script>
     // ========================================
+    // CONFIGURACIÓN
+    // ========================================
+    const APP_CONFIG = {
+      SEARCH_DEBOUNCE_MS: 300,  // Debounce delay for search inputs (ms)
+      DATE_CACHE_MAX_SIZE: 1000 // Maximum cache size for date formatting
+    };
+
+    // ========================================
     // ESTADO GLOBAL
     // ========================================
     const AppState = {
@@ -4755,18 +4813,38 @@
         .join('');
     }
 
+    // Date formatting cache for performance optimization
+    // Cache size limited to 1000 to prevent memory issues with long-running sessions
+    // Typical usage: ~100-200 unique dates per session, so 1000 is safe buffer
+    const dateFormatCache = new Map();
+    const MAX_CACHE_SIZE = APP_CONFIG.DATE_CACHE_MAX_SIZE;
+    
     function formatearFecha(fecha) {
       if (!fecha) return '-';
 
+      // Check cache first
+      if (dateFormatCache.has(fecha)) {
+        return dateFormatCache.get(fecha);
+      }
+
+      let resultado;
+      
       // Si ya es formato "YYYY-MM-DD", convertir directamente
       if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
         const [year, month, day] = fecha.split('-');
-        return `${day}/${month}/${year.slice(2)}`;  // DD/MM/YY
+        resultado = `${day}/${month}/${year.slice(2)}`;  // DD/MM/YY
+      } else {
+        // Si tiene hora (formato antiguo), parsear con Date
+        const d = new Date(fecha);
+        resultado = d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
       }
 
-      // Si tiene hora (formato antiguo), parsear con Date
-      const d = new Date(fecha);
-      return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+      // Cache the result (with size limit to prevent memory issues)
+      if (dateFormatCache.size < MAX_CACHE_SIZE) {
+        dateFormatCache.set(fecha, resultado);
+      }
+      
+      return resultado;
     }
 
     // ========================================
@@ -5184,11 +5262,19 @@
     // ========================================
     // MÓDULO: VISOR DE CLIENTES
     // ========================================
+    
+    // Debounce timer for search optimization
+    let visorSearchTimeout = null;
+    
     function initVisorClientes() {
       cargarListaClientesVisor();
 
+      // Debounced search to prevent excessive filtering on every keystroke
       document.getElementById('visorSearchCliente').addEventListener('input', (e) => {
-        filtrarClientesVisor(e.target.value);
+        clearTimeout(visorSearchTimeout);
+        visorSearchTimeout = setTimeout(() => {
+          filtrarClientesVisor(e.target.value);
+        }, APP_CONFIG.SEARCH_DEBOUNCE_MS);
       });
 
       document.getElementById('visorImprimirHoja').addEventListener('click', imprimirHojaVisor);
@@ -5521,10 +5607,19 @@
     // ========================================
     // MÓDULO: GESTIÓN DE CLIENTES
     // ========================================
+    
+    // Debounce timer for search optimization
+    let gestionSearchTimeout = null;
+    
     function initGestionClientes() {
       document.getElementById('gestionNuevoCliente').addEventListener('click', mostrarModalNuevoCliente);
+      
+      // Debounced search to prevent excessive filtering on every keystroke
       document.getElementById('gestionSearchCliente').addEventListener('input', (e) => {
-        filtrarClientesGestion(e.target.value);
+        clearTimeout(gestionSearchTimeout);
+        gestionSearchTimeout = setTimeout(() => {
+          filtrarClientesGestion(e.target.value);
+        }, APP_CONFIG.SEARCH_DEBOUNCE_MS);
       });
 
       // Event listener para abrir modal de carga masiva
