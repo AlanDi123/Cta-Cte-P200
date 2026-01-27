@@ -1072,7 +1072,8 @@ const CONFIG = {
     TOTAL_MOVS: 5,  // F: Number (contador)
     ALTA: 6,        // G: Date
     ULTIMO_MOV: 7,  // H: Date
-    OBS: 8          // I: String
+    OBS: 8,         // I: String
+    COMPANY_ID: 9   // J: String (multi-tenant, default: 'DEFAULT_COMPANY')
   },
 
   // Índices de columnas en hoja MOVIMIENTOS (base 0)
@@ -1084,7 +1085,8 @@ const CONFIG = {
     MONTO: 4,       // E: Number positivo
     SALDO_POST: 5,  // F: Number (saldo después del movimiento)
     OBS: 6,         // G: String
-    USUARIO: 7      // H: Email (auditoría)
+    USUARIO: 7,     // H: Email (auditoría)
+    COMPANY_ID: 8   // I: String (multi-tenant, default: 'DEFAULT_COMPANY')
   },
 
   // Tipos de movimiento válidos
@@ -1351,36 +1353,40 @@ const ClientesRepository = {
   },
 
   /**
-   * Obtiene todos los clientes
-   * @returns {Array<Object>} Array de objetos cliente
+   * Obtiene todos los clientes (con filtrado multi-tenant por COMPANY_ID)
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
+   * @param {number} offset - Offset para paginación
+   * @param {number} limit - Limit para paginación
+   * @returns {Array<Object>|Object} Array de clientes o objeto con paginación
    */
-  obtenerTodos: function(offset = 0, limit = 0) {
-    const hoja = this.getHoja();
-    const lastRow = hoja.getLastRow();
-
-    if (lastRow <= 1) return []; // Solo encabezados o vacío (backward compatible)
-
-    // Calculate actual range to read
-    const totalClientes = lastRow - 1; // Exclude header
-    const actualLimit = limit === 0 ? totalClientes : Math.min(limit, totalClientes);
-    const startRow = Math.min(offset + 2, lastRow + 1); // +2: skip header row 1, +offset from row 2
-    const rowCount = Math.max(0, Math.min(actualLimit, lastRow - offset - 1));
-
-    // Read only the specific range instead of entire sheet (PERFORMANCE FIX)
-    let datos = [];
-    if (rowCount > 0) {
-      datos = hoja.getRange(startRow, 1, rowCount, 9).getValues();
+  obtenerTodos: function(companyId = null, offset = 0, limit = 0) {
+    // Resolve companyId: use provided, or get from AuthService, or fallback
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
     }
 
-    const clientes = [];
-    for (let i = 0; i < datos.length; i++) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return []; // Solo encabezados o vacío
+
+    // MULTI-TENANT: Filter rows by COMPANY_ID
+    const clientesFiltrados = [];
+    for (let i = 1; i < datos.length; i++) {
+      const filaCompanyId = datos[i][CONFIG.COLS_CLIENTES.COMPANY_ID] || 'DEFAULT_COMPANY';
+      if (filaCompanyId !== companyId) continue; // Skip rows from other companies
+
       const fila = datos[i];
 
-      // Convertir fechas a ISO strings para serialización Web
+      // Convertir fechas a ISO strings
       const alta = fila[CONFIG.COLS_CLIENTES.ALTA];
       const ultimoMov = fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV];
 
-      clientes.push({
+      clientesFiltrados.push({
         nombre: fila[CONFIG.COLS_CLIENTES.NOMBRE] || '',
         tel: fila[CONFIG.COLS_CLIENTES.TEL] || '',
         email: fila[CONFIG.COLS_CLIENTES.EMAIL] || '',
@@ -1393,14 +1399,19 @@ const ClientesRepository = {
       });
     }
 
-    // If no pagination requested (limit = 0, offset = 0), return just array for backward compatibility
+    // Apply pagination if requested
+    const totalClientes = clientesFiltrados.length;
+    const actualLimit = limit === 0 ? totalClientes : Math.min(limit, totalClientes);
+    const paginatedClientes = clientesFiltrados.slice(offset, offset + actualLimit);
+
+    // If no pagination requested, return just array for backward compatibility
     if (limit === 0 && offset === 0) {
-      return clientes;
+      return clientesFiltrados;
     }
 
     // Pagination mode: return object with metadata
     return {
-      clientes: clientes,
+      clientes: paginatedClientes,
       total: totalClientes,
       offset: offset,
       limit: actualLimit
@@ -1408,21 +1419,35 @@ const ClientesRepository = {
   },
 
   /**
-   * Busca un cliente por nombre (normalizado)
+   * Busca un cliente por nombre (normalizado) con filtrado multi-tenant
    * @param {string} nombre - Nombre del cliente
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    * @returns {Object|null} Objeto con {cliente, fila} o null si no existe
    */
-  buscarPorNombre: function(nombre) {
+  buscarPorNombre: function(nombre, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
     const nombreNorm = normalizarString(nombre);
     const hoja = this.getHoja();
     const datos = hoja.getDataRange().getValues();
 
     for (let i = 1; i < datos.length; i++) {
+      // MULTI-TENANT: Check company before name matching
+      const filaCompanyId = datos[i][CONFIG.COLS_CLIENTES.COMPANY_ID] || 'DEFAULT_COMPANY';
+      if (filaCompanyId !== companyId) continue;
+
       const nombreFila = normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]);
       if (nombreFila === nombreNorm) {
         const fila = datos[i];
 
-        // Convertir fechas a ISO strings para serialización Web (FIX visor de clientes)
+        // Convertir fechas a ISO strings
         const alta = fila[CONFIG.COLS_CLIENTES.ALTA];
         const ultimoMov = fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV];
 
@@ -1447,17 +1472,27 @@ const ClientesRepository = {
   },
 
   /**
-   * Crea un nuevo cliente
+   * Crea un nuevo cliente con COMPANY_ID
    * @param {Object} clienteData - Datos del cliente
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    * @returns {Object} Cliente creado
    */
-  crear: function(clienteData) {
+  crear: function(clienteData, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
     const hoja = this.getHoja();
     const nombreNorm = normalizarString(clienteData.nombre);
 
-    // Validar que no exista
-    if (this.buscarPorNombre(nombreNorm)) {
-      throw new Error(`El cliente "${nombreNorm}" ya existe`);
+    // Validar que no exista en esta empresa
+    if (this.buscarPorNombre(nombreNorm, companyId)) {
+      throw new Error(`El cliente "${nombreNorm}" ya existe en esta empresa`);
     }
 
     // Validar nombre no vacío
@@ -1475,7 +1510,8 @@ const ClientesRepository = {
       0,                                    // TOTAL_MOVS (inicial)
       ahora,                                // ALTA
       '',                                   // ULTIMO_MOV (vacío inicialmente)
-      clienteData.obs || ''                 // OBS
+      clienteData.obs || '',                // OBS
+      companyId                             // COMPANY_ID (NEW - multi-tenant)
     ];
 
     hoja.appendRow(nuevaFila);
@@ -1487,23 +1523,33 @@ const ClientesRepository = {
       limite: clienteData.limite || 100000,
       saldo: 0,
       totalMovs: 0,
-      alta: ahora.toISOString(),  // Convertir Date a ISO string
+      alta: ahora.toISOString(),
       ultimoMov: '',
       obs: clienteData.obs || ''
     };
   },
 
   /**
-   * Actualiza datos de un cliente (excepto SALDO y TOTAL_MOVS)
+   * Actualiza datos de un cliente (excepto SALDO y TOTAL_MOVS) con filtrado multi-tenant
    * @param {string} nombreCliente - Nombre del cliente a actualizar
    * @param {Object} datos - Datos a actualizar
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    * @returns {Object} Cliente actualizado
    */
-  actualizar: function(nombreCliente, datos) {
-    const resultado = this.buscarPorNombre(nombreCliente);
+  actualizar: function(nombreCliente, datos, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
+    const resultado = this.buscarPorNombre(nombreCliente, companyId);
 
     if (!resultado) {
-      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+      throw new Error(`Cliente "${nombreCliente}" no encontrado en esta empresa`);
     }
 
     const hoja = this.getHoja();
@@ -1524,20 +1570,30 @@ const ClientesRepository = {
     }
 
     // Retornar cliente actualizado
-    return this.buscarPorNombre(nombreCliente).cliente;
+    return this.buscarPorNombre(nombreCliente, companyId).cliente;
   },
 
   /**
-   * Actualiza SALDO, TOTAL_MOVS y ULTIMO_MOV de un cliente
+   * Actualiza SALDO, TOTAL_MOVS y ULTIMO_MOV con filtrado multi-tenant
    * @param {string} nombreCliente - Nombre del cliente
    * @param {number} nuevoSaldo - Nuevo saldo
    * @param {Date} fechaMov - Fecha del movimiento
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    */
-  actualizarSaldoYContadores: function(nombreCliente, nuevoSaldo, fechaMov) {
-    const resultado = this.buscarPorNombre(nombreCliente);
+  actualizarSaldoYContadores: function(nombreCliente, nuevoSaldo, fechaMov, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
+    const resultado = this.buscarPorNombre(nombreCliente, companyId);
 
     if (!resultado) {
-      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+      throw new Error(`Cliente "${nombreCliente}" no encontrado en esta empresa`);
     }
 
     const hoja = this.getHoja();
@@ -1555,17 +1611,27 @@ const ClientesRepository = {
   },
 
   /**
-   * PERFORMANCE: Actualiza SOLO saldo, contadores y fecha sin recargar todo
+   * PERFORMANCE: Actualiza SOLO saldo, contadores y fecha sin recargar - multi-tenant
    * @param {string} nombreCliente - Nombre del cliente
    * @param {number} nuevoSaldo - Nuevo saldo
    * @param {Date} fechaMov - Fecha del movimiento
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    * @returns {Object} Cliente actualizado
    */
-  actualizarSaldoRapido: function(nombreCliente, nuevoSaldo, fechaMov) {
-    const resultado = this.buscarPorNombre(nombreCliente);
+  actualizarSaldoRapido: function(nombreCliente, nuevoSaldo, fechaMov, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
+    const resultado = this.buscarPorNombre(nombreCliente, companyId);
 
     if (!resultado) {
-      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+      throw new Error(`Cliente "${nombreCliente}" no encontrado en esta empresa`);
     }
 
     const hoja = this.getHoja();
@@ -1586,15 +1652,25 @@ const ClientesRepository = {
   },
 
   /**
-   * Actualiza SOLO el saldo (para operaciones de edit/delete de movimientos)
+   * Actualiza SOLO el saldo (para edit/delete movimientos) - multi-tenant
    * @param {string} nombreCliente - Nombre del cliente
    * @param {number} nuevoSaldo - Nuevo saldo
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    */
-  actualizarSaldoDirecto: function(nombreCliente, nuevoSaldo) {
-    const resultado = this.buscarPorNombre(nombreCliente);
+  actualizarSaldoDirecto: function(nombreCliente, nuevoSaldo, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
+    const resultado = this.buscarPorNombre(nombreCliente, companyId);
 
     if (!resultado) {
-      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+      throw new Error(`Cliente "${nombreCliente}" no encontrado en esta empresa`);
     }
 
     const hoja = this.getHoja();
@@ -1604,18 +1680,28 @@ const ClientesRepository = {
   },
 
   /**
-   * Elimina un cliente (solo si no tiene movimientos)
+   * Elimina un cliente (solo si no tiene movimientos) - multi-tenant
    * @param {string} nombreCliente - Nombre del cliente a eliminar
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    */
-  eliminar: function(nombreCliente) {
-    const resultado = this.buscarPorNombre(nombreCliente);
-
-    if (!resultado) {
-      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+  eliminar: function(nombreCliente, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
     }
 
-    // Verificar que no tenga movimientos
-    const movimientos = MovimientosRepository.obtenerPorCliente(nombreCliente);
+    const resultado = this.buscarPorNombre(nombreCliente, companyId);
+
+    if (!resultado) {
+      throw new Error(`Cliente "${nombreCliente}" no encontrado en esta empresa`);
+    }
+
+    // Verificar que no tenga movimientos (en su empresa)
+    const movimientos = MovimientosRepository.obtenerPorCliente(nombreCliente, companyId);
     if (movimientos.length > 0) {
       throw new Error(`No se puede eliminar "${nombreCliente}" porque tiene ${movimientos.length} movimientos registrados`);
     }
@@ -1625,15 +1711,25 @@ const ClientesRepository = {
   },
 
   /**
-   * Obtiene el saldo actual de un cliente
+   * Obtiene el saldo actual de un cliente - multi-tenant
    * @param {string} nombreCliente - Nombre del cliente
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    * @returns {number} Saldo actual
    */
-  obtenerSaldo: function(nombreCliente) {
-    const resultado = this.buscarPorNombre(nombreCliente);
+  obtenerSaldo: function(nombreCliente, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
+    const resultado = this.buscarPorNombre(nombreCliente, companyId);
 
     if (!resultado) {
-      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+      throw new Error(`Cliente "${nombreCliente}" no encontrado en esta empresa`);
     }
 
     return resultado.cliente.saldo || 0;
@@ -1675,11 +1771,21 @@ const MovimientosRepository = {
   },
 
   /**
-   * Registra un movimiento individual
+   * Registra un movimiento individual - multi-tenant
    * @param {Object} movimientoData - Datos del movimiento
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    * @returns {Object} Movimiento registrado
    */
-  registrar: function(movimientoData) {
+  registrar: function(movimientoData, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
     const lock = LockService.getScriptLock();
 
     try {
@@ -1691,8 +1797,8 @@ const MovimientosRepository = {
         throw new Error('El nombre del cliente no puede estar vacío');
       }
 
-      if (!ClientesRepository.buscarPorNombre(clienteNorm)) {
-        throw new Error(`Cliente "${clienteNorm}" no encontrado`);
+      if (!ClientesRepository.buscarPorNombre(clienteNorm, companyId)) {
+        throw new Error(`Cliente "${clienteNorm}" no encontrado en esta empresa`);
       }
 
       if (!estipoMovimientoValido(movimientoData.tipo)) {
@@ -1704,7 +1810,7 @@ const MovimientosRepository = {
       }
 
       // Calcular nuevo saldo
-      const saldoAnterior = ClientesRepository.obtenerSaldo(clienteNorm);
+      const saldoAnterior = ClientesRepository.obtenerSaldo(clienteNorm, companyId);
       let nuevoSaldo;
 
       if (movimientoData.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
@@ -1727,19 +1833,20 @@ const MovimientosRepository = {
         movimientoData.monto,                 // MONTO
         nuevoSaldo,                           // SALDO_POST
         movimientoData.obs || '',             // OBS
-        usuario                               // USUARIO
+        usuario,                              // USUARIO
+        companyId                             // COMPANY_ID (NEW - multi-tenant)
       ];
 
       hoja.appendRow(nuevaFila);
 
       // Actualizar cliente
-      ClientesRepository.actualizarSaldoYContadores(clienteNorm, nuevoSaldo, fecha);
+      ClientesRepository.actualizarSaldoYContadores(clienteNorm, nuevoSaldo, fecha, companyId);
 
       lock.releaseLock();
 
       return {
         id: nuevoID,
-        fecha: fecha.toISOString(),  // Convertir Date a ISO string
+        fecha: fecha.toISOString(),
         cliente: clienteNorm,
         tipo: movimientoData.tipo,
         monto: movimientoData.monto,
@@ -1783,37 +1890,41 @@ const MovimientosRepository = {
   },
 
   /**
-   * Obtiene los movimientos más recientes
+   * Obtiene los movimientos más recientes - multi-tenant
    * @param {number} limite - Cantidad máxima de movimientos
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    * @returns {Array<Object>} Array de movimientos
    */
-  obtenerRecientes: function(limite) {
-    const hoja = this.getHoja();
-    const lastRow = hoja.getLastRow();
-
-    if (lastRow <= 1) return []; // Solo encabezados o vacío
-
-    // PERFORMANCE FIX: Instead of reading entire sheet, read only last N+buffer rows
-    // Buffer of 50% extra to ensure we get all we need (sorted by date, not insertion order)
-    const buffer = Math.ceil(limite * 1.5);
-    const rowsToRead = Math.min(buffer, lastRow - 1); // Don't read more than available
-    const startRow = Math.max(2, lastRow - rowsToRead + 1); // Start from appropriate row
-
-    let datos = [];
-    if (rowsToRead > 0) {
-      datos = hoja.getRange(startRow, 1, rowsToRead, 8).getValues();
+  obtenerRecientes: function(limite, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
     }
+
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return [];
 
     const movimientos = [];
 
-    // Comenzar desde el final (más recientes primero)
-    for (let i = datos.length - 1; i >= 0 && movimientos.length < limite; i--) {
+    // Recorrer desde el final (más recientes primero) y filtrar por COMPANY_ID
+    for (let i = datos.length - 1; i >= 1 && movimientos.length < limite; i--) {
       const fila = datos[i];
+
+      // MULTI-TENANT: Filter by COMPANY_ID
+      const filaCompanyId = fila[CONFIG.COLS_MOVS.COMPANY_ID] || 'DEFAULT_COMPANY';
+      if (filaCompanyId !== companyId) continue;
+
       const fecha = fila[CONFIG.COLS_MOVS.FECHA];
 
       movimientos.push({
         id: fila[CONFIG.COLS_MOVS.ID],
-        fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
+        fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
         cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
         tipo: fila[CONFIG.COLS_MOVS.TIPO],
         monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -1827,11 +1938,21 @@ const MovimientosRepository = {
   },
 
   /**
-   * Obtiene todos los movimientos de un cliente
+   * Obtiene todos los movimientos de un cliente - multi-tenant
    * @param {string} nombreCliente - Nombre del cliente
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    * @returns {Array<Object>} Array de movimientos
    */
-  obtenerPorCliente: function(nombreCliente) {
+  obtenerPorCliente: function(nombreCliente, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
     const nombreNorm = normalizarString(nombreCliente);
     const hoja = this.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -1842,6 +1963,11 @@ const MovimientosRepository = {
 
     for (let i = 1; i < datos.length; i++) {
       const fila = datos[i];
+
+      // MULTI-TENANT: Filter by COMPANY_ID
+      const filaCompanyId = fila[CONFIG.COLS_MOVS.COMPANY_ID] || 'DEFAULT_COMPANY';
+      if (filaCompanyId !== companyId) continue;
+
       const clienteFila = normalizarString(fila[CONFIG.COLS_MOVS.CLIENTE]);
 
       if (clienteFila === nombreNorm) {
@@ -1849,7 +1975,7 @@ const MovimientosRepository = {
 
         movimientos.push({
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -1885,12 +2011,22 @@ const MovimientosRepository = {
   },
 
   /**
-   * Obtiene movimientos en un rango de fechas
+   * Obtiene movimientos en un rango de fechas - multi-tenant
    * @param {Date} desde - Fecha inicio
    * @param {Date} hasta - Fecha fin
+   * @param {string} companyId - ID de empresa (default: AuthService.getContext().companyId)
    * @returns {Array<Object>} Array de movimientos
    */
-  obtenerPorRango: function(desde, hasta) {
+  obtenerPorRango: function(desde, hasta, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
     const hoja = this.getHoja();
     const datos = hoja.getDataRange().getValues();
 
@@ -1906,6 +2042,11 @@ const MovimientosRepository = {
 
     for (let i = 1; i < datos.length; i++) {
       const fila = datos[i];
+
+      // MULTI-TENANT: Filter by COMPANY_ID
+      const filaCompanyId = fila[CONFIG.COLS_MOVS.COMPANY_ID] || 'DEFAULT_COMPANY';
+      if (filaCompanyId !== companyId) continue;
+
       const fechaMov = new Date(fila[CONFIG.COLS_MOVS.FECHA]);
 
       if (fechaMov >= fechaDesde && fechaMov <= fechaHasta) {
@@ -1913,7 +2054,7 @@ const MovimientosRepository = {
 
         movimientos.push({
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -1947,7 +2088,8 @@ const RECAUDACION_CONFIG = {
     OBS: 5,
     USUARIO: 6,
     TIMESTAMP: 7,
-    ESTADO: 8
+    ESTADO: 8,
+    COMPANY_ID: 9   // Multi-tenant, default: 'DEFAULT_COMPANY'
   },
   FORMAS_PAGO: ['EFECTIVO', 'CHEQUE', 'TRANSFERENCIA', 'TARJETA', 'OTRO'],
   ESTADOS: ['REGISTRADO', 'DEPOSITADO', 'CONCILIADO']
@@ -1986,9 +2128,18 @@ const RecaudacionRepository = {
   },
 
   /**
-   * Registra una recaudación nueva
+   * Registra una recaudación nueva - multi-tenant
    */
-  registrar: function(recaudacionData) {
+  registrar: function(recaudacionData, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
     const lock = LockService.getScriptLock();
 
     try {
@@ -2000,8 +2151,8 @@ const RecaudacionRepository = {
         throw new Error('Cliente requerido');
       }
 
-      if (!ClientesRepository.buscarPorNombre(clienteNorm)) {
-        throw new Error(`Cliente "${clienteNorm}" no encontrado`);
+      if (!ClientesRepository.buscarPorNombre(clienteNorm, companyId)) {
+        throw new Error(`Cliente "${clienteNorm}" no encontrado en esta empresa`);
       }
 
       if (!recaudacionData.monto || recaudacionData.monto <= 0) {
@@ -2028,7 +2179,8 @@ const RecaudacionRepository = {
         recaudacionData.obs || '',
         usuario,
         fecha,
-        'REGISTRADO'
+        'REGISTRADO',
+        companyId                             // COMPANY_ID (NEW - multi-tenant)
       ];
 
       hoja.appendRow(nuevaFila);
@@ -2053,9 +2205,18 @@ const RecaudacionRepository = {
   },
 
   /**
-   * Obtiene recaudaciones por cliente
+   * Obtiene recaudaciones por cliente - multi-tenant
    */
-  obtenerPorCliente: function(nombreCliente) {
+  obtenerPorCliente: function(nombreCliente, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
     const nombreNorm = normalizarString(nombreCliente);
     const hoja = this.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -2064,6 +2225,10 @@ const RecaudacionRepository = {
 
     const recaudaciones = [];
     for (let i = 1; i < datos.length; i++) {
+      // MULTI-TENANT: Filter by COMPANY_ID
+      const filaCompanyId = datos[i][RECAUDACION_CONFIG.COLS.COMPANY_ID] || 'DEFAULT_COMPANY';
+      if (filaCompanyId !== companyId) continue;
+
       const clienteFila = normalizarString(datos[i][RECAUDACION_CONFIG.COLS.CLIENTE]);
 
       if (clienteFila === nombreNorm) {
@@ -2086,9 +2251,18 @@ const RecaudacionRepository = {
   },
 
   /**
-   * Obtiene recaudaciones en rango de fechas
+   * Obtiene recaudaciones en rango de fechas - multi-tenant
    */
-  obtenerPorRango: function(desde, hasta) {
+  obtenerPorRango: function(desde, hasta, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
     const hoja = this.getHoja();
     const datos = hoja.getDataRange().getValues();
 
@@ -2101,6 +2275,10 @@ const RecaudacionRepository = {
 
     const recaudaciones = [];
     for (let i = 1; i < datos.length; i++) {
+      // MULTI-TENANT: Filter by COMPANY_ID
+      const filaCompanyId = datos[i][RECAUDACION_CONFIG.COLS.COMPANY_ID] || 'DEFAULT_COMPANY';
+      if (filaCompanyId !== companyId) continue;
+
       const fechaMov = new Date(datos[i][RECAUDACION_CONFIG.COLS.FECHA]);
 
       if (fechaMov >= fechaDesde && fechaMov <= fechaHasta) {
@@ -2122,10 +2300,19 @@ const RecaudacionRepository = {
   },
 
   /**
-   * Obtiene totales diarios
+   * Obtiene totales diarios - multi-tenant
    */
-  obtenerTotalesDiarios: function(fecha) {
-    const recaudaciones = this.obtenerPorRango(fecha, fecha);
+  obtenerTotalesDiarios: function(fecha, companyId = null) {
+    // Resolve companyId
+    if (companyId === null) {
+      try {
+        companyId = AuthService.getContext().companyId;
+      } catch (e) {
+        companyId = 'DEFAULT_COMPANY';
+      }
+    }
+
+    const recaudaciones = this.obtenerPorRango(fecha, fecha, companyId);
 
     const totales = {
       fecha: fecha instanceof Date ? fecha.toISOString().split('T')[0] : fecha,
@@ -2401,7 +2588,7 @@ function obtenerDatosParaHTML() {
     Logger.log('═══════════════════════════════════════════════════');
 
     Logger.log('Paso 1: Intentando obtener clientes...');
-    const todosLosClientes = ClientesRepository.obtenerTodos();
+    const todosLosClientes = ClientesRepository.obtenerTodos(auth.companyId);
     Logger.log(`✅ Paso 1 completado: ${todosLosClientes.length} clientes encontrados`);
 
     Logger.log('Paso 2: Limitando clientes para carga inicial...');
@@ -2411,7 +2598,7 @@ function obtenerDatosParaHTML() {
     Logger.log(`✅ Paso 2 completado: ${clientes.length} clientes para enviar`);
 
     Logger.log('Paso 3: Obteniendo movimientos recientes...');
-    const movimientos = MovimientosRepository.obtenerRecientes(20);
+    const movimientos = MovimientosRepository.obtenerRecientes(20, auth.companyId);
     Logger.log(`✅ Paso 3 completado: ${movimientos.length} movimientos encontrados`);
 
     Logger.log('Paso 4: Construyendo objeto de respuesta...');
@@ -2471,13 +2658,16 @@ function obtenerDatosParaHTML() {
  */
 function obtenerDatosCompletoCliente(nombreCliente) {
   try {
-    const resultado = ClientesRepository.buscarPorNombre(nombreCliente);
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
+    const resultado = ClientesRepository.buscarPorNombre(nombreCliente, auth.companyId);
 
     if (!resultado) {
-      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+      throw new Error(`Cliente "${nombreCliente}" no encontrado en esta empresa`);
     }
 
-    const movimientos = MovimientosRepository.obtenerPorCliente(nombreCliente);
+    const movimientos = MovimientosRepository.obtenerPorCliente(nombreCliente, auth.companyId);
 
     return {
       success: true,
@@ -2506,12 +2696,15 @@ function obtenerDatosCompletoCliente(nombreCliente) {
  */
 function obtenerEstadisticas(desde, hasta) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication
+    const auth = AuthService.verify();
+
     const fechaDesde = new Date(desde);
     const fechaHasta = new Date(hasta);
 
-    // Obtener datos
-    const clientes = ClientesRepository.obtenerTodos();
-    const movimientos = MovimientosRepository.obtenerPorRango(fechaDesde, fechaHasta);
+    // Obtener datos (filtered by companyId)
+    const clientes = ClientesRepository.obtenerTodos(auth.companyId);
+    const movimientos = MovimientosRepository.obtenerPorRango(fechaDesde, fechaHasta, auth.companyId);
 
     // Calcular métricas
     let totalDebe = 0;
