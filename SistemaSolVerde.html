@@ -4507,7 +4507,7 @@
     function handleGuardarExito(result) {
       AppState.isLoading = false;
 
-      if (result.success) {
+      if (result && result.success) {
         const tipoActual = document.getElementById('selectTipoMovimiento').value;
         const tipoEmoji = tipoActual === 'DEBE' ? '🔴 FIADO' : '🟢 PAGO';
 
@@ -4570,8 +4570,8 @@
           console.log('═══════════════════════════════════════');
           console.log('📊 DIAGNÓSTICO DEL SISTEMA');
           console.log('═══════════════════════════════════════');
-          console.log('Success:', resultado.success);
-          if (resultado.success) {
+          console.log('Success:', resultado ? resultado.success : 'null');
+          if (resultado && resultado.success) {
             console.log('Spreadsheet ID:', resultado.spreadsheetId);
             console.log('Usuario:', resultado.usuario);
             console.log('Timestamp:', resultado.timestamp);
@@ -5098,7 +5098,7 @@
       google.script.run
         .withSuccessHandler((resultado) => {
           document.getElementById('vrGuardarTodos').disabled = false;
-          if (resultado.success) {
+          if (resultado && resultado.success) {
             const totalGuardados = resultado.totalExitosos || 0;
             const totalErrores = resultado.totalErrores || 0;
             showToast('success', '🎉 Éxito', `${totalGuardados} movimientos guardados${totalErrores > 0 ? `, ${totalErrores} errores` : ''}`);
@@ -5153,7 +5153,7 @@
 
       google.script.run
         .withSuccessHandler(function(resultado) {
-          if (resultado.success) {
+          if (resultado && resultado.success) {
             showToast('success', 'Listo', 'Movimiento actualizado');
             cerrarModal('modalEditarMovimiento');
             invalidarCache();
@@ -5169,7 +5169,7 @@
       if (confirm('¿Eliminar este movimiento permanentemente? Esta acción no se puede deshacer.')) {
         google.script.run
           .withSuccessHandler(function(resultado) {
-            if (resultado.success) {
+            if (resultado && resultado.success) {
               showToast('success', 'Listo', 'Movimiento eliminado');
               invalidarCache();
               cargarDatosIniciales();
@@ -6011,7 +6011,7 @@
 
       google.script.run
         .withSuccessHandler((resultado) => {
-          if (resultado.success) {
+          if (resultado && resultado.success) {
             showToast('success', '✅ Completado',
               `${resultado.exitosos} clientes creados. ${resultado.errores} errores.`);
 
@@ -6091,7 +6091,7 @@
       google.script.run
         .withSuccessHandler((resultado) => {
           document.getElementById('configEstadoApiKey').textContent =
-            resultado.presente ? '✅ Configurada' : '❌ No configurada';
+            (resultado && resultado.presente) ? '✅ Configurada' : '❌ No configurada';
         })
         .verificarApiKeyPresente();
     }
@@ -6230,7 +6230,7 @@
 
       google.script.run
         .withSuccessHandler((resultado) => {
-          if (resultado.success) {
+          if (resultado && resultado.success) {
             showToast('success', '✅ Guardada', 'API Key configurada correctamente');
             document.getElementById('configClaudeApiKey').value = '';
             document.getElementById('configClaudeApiKey').placeholder = '••••••••••••••••';
