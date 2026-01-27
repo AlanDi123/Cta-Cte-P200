@@ -6355,10 +6355,10 @@
           let totalFiados = 0;
 
           const rows = clientesConMovimientos.map(cliente => {
-            // CORRECCIÓN: 
-            // - FIADOS = suma de todos los movimientos DEBE (ventas a crédito)
-            // - PAGOS = suma de todos los movimientos HABER (pagos recibidos)
-            // - SALDO = FIADOS - PAGOS (lo que realmente debe el cliente)
+            // CORRECCIÓN DE CÁLCULO:
+            // - FIADOS (DEBE) = suma de todas las ventas a crédito (débitos - cliente debe dinero)
+            // - PAGOS (HABER) = suma de todos los pagos recibidos (créditos - cliente pagó dinero)
+            // - SALDO = FIADOS - PAGOS (balance final - lo que realmente debe el cliente)
             const fiados = cliente.totalDebe || 0;
             const pagos = cliente.totalHaber || 0;
             const saldo = cliente.saldoFinal || 0;
