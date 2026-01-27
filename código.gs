@@ -867,7 +867,8 @@ const MovimientosRepository = {
       // Registrar movimiento
       const hoja = this.getHoja();
       const nuevoID = this.generarNuevoID();
-      const fecha = new Date();
+      // Use the user-provided date if available, otherwise use current date
+      const fecha = movimientoData.fecha ? new Date(movimientoData.fecha) : new Date();
       const usuario = Session.getActiveUser().getEmail();
 
       const nuevaFila = [
@@ -1783,6 +1784,63 @@ function verificarApiKeyPresente() {
     return {
       success: false,
       error: error.message
+    };
+  }
+}
+
+/**
+ * API 4.5: Obtiene resumen de movimientos por cliente para impresión diaria
+ * @returns {Object} {success: boolean, clientesResumen: Array}
+ */
+function obtenerResumenMovimientosPorCliente() {
+  try {
+    const todosClientes = ClientesRepository.obtenerTodos();
+    const hoja = MovimientosRepository.getHoja();
+    const datos = hoja.getDataRange().getValues();
+    
+    // Crear mapa para almacenar resumen por cliente
+    const resumenPorCliente = {};
+    
+    // Inicializar todos los clientes con valores en 0
+    todosClientes.forEach(cliente => {
+      const nombreNorm = normalizarString(cliente.nombre);
+      resumenPorCliente[nombreNorm] = {
+        nombre: cliente.nombre,
+        totalDebe: 0,
+        totalHaber: 0,
+        saldoFinal: cliente.saldo || 0
+      };
+    });
+    
+    // Procesar todos los movimientos (saltar encabezado)
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+      const clienteNorm = normalizarString(fila[CONFIG.COLS_MOVS.CLIENTE]);
+      const tipo = fila[CONFIG.COLS_MOVS.TIPO];
+      const monto = fila[CONFIG.COLS_MOVS.MONTO];
+      
+      if (resumenPorCliente[clienteNorm]) {
+        if (tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+          resumenPorCliente[clienteNorm].totalDebe += monto;
+        } else if (tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) {
+          resumenPorCliente[clienteNorm].totalHaber += monto;
+        }
+      }
+    }
+    
+    // Convertir mapa a array
+    const clientesResumen = Object.values(resumenPorCliente);
+    
+    return {
+      success: true,
+      clientesResumen: clientesResumen
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerResumenMovimientosPorCliente: ' + error.message);
+    return {
+      success: false,
+      error: error.message,
+      clientesResumen: []
     };
   }
 }
