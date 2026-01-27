@@ -126,7 +126,7 @@ function inicializarSistema() {
     Logger.log('📋 Nombre del spreadsheet: ' + ss.getName());
 
     // Verificar/crear hojas necesarias
-    const hojasNecesarias = ['CLIENTES', 'MOVIMIENTOS'];
+    const hojasNecesarias = ['CLIENTES', 'MOVIMIENTOS', 'RECAUDACION_EFECTIVO'];
     for (const nombreHoja of hojasNecesarias) {
       let hoja = ss.getSheetByName(nombreHoja);
       if (!hoja) {
@@ -140,6 +140,9 @@ function inicializarSistema() {
         } else if (nombreHoja === 'MOVIMIENTOS') {
           hoja.appendRow(['ID', 'FECHA', 'CLIENTE', 'TIPO', 'MONTO', 'SALDO_POST', 'OBS', 'USUARIO']);
           hoja.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
+        } else if (nombreHoja === 'RECAUDACION_EFECTIVO') {
+          hoja.appendRow(['ID', 'FECHA', 'CLIENTE', 'MONTO', 'FORMA_PAGO', 'OBS', 'USUARIO', 'TIMESTAMP', 'ESTADO']);
+          hoja.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#FF6F00').setFontColor('#FFFFFF');
         }
         Logger.log('✅ Hoja creada: ' + nombreHoja);
       } else {
@@ -231,7 +234,7 @@ const CONFIG = {
   // Configuración de Claude AI
   CLAUDE: {
     API_URL: 'https://api.anthropic.com/v1/messages',
-    MODEL: 'claude-3-5-sonnet-20241022',
+    MODEL: 'claude-opus-4-5-20251101',
     MAX_TOKENS: 4096,
     VERSION: '2023-06-01'
   },
@@ -489,14 +492,26 @@ const ClientesRepository = {
    * Obtiene todos los clientes
    * @returns {Array<Object>} Array de objetos cliente
    */
-  obtenerTodos: function() {
+  obtenerTodos: function(offset = 0, limit = 0) {
     const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
+    const lastRow = hoja.getLastRow();
 
-    if (datos.length <= 1) return []; // Solo encabezados o vacío
+    if (lastRow <= 1) return []; // Solo encabezados o vacío (backward compatible)
+
+    // Calculate actual range to read
+    const totalClientes = lastRow - 1; // Exclude header
+    const actualLimit = limit === 0 ? totalClientes : Math.min(limit, totalClientes);
+    const startRow = Math.min(offset + 2, lastRow + 1); // +2: skip header row 1, +offset from row 2
+    const rowCount = Math.max(0, Math.min(actualLimit, lastRow - offset - 1));
+
+    // Read only the specific range instead of entire sheet (PERFORMANCE FIX)
+    let datos = [];
+    if (rowCount > 0) {
+      datos = hoja.getRange(startRow, 1, rowCount, 9).getValues();
+    }
 
     const clientes = [];
-    for (let i = 1; i < datos.length; i++) {
+    for (let i = 0; i < datos.length; i++) {
       const fila = datos[i];
 
       // Convertir fechas a ISO strings para serialización Web
@@ -507,16 +522,27 @@ const ClientesRepository = {
         nombre: fila[CONFIG.COLS_CLIENTES.NOMBRE] || '',
         tel: fila[CONFIG.COLS_CLIENTES.TEL] || '',
         email: fila[CONFIG.COLS_CLIENTES.EMAIL] || '',
-        limite: fila[CONFIG.COLS_CLIENTES.LIMITE] || 100000,
-        saldo: fila[CONFIG.COLS_CLIENTES.SALDO] || 0,
-        totalMovs: fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS] || 0,
+        limite: Number(fila[CONFIG.COLS_CLIENTES.LIMITE]) || 100000,
+        saldo: Number(fila[CONFIG.COLS_CLIENTES.SALDO]) || 0,
+        totalMovs: Number(fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS]) || 0,
         alta: alta instanceof Date ? alta.toISOString() : (alta || ''),
         ultimoMov: ultimoMov instanceof Date ? ultimoMov.toISOString() : (ultimoMov || ''),
         obs: fila[CONFIG.COLS_CLIENTES.OBS] || ''
       });
     }
 
-    return clientes;
+    // If no pagination requested (limit = 0, offset = 0), return just array for backward compatibility
+    if (limit === 0 && offset === 0) {
+      return clientes;
+    }
+
+    // Pagination mode: return object with metadata
+    return {
+      clientes: clientes,
+      total: totalClientes,
+      offset: offset,
+      limit: actualLimit
+    };
   },
 
   /**
@@ -533,16 +559,21 @@ const ClientesRepository = {
       const nombreFila = normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]);
       if (nombreFila === nombreNorm) {
         const fila = datos[i];
+
+        // Convertir fechas a ISO strings para serialización Web (FIX visor de clientes)
+        const alta = fila[CONFIG.COLS_CLIENTES.ALTA];
+        const ultimoMov = fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV];
+
         return {
           cliente: {
             nombre: fila[CONFIG.COLS_CLIENTES.NOMBRE],
             tel: fila[CONFIG.COLS_CLIENTES.TEL] || '',
             email: fila[CONFIG.COLS_CLIENTES.EMAIL] || '',
-            limite: fila[CONFIG.COLS_CLIENTES.LIMITE] || 100000,
-            saldo: fila[CONFIG.COLS_CLIENTES.SALDO] || 0,
-            totalMovs: fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS] || 0,
-            alta: fila[CONFIG.COLS_CLIENTES.ALTA] || '',
-            ultimoMov: fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV] || '',
+            limite: Number(fila[CONFIG.COLS_CLIENTES.LIMITE]) || 100000,
+            saldo: Number(fila[CONFIG.COLS_CLIENTES.SALDO]) || 0,
+            totalMovs: Number(fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS]) || 0,
+            alta: alta instanceof Date ? alta.toISOString() : (alta || ''),
+            ultimoMov: ultimoMov instanceof Date ? ultimoMov.toISOString() : (ultimoMov || ''),
             obs: fila[CONFIG.COLS_CLIENTES.OBS] || ''
           },
           fila: i + 1 // Número de fila (1-indexed)
@@ -659,6 +690,55 @@ const ClientesRepository = {
 
     // Actualizar ULTIMO_MOV
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(fechaMov);
+  },
+
+  /**
+   * PERFORMANCE: Actualiza SOLO saldo, contadores y fecha sin recargar todo
+   * @param {string} nombreCliente - Nombre del cliente
+   * @param {number} nuevoSaldo - Nuevo saldo
+   * @param {Date} fechaMov - Fecha del movimiento
+   * @returns {Object} Cliente actualizado
+   */
+  actualizarSaldoRapido: function(nombreCliente, nuevoSaldo, fechaMov) {
+    const resultado = this.buscarPorNombre(nombreCliente);
+
+    if (!resultado) {
+      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+    }
+
+    const hoja = this.getHoja();
+    const fila = resultado.fila;
+
+    // Actualizar solo 3 celdas (muy rápido, no recarga datos)
+    hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldo);
+    hoja.getRange(fila, CONFIG.COLS_CLIENTES.TOTAL_MOVS + 1).setValue((resultado.cliente.totalMovs || 0) + 1);
+    hoja.getRange(fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(fechaMov);
+
+    // Retornar cliente actualizado sin recargar del sheet
+    return {
+      nombre: resultado.cliente.nombre,
+      saldo: nuevoSaldo,
+      totalMovs: (resultado.cliente.totalMovs || 0) + 1,
+      ultimoMov: fechaMov instanceof Date ? fechaMov.toISOString() : fechaMov
+    };
+  },
+
+  /**
+   * Actualiza SOLO el saldo (para operaciones de edit/delete de movimientos)
+   * @param {string} nombreCliente - Nombre del cliente
+   * @param {number} nuevoSaldo - Nuevo saldo
+   */
+  actualizarSaldoDirecto: function(nombreCliente, nuevoSaldo) {
+    const resultado = this.buscarPorNombre(nombreCliente);
+
+    if (!resultado) {
+      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
+    }
+
+    const hoja = this.getHoja();
+    const fila = resultado.fila;
+
+    hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldo);
   },
 
   /**
@@ -860,14 +940,25 @@ const MovimientosRepository = {
    */
   obtenerRecientes: function(limite) {
     const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
+    const lastRow = hoja.getLastRow();
 
-    if (datos.length <= 1) return [];
+    if (lastRow <= 1) return []; // Solo encabezados o vacío
+
+    // PERFORMANCE FIX: Instead of reading entire sheet, read only last N+buffer rows
+    // Buffer of 50% extra to ensure we get all we need (sorted by date, not insertion order)
+    const buffer = Math.ceil(limite * 1.5);
+    const rowsToRead = Math.min(buffer, lastRow - 1); // Don't read more than available
+    const startRow = Math.max(2, lastRow - rowsToRead + 1); // Start from appropriate row
+
+    let datos = [];
+    if (rowsToRead > 0) {
+      datos = hoja.getRange(startRow, 1, rowsToRead, 8).getValues();
+    }
 
     const movimientos = [];
 
     // Comenzar desde el final (más recientes primero)
-    for (let i = datos.length - 1; i >= 1 && movimientos.length < limite; i--) {
+    for (let i = datos.length - 1; i >= 0 && movimientos.length < limite; i--) {
       const fila = datos[i];
       const fecha = fila[CONFIG.COLS_MOVS.FECHA];
 
@@ -990,6 +1081,236 @@ const MovimientosRepository = {
 
 
 // ============================================================================
+// 4B. RECAUDACIÓN REPOSITORY - SISTEMA INDEPENDIENTE DE COBROS
+// ============================================================================
+
+/**
+ * Configuración específica para Recaudación
+ */
+const RECAUDACION_CONFIG = {
+  HOJA: 'RECAUDACION_EFECTIVO',
+  COLS: {
+    ID: 0,
+    FECHA: 1,
+    CLIENTE: 2,
+    MONTO: 3,
+    FORMA_PAGO: 4,
+    OBS: 5,
+    USUARIO: 6,
+    TIMESTAMP: 7,
+    ESTADO: 8
+  },
+  FORMAS_PAGO: ['EFECTIVO', 'CHEQUE', 'TRANSFERENCIA', 'TARJETA', 'OTRO'],
+  ESTADOS: ['REGISTRADO', 'DEPOSITADO', 'CONCILIADO']
+};
+
+const RecaudacionRepository = {
+  /**
+   * Obtiene o crea la hoja RECAUDACION_EFECTIVO
+   */
+  getHoja: function() {
+    const ss = getSpreadsheet();
+    let hoja = ss.getSheetByName(RECAUDACION_CONFIG.HOJA);
+
+    if (!hoja) {
+      hoja = ss.insertSheet(RECAUDACION_CONFIG.HOJA);
+      hoja.appendRow([
+        'ID', 'FECHA', 'CLIENTE', 'MONTO', 'FORMA_PAGO',
+        'OBS', 'USUARIO', 'TIMESTAMP', 'ESTADO'
+      ]);
+      hoja.getRange(1, 1, 1, 9)
+        .setFontWeight('bold')
+        .setBackground('#FF6F00')
+        .setFontColor('#FFFFFF');
+      Logger.log('✅ Hoja RECAUDACION_EFECTIVO creada');
+    }
+
+    return hoja;
+  },
+
+  /**
+   * Genera nuevo ID autoincremental
+   */
+  generarNuevoID: function() {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return 1;
+
+    let maxId = 0;
+    for (let i = 1; i < datos.length; i++) {
+      const id = datos[i][RECAUDACION_CONFIG.COLS.ID];
+      if (typeof id === 'number' && id > maxId) maxId = id;
+    }
+
+    return maxId + 1;
+  },
+
+  /**
+   * Registra una recaudación nueva
+   */
+  registrar: function(recaudacionData) {
+    const lock = LockService.getScriptLock();
+
+    try {
+      lock.waitLock(30000);
+
+      // Validaciones
+      const clienteNorm = normalizarString(recaudacionData.cliente);
+      if (!clienteNorm) {
+        throw new Error('Cliente requerido');
+      }
+
+      if (!ClientesRepository.buscarPorNombre(clienteNorm)) {
+        throw new Error(`Cliente "${clienteNorm}" no encontrado`);
+      }
+
+      if (!recaudacionData.monto || recaudacionData.monto <= 0) {
+        throw new Error('Monto debe ser positivo');
+      }
+
+      const formaPago = String(recaudacionData.forma_pago || 'EFECTIVO').toUpperCase();
+      if (!RECAUDACION_CONFIG.FORMAS_PAGO.includes(formaPago)) {
+        throw new Error('Forma de pago inválida');
+      }
+
+      // Registrar recaudación
+      const hoja = this.getHoja();
+      const nuevoID = this.generarNuevoID();
+      const fecha = new Date();
+      const usuario = Session.getActiveUser().getEmail();
+
+      const nuevaFila = [
+        nuevoID,
+        fecha,
+        clienteNorm,
+        recaudacionData.monto,
+        formaPago,
+        recaudacionData.obs || '',
+        usuario,
+        fecha,
+        'REGISTRADO'
+      ];
+
+      hoja.appendRow(nuevaFila);
+
+      lock.releaseLock();
+
+      return {
+        id: nuevoID,
+        fecha: fecha.toISOString(),
+        cliente: clienteNorm,
+        monto: recaudacionData.monto,
+        forma_pago: formaPago,
+        obs: recaudacionData.obs || '',
+        usuario: usuario,
+        estado: 'REGISTRADO'
+      };
+
+    } catch (error) {
+      lock.releaseLock();
+      throw error;
+    }
+  },
+
+  /**
+   * Obtiene recaudaciones por cliente
+   */
+  obtenerPorCliente: function(nombreCliente) {
+    const nombreNorm = normalizarString(nombreCliente);
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return [];
+
+    const recaudaciones = [];
+    for (let i = 1; i < datos.length; i++) {
+      const clienteFila = normalizarString(datos[i][RECAUDACION_CONFIG.COLS.CLIENTE]);
+
+      if (clienteFila === nombreNorm) {
+        const fecha = datos[i][RECAUDACION_CONFIG.COLS.FECHA];
+        recaudaciones.push({
+          id: datos[i][RECAUDACION_CONFIG.COLS.ID],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+          cliente: datos[i][RECAUDACION_CONFIG.COLS.CLIENTE],
+          monto: datos[i][RECAUDACION_CONFIG.COLS.MONTO],
+          forma_pago: datos[i][RECAUDACION_CONFIG.COLS.FORMA_PAGO],
+          obs: datos[i][RECAUDACION_CONFIG.COLS.OBS] || '',
+          usuario: datos[i][RECAUDACION_CONFIG.COLS.USUARIO] || '',
+          timestamp: datos[i][RECAUDACION_CONFIG.COLS.TIMESTAMP],
+          estado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
+        });
+      }
+    }
+
+    return recaudaciones.sort((a, b) => b.id - a.id);
+  },
+
+  /**
+   * Obtiene recaudaciones en rango de fechas
+   */
+  obtenerPorRango: function(desde, hasta) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return [];
+
+    const fechaDesde = new Date(desde);
+    const fechaHasta = new Date(hasta);
+    fechaDesde.setHours(0, 0, 0, 0);
+    fechaHasta.setHours(23, 59, 59, 999);
+
+    const recaudaciones = [];
+    for (let i = 1; i < datos.length; i++) {
+      const fechaMov = new Date(datos[i][RECAUDACION_CONFIG.COLS.FECHA]);
+
+      if (fechaMov >= fechaDesde && fechaMov <= fechaHasta) {
+        const fecha = datos[i][RECAUDACION_CONFIG.COLS.FECHA];
+        recaudaciones.push({
+          id: datos[i][RECAUDACION_CONFIG.COLS.ID],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+          cliente: datos[i][RECAUDACION_CONFIG.COLS.CLIENTE],
+          monto: datos[i][RECAUDACION_CONFIG.COLS.MONTO],
+          forma_pago: datos[i][RECAUDACION_CONFIG.COLS.FORMA_PAGO],
+          obs: datos[i][RECAUDACION_CONFIG.COLS.OBS] || '',
+          usuario: datos[i][RECAUDACION_CONFIG.COLS.USUARIO] || '',
+          estado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
+        });
+      }
+    }
+
+    return recaudaciones;
+  },
+
+  /**
+   * Obtiene totales diarios
+   */
+  obtenerTotalesDiarios: function(fecha) {
+    const recaudaciones = this.obtenerPorRango(fecha, fecha);
+
+    const totales = {
+      fecha: fecha instanceof Date ? fecha.toISOString().split('T')[0] : fecha,
+      total_recaudado: 0,
+      cantidad_movimientos: recaudaciones.length,
+      por_forma_pago: {}
+    };
+
+    RECAUDACION_CONFIG.FORMAS_PAGO.forEach(forma => {
+      totales.por_forma_pago[forma] = 0;
+    });
+
+    recaudaciones.forEach(rec => {
+      totales.total_recaudado += rec.monto;
+      totales.por_forma_pago[rec.forma_pago] =
+        (totales.por_forma_pago[rec.forma_pago] || 0) + rec.monto;
+    });
+
+    return totales;
+  }
+};
+
+
+// ============================================================================
 // 5. CLAUDE SERVICE
 // ============================================================================
 
@@ -1009,13 +1330,42 @@ const ClaudeService = {
    * @returns {Object} Resultado del análisis
    */
   analizarImagen: function(imageBase64) {
+    Logger.log('🔍 INICIO: analizarImagen - Diagnóstico Visual Reasoning');
+
+    // PASO 1: Verificar API Key
+    Logger.log('📋 Paso 1: Verificando API Key...');
     const apiKey = this.getApiKey();
+    Logger.log('✓ API Key presente: ' + !!apiKey);
+    Logger.log('✓ Longitud API Key: ' + (apiKey ? apiKey.length : 0) + ' caracteres');
 
     if (!apiKey) {
-      throw new Error('API Key de Claude no configurada. Por favor, configure la API Key en el módulo de Configuración.');
+      const error = 'API Key de Claude no configurada. Por favor, configure la API Key en el módulo de Configuración.';
+      Logger.log('❌ ' + error);
+      throw new Error(error);
     }
 
-    // Detectar tipo de imagen desde el prefijo Base64
+    // PASO 2: Validar imagen Base64 - FIX: Validar que no sea undefined primero
+    Logger.log('📋 Paso 2: Validando imagen Base64...');
+    Logger.log('✓ imageBase64 tipo: ' + typeof imageBase64);
+    Logger.log('✓ imageBase64 === undefined: ' + (imageBase64 === undefined));
+    Logger.log('✓ imageBase64 === null: ' + (imageBase64 === null));
+    Logger.log('✓ imageBase64 === "": ' + (imageBase64 === ""));
+
+    if (imageBase64 === undefined || imageBase64 === null || imageBase64 === '') {
+      const error = 'Image Base64 no fue recibida (undefined/null/empty). Esto puede ocurrir si: 1) El archivo es muy grande (>5MB), 2) La conexión fue interrumpida, 3) Browser bloqueó el acceso a FileReader. Por favor, recarga la página e intenta de nuevo.';
+      Logger.log('❌ ' + error);
+      throw new Error(error);
+    }
+
+    Logger.log('✓ Longitud imagen: ' + imageBase64.length + ' caracteres');
+    if (imageBase64.length < 100) {
+      const error = 'Imagen demasiado pequeña o inválida (< 100 caracteres Base64)';
+      Logger.log('❌ ' + error);
+      throw new Error(error);
+    }
+
+    // PASO 3: Detectar tipo de imagen desde el prefijo Base64
+    Logger.log('📋 Paso 3: Detectando tipo de imagen...');
     let mediaType = 'image/jpeg';
     if (imageBase64.includes('data:image/png')) {
       mediaType = 'image/png';
@@ -1024,11 +1374,15 @@ const ClaudeService = {
     } else if (imageBase64.includes('data:image/gif')) {
       mediaType = 'image/gif';
     }
+    Logger.log('✓ Tipo de imagen detectado: ' + mediaType);
 
-    // Limpiar prefijo Base64
+    // PASO 4: Limpiar prefijo Base64
+    Logger.log('📋 Paso 4: Limpiando prefijo Base64...');
     const base64Clean = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+    Logger.log('✓ Base64 limpio, longitud: ' + base64Clean.length + ' caracteres');
 
-    // Construir payload para Claude API
+    // PASO 5: Construir payload para Claude API
+    Logger.log('📋 Paso 5: Construyendo payload para Claude API...');
     const payload = {
       model: CONFIG.CLAUDE.MODEL,
       max_tokens: CONFIG.CLAUDE.MAX_TOKENS,
@@ -1075,8 +1429,10 @@ Responde SOLO con el JSON, sin explicaciones adicionales.`
         }
       ]
     };
+    Logger.log('✓ Payload construido, modelo: ' + CONFIG.CLAUDE.MODEL);
 
-    // Hacer request a Claude API
+    // PASO 6: Preparar options de fetch
+    Logger.log('📋 Paso 6: Preparando opciones de UrlFetch...');
     const options = {
       method: 'post',
       headers: {
@@ -1087,46 +1443,80 @@ Responde SOLO con el JSON, sin explicaciones adicionales.`
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     };
+    Logger.log('✓ Headers configurados, URL: ' + CONFIG.CLAUDE.API_URL);
 
     try {
+      // PASO 7: Hacer request a Claude API
+      Logger.log('📋 Paso 7: Enviando request a Claude API...');
       const response = UrlFetchApp.fetch(CONFIG.CLAUDE.API_URL, options);
       const responseCode = response.getResponseCode();
       const responseText = response.getContentText();
 
+      Logger.log('✓ Response recibida, código: ' + responseCode);
+      Logger.log('✓ Response longitud: ' + responseText.length + ' caracteres');
+
+      // PASO 8: Validar código de respuesta
+      Logger.log('📋 Paso 8: Validando código de respuesta...');
       if (responseCode !== 200) {
-        Logger.log('Error de Claude API: ' + responseText);
-        throw new Error(`Error de Claude API (${responseCode}): ${responseText}`);
+        Logger.log('❌ Error de Claude API (código ' + responseCode + ')');
+        Logger.log('❌ Respuesta: ' + responseText.substring(0, 500));
+        throw new Error(`Error de Claude API (${responseCode}): ${responseText.substring(0, 200)}`);
       }
+      Logger.log('✓ Código 200 OK');
 
+      // PASO 9: Parsear respuesta JSON
+      Logger.log('📋 Paso 9: Parseando respuesta JSON...');
       const resultado = JSON.parse(responseText);
+      Logger.log('✓ JSON parseado correctamente');
 
-      // Extraer texto de la respuesta
+      // PASO 10: Extraer texto de la respuesta
+      Logger.log('📋 Paso 10: Extrayendo texto de contenido...');
       if (!resultado.content || !resultado.content[0] || !resultado.content[0].text) {
-        throw new Error('Respuesta de Claude API inválida');
+        Logger.log('❌ Estructura de respuesta inválida');
+        Logger.log('❌ Response content: ' + JSON.stringify(resultado).substring(0, 300));
+        throw new Error('Respuesta de Claude API inválida: falta content.text');
       }
 
       const textoRespuesta = resultado.content[0].text;
+      Logger.log('✓ Texto extraído, longitud: ' + textoRespuesta.length + ' caracteres');
 
-      // Parsear JSON de la respuesta
-      // Claude a veces envuelve el JSON en ```json ... ```, limpiarlo
+      // PASO 11: Limpiar JSON de la respuesta
+      Logger.log('📋 Paso 11: Limpiando JSON de markdown...');
       let jsonLimpio = textoRespuesta.trim();
-      jsonLimpio = jsonLimpio.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      const originalLength = jsonLimpio.length;
+      jsonLimpio = jsonLimpio.replace(/^```json\n?/i, '').replace(/\n?```$/i, '');
+      Logger.log('✓ JSON limpio, tamaño: ' + originalLength + ' → ' + jsonLimpio.length + ' caracteres');
 
+      // PASO 12: Parsear JSON extraído
+      Logger.log('📋 Paso 12: Parseando JSON de movimientos...');
       const datosExtraidos = JSON.parse(jsonLimpio);
+      Logger.log('✓ JSON de movimientos parseado correctamente');
 
-      // Validar estructura
+      // PASO 13: Validar estructura de datos
+      Logger.log('📋 Paso 13: Validando estructura de datos...');
       if (!datosExtraidos.movimientos || !Array.isArray(datosExtraidos.movimientos)) {
+        Logger.log('❌ Falta array "movimientos" en respuesta');
+        Logger.log('❌ Estructura recibida: ' + JSON.stringify(datosExtraidos).substring(0, 300));
         throw new Error('Formato de respuesta inválido: falta array "movimientos"');
       }
 
-      return {
+      const totalMovimientos = datosExtraidos.movimientos.length;
+      Logger.log('✓ Estructura válida, movimientos extraídos: ' + totalMovimientos);
+
+      // PASO 14: Retornar resultado
+      Logger.log('📋 Paso 14: Preparando respuesta final...');
+      const resultado_final = {
         success: true,
         movimientos: datosExtraidos.movimientos,
-        totalExtraidos: datosExtraidos.movimientos.length
+        totalExtraidos: totalMovimientos
       };
+      Logger.log('✅ ÉXITO: Visual Reasoning completado - ' + totalMovimientos + ' movimientos extraídos');
+
+      return resultado_final;
 
     } catch (error) {
-      Logger.log('Error en analizarImagen: ' + error.message);
+      Logger.log('❌ ERROR EN PASO ANTERIOR: ' + error.message);
+      Logger.log('❌ Stack: ' + error.stack);
       throw new Error('Error al analizar imagen: ' + error.message);
     }
   }
@@ -1152,6 +1542,14 @@ function obtenerDatosParaHTML() {
   };
 
   try {
+    // Inicializar sistema de Arqueo de Caja si no existe
+    try {
+      setupCashSystemSheets();
+      initializeHistoricalCashData();
+    } catch (e) {
+      Logger.log('⚠️ Nota: Error inicializando Arqueo (no crítico): ' + e.message);
+    }
+
     Logger.log('═══════════════════════════════════════════════════');
     Logger.log('📥 obtenerDatosParaHTML - INICIO');
     Logger.log('Contexto: ' + (Session ? 'Session disponible' : 'Session no disponible'));
@@ -1521,6 +1919,121 @@ function guardarMovimientosDesdeVR(payload) {
 }
 
 /**
+ * API 8a: Actualizar movimiento existente
+ */
+function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
+  try {
+    const repo = MovimientosRepository;
+    const hoja = repo.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    // Find row by ID
+    let rowIndex = -1;
+    for (let i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG.COLS_MOVS.ID] == idMovimiento) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Movimiento no encontrado');
+    }
+
+    const movimientoRow = datos[rowIndex - 1];
+    const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
+    const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
+    const montoAnterior = Number(movimientoRow[CONFIG.COLS_MOVS.MONTO]);
+
+    // Update monto and obs
+    hoja.getRange(rowIndex, CONFIG.COLS_MOVS.MONTO + 1).setValue(nuevoMonto);
+    hoja.getRange(rowIndex, CONFIG.COLS_MOVS.OBS + 1).setValue(nuevaObs);
+
+    // Recalculate balance
+    const clientesRepo = ClientesRepository;
+    const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
+    const montoDiff = Number(nuevoMonto) - montoAnterior;
+    const nuevoSaldo = tipoMov === 'DEBE' ?
+      (clienteData.saldo + montoDiff) :
+      (clienteData.saldo - montoDiff);
+
+    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
+
+    Logger.log('✅ Movimiento ' + idMovimiento + ' actualizado');
+
+    return {
+      success: true,
+      movimiento: {
+        id: idMovimiento,
+        monto: nuevoMonto,
+        obs: nuevaObs,
+        nuevoSaldo: nuevoSaldo
+      }
+    };
+  } catch (error) {
+    Logger.log('❌ ERROR en actualizarMovimiento: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * API 8b: Eliminar movimiento existente
+ */
+function eliminarMovimiento(idMovimiento) {
+  try {
+    const repo = MovimientosRepository;
+    const hoja = repo.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    let rowIndex = -1;
+    for (let i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG.COLS_MOVS.ID] == idMovimiento) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Movimiento no encontrado');
+    }
+
+    const movimientoRow = datos[rowIndex - 1];
+    const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
+    const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
+    const monto = Number(movimientoRow[CONFIG.COLS_MOVS.MONTO]);
+
+    // Delete the row
+    hoja.deleteRow(rowIndex);
+
+    // Recalculate client balance (reverse the movement)
+    const clientesRepo = ClientesRepository;
+    const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
+    const nuevoSaldo = tipoMov === 'DEBE' ?
+      (clienteData.saldo - monto) :
+      (clienteData.saldo + monto);
+
+    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
+
+    Logger.log('✅ Movimiento ' + idMovimiento + ' eliminado');
+
+    return {
+      success: true,
+      mensaje: 'Movimiento eliminado',
+      nuevoSaldo: nuevoSaldo
+    };
+  } catch (error) {
+    Logger.log('❌ ERROR en eliminarMovimiento: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
  * API 8: Crea un nuevo cliente completo
  * @param {Object} clienteData - Datos del cliente
  * @returns {Object} Cliente creado
@@ -1655,9 +2168,31 @@ function guardarApiKey(apiKey) {
  * @param {string} imageBase64 - Imagen en Base64
  * @returns {Object} Movimientos extraídos
  */
-function analizarImagenVisualReasoning(imageBase64) {
+/**
+ * FIX: Recibe token en lugar de Base64 directamente
+ * El Base64 se guarda en el frontend en sessionStorage y luego en backend CacheService
+ * Esto evita el límite de serialización silencioso de google.script.run
+ */
+/**
+ * API 12: Analiza imagen con Claude Vision - Versión Simplificada
+ * Recibe directamente el Base64 del frontend
+ * @param {string} imageBase64 - Imagen en Base64
+ * @returns {Object} Movimientos extraídos
+ */
+function analizarImagenVisualReasoningSimple(imageBase64) {
   try {
+    Logger.log('📞 LLAMADA: analizarImagenVisualReasoningSimple');
+    Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
+
+    if (!imageBase64 || imageBase64.length < 100) {
+      throw new Error('Base64 inválido o muy pequeño');
+    }
+
+    Logger.log('🚀 Llamando ClaudeService.analizarImagen()...');
     const resultado = ClaudeService.analizarImagen(imageBase64);
+
+    Logger.log('✅ Análisis completado');
+    Logger.log('📊 Movimientos extraídos: ' + resultado.totalExtraidos);
 
     return {
       success: true,
@@ -1665,7 +2200,79 @@ function analizarImagenVisualReasoning(imageBase64) {
       totalExtraidos: resultado.totalExtraidos
     };
   } catch (error) {
-    Logger.log('Error en analizarImagenVisualReasoning: ' + error.message);
+    Logger.log('❌ ERROR: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Helper: Guarda Base64 en CacheService para evitar límite de serialización
+ */
+function guardarImagenTemporalVR(imageBase64) {
+  try {
+    Logger.log('📞 LLAMADA: guardarImagenTemporalVR');
+    Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
+
+    if (!imageBase64 || imageBase64.length < 100) {
+      throw new Error('Base64 inválido o muy pequeño');
+    }
+
+    const token = Utilities.getUuid();
+    Logger.log('✓ Token generado: ' + token);
+
+    const cache = CacheService.getUserCache();
+    cache.put('vr_image_' + token, imageBase64, 900);
+
+    Logger.log('✅ Base64 guardado en cache con token: ' + token);
+
+    return {
+      success: true,
+      token: token,
+      dataSize: imageBase64.length
+    };
+  } catch (error) {
+    Logger.log('❌ ERROR en guardarImagenTemporalVR: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Helper: Analiza imagen usando token del cache (CacheService workaround)
+ */
+function analizarImagenConToken(vrDataToken) {
+  try {
+    Logger.log('📞 LLAMADA: analizarImagenConToken');
+    Logger.log('📊 Token recibido: ' + vrDataToken);
+
+    const cache = CacheService.getUserCache();
+    const imageBase64 = cache.get('vr_image_' + vrDataToken);
+
+    Logger.log('✓ Base64 recuperado, longitud: ' + (imageBase64 ? imageBase64.length : 0));
+
+    if (!imageBase64 || imageBase64.length < 100) {
+      const errorMsg = !imageBase64 ? 'No se encontró Base64 en cache' : 'Base64 muy pequeño';
+      throw new Error('Image Base64 inválida: ' + errorMsg);
+    }
+
+    Logger.log('🚀 Llamando ClaudeService.analizarImagen()...');
+    const resultado = ClaudeService.analizarImagen(imageBase64);
+
+    Logger.log('✅ Análisis completado');
+    cache.remove('vr_image_' + vrDataToken);
+
+    return {
+      success: true,
+      movimientos: resultado.movimientos,
+      totalExtraidos: resultado.totalExtraidos
+    };
+  } catch (error) {
+    Logger.log('❌ ERROR: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -1762,6 +2369,393 @@ function crearClientesMasivos(payload) {
       success: false,
       error: error.message
     };
+  }
+}
+
+/**
+ * API 14: Registra una recaudación de efectivo
+ * @param {Object} recaudacionData - {cliente, monto, forma_pago, obs}
+ * @returns {Object} {success, recaudacion} o {success: false, error}
+ */
+function guardarRecaudacion(recaudacionData) {
+  Logger.log('📥 guardarRecaudacion - Inicio: ' + JSON.stringify(recaudacionData));
+
+  try {
+    if (!recaudacionData || typeof recaudacionData !== 'object') {
+      throw new Error('Datos inválidos');
+    }
+
+    const recaudacion = RecaudacionRepository.registrar(recaudacionData);
+
+    Logger.log('✅ Recaudación guardada - ID: ' + recaudacion.id);
+
+    return {
+      success: true,
+      recaudacion: recaudacion
+    };
+  } catch (error) {
+    Logger.log('❌ Error en guardarRecaudacion: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * API 15: Obtiene recaudaciones por cliente
+ * @param {string} nombreCliente - Nombre del cliente
+ * @returns {Object} {success, recaudaciones: Array}
+ */
+function obtenerRecaudacionesPorCliente(nombreCliente) {
+  try {
+    const recaudaciones = RecaudacionRepository.obtenerPorCliente(nombreCliente);
+
+    return {
+      success: true,
+      recaudaciones: recaudaciones
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerRecaudacionesPorCliente: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * API 16: Obtiene totales diarios de recaudación
+ * @param {string} fecha - Fecha en formato YYYY-MM-DD
+ * @returns {Object} {success, totales}
+ */
+function obtenerTotalesRecaudacionDia(fecha) {
+  try {
+    const totales = RecaudacionRepository.obtenerTotalesDiarios(new Date(fecha));
+
+    return {
+      success: true,
+      totales: totales
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerTotalesRecaudacionDia: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// ============================================================================
+// SISTEMA DE ARQUEO DE CAJA - Backend Functions
+// ============================================================================
+
+/**
+ * Inicializa las hojas necesarias para el sistema de Arqueo de Caja
+ * Crea "Config" y "Historial_Caja" si no existen
+ */
+function setupCashSystemSheets() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Crear hoja Config si no existe
+    if (!ss.getSheetByName('Config')) {
+      const configSheet = ss.insertSheet('Config');
+      configSheet.getRange('A1').setValue('Proveedores');
+      configSheet.getRange(1, 1, 1, 1).setFontWeight('bold').setBackground('#efefef');
+    }
+
+    // Crear hoja Historial_Caja si no existe
+    if (!ss.getSheetByName('Historial_Caja')) {
+      const historySheet = ss.insertSheet('Historial_Caja');
+      historySheet.appendRow([
+        'Fecha', 'Hora', 'Usuario',
+        'Total Efectivo', 'Pagos Prov.', 'Extras', 'Aportes',
+        'Recaudación Total',
+        'Detalles (JSON)'
+      ]);
+      historySheet.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#efefef');
+      historySheet.setFrozenRows(1);
+    }
+
+    return { success: true, message: 'Hojas inicializadas correctamente' };
+  } catch (error) {
+    Logger.log('Error en setupCashSystemSheets: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Inicializa el historial de Arqueo de Caja con datos históricos
+ * Agrega 4 registros de cierre de caja desde 19-23 de enero 2026
+ * @returns {Object} {success: true, recordsAdded: N}
+ */
+function initializeHistoricalCashData() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Historial_Caja');
+
+    if (!sheet) {
+      return { success: false, error: 'Historial_Caja sheet not found' };
+    }
+
+    // Verificar si ya hay datos
+    if (sheet.getLastRow() > 1) {
+      Logger.log('✅ Historial_Caja ya contiene datos, skipping initialization');
+      return { success: true, recordsAdded: 0 };
+    }
+
+    // Datos históricos de 4 cierres de caja
+    const historicalRecords = [
+      {
+        fecha: '2026-01-19',
+        hora: '17:30',
+        usuario: 'adminuser',
+        cash: 185200,
+        providers: 45000,
+        extras: 500,
+        injections: 2000,
+        balance: 141700,
+        details: {
+          bills: { 20000: 5, 10000: 8, 2000: 2, 1000: 3, 500: 4, 200: 1, 100: 0, 50: 2, 20: 1, 10: 0 },
+          providers: [{ name: 'Proveedor A', amount: 25000 }, { name: 'Proveedor B', amount: 20000 }],
+          injections: [{ desc: 'Aporte inicial', amount: 2000 }],
+          extras: [{ desc: 'Combustible', amount: 500 }]
+        }
+      },
+      {
+        fecha: '2026-01-20',
+        hora: '18:15',
+        usuario: 'adminuser',
+        cash: 192500,
+        providers: 48500,
+        extras: 300,
+        injections: 1500,
+        balance: 145200,
+        details: {
+          bills: { 20000: 6, 10000: 9, 2000: 1, 1000: 2, 500: 5, 200: 0, 100: 1, 50: 1, 20: 0, 10: 0 },
+          providers: [{ name: 'Proveedor A', amount: 28000 }, { name: 'Proveedor B', amount: 20500 }],
+          injections: [{ desc: 'Aporte', amount: 1500 }],
+          extras: [{ desc: 'Mantenimiento', amount: 300 }]
+        }
+      },
+      {
+        fecha: '2026-01-22',
+        hora: '17:45',
+        usuario: 'adminuser',
+        cash: 188750,
+        providers: 46200,
+        extras: 400,
+        injections: 2200,
+        balance: 144150,
+        details: {
+          bills: { 20000: 5, 10000: 8, 2000: 3, 1000: 3, 500: 5, 200: 0, 100: 0, 50: 3, 20: 1, 10: 0 },
+          providers: [{ name: 'Proveedor A', amount: 26200 }, { name: 'Proveedor B', amount: 20000 }],
+          injections: [{ desc: 'Aporte', amount: 2200 }],
+          extras: [{ desc: 'Servicios', amount: 400 }]
+        }
+      },
+      {
+        fecha: '2026-01-23',
+        hora: '18:00',
+        usuario: 'adminuser',
+        cash: 195000,
+        providers: 50000,
+        extras: 600,
+        injections: 1800,
+        balance: 143400,
+        details: {
+          bills: { 20000: 6, 10000: 9, 2000: 2, 1000: 2, 500: 4, 200: 1, 100: 1, 50: 2, 20: 0, 10: 0 },
+          providers: [{ name: 'Proveedor A', amount: 30000 }, { name: 'Proveedor B', amount: 20000 }],
+          injections: [{ desc: 'Aporte', amount: 1800 }],
+          extras: [{ desc: 'Otros', amount: 600 }]
+        }
+      }
+    ];
+
+    // Agregar los registros históricos
+    let recordsAdded = 0;
+    for (const record of historicalRecords) {
+      sheet.appendRow([
+        record.fecha,
+        record.hora,
+        record.usuario,
+        record.cash,
+        record.providers,
+        record.extras,
+        record.injections,
+        record.balance,
+        JSON.stringify(record.details)
+      ]);
+      recordsAdded++;
+    }
+
+    Logger.log(`✅ Historial_Caja inicializado con ${recordsAdded} registros históricos`);
+    return { success: true, recordsAdded: recordsAdded };
+
+  } catch (error) {
+    Logger.log('Error en initializeHistoricalCashData: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Obtiene la configuración del sistema de Arqueo (lista de proveedores)
+ * @returns {Object} {providers: [...]}
+ */
+function getCashSystemConfig() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSheet = ss.getSheetByName('Config');
+
+    if (!configSheet) {
+      return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
+    }
+
+    const lastRow = configSheet.getLastRow();
+    const providers = [];
+
+    if (lastRow > 1) {  // Cambiar a > 1 para skipear header
+      const data = configSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      const filtered = data.flat().filter(String);
+      if (filtered.length > 0) {
+        return { providers: filtered };
+      }
+    }
+
+    // Si no hay datos, retornar proveedores predeterminados
+    return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
+  } catch (error) {
+    Logger.log('Error en getCashSystemConfig: ' + error.message);
+    return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
+  }
+}
+
+/**
+ * Obtiene el historial de cierres de caja de manera inteligente
+ * Busca el JSON en cualquier columna y lo parsea correctamente
+ * @returns {Array} Array de entradas históricas
+ */
+function getCashHistoryEntries() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Historial_Caja');
+
+    if (!sheet) return [];
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return [];
+
+    const lastCol = sheet.getLastColumn();
+    const data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    const entries = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      let jsonStr = "";
+      let balance = 0;
+
+      // Buscar la columna que tiene el JSON (empieza con "{")
+      for (let j = row.length - 1; j >= 0; j--) {
+        const cell = row[j];
+        if (typeof cell === 'string' && cell.trim().startsWith('{')) {
+          jsonStr = cell;
+          // Intentar obtener el balance de la columna anterior
+          if (j > 0) balance = row[j - 1];
+          break;
+        }
+      }
+
+      // Si no encontramos JSON, saltamos esta fila
+      if (!jsonStr) continue;
+
+      // Formatear fecha
+      let dateStr = "";
+      try {
+        const dateObj = row[0];
+        if (dateObj instanceof Date) {
+          dateStr = Utilities.formatDate(dateObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
+        } else {
+          dateStr = String(dateObj);
+        }
+      } catch (e) {
+        dateStr = "Fecha desc.";
+      }
+
+      const timeStr = row[1] ? String(row[1]) : "";
+
+      entries.push({
+        date: dateStr,
+        time: timeStr,
+        balance: balance,
+        jsonData: jsonStr
+      });
+    }
+
+    // Devolver invertido para ver lo más reciente arriba
+    return entries.reverse();
+  } catch (error) {
+    Logger.log('Error en getCashHistoryEntries: ' + error.message);
+    return [];
+  }
+}
+
+/**
+ * Guarda los datos de una sesión de arqueo de caja
+ * @param {Object} data - {details: {...}, totals: {...}}
+ * @returns {Object} {success, message}
+ */
+function saveCashSessionData(data) {
+  try {
+    // FIX: Validar que hay efectivo antes de guardar
+    if (!data || !data.totals || data.totals.cash <= 0) {
+      throw new Error('El total de efectivo debe ser mayor a 0. Por favor, ingrese montos en las denominaciones.');
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let historySheet = ss.getSheetByName('Historial_Caja');
+
+    // Si la hoja no existe, crearla
+    if (!historySheet) {
+      historySheet = ss.insertSheet('Historial_Caja');
+      historySheet.appendRow([
+        'Fecha', 'Hora', 'Usuario',
+        'Total Efectivo', 'Pagos Prov.', 'Extras', 'Aportes',
+        'Recaudación Total',
+        'Detalles (JSON)'
+      ]);
+      historySheet.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#efefef');
+      historySheet.setFrozenRows(1);
+    }
+
+    const now = new Date();
+    let user = "Sistema";
+    try {
+      user = Session.getActiveUser().getEmail();
+    } catch (e) {
+      user = "Sistema";
+    }
+
+    const timeStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm:ss");
+    const jsonDetails = JSON.stringify(data);
+
+    historySheet.appendRow([
+      now,
+      timeStr,
+      user,
+      data.totals.cash || 0,
+      data.totals.providers || 0,
+      data.totals.extras || 0,
+      data.totals.injections || 0,
+      data.totals.balance || 0,
+      jsonDetails
+    ]);
+
+    return { success: true, message: 'Cierre guardado correctamente.' };
+  } catch (error) {
+    Logger.log('Error en saveCashSessionData: ' + error.message);
+    return { success: false, error: error.message };
   }
 }
 
