@@ -2835,6 +2835,9 @@ function verificarApiKeyPresente() {
  */
 function rematchearNombreConSugerencias(nombre) {
   try {
+    // PHASE 1 INTEGRATION: Require authentication for company filtering
+    const auth = AuthService.verify();
+
     const nombreBusqueda = normalizarString(nombre);
 
     if (!nombreBusqueda) {
@@ -2844,7 +2847,7 @@ function rematchearNombreConSugerencias(nombre) {
       };
     }
 
-    const clientes = ClientesRepository.obtenerTodos();
+    const clientes = ClientesRepository.obtenerTodos(auth.companyId);
     const sugerencias = [];
 
     // Calcular score para cada cliente
