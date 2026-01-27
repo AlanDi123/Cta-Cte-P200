@@ -2209,6 +2209,78 @@ function analizarImagenVisualReasoningSimple(imageBase64) {
 }
 
 /**
+ * Helper: Guarda Base64 en CacheService para evitar límite de serialización
+ */
+function guardarImagenTemporalVR(imageBase64) {
+  try {
+    Logger.log('📞 LLAMADA: guardarImagenTemporalVR');
+    Logger.log('📊 Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
+
+    if (!imageBase64 || imageBase64.length < 100) {
+      throw new Error('Base64 inválido o muy pequeño');
+    }
+
+    const token = Utilities.getUuid();
+    Logger.log('✓ Token generado: ' + token);
+
+    const cache = CacheService.getUserCache();
+    cache.put('vr_image_' + token, imageBase64, 900);
+
+    Logger.log('✅ Base64 guardado en cache con token: ' + token);
+
+    return {
+      success: true,
+      token: token,
+      dataSize: imageBase64.length
+    };
+  } catch (error) {
+    Logger.log('❌ ERROR en guardarImagenTemporalVR: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Helper: Analiza imagen usando token del cache (CacheService workaround)
+ */
+function analizarImagenConToken(vrDataToken) {
+  try {
+    Logger.log('📞 LLAMADA: analizarImagenConToken');
+    Logger.log('📊 Token recibido: ' + vrDataToken);
+
+    const cache = CacheService.getUserCache();
+    const imageBase64 = cache.get('vr_image_' + vrDataToken);
+
+    Logger.log('✓ Base64 recuperado, longitud: ' + (imageBase64 ? imageBase64.length : 0));
+
+    if (!imageBase64 || imageBase64.length < 100) {
+      const errorMsg = !imageBase64 ? 'No se encontró Base64 en cache' : 'Base64 muy pequeño';
+      throw new Error('Image Base64 inválida: ' + errorMsg);
+    }
+
+    Logger.log('🚀 Llamando ClaudeService.analizarImagen()...');
+    const resultado = ClaudeService.analizarImagen(imageBase64);
+
+    Logger.log('✅ Análisis completado');
+    cache.remove('vr_image_' + vrDataToken);
+
+    return {
+      success: true,
+      movimientos: resultado.movimientos,
+      totalExtraidos: resultado.totalExtraidos
+    };
+  } catch (error) {
+    Logger.log('❌ ERROR: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
  * API 13: Crea múltiples clientes con saldo inicial
  * @param {Object} payload - {clientes: Array}
  * @returns {Object} Resultado con exitosos y errores

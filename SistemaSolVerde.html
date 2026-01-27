@@ -2637,23 +2637,22 @@
       </div>
 
       <!-- MODAL: Editar Movimiento -->
-      <div class="modal-overlay" id="modalEditarMovimiento">
-        <div class="modal">
-          <div class="modal-header">
-            <h2>✏️ Editar Movimiento</h2>
-            <button class="btn-close" onclick="cerrarModal('modalEditarMovimiento')">×</button>
-          </div>
-          <div class="modal-body">
-            <label class="form-label">Nuevo Monto:</label>
-            <input type="number" id="inputMontoEditar" class="form-input" step="0.01" min="0">
+      <div class="modal-overlay" id="modalEditarMovimientoOverlay"></div>
+      <div class="modal" id="modalEditarMovimiento">
+        <div class="modal-header">
+          <h2>✏️ Editar Movimiento</h2>
+          <button class="btn-close" onclick="cerrarModal('modalEditarMovimiento')">×</button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label">Nuevo Monto:</label>
+          <input type="number" id="inputMontoEditar" class="form-input" step="0.01" min="0">
 
-            <label class="form-label">Observaciones:</label>
-            <input type="text" id="inputObsEditar" class="form-input" placeholder="Opcional">
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-primary" onclick="guardarEdicionMovimiento()">Guardar Cambios</button>
-            <button class="btn btn-secondary" onclick="cerrarModal('modalEditarMovimiento')">Cancelar</button>
-          </div>
+          <label class="form-label">Observaciones:</label>
+          <input type="text" id="inputObsEditar" class="form-input" placeholder="Opcional">
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="guardarEdicionMovimiento()">Guardar Cambios</button>
+          <button class="btn btn-secondary" onclick="cerrarModal('modalEditarMovimiento')">Cancelar</button>
         </div>
       </div>
 
@@ -4879,38 +4878,63 @@
         return;
       }
 
-      showToast('info', 'Procesando', 'Analizando imagen...');
+      const imageBase64ToSend = VRState.imageBase64;
+      const imageSizeKB = (imageBase64ToSend.length / 1024).toFixed(2);
+
+      showToast('info', 'Procesando', 'Guardando imagen en servidor...');
       document.getElementById('vrAnalyzeBtn').disabled = true;
       document.getElementById('vrAnalyzeBtn').innerHTML = '<span>⏳</span><span>PROCESANDO...</span>';
 
+      // PASO 1: Guardar Base64 en CacheService y obtener token
       google.script.run
-        .withSuccessHandler(function(resultado) {
-          document.getElementById('vrAnalyzeBtn').disabled = false;
-          document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
-
-          if (!resultado.success) {
-            showToast('error', 'Error', resultado.error);
+        .withSuccessHandler(function(response) {
+          if (!response || !response.success || !response.token) {
+            showToast('error', 'Error', 'No se pudo guardar la imagen');
+            document.getElementById('vrAnalyzeBtn').disabled = false;
+            document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
             return;
           }
 
-          if (!resultado.movimientos) {
-            showToast('error', 'Error', 'No se extrajeron movimientos');
-            return;
-          }
+          const token = response.token;
 
-          VRState.movimientosValidados = resultado.movimientos.map((m, idx) => ({...m, indice: idx + 1}));
-          VRState.currentPage = 1;
-          calcularTotalPaginasVR();
-          renderTablaVR();
-          document.getElementById('vrResultsCard').classList.remove('hidden');
-          showToast('success', 'Listo', 'Se extrajeron ' + resultado.movimientos.length + ' movimientos. Revisa y edita si es necesario.');
+          // PASO 2: Analizar usando el token
+          showToast('info', 'Analizando', 'Analizando imagen con Claude AI...');
+
+          google.script.run
+            .withSuccessHandler(function(resultado) {
+              document.getElementById('vrAnalyzeBtn').disabled = false;
+              document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
+
+              if (!resultado.success) {
+                showToast('error', 'Error', resultado.error);
+                return;
+              }
+
+              if (!resultado.movimientos) {
+                showToast('error', 'Error', 'No se extrajeron movimientos');
+                return;
+              }
+
+              VRState.movimientosValidados = resultado.movimientos.map((m, idx) => ({...m, indice: idx + 1}));
+              VRState.currentPage = 1;
+              calcularTotalPaginasVR();
+              renderTablaVR();
+              document.getElementById('vrResultsCard').classList.remove('hidden');
+              showToast('success', 'Listo', 'Se extrajeron ' + resultado.movimientos.length + ' movimientos. Revisa y edita si es necesario.');
+            })
+            .withFailureHandler(function(error) {
+              document.getElementById('vrAnalyzeBtn').disabled = false;
+              document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
+              showToast('error', 'Error', 'No se pudo analizar: ' + error);
+            })
+            .analizarImagenConToken(token);
         })
         .withFailureHandler(function(error) {
           document.getElementById('vrAnalyzeBtn').disabled = false;
           document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
-          showToast('error', 'Error', 'No se pudo analizar: ' + error);
+          showToast('error', 'Error', 'No se pudo guardar la imagen: ' + error);
         })
-        .analizarImagenVisualReasoningSimple(VRState.imageBase64);
+        .guardarImagenTemporalVR(imageBase64ToSend);
     }
 
     function handleAnalisisVRSuccess(resultado) {
