@@ -428,6 +428,39 @@ function inicializarSistema() {
   }
 }
 
+/**
+ * Public API: Check migration status and run data migration
+ * Call this once after initialization to add COMPANY_ID columns
+ */
+function ejecutarMigracion() {
+  try {
+    console.log('🔄 Starting migration process...');
+
+    // Step 1: Check status
+    const status = MigrationService.checkMigrationStatus();
+    console.log('Status: ' + JSON.stringify(status));
+
+    if (!status.needsMigration) {
+      return { success: true, message: 'No migration needed - COMPANY_ID columns already exist' };
+    }
+
+    // Step 2: Execute migration
+    const result = MigrationService.executeMigration();
+
+    return {
+      success: result.success,
+      message: result.message,
+      columnsAdded: result.columnsAdded,
+      rowsBackfilled: result.rowsBackfilled
+    };
+  } catch (error) {
+    const response = ErrorHandler.log('Error executing migration', error, 'CRITICAL',
+      { function: 'ejecutarMigracion' }
+    );
+    return response;
+  }
+}
+
 // ============================================================================
 // PHASE 0: SECTION IV.A - CACHEMANAGER SERVICE (Performance Caching)
 // ============================================================================
@@ -893,6 +926,130 @@ function requirePermission(functionName, action, resourceType) {
     throw error;
   }
 }
+
+// ============================================================================
+// PHASE 1: SECTION II.E - DATA MIGRATION (Add COMPANY_ID columns)
+// ============================================================================
+
+/**
+ * Migration Service: Add COMPANY_ID columns to existing sheets
+ * - Non-breaking change: adds new column with default value
+ * - Can be run multiple times safely (idempotent)
+ * - Backfills existing data with 'DEFAULT_COMPANY'
+ */
+const MigrationService = {
+  CONFIG: {
+    DEFAULT_COMPANY: 'DEFAULT_COMPANY',
+    SHEETS_TO_MIGRATE: [
+      { name: 'CLIENTES', colName: 'COMPANY_ID' },
+      { name: 'MOVIMIENTOS', colName: 'COMPANY_ID' },
+      { name: 'RECAUDACION_EFECTIVO', colName: 'COMPANY_ID' }
+    ]
+  },
+
+  /**
+   * Check if migration is needed
+   * Returns: { needsMigration: boolean, missingColumns: [array] }
+   */
+  checkMigrationStatus: function() {
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const missingColumns = [];
+
+      for (const sheet of this.CONFIG.SHEETS_TO_MIGRATE) {
+        const hoja = ss.getSheetByName(sheet.name);
+
+        if (!hoja) {
+          missingColumns.push(sheet.name + ' (sheet not found)');
+          continue;
+        }
+
+        // Check if COMPANY_ID column exists (anywhere in row 1)
+        const headerRow = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+        const hasCompanyId = headerRow.includes(sheet.colName);
+
+        if (!hasCompanyId) {
+          missingColumns.push(sheet.name + '.' + sheet.colName);
+        }
+      }
+
+      return {
+        needsMigration: missingColumns.length > 0,
+        missingColumns: missingColumns,
+        totalMissing: missingColumns.length
+      };
+    } catch (error) {
+      ErrorHandler.log('Error checking migration status', error, 'ERROR',
+        { function: 'MigrationService.checkMigrationStatus' }
+      );
+      return { needsMigration: false, error: error.message };
+    }
+  },
+
+  /**
+   * Execute migration: add COMPANY_ID columns and backfill data
+   */
+  executeMigration: function() {
+    try {
+      console.log('🔄 Starting data migration to add COMPANY_ID columns...');
+
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      let columnsAdded = 0;
+      let rowsBackfilled = 0;
+
+      for (const sheet of this.CONFIG.SHEETS_TO_MIGRATE) {
+        const hoja = ss.getSheetByName(sheet.name);
+
+        if (!hoja) {
+          console.log('⚠️ Sheet not found: ' + sheet.name);
+          continue;
+        }
+
+        // Check if column already exists
+        const headerRow = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+        if (headerRow.includes(sheet.colName)) {
+          console.log('✅ Column already exists: ' + sheet.name + '.' + sheet.colName);
+          continue;
+        }
+
+        // Add header
+        const lastCol = hoja.getLastColumn();
+        const newColIndex = lastCol + 1;
+        hoja.getRange(1, newColIndex).setValue(sheet.colName);
+        hoja.getRange(1, newColIndex).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
+
+        console.log('✅ Added column header: ' + sheet.name + '.' + sheet.colName);
+        columnsAdded++;
+
+        // Backfill existing rows with DEFAULT_COMPANY
+        const lastRow = hoja.getLastRow();
+        if (lastRow > 1) {
+          // Create array of default values
+          const defaultCompanyArray = [];
+          for (let i = 1; i < lastRow; i++) {
+            defaultCompanyArray.push([this.CONFIG.DEFAULT_COMPANY]);
+          }
+
+          hoja.getRange(2, newColIndex, defaultCompanyArray.length, 1).setValues(defaultCompanyArray);
+          console.log('✅ Backfilled ' + (lastRow - 1) + ' rows in ' + sheet.name);
+          rowsBackfilled += (lastRow - 1);
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Migration completed successfully',
+        columnsAdded: columnsAdded,
+        rowsBackfilled: rowsBackfilled
+      };
+    } catch (error) {
+      ErrorHandler.log('Error executing migration', error, 'CRITICAL',
+        { function: 'MigrationService.executeMigration' }
+      );
+      return { success: false, error: error.message };
+    }
+  }
+};
 
 // ============================================================================
 // 1. CONFIGURACIÓN GLOBAL
