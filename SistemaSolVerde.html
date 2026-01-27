@@ -331,6 +331,31 @@
       transform: translateY(-2px);
     }
 
+    /* PHASE 1 INTEGRATION: Auth info styles */
+    .header-auth {
+      margin-left: auto;
+      margin-right: 20px;
+      display: flex;
+      align-items: center;
+    }
+
+    .auth-info {
+      text-align: right;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+
+    .auth-user {
+      font-weight: 500;
+      color: white;
+    }
+
+    .auth-company {
+      font-size: 11px;
+      opacity: 0.85;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
     .theme-toggle {
       font-size: 20px;
     }
@@ -2333,6 +2358,14 @@
         </div>
       </div>
 
+      <!-- PHASE 1 INTEGRATION: Auth info display -->
+      <div class="header-auth" id="headerAuth" style="display: none;">
+        <div class="auth-info">
+          <div class="auth-user" id="authUser"></div>
+          <div class="auth-company" id="authCompany"></div>
+        </div>
+      </div>
+
       <div class="header-right">
         <button class="header-btn theme-toggle" id="themeToggle" title="Cambiar tema (Ctrl+T)">
           <span id="themeIcon">🌙</span>
@@ -4009,6 +4042,12 @@
       movimientosRecientes: [],
       clienteSeleccionado: null,
       isLoading: false,
+      // PHASE 1 INTEGRATION: Auth state
+      authUser: {
+        email: null,
+        companyId: null,
+        role: null
+      },
       cache: {
         timestamp: null,
         ttl: 5 * 60 * 1000  // 5 minutos
@@ -4027,12 +4066,65 @@
     };
 
     // ========================================
+    // PHASE 1 INTEGRATION: Authentication functions
+    // ========================================
+    function actualizarHeaderAuth() {
+      const headerAuth = document.getElementById('headerAuth');
+      const authUser = document.getElementById('authUser');
+      const authCompany = document.getElementById('authCompany');
+
+      if (AppState.authUser.email) {
+        authUser.textContent = `👤 ${AppState.authUser.email}`;
+        authCompany.textContent = `🏢 ${AppState.authUser.companyId}`;
+        headerAuth.style.display = 'flex';
+      } else {
+        headerAuth.style.display = 'none';
+      }
+    }
+
+    function manejarErrorAutenticacion(error) {
+      console.error('❌ Error de autenticación:', error);
+      showToast('error', 'Autenticación requerida', 'Por favor, recarga la página e intenta de nuevo.');
+      // Opcionalmente: Recargar la página después de 3 segundos
+      setTimeout(() => {
+        location.reload();
+      }, 3000);
+    }
+
+    function obtenerYMostrarInfoUsuario() {
+      console.log('📋 Obteniendo información del usuario autenticado...');
+
+      google.script.run
+        .withSuccessHandler(function(respuesta) {
+          if (respuesta && respuesta.success) {
+            AppState.authUser.email = respuesta.usuario?.email || 'Usuario desconocido';
+            AppState.authUser.companyId = respuesta.usuario?.companyId || 'DEFAULT_COMPANY';
+            AppState.authUser.role = respuesta.usuario?.role || 'VIEWER';
+
+            console.log('✅ Usuario autenticado:', AppState.authUser);
+            actualizarHeaderAuth();
+          } else {
+            console.warn('⚠️ No se pudo obtener información del usuario:', respuesta?.error);
+            // Si falla, asumimos usuario no autenticado - esto causará error en la siguiente llamada
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('❌ Error al obtener info de usuario:', error);
+          // El usuario podría no estar autenticado
+        })
+        .obtenerDatosParaHTML(); // Usamos esta llamada para verificar autenticación
+    }
+
+    // ========================================
     // INICIALIZACIÓN
     // ========================================
     document.addEventListener('DOMContentLoaded', function() {
       console.log('🚀 Iniciando Sistema Sol & Verde V18.0...');
 
       loadTheme();
+      // PHASE 1 INTEGRATION: Load auth info first
+      obtenerYMostrarInfoUsuario();
+
       initSplashScreen();
       initNavigation();
       initThemeToggle();
@@ -4690,6 +4782,15 @@
           } else {
             // Error del backend - mostrar mensaje detallado
             console.error('❌ Error del backend:', datos.error);
+
+            // PHASE 1 INTEGRATION: Check if authentication error
+            if (datos.error && (datos.error.includes('not authenticated') || datos.error.includes('Autenticación requerida'))) {
+              console.error('❌ Error de autenticación detectado');
+              manejarErrorAutenticacion(datos.error);
+              ocultarLoading();
+              return;
+            }
+
             AppState.clientesData = datos.clientes || [];
             AppState.movimientosRecientes = datos.movimientos || [];
             actualizarTablaMovimientos();
@@ -4697,6 +4798,7 @@
             // Mostrar error con instrucciones
             const mensajeError = datos.error || 'Error al cargar datos';
             showToast('error', 'Error de Configuración', mensajeError);
+            ocultarLoading();
           }
 
           ocultarLoading();
@@ -4704,6 +4806,14 @@
         .withFailureHandler(function(error) {
           clearTimeout(timeoutId); // Cancelar timeout si hay error
           console.error('Error al cargar datos:', error);
+
+          // PHASE 1 INTEGRATION: Check if authentication error
+          if (error && typeof error === 'string' && error.includes('AuthService')) {
+            console.error('❌ Error de autenticación detectado en failure handler');
+            manejarErrorAutenticacion(error);
+            return;
+          }
+
           showToast('error', 'Error', 'No se pudieron cargar los datos iniciales');
           ocultarLoading();
         })
