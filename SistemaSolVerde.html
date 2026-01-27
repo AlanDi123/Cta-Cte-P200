@@ -5098,11 +5098,13 @@
       google.script.run
         .withSuccessHandler((resultado) => {
           document.getElementById('vrGuardarTodos').disabled = false;
-          if (resultado.exito) {
-            showToast('success', '🎉 Éxito', `${resultado.guardados || payload.length} movimientos guardados`);
+          if (resultado.success) {
+            const totalGuardados = resultado.totalExitosos || 0;
+            const totalErrores = resultado.totalErrores || 0;
+            showToast('success', '🎉 Éxito', `${totalGuardados} movimientos guardados${totalErrores > 0 ? `, ${totalErrores} errores` : ''}`);
             setTimeout(() => { resetVR(); cargarDatosIniciales(); }, 2000);
           } else {
-            showToast('error', 'Error', resultado.mensaje || 'Error al guardar');
+            showToast('error', 'Error', resultado.error || 'Error al guardar');
           }
         })
         .withFailureHandler((error) => {
@@ -6330,47 +6332,66 @@
       document.getElementById('reportDate').textContent =
         `Generado: ${new Date(fecha).toLocaleDateString('es-AR')}`;
 
-      // Usar AppState.clientesData (ya cargado en cargarDatosIniciales)
-      // FILTRAR: Solo incluir clientes con saldo diferente de 0
-      const clientes = (AppState.clientesData || []).filter(cliente => {
-        const saldo = typeof cliente.saldo === 'number' ? cliente.saldo : (typeof cliente.saldo === 'string' ? (isNaN(parseFloat(cliente.saldo)) ? 0 : parseFloat(cliente.saldo)) : 0);
-        return saldo !== 0;
-      });
+      // Llamar a la función del backend para obtener el resumen correcto
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result.success) {
+            showToast('error', 'Error', result.error || 'Error al cargar reporte');
+            ocultarLoading();
+            return;
+          }
 
-      // ORDENAR: Alfabéticamente A-Z por nombre
-      clientes.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-AR', {sensitivity: 'base'}));
+          const clientesResumen = result.clientesResumen || [];
 
-      let totalPagos = 0;
-      let totalFiados = 0;
+          // FILTRAR: Solo incluir clientes con movimientos (DEBE o HABER > 0)
+          const clientesConMovimientos = clientesResumen.filter(cliente => {
+            return cliente.totalDebe > 0 || cliente.totalHaber > 0;
+          });
 
-      const rows = clientes.map(cliente => {
-        const saldo = typeof cliente.saldo === 'number' ? cliente.saldo : (typeof cliente.saldo === 'string' ? (isNaN(parseFloat(cliente.saldo)) ? 0 : parseFloat(cliente.saldo)) : 0);
-        const pagos = (saldo < 0) ? Math.abs(saldo) : 0;
-        const fiados = (saldo > 0) ? saldo : 0;
+          // ORDENAR: Alfabéticamente A-Z por nombre
+          clientesConMovimientos.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-AR', {sensitivity: 'base'}));
 
-        totalPagos += pagos;
-        totalFiados += fiados;
+          let totalPagos = 0;
+          let totalFiados = 0;
 
-        return `
-          <tr>
-            <td style="text-align: left;"><strong>${cliente.nombre}</strong></td>
-            <td style="text-align: right; font-family: 'Courier New';">$ ${pagos.toLocaleString('es-AR')}</td>
-            <td style="text-align: right; font-family: 'Courier New';">$ ${fiados.toLocaleString('es-AR')}</td>
-            <td style="text-align: right; font-family: 'Courier New';">$ ${saldo.toLocaleString('es-AR')}</td>
-          </tr>
-        `;
-      }).join('');
+          const rows = clientesConMovimientos.map(cliente => {
+            // CORRECCIÓN DE CÁLCULO:
+            // - FIADOS (DEBE) = suma de todas las ventas a crédito (débitos - cliente debe dinero)
+            // - PAGOS (HABER) = suma de todos los pagos recibidos (créditos - cliente pagó dinero)
+            // - SALDO = FIADOS - PAGOS (balance final - lo que realmente debe el cliente)
+            const fiados = cliente.totalDebe || 0;
+            const pagos = cliente.totalHaber || 0;
+            const saldo = cliente.saldoFinal || 0;
 
-      const totalSaldo = totalFiados - totalPagos;
+            totalPagos += pagos;
+            totalFiados += fiados;
 
-      document.getElementById('impresionBody').innerHTML = rows ||
-        '<tr><td colspan="4" class="tabla-empty">No hay clientes</td></tr>';
+            return `
+              <tr>
+                <td style="text-align: left;"><strong>${cliente.nombre}</strong></td>
+                <td style="text-align: right; font-family: 'Courier New';">$ ${pagos.toLocaleString('es-AR')}</td>
+                <td style="text-align: right; font-family: 'Courier New';">$ ${fiados.toLocaleString('es-AR')}</td>
+                <td style="text-align: right; font-family: 'Courier New';">$ ${saldo.toLocaleString('es-AR')}</td>
+              </tr>
+            `;
+          }).join('');
 
-      document.getElementById('totalPagos').textContent = `$ ${totalPagos.toLocaleString('es-AR')}`;
-      document.getElementById('totalFiados').textContent = `$ ${totalFiados.toLocaleString('es-AR')}`;
-      document.getElementById('totalSaldo').textContent = `$ ${totalSaldo.toLocaleString('es-AR')}`;
+          const totalSaldo = totalFiados - totalPagos;
 
-      ocultarLoading();
+          document.getElementById('impresionBody').innerHTML = rows ||
+            '<tr><td colspan="4" class="tabla-empty">No hay clientes con movimientos</td></tr>';
+
+          document.getElementById('totalPagos').textContent = `$ ${totalPagos.toLocaleString('es-AR')}`;
+          document.getElementById('totalFiados').textContent = `$ ${totalFiados.toLocaleString('es-AR')}`;
+          document.getElementById('totalSaldo').textContent = `$ ${totalSaldo.toLocaleString('es-AR')}`;
+
+          ocultarLoading();
+        })
+        .withFailureHandler(function(error) {
+          showToast('error', 'Error', 'Error al cargar reporte: ' + error.message);
+          ocultarLoading();
+        })
+        .obtenerResumenMovimientosPorCliente();
     }
 
     function imprimirReporte() {

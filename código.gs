@@ -867,7 +867,8 @@ const MovimientosRepository = {
       // Registrar movimiento
       const hoja = this.getHoja();
       const nuevoID = this.generarNuevoID();
-      const fecha = new Date();
+      // Use the user-provided date if available, otherwise use current date
+      const fecha = movimientoData.fecha ? new Date(movimientoData.fecha) : new Date();
       const usuario = Session.getActiveUser().getEmail();
 
       const nuevaFila = [
@@ -1788,6 +1789,63 @@ function verificarApiKeyPresente() {
 }
 
 /**
+ * API 4.5: Obtiene resumen de movimientos por cliente para impresión diaria
+ * @returns {Object} {success: boolean, clientesResumen: Array}
+ */
+function obtenerResumenMovimientosPorCliente() {
+  try {
+    const todosClientes = ClientesRepository.obtenerTodos();
+    const hoja = MovimientosRepository.getHoja();
+    const datos = hoja.getDataRange().getValues();
+    
+    // Crear mapa para almacenar resumen por cliente
+    const resumenPorCliente = {};
+    
+    // Inicializar todos los clientes con valores en 0
+    todosClientes.forEach(cliente => {
+      const nombreNorm = normalizarString(cliente.nombre);
+      resumenPorCliente[nombreNorm] = {
+        nombre: cliente.nombre,
+        totalDebe: 0,
+        totalHaber: 0,
+        saldoFinal: cliente.saldo || 0
+      };
+    });
+    
+    // Procesar todos los movimientos (saltar encabezado)
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+      const clienteNorm = normalizarString(fila[CONFIG.COLS_MOVS.CLIENTE]);
+      const tipo = fila[CONFIG.COLS_MOVS.TIPO];
+      const monto = fila[CONFIG.COLS_MOVS.MONTO];
+      
+      if (resumenPorCliente[clienteNorm]) {
+        if (tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+          resumenPorCliente[clienteNorm].totalDebe += monto;
+        } else if (tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) {
+          resumenPorCliente[clienteNorm].totalHaber += monto;
+        }
+      }
+    }
+    
+    // Convertir mapa a array
+    const clientesResumen = Object.values(resumenPorCliente);
+    
+    return {
+      success: true,
+      clientesResumen: clientesResumen
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerResumenMovimientosPorCliente: ' + error.message);
+    return {
+      success: false,
+      error: error.message,
+      clientesResumen: []
+    };
+  }
+}
+
+/**
  * API 5: Fuzzy matching para buscar clientes con sugerencias
  * @param {string} nombre - Nombre a buscar
  * @returns {Object} {sugerencias: Array}
@@ -1922,7 +1980,11 @@ function guardarMovimientosDesdeVR(payload) {
  * API 8a: Actualizar movimiento existente
  */
 function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
+  const lock = LockService.getScriptLock();
+  
   try {
+    lock.waitLock(30000); // Timeout de 30 segundos
+    
     const repo = MovimientosRepository;
     const hoja = repo.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -1944,15 +2006,20 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
     const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
     const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
     const montoAnterior = Number(movimientoRow[CONFIG.COLS_MOVS.MONTO]);
+    const saldoPostAnterior = Number(movimientoRow[CONFIG.COLS_MOVS.SALDO_POST]);
 
-    // Update monto and obs
+    // Calculate balance difference and new saldoPost
+    const montoDiff = Number(nuevoMonto) - montoAnterior;
+    const nuevoSaldoPost = saldoPostAnterior + (tipoMov === 'DEBE' ? montoDiff : -montoDiff);
+
+    // Update monto, obs, and saldoPost
     hoja.getRange(rowIndex, CONFIG.COLS_MOVS.MONTO + 1).setValue(nuevoMonto);
     hoja.getRange(rowIndex, CONFIG.COLS_MOVS.OBS + 1).setValue(nuevaObs);
+    hoja.getRange(rowIndex, CONFIG.COLS_MOVS.SALDO_POST + 1).setValue(nuevoSaldoPost);
 
-    // Recalculate balance
+    // Recalculate client balance
     const clientesRepo = ClientesRepository;
     const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
-    const montoDiff = Number(nuevoMonto) - montoAnterior;
     const nuevoSaldo = tipoMov === 'DEBE' ?
       (clienteData.saldo + montoDiff) :
       (clienteData.saldo - montoDiff);
@@ -1976,6 +2043,8 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
       success: false,
       error: error.message
     };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -1983,7 +2052,11 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
  * API 8b: Eliminar movimiento existente
  */
 function eliminarMovimiento(idMovimiento) {
+  const lock = LockService.getScriptLock();
+  
   try {
+    lock.waitLock(30000); // Timeout de 30 segundos
+    
     const repo = MovimientosRepository;
     const hoja = repo.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -2030,6 +2103,8 @@ function eliminarMovimiento(idMovimiento) {
       success: false,
       error: error.message
     };
+  } finally {
+    lock.releaseLock();
   }
 }
 
