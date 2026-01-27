@@ -4050,6 +4050,14 @@
        ═══════════════════════════════════════════════════════════════ -->
   <script>
     // ========================================
+    // CONFIGURACIÓN
+    // ========================================
+    const APP_CONFIG = {
+      SEARCH_DEBOUNCE_MS: 300,  // Debounce delay for search inputs (ms)
+      DATE_CACHE_MAX_SIZE: 1000 // Maximum cache size for date formatting
+    };
+
+    // ========================================
     // ESTADO GLOBAL
     // ========================================
     const AppState = {
@@ -4806,8 +4814,10 @@
     }
 
     // Date formatting cache for performance optimization
+    // Cache size limited to 1000 to prevent memory issues with long-running sessions
+    // Typical usage: ~100-200 unique dates per session, so 1000 is safe buffer
     const dateFormatCache = new Map();
-    const MAX_CACHE_SIZE = 1000;
+    const MAX_CACHE_SIZE = APP_CONFIG.DATE_CACHE_MAX_SIZE;
     
     function formatearFecha(fecha) {
       if (!fecha) return '-';
@@ -5264,7 +5274,7 @@
         clearTimeout(visorSearchTimeout);
         visorSearchTimeout = setTimeout(() => {
           filtrarClientesVisor(e.target.value);
-        }, 300); // 300ms debounce delay
+        }, APP_CONFIG.SEARCH_DEBOUNCE_MS);
       });
 
       document.getElementById('visorImprimirHoja').addEventListener('click', imprimirHojaVisor);
@@ -5609,7 +5619,7 @@
         clearTimeout(gestionSearchTimeout);
         gestionSearchTimeout = setTimeout(() => {
           filtrarClientesGestion(e.target.value);
-        }, 300); // 300ms debounce delay
+        }, APP_CONFIG.SEARCH_DEBOUNCE_MS);
       });
 
       // Event listener para abrir modal de carga masiva
