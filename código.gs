@@ -569,9 +569,9 @@ const ClientesRepository = {
             nombre: fila[CONFIG.COLS_CLIENTES.NOMBRE],
             tel: fila[CONFIG.COLS_CLIENTES.TEL] || '',
             email: fila[CONFIG.COLS_CLIENTES.EMAIL] || '',
-            limite: fila[CONFIG.COLS_CLIENTES.LIMITE] || 100000,
-            saldo: fila[CONFIG.COLS_CLIENTES.SALDO] || 0,
-            totalMovs: fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS] || 0,
+            limite: Number(fila[CONFIG.COLS_CLIENTES.LIMITE]) || 100000,
+            saldo: Number(fila[CONFIG.COLS_CLIENTES.SALDO]) || 0,
+            totalMovs: Number(fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS]) || 0,
             alta: alta instanceof Date ? alta.toISOString() : (alta || ''),
             ultimoMov: ultimoMov instanceof Date ? ultimoMov.toISOString() : (ultimoMov || ''),
             obs: fila[CONFIG.COLS_CLIENTES.OBS] || ''
@@ -1943,7 +1943,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
     const movimientoRow = datos[rowIndex - 1];
     const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
     const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
-    const montoAnterior = movimientoRow[CONFIG.COLS_MOVS.MONTO];
+    const montoAnterior = Number(movimientoRow[CONFIG.COLS_MOVS.MONTO]);
 
     // Update monto and obs
     hoja.getRange(rowIndex, CONFIG.COLS_MOVS.MONTO + 1).setValue(nuevoMonto);
@@ -1952,7 +1952,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
     // Recalculate balance
     const clientesRepo = ClientesRepository;
     const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
-    const montoDiff = nuevoMonto - montoAnterior;
+    const montoDiff = Number(nuevoMonto) - montoAnterior;
     const nuevoSaldo = tipoMov === 'DEBE' ?
       (clienteData.saldo + montoDiff) :
       (clienteData.saldo - montoDiff);
@@ -2003,7 +2003,7 @@ function eliminarMovimiento(idMovimiento) {
     const movimientoRow = datos[rowIndex - 1];
     const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
     const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
-    const monto = movimientoRow[CONFIG.COLS_MOVS.MONTO];
+    const monto = Number(movimientoRow[CONFIG.COLS_MOVS.MONTO]);
 
     // Delete the row
     hoja.deleteRow(rowIndex);

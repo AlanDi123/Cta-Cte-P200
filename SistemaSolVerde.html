@@ -4861,7 +4861,7 @@
         document.getElementById('vrImageImg').src = fullDataUrl;
         document.getElementById('vrFileName').textContent = file.name;
         document.getElementById('vrFileSize').textContent = (file.size / 1024).toFixed(1) + ' KB';
-        document.getElementById('vrUploadZone').parentElement.style.display = 'none';
+        document.getElementById('vrUploadZone').style.display = 'none';
         document.getElementById('vrImagePreview').classList.remove('hidden');
         document.getElementById('vrAnalyzeBtn').disabled = false;
 
@@ -5109,7 +5109,7 @@
           document.getElementById('vrGuardarTodos').disabled = false;
           showToast('error', 'Error', error.message || 'Error al guardar movimientos');
         })
-        .guardarMovimientosDesdeVR(payload);
+        .guardarMovimientosDesdeVR({movimientos: payload});
     }
 
     function resetVR() {
@@ -5119,7 +5119,7 @@
       VRState.movimientosValidados = [];
       VRState.currentPage = 1;
 
-      document.getElementById('vrUploadZone').parentElement.style.display = 'block';
+      document.getElementById('vrUploadZone').style.display = 'block';
       document.getElementById('vrImagePreview').classList.add('hidden');
       document.getElementById('vrResultsCard').classList.add('hidden');
       document.getElementById('vrFileInput').value = '';
