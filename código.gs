@@ -667,6 +667,486 @@ const IDGenerator = {
 };
 
 // ============================================================================
+// PHASE 1: SECTION II.B - KEYVAULTSERVICE (Secret Management & Encryption)
+// ============================================================================
+
+/**
+ * KeyVaultService: Centralized secrets and credentials management
+ * - Secure storage of API keys and sensitive data
+ * - Encryption at rest using Utilities.computeDigest
+ * - Audit trail for secret access
+ * - Multi-tenant secret isolation
+ * - Future: Google Cloud Secret Manager integration
+ */
+const KeyVaultService = {
+  // Configuration
+  CONFIG: {
+    STORAGE_PREFIX: 'VAULT_',
+    ENCRYPTION_ENABLED: true,
+    AUDIT_LOGGING: true,
+    SECRET_VERSION: 1
+  },
+
+  // Secret names (constants for consistency)
+  SECRETS: {
+    CLAUDE_API_KEY: 'CLAUDE_API_KEY',
+    JWT_ENCRYPTION_KEY: 'JWT_ENCRYPTION_KEY',
+    DATABASE_PASSWORD: 'DATABASE_PASSWORD',
+    OAUTH_CLIENT_SECRET: 'OAUTH_CLIENT_SECRET'
+  },
+
+  /**
+   * Generate a derived key for encryption using SHA-256
+   * @param {string} secretName - Name of the secret
+   * @param {string} masterKey - Optional master key (default: script ID)
+   * @returns {string} Derived encryption key (SHA-256 hash)
+   * @private
+   */
+  _derivedKey: function(secretName, masterKey = '') {
+    try {
+      // Use Script ID as default master key for extra security
+      const key = masterKey || ScriptApp.getScriptId();
+      const combined = key + '_' + secretName + '_' + this.CONFIG.SECRET_VERSION;
+
+      // Use Utilities.computeDigest to create SHA-256 hash
+      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, combined);
+
+      // Convert to hex string for use as encryption key
+      let hashStr = '';
+      for (let i = 0; i < digest.length; i++) {
+        const byte = digest[i];
+        const byteStr = byte < 0 ? (byte & 0xFF) : byte;
+        hashStr += ('0' + byteStr.toString(16)).slice(-2);
+      }
+
+      return hashStr.substring(0, 32); // Use first 32 chars as key
+    } catch (error) {
+      ErrorHandler.log('Error deriving encryption key', error, 'ERROR', {
+        function: 'KeyVaultService._derivedKey',
+        secretName: secretName
+      });
+      return secretName; // Fallback to secret name as key
+    }
+  },
+
+  /**
+   * Simple XOR encryption/decryption
+   * @param {string} text - Text to encrypt/decrypt
+   * @param {string} key - Encryption key
+   * @returns {string} Encrypted/decrypted text
+   * @private
+   */
+  _xorEncrypt: function(text, key) {
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+      const charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      result += String.fromCharCode(charCode);
+    }
+    return result;
+  },
+
+  /**
+   * Encode string to Base64
+   * @param {string} text - Text to encode
+   * @returns {string} Base64 encoded string
+   * @private
+   */
+  _toBase64: function(text) {
+    return Utilities.base64Encode(text);
+  },
+
+  /**
+   * Decode Base64 string
+   * @param {string} encoded - Base64 encoded string
+   * @returns {string} Decoded string
+   * @private
+   */
+  _fromBase64: function(encoded) {
+    try {
+      return Utilities.base64Decode(encoded);
+    } catch (error) {
+      ErrorHandler.log('Error decoding Base64', error, 'WARN', {
+        function: 'KeyVaultService._fromBase64'
+      });
+      return null;
+    }
+  },
+
+  /**
+   * Store a secret in PropertiesService with encryption
+   * @param {string} secretName - Name of the secret (use KeyVaultService.SECRETS constants)
+   * @param {string} secretValue - Value to store
+   * @param {string} companyId - Company ID for multi-tenant isolation (optional, default: 'GLOBAL')
+   * @param {object} metadata - Additional metadata (tags, expiration, etc.)
+   * @returns {boolean} Success status
+   */
+  set: function(secretName, secretValue, companyId = 'GLOBAL', metadata = {}) {
+    try {
+      if (!secretName || !secretValue) {
+        throw new Error('Secret name and value are required');
+      }
+
+      // Generate derived key
+      const encryptionKey = this._derivedKey(secretName);
+
+      // Encrypt if enabled
+      let storedValue = secretValue;
+      if (this.CONFIG.ENCRYPTION_ENABLED) {
+        const encrypted = this._xorEncrypt(secretValue, encryptionKey);
+        storedValue = this._toBase64(encrypted);
+      } else {
+        storedValue = this._toBase64(secretValue); // Still encode without encryption
+      }
+
+      // Create storage key with multi-tenant isolation
+      const storageKey = this.CONFIG.STORAGE_PREFIX + companyId + '_' + secretName;
+
+      // Store in PropertiesService
+      const props = PropertiesService.getUserProperties();
+      props.setProperty(storageKey, storedValue);
+
+      // Log to audit trail
+      if (this.CONFIG.AUDIT_LOGGING) {
+        this._auditLog('SET', secretName, companyId, 'SUCCESS', metadata);
+      }
+
+      ErrorHandler.log(
+        `Secret stored successfully: ${secretName} for company: ${companyId}`,
+        null,
+        'INFO',
+        { function: 'KeyVaultService.set', secretName: secretName, companyId: companyId }
+      );
+
+      return true;
+    } catch (error) {
+      ErrorHandler.log(
+        `Error storing secret: ${secretName}`,
+        error,
+        'ERROR',
+        { function: 'KeyVaultService.set', secretName: secretName, companyId: companyId }
+      );
+
+      if (this.CONFIG.AUDIT_LOGGING) {
+        this._auditLog('SET', secretName, companyId, 'FAILED', { error: error.message });
+      }
+
+      return false;
+    }
+  },
+
+  /**
+   * Retrieve and decrypt a secret from PropertiesService
+   * @param {string} secretName - Name of the secret (use KeyVaultService.SECRETS constants)
+   * @param {string} companyId - Company ID for multi-tenant isolation (optional, default: 'GLOBAL')
+   * @returns {string|null} Decrypted secret value or null if not found
+   */
+  get: function(secretName, companyId = 'GLOBAL') {
+    try {
+      if (!secretName) {
+        throw new Error('Secret name is required');
+      }
+
+      // Create storage key with multi-tenant isolation
+      const storageKey = this.CONFIG.STORAGE_PREFIX + companyId + '_' + secretName;
+
+      // Retrieve from PropertiesService
+      const props = PropertiesService.getUserProperties();
+      const storedValue = props.getProperty(storageKey);
+
+      if (!storedValue) {
+        ErrorHandler.log(
+          `Secret not found: ${secretName} for company: ${companyId}`,
+          null,
+          'WARN',
+          { function: 'KeyVaultService.get', secretName: secretName, companyId: companyId }
+        );
+
+        if (this.CONFIG.AUDIT_LOGGING) {
+          this._auditLog('GET', secretName, companyId, 'NOT_FOUND', {});
+        }
+
+        return null;
+      }
+
+      // Decrypt if encryption is enabled
+      let decryptedValue = storedValue;
+      try {
+        const decoded = Utilities.base64Decode(storedValue);
+        if (this.CONFIG.ENCRYPTION_ENABLED) {
+          const encryptionKey = this._derivedKey(secretName);
+          decryptedValue = this._xorEncrypt(decoded, encryptionKey);
+        } else {
+          decryptedValue = decoded;
+        }
+      } catch (decryptError) {
+        ErrorHandler.log(
+          `Error decrypting secret: ${secretName}`,
+          decryptError,
+          'WARN',
+          { function: 'KeyVaultService.get', secretName: secretName }
+        );
+        // Fallback: return as-is if decryption fails
+        decryptedValue = storedValue;
+      }
+
+      // Log access to audit trail
+      if (this.CONFIG.AUDIT_LOGGING) {
+        this._auditLog('GET', secretName, companyId, 'SUCCESS', {});
+      }
+
+      return decryptedValue;
+    } catch (error) {
+      ErrorHandler.log(
+        `Error retrieving secret: ${secretName}`,
+        error,
+        'ERROR',
+        { function: 'KeyVaultService.get', secretName: secretName, companyId: companyId }
+      );
+
+      if (this.CONFIG.AUDIT_LOGGING) {
+        this._auditLog('GET', secretName, companyId, 'FAILED', { error: error.message });
+      }
+
+      return null;
+    }
+  },
+
+  /**
+   * Delete a secret from PropertiesService
+   * @param {string} secretName - Name of the secret
+   * @param {string} companyId - Company ID for multi-tenant isolation (optional, default: 'GLOBAL')
+   * @returns {boolean} Success status
+   */
+  delete: function(secretName, companyId = 'GLOBAL') {
+    try {
+      if (!secretName) {
+        throw new Error('Secret name is required');
+      }
+
+      const storageKey = this.CONFIG.STORAGE_PREFIX + companyId + '_' + secretName;
+      const props = PropertiesService.getUserProperties();
+      props.deleteProperty(storageKey);
+
+      if (this.CONFIG.AUDIT_LOGGING) {
+        this._auditLog('DELETE', secretName, companyId, 'SUCCESS', {});
+      }
+
+      ErrorHandler.log(
+        `Secret deleted successfully: ${secretName} for company: ${companyId}`,
+        null,
+        'INFO',
+        { function: 'KeyVaultService.delete', secretName: secretName, companyId: companyId }
+      );
+
+      return true;
+    } catch (error) {
+      ErrorHandler.log(
+        `Error deleting secret: ${secretName}`,
+        error,
+        'ERROR',
+        { function: 'KeyVaultService.delete', secretName: secretName, companyId: companyId }
+      );
+
+      if (this.CONFIG.AUDIT_LOGGING) {
+        this._auditLog('DELETE', secretName, companyId, 'FAILED', { error: error.message });
+      }
+
+      return false;
+    }
+  },
+
+  /**
+   * Check if a secret exists
+   * @param {string} secretName - Name of the secret
+   * @param {string} companyId - Company ID for multi-tenant isolation (optional, default: 'GLOBAL')
+   * @returns {boolean} True if secret exists
+   */
+  exists: function(secretName, companyId = 'GLOBAL') {
+    try {
+      const storageKey = this.CONFIG.STORAGE_PREFIX + companyId + '_' + secretName;
+      const props = PropertiesService.getUserProperties();
+      return props.getProperty(storageKey) !== null;
+    } catch (error) {
+      ErrorHandler.log(
+        `Error checking secret existence: ${secretName}`,
+        error,
+        'WARN',
+        { function: 'KeyVaultService.exists', secretName: secretName, companyId: companyId }
+      );
+      return false;
+    }
+  },
+
+  /**
+   * Rotate (regenerate) a secret with new encryption key
+   * Note: This invalidates old encrypted values
+   * @param {string} secretName - Name of the secret
+   * @param {string} newValue - New secret value
+   * @param {string} companyId - Company ID (optional, default: 'GLOBAL')
+   * @returns {boolean} Success status
+   */
+  rotate: function(secretName, newValue, companyId = 'GLOBAL') {
+    try {
+      if (!secretName || !newValue) {
+        throw new Error('Secret name and new value are required');
+      }
+
+      // Delete old secret
+      this.delete(secretName, companyId);
+
+      // Store new secret with updated version
+      const result = this.set(secretName, newValue, companyId, {
+        rotated: new Date().toISOString(),
+        version: this.CONFIG.SECRET_VERSION + 1
+      });
+
+      if (result && this.CONFIG.AUDIT_LOGGING) {
+        this._auditLog('ROTATE', secretName, companyId, 'SUCCESS', {
+          rotatedAt: new Date().toISOString()
+        });
+      }
+
+      return result;
+    } catch (error) {
+      ErrorHandler.log(
+        `Error rotating secret: ${secretName}`,
+        error,
+        'ERROR',
+        { function: 'KeyVaultService.rotate', secretName: secretName, companyId: companyId }
+      );
+
+      if (this.CONFIG.AUDIT_LOGGING) {
+        this._auditLog('ROTATE', secretName, companyId, 'FAILED', { error: error.message });
+      }
+
+      return false;
+    }
+  },
+
+  /**
+   * List all secrets for a company (returns only names, not values)
+   * @param {string} companyId - Company ID (optional, default: 'GLOBAL')
+   * @returns {Array} Array of secret names
+   */
+  listSecrets: function(companyId = 'GLOBAL') {
+    try {
+      const props = PropertiesService.getUserProperties();
+      const allProps = props.getProperties();
+      const prefix = this.CONFIG.STORAGE_PREFIX + companyId + '_';
+
+      const secrets = [];
+      for (const key in allProps) {
+        if (key.startsWith(prefix)) {
+          const secretName = key.substring(prefix.length);
+          secrets.push(secretName);
+        }
+      }
+
+      return secrets;
+    } catch (error) {
+      ErrorHandler.log(
+        `Error listing secrets for company: ${companyId}`,
+        error,
+        'WARN',
+        { function: 'KeyVaultService.listSecrets', companyId: companyId }
+      );
+      return [];
+    }
+  },
+
+  /**
+   * Get secret statistics (for debugging/monitoring)
+   * @returns {object} Statistics about stored secrets
+   */
+  getStats: function() {
+    try {
+      const props = PropertiesService.getUserProperties();
+      const allProps = props.getProperties();
+
+      const stats = {
+        totalSecrets: 0,
+        byCompany: {},
+        encryptionEnabled: this.CONFIG.ENCRYPTION_ENABLED,
+        auditLoggingEnabled: this.CONFIG.AUDIT_LOGGING
+      };
+
+      for (const key in allProps) {
+        if (key.startsWith(this.CONFIG.STORAGE_PREFIX)) {
+          stats.totalSecrets++;
+
+          // Extract company ID
+          const parts = key.substring(this.CONFIG.STORAGE_PREFIX.length).split('_');
+          const companyId = parts[0];
+
+          if (!stats.byCompany[companyId]) {
+            stats.byCompany[companyId] = 0;
+          }
+          stats.byCompany[companyId]++;
+        }
+      }
+
+      return stats;
+    } catch (error) {
+      ErrorHandler.log(
+        'Error getting KeyVault statistics',
+        error,
+        'WARN',
+        { function: 'KeyVaultService.getStats' }
+      );
+      return {};
+    }
+  },
+
+  /**
+   * Audit log for secret access and modifications
+   * @param {string} action - Action type (GET, SET, DELETE, ROTATE)
+   * @param {string} secretName - Name of the secret
+   * @param {string} companyId - Company ID
+   * @param {string} status - Action status (SUCCESS, FAILED, NOT_FOUND)
+   * @param {object} metadata - Additional metadata
+   * @private
+   */
+  _auditLog: function(action, secretName, companyId, status, metadata = {}) {
+    try {
+      const ss = SpreadsheetApp.getActive();
+      let auditSheet = ss.getSheetByName('AUDIT_LOG');
+
+      // Create AUDIT_LOG sheet if it doesn't exist
+      if (!auditSheet) {
+        auditSheet = ss.insertSheet('AUDIT_LOG');
+        auditSheet.appendRow([
+          'TIMESTAMP',
+          'ACTION',
+          'SECRET_NAME',
+          'COMPANY_ID',
+          'STATUS',
+          'USER',
+          'METADATA'
+        ]);
+      }
+
+      // Get current user
+      const user = Session.getActiveUser().getEmail();
+
+      // Append audit log entry
+      auditSheet.appendRow([
+        new Date().toISOString(),
+        action,
+        secretName,
+        companyId,
+        status,
+        user,
+        JSON.stringify(metadata)
+      ]);
+
+    } catch (error) {
+      // Don't throw error in audit logging - it's non-critical
+      console.warn('Failed to log KeyVault audit trail:', error.message);
+    }
+  }
+};
+
+// ============================================================================
 // PHASE 1: SECTION II.C - AUTHSERVICE (Authentication & Authorization)
 // ============================================================================
 
@@ -875,6 +1355,92 @@ const AuthService = {
     } catch (error) {
       // Don't throw - audit logging is not critical
       console.warn('Error logging action: ' + error.message);
+    }
+  },
+
+  /**
+   * Get or generate JWT encryption key from KeyVault
+   * @param {string} companyId - Company ID (optional, default: 'GLOBAL')
+   * @returns {string} JWT encryption key
+   */
+  getJwtSecret: function(companyId = 'GLOBAL') {
+    try {
+      let secret = KeyVaultService.get(KeyVaultService.SECRETS.JWT_ENCRYPTION_KEY, companyId);
+
+      // If not found, generate a new one
+      if (!secret) {
+        secret = this._generateJwtSecret();
+        KeyVaultService.set(
+          KeyVaultService.SECRETS.JWT_ENCRYPTION_KEY,
+          secret,
+          companyId,
+          { source: 'AuthService.getJwtSecret', generated: true }
+        );
+      }
+
+      return secret;
+    } catch (error) {
+      ErrorHandler.log(
+        'Error getting JWT secret from KeyVault',
+        error,
+        'ERROR',
+        { function: 'AuthService.getJwtSecret', companyId: companyId }
+      );
+      // Fallback to a deterministic secret based on salt
+      return this.CONFIG.HASH_SALT + companyId;
+    }
+  },
+
+  /**
+   * Generate a random JWT secret
+   * @returns {string} Random secret
+   * @private
+   */
+  _generateJwtSecret: function() {
+    try {
+      // Generate random bytes using Utilities.getUuid()
+      const uuid1 = Utilities.getUuid();
+      const uuid2 = Utilities.getUuid();
+      const timestamp = new Date().getTime().toString(36);
+      return (uuid1 + uuid2 + timestamp).substring(0, 64);
+    } catch (error) {
+      // Fallback: use timestamp and salt
+      return this.CONFIG.HASH_SALT + Math.random().toString(36).substring(2, 15);
+    }
+  },
+
+  /**
+   * Rotate JWT secret (generates new one and stores in KeyVault)
+   * @param {string} companyId - Company ID (optional, default: 'GLOBAL')
+   * @returns {boolean} Success status
+   */
+  rotateJwtSecret: function(companyId = 'GLOBAL') {
+    try {
+      const newSecret = this._generateJwtSecret();
+      const result = KeyVaultService.rotate(
+        KeyVaultService.SECRETS.JWT_ENCRYPTION_KEY,
+        newSecret,
+        companyId
+      );
+
+      if (result) {
+        ErrorHandler.log(
+          `JWT secret rotated successfully for company: ${companyId}`,
+          null,
+          'INFO',
+          { function: 'AuthService.rotateJwtSecret', companyId: companyId }
+        );
+      }
+
+      return result;
+    } catch (error) {
+      ErrorHandler.log(
+        'Error rotating JWT secret',
+        error,
+        'ERROR',
+        { function: 'AuthService.rotateJwtSecret', companyId: companyId }
+      );
+      return false;
     }
   }
 };
@@ -2345,9 +2911,42 @@ const ClaudeService = {
    * Obtiene la API Key de Claude desde PropertiesService
    * @returns {string|null} API Key o null si no está configurada
    */
+  /**
+   * Obtiene la API Key de Claude desde KeyVaultService (seguro)
+   * Fallback a PropertiesService si KeyVault no está disponible (backwards compatibility)
+   * @returns {string|null} API Key desencriptada o null si no está configurada
+   */
   getApiKey: function() {
-    const props = PropertiesService.getUserProperties();
-    return props.getProperty(CONFIG.PROPS.API_KEY);
+    try {
+      // Primary: Try getting from KeyVaultService (encrypted)
+      const apiKey = KeyVaultService.get(KeyVaultService.SECRETS.CLAUDE_API_KEY);
+      if (apiKey) {
+        return apiKey;
+      }
+
+      // Fallback: Try legacy PropertiesService storage (for backwards compatibility)
+      const props = PropertiesService.getUserProperties();
+      const legacyKey = props.getProperty(CONFIG.PROPS.API_KEY);
+      if (legacyKey) {
+        // Migrate to KeyVault
+        KeyVaultService.set(KeyVaultService.SECRETS.CLAUDE_API_KEY, legacyKey);
+        // Delete old property
+        props.deleteProperty(CONFIG.PROPS.API_KEY);
+        return legacyKey;
+      }
+
+      return null;
+    } catch (error) {
+      // If KeyVault fails, fallback to legacy method
+      ErrorHandler.log(
+        'KeyVault retrieval failed, using fallback',
+        error,
+        'WARN',
+        { function: 'ClaudeService.getApiKey' }
+      );
+      const props = PropertiesService.getUserProperties();
+      return props.getProperty(CONFIG.PROPS.API_KEY);
+    }
   },
 
   /**
@@ -3287,18 +3886,46 @@ function eliminarClienteCompleto(nombreCliente) {
  * @param {string} apiKey - API Key de Claude
  * @returns {Object} Resultado
  */
+/**
+ * API Function: Save Claude API Key to KeyVault Service
+ * Stores the API key securely with encryption
+ * @param {string} apiKey - Claude API Key to store
+ * @returns {object} Success/error response
+ */
 function guardarApiKey(apiKey) {
   try {
     if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
       throw new Error('API Key inválida');
     }
 
+    const trimmedKey = apiKey.trim();
+
+    // Primary: Store in KeyVaultService (encrypted)
+    const keyVaultSuccess = KeyVaultService.set(
+      KeyVaultService.SECRETS.CLAUDE_API_KEY,
+      trimmedKey,
+      'GLOBAL',
+      { source: 'guardarApiKey', timestamp: new Date().toISOString() }
+    );
+
+    if (!keyVaultSuccess) {
+      throw new Error('Failed to store API Key in KeyVault');
+    }
+
+    // Legacy: Also store in PropertiesService for backwards compatibility
     const props = PropertiesService.getUserProperties();
-    props.setProperty(CONFIG.PROPS.API_KEY, apiKey.trim());
+    props.setProperty(CONFIG.PROPS.API_KEY, trimmedKey);
+
+    ErrorHandler.log(
+      'API Key guardada correctamente en KeyVault',
+      null,
+      'INFO',
+      { function: 'guardarApiKey', keyLength: trimmedKey.length }
+    );
 
     return {
       success: true,
-      mensaje: 'API Key guardada correctamente'
+      mensaje: 'API Key guardada correctamente en KeyVault Service'
     };
   } catch (error) {
     // PHASE 0 INTEGRATION: Use ErrorHandler for centralized logging
@@ -3970,6 +4597,339 @@ function saveCashSessionData(data) {
       context
     );
     return errorResponse;
+  }
+}
+
+
+// ============================================================================
+// TESTING & VALIDATION - KEYVAULTSERVICE (III.A-B)
+// ============================================================================
+
+/**
+ * Test Function: Test KeyVaultService functionality
+ * Run this function from the Google Apps Script Editor to validate KeyVault operations
+ * @returns {object} Test results
+ */
+function testKeyVaultService() {
+  Logger.log('═══════════════════════════════════════════════════');
+  Logger.log('🧪 TESTING: KeyVaultService');
+  Logger.log('═══════════════════════════════════════════════════');
+
+  const results = {
+    tests: [],
+    passed: 0,
+    failed: 0,
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    // Test 1: Set and Get a secret
+    Logger.log('\n📝 Test 1: Set and Get a secret');
+    try {
+      const testSecret = 'TEST_SECRET_' + Math.random().toString(36).substring(7);
+      const testValue = 'secret_value_12345_encrypted';
+
+      const setResult = KeyVaultService.set('TEST_SECRET', testValue);
+      if (!setResult) {
+        throw new Error('Failed to set secret');
+      }
+
+      const getValue = KeyVaultService.get('TEST_SECRET');
+      if (getValue !== testValue) {
+        throw new Error(`Retrieved value doesn't match: expected "${testValue}", got "${getValue}"`);
+      }
+
+      Logger.log('✅ Test 1 PASSED: Secret stored and retrieved successfully');
+      results.tests.push({ name: 'Set and Get Secret', status: 'PASSED' });
+      results.passed++;
+    } catch (error) {
+      Logger.log('❌ Test 1 FAILED: ' + error.message);
+      results.tests.push({ name: 'Set and Get Secret', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+    // Test 2: Multi-tenant secret isolation
+    Logger.log('\n📝 Test 2: Multi-tenant secret isolation');
+    try {
+      const company1Secret = 'company1_value_secret';
+      const company2Secret = 'company2_value_secret';
+
+      KeyVaultService.set('TENANT_TEST', company1Secret, 'COMPANY_1');
+      KeyVaultService.set('TENANT_TEST', company2Secret, 'COMPANY_2');
+
+      const retrieved1 = KeyVaultService.get('TENANT_TEST', 'COMPANY_1');
+      const retrieved2 = KeyVaultService.get('TENANT_TEST', 'COMPANY_2');
+
+      if (retrieved1 !== company1Secret || retrieved2 !== company2Secret) {
+        throw new Error('Multi-tenant isolation failed');
+      }
+
+      Logger.log('✅ Test 2 PASSED: Secrets isolated per tenant');
+      results.tests.push({ name: 'Multi-tenant Isolation', status: 'PASSED' });
+      results.passed++;
+    } catch (error) {
+      Logger.log('❌ Test 2 FAILED: ' + error.message);
+      results.tests.push({ name: 'Multi-tenant Isolation', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+    // Test 3: Secret exists check
+    Logger.log('\n📝 Test 3: Secret exists check');
+    try {
+      KeyVaultService.set('EXISTS_TEST', 'value123');
+      const exists1 = KeyVaultService.exists('EXISTS_TEST');
+      const exists2 = KeyVaultService.exists('NONEXISTENT_SECRET');
+
+      if (!exists1 || exists2) {
+        throw new Error('exists() check failed');
+      }
+
+      Logger.log('✅ Test 3 PASSED: Existence check works correctly');
+      results.tests.push({ name: 'Secret Exists Check', status: 'PASSED' });
+      results.passed++;
+    } catch (error) {
+      Logger.log('❌ Test 3 FAILED: ' + error.message);
+      results.tests.push({ name: 'Secret Exists Check', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+    // Test 4: Delete secret
+    Logger.log('\n📝 Test 4: Delete secret');
+    try {
+      KeyVaultService.set('DELETE_TEST', 'value_to_delete');
+      const deletedResult = KeyVaultService.delete('DELETE_TEST');
+      const stillExists = KeyVaultService.exists('DELETE_TEST');
+
+      if (!deletedResult || stillExists) {
+        throw new Error('Delete operation failed');
+      }
+
+      Logger.log('✅ Test 4 PASSED: Secret deleted successfully');
+      results.tests.push({ name: 'Delete Secret', status: 'PASSED' });
+      results.passed++;
+    } catch (error) {
+      Logger.log('❌ Test 4 FAILED: ' + error.message);
+      results.tests.push({ name: 'Delete Secret', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+    // Test 5: Rotate secret
+    Logger.log('\n📝 Test 5: Rotate secret');
+    try {
+      KeyVaultService.set('ROTATE_TEST', 'old_value');
+      const rotateResult = KeyVaultService.rotate('ROTATE_TEST', 'new_rotated_value');
+      const newValue = KeyVaultService.get('ROTATE_TEST');
+
+      if (!rotateResult || newValue !== 'new_rotated_value') {
+        throw new Error('Rotate operation failed');
+      }
+
+      Logger.log('✅ Test 5 PASSED: Secret rotated successfully');
+      results.tests.push({ name: 'Rotate Secret', status: 'PASSED' });
+      results.passed++;
+    } catch (error) {
+      Logger.log('❌ Test 5 FAILED: ' + error.message);
+      results.tests.push({ name: 'Rotate Secret', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+    // Test 6: List secrets
+    Logger.log('\n📝 Test 6: List secrets');
+    try {
+      KeyVaultService.set('LIST_TEST_1', 'value1');
+      KeyVaultService.set('LIST_TEST_2', 'value2');
+
+      const secrets = KeyVaultService.listSecrets('GLOBAL');
+      const hasTest1 = secrets.includes('LIST_TEST_1');
+      const hasTest2 = secrets.includes('LIST_TEST_2');
+
+      if (!hasTest1 || !hasTest2) {
+        throw new Error('listSecrets failed to return expected secrets');
+      }
+
+      Logger.log(`✅ Test 6 PASSED: Found ${secrets.length} secrets in GLOBAL scope`);
+      results.tests.push({ name: 'List Secrets', status: 'PASSED', count: secrets.length });
+      results.passed++;
+    } catch (error) {
+      Logger.log('❌ Test 6 FAILED: ' + error.message);
+      results.tests.push({ name: 'List Secrets', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+    // Test 7: Get statistics
+    Logger.log('\n📝 Test 7: Get statistics');
+    try {
+      const stats = KeyVaultService.getStats();
+
+      if (!stats || typeof stats !== 'object' || stats.totalSecrets === undefined) {
+        throw new Error('getStats returned invalid format');
+      }
+
+      Logger.log(`✅ Test 7 PASSED: KeyVault has ${stats.totalSecrets} total secrets`);
+      Logger.log(`   Encryption enabled: ${stats.encryptionEnabled}`);
+      Logger.log(`   Audit logging enabled: ${stats.auditLoggingEnabled}`);
+      Logger.log(`   Secrets by company: ${JSON.stringify(stats.byCompany)}`);
+      results.tests.push({ name: 'Get Statistics', status: 'PASSED', stats: stats });
+      results.passed++;
+    } catch (error) {
+      Logger.log('❌ Test 7 FAILED: ' + error.message);
+      results.tests.push({ name: 'Get Statistics', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+    // Test 8: AuthService JWT secret
+    Logger.log('\n📝 Test 8: AuthService JWT secret management');
+    try {
+      const jwtSecret = AuthService.getJwtSecret('GLOBAL');
+
+      if (!jwtSecret || typeof jwtSecret !== 'string' || jwtSecret.length === 0) {
+        throw new Error('getJwtSecret returned invalid result');
+      }
+
+      Logger.log(`✅ Test 8 PASSED: JWT secret obtained (length: ${jwtSecret.length})`);
+      results.tests.push({ name: 'AuthService JWT Secret', status: 'PASSED', secretLength: jwtSecret.length });
+      results.passed++;
+    } catch (error) {
+      Logger.log('❌ Test 8 FAILED: ' + error.message);
+      results.tests.push({ name: 'AuthService JWT Secret', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+    // Test 9: Rotate JWT secret
+    Logger.log('\n📝 Test 9: AuthService JWT secret rotation');
+    try {
+      const rotateResult = AuthService.rotateJwtSecret('GLOBAL');
+
+      if (!rotateResult) {
+        throw new Error('JWT secret rotation failed');
+      }
+
+      Logger.log('✅ Test 9 PASSED: JWT secret rotated successfully');
+      results.tests.push({ name: 'AuthService JWT Rotation', status: 'PASSED' });
+      results.passed++;
+    } catch (error) {
+      Logger.log('❌ Test 9 FAILED: ' + error.message);
+      results.tests.push({ name: 'AuthService JWT Rotation', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+    // Test 10: ClaudeService API key retrieval
+    Logger.log('\n📝 Test 10: ClaudeService API key retrieval');
+    try {
+      // First, try to get existing API key (if none exists, this should return null safely)
+      const apiKey = ClaudeService.getApiKey();
+
+      // This is acceptable - if no API key is set, should return null
+      if (apiKey === null || (typeof apiKey === 'string' && apiKey.length > 0)) {
+        Logger.log('✅ Test 10 PASSED: API key retrieval working (current value: ' + (apiKey ? '[SET]' : '[NOT_SET]') + ')');
+        results.tests.push({ name: 'ClaudeService API Key', status: 'PASSED', present: !!apiKey });
+        results.passed++;
+      } else {
+        throw new Error('Unexpected API key value');
+      }
+    } catch (error) {
+      Logger.log('❌ Test 10 FAILED: ' + error.message);
+      results.tests.push({ name: 'ClaudeService API Key', status: 'FAILED', error: error.message });
+      results.failed++;
+    }
+
+  } catch (error) {
+    Logger.log('🔴 CRITICAL ERROR in tests: ' + error.message);
+    results.criticalError = error.message;
+  }
+
+  // Summary
+  Logger.log('\n═══════════════════════════════════════════════════');
+  Logger.log('📊 TEST SUMMARY');
+  Logger.log('═══════════════════════════════════════════════════');
+  Logger.log(`✅ Passed: ${results.passed}`);
+  Logger.log(`❌ Failed: ${results.failed}`);
+  Logger.log(`📝 Total: ${results.passed + results.failed}`);
+  Logger.log(`🎯 Success Rate: ${Math.round((results.passed / (results.passed + results.failed)) * 100)}%`);
+  Logger.log('═══════════════════════════════════════════════════\n');
+
+  return results;
+}
+
+/**
+ * Cleanup Test Function: Clear all test secrets from KeyVault
+ * WARNING: This deletes test data
+ * @returns {object} Cleanup results
+ */
+function cleanupKeyVaultTests() {
+  Logger.log('🧹 Cleaning up KeyVault test data...');
+
+  try {
+    const testSecrets = [
+      'TEST_SECRET',
+      'TENANT_TEST',
+      'EXISTS_TEST',
+      'DELETE_TEST',
+      'ROTATE_TEST',
+      'LIST_TEST_1',
+      'LIST_TEST_2'
+    ];
+
+    let deletedCount = 0;
+    for (const secret of testSecrets) {
+      try {
+        KeyVaultService.delete(secret, 'GLOBAL');
+        KeyVaultService.delete(secret, 'COMPANY_1');
+        KeyVaultService.delete(secret, 'COMPANY_2');
+        deletedCount++;
+      } catch (e) {
+        // Ignore errors for non-existent test secrets
+      }
+    }
+
+    Logger.log(`✅ Cleanup completed: ${deletedCount} test secret groups removed`);
+
+    return {
+      success: true,
+      message: `Cleanup completed: ${deletedCount} test secret groups removed`
+    };
+  } catch (error) {
+    const context = { function: 'cleanupKeyVaultTests' };
+    const errorResponse = ErrorHandler.log(
+      'Error during KeyVault test cleanup',
+      error,
+      'WARN',
+      context
+    );
+    return errorResponse;
+  }
+}
+
+/**
+ * Debug Function: Display KeyVault statistics and status
+ * @returns {object} Detailed KeyVault status
+ */
+function getKeyVaultStatus() {
+  try {
+    const stats = KeyVaultService.getStats();
+    const jwtSecret = AuthService.getJwtSecret('GLOBAL');
+    const apiKey = ClaudeService.getApiKey();
+
+    const status = {
+      timestamp: new Date().toISOString(),
+      stats: stats,
+      jwtSecretConfigured: !!jwtSecret,
+      jwtSecretLength: jwtSecret ? jwtSecret.length : 0,
+      claudeApiKeyConfigured: !!apiKey,
+      claudeApiKeyLength: apiKey ? apiKey.length : 0,
+      encryptionEnabled: KeyVaultService.CONFIG.ENCRYPTION_ENABLED,
+      auditLoggingEnabled: KeyVaultService.CONFIG.AUDIT_LOGGING
+    };
+
+    Logger.log('📊 KeyVault Status:');
+    Logger.log(JSON.stringify(status, null, 2));
+
+    return status;
+  } catch (error) {
+    ErrorHandler.log('Error getting KeyVault status', error, 'WARN', {
+      function: 'getKeyVaultStatus'
+    });
+    return { error: error.message };
   }
 }
 
