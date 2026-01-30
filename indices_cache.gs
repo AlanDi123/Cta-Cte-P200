@@ -1012,5 +1012,4 @@ const MetricasSistema = {
       memoriaEstimada: IndicesCache.obtenerEstadisticas().memoriaEstimada
     };
   }
-};</content>
-<parameter name="filePath">c:\Users\alan2\Desktop\Codigos\Cta-Cte-P200\indices_cache.gs
+};

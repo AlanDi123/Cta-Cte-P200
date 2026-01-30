@@ -257,5 +257,4 @@ function obtenerLogAuditoria(filtros) {
       error: error.message
     };
   }
-}</content>
-<parameter name="filePath">c:\Users\alan2\Desktop\Codigos\Cta-Cte-P200\dashboard_metricas.gs
+}
