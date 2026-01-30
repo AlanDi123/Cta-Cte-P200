@@ -721,14 +721,14 @@ function validarMovimiento(mov) {
 // 6. API PUBLICA - 12 FUNCIONES EXPUESTAS AL HTML
 // ============================================================================
 
-  /**
-   * Obtiene todos los movimientos de un cliente
-   * @param {string} nombreCliente - Nombre del cliente
-   * @returns {Array<Object>} Array de movimientos
-   */
-  obtenerPorCliente: function(nombreCliente) {
+/**
+ * Obtiene todos los movimientos de un cliente
+ * @param {string} nombreCliente - Nombre del cliente
+ * @returns {Array<Object>} Array de movimientos
+ */
+function obtenerPorCliente(nombreCliente) {
     const nombreNorm = normalizarString(nombreCliente);
-    const hoja = this.getHoja();
+    const hoja = MovimientosRepository.getHoja();
     const datos = hoja.getDataRange().getValues();
 
     if (datos.length <= 1) return [];
@@ -759,15 +759,15 @@ function validarMovimiento(mov) {
     movimientos.sort((a, b) => b.id - a.id);
 
     return movimientos;
-  },
+  }
 
   /**
    * Elimina todos los movimientos de un cliente
    * @param {string} nombreCliente - Nombre del cliente
    */
-  eliminarPorCliente: function(nombreCliente) {
+  function eliminarPorCliente(nombreCliente) {
     const nombreNorm = normalizarString(nombreCliente);
-    const hoja = this.getHoja();
+    const hoja = MovimientosRepository.getHoja();
     const datos = hoja.getDataRange().getValues();
 
     // Recorrer de abajo hacia arriba para no alterar indices
@@ -777,7 +777,7 @@ function validarMovimiento(mov) {
         hoja.deleteRow(i + 1);
       }
     }
-  },
+  }
 
   /**
    * Obtiene movimientos en un rango de fechas
@@ -785,8 +785,8 @@ function validarMovimiento(mov) {
    * @param {Date} hasta - Fecha fin
    * @returns {Array<Object>} Array de movimientos
    */
-  obtenerPorRango: function(desde, hasta) {
-    const hoja = this.getHoja();
+  function obtenerPorRango(desde, hasta) {
+    const hoja = MovimientosRepository.getHoja();
     const datos = hoja.getDataRange().getValues();
 
     if (datos.length <= 1) return [];
@@ -821,7 +821,6 @@ function validarMovimiento(mov) {
 
     return movimientos;
   }
-};
 
 
 // ============================================================================
