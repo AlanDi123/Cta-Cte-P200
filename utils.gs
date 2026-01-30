@@ -133,7 +133,7 @@ function normalizarString(str) {
  * @param {string} tipo - Tipo a validar
  * @returns {boolean} True si es válido
  */
-function estipoMovimientoValido(tipo) {
+function esTipoMovimientoValido(tipo) {
   return tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE ||
          tipo === CONFIG.TIPOS_MOVIMIENTO.HABER;
 }
@@ -190,7 +190,7 @@ function validarMovimiento(mov) {
     errors.push('Cliente es requerido');
   }
 
-  if (!estipoMovimientoValido(mov.tipo)) {
+  if (!esTipoMovimientoValido(mov.tipo)) {
     errors.push('Tipo de movimiento inválido (debe ser DEBE o HABER)');
   }
 

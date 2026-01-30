@@ -28,7 +28,7 @@
  */
 
 // ============================================================================
-// INICIALIZACIN DEL SISTEMA OPTIMIZADO
+// INICIALIZACION DEL SISTEMA OPTIMIZADO
 // ============================================================================
 
 /**
@@ -56,7 +56,7 @@ function inicializarSistema() {
     Logger.log('Paso 4: Verificando integridad del sistema...');
     const integridad = verificarIntegridadSistema();
 
-    // PASO 5: Registrar inicializacion n auditoria
+    // PASO 5: Registrar inicializacion en auditoria
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.CONFIGURACION,
       'SISTEMA',
@@ -64,7 +64,7 @@ function inicializarSistema() {
       { indices: IndicesCache.obtenerEstadisticas() }
     );
 
-    Logger.log('SISTEMA INICIALIZADO XITOSAMENTE');
+    Logger.log('SISTEMA INICIALIZADO EXITOSAMENTE');
     Logger.log('=== OPTIMIZACIONES ACTIVAS ===');
     Logger.log('   - Indices de alto rendimiento: ACTIVO');
     Logger.log('   - Compresion de respuestas: ACTIVO');
@@ -72,7 +72,7 @@ function inicializarSistema() {
     Logger.log('   - Auditoria completa: ACTIVO');
     Logger.log('   - Rate limiting: ACTIVO');
     Logger.log('   - Backup automatico: ACTIVO');
-    Logger.log('   - Metricas n tiempo real: ACTIVO');
+    Logger.log('   - Metricas en tiempo real: ACTIVO');
 
     return {
       success: true,
@@ -82,7 +82,7 @@ function inicializarSistema() {
     };
 
   } catch (error) {
-    Logger.log('[ERROR]ERROR EN INICIALIZACION: ' + error.message);
+    Logger.log('[ERROR] ERROR EN INICIALIZACION: ' + error.message);
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'SISTEMA',
@@ -99,11 +99,11 @@ function inicializarSistema() {
 
 /**
  * Verifica la integridad del sistema
- * @returns {Object} stado de integridad
+ * @returns {Object} Estado de integridad
  */
 function verificarIntegridadSistema() {
   const integridad = {
-    spreadsht: false,
+    spreadsheet: false,
     hojas: false,
     indices: false,
     backup: false,
@@ -113,10 +113,10 @@ function verificarIntegridadSistema() {
   };
 
   try {
-    // Verificar spreadsht
+    // Verificar spreadsheet
     const ss = getSpreadsheet();
-    integridad.spreadsht = !!ss;
-    if (integridad.spreadsht) integridad.total++;
+    integridad.spreadsheet = !!ss;
+    if (integridad.spreadsheet) integridad.total++;
 
     // Verificar hojas
     if (ss) {
@@ -152,12 +152,12 @@ function verificarIntegridadSistema() {
 
 
 // ============================================================================
-// FUNCIN PRINCIPAL PARA APLICACIN WEB
+// FUNCION PRINCIPAL PARA APLICACION WEB
 // ============================================================================
 
 /**
  * Funcion obligatoria para servir la aplicacion web
- * Google Apps Script llama a sta funcion cuando se accede a la URL de la app
+ * Google Apps Script llama a esta funcion cuando se accede a la URL de la app
  * @returns {HtmlOutput} Pagina HTML del sistema
  */
 function doGet() {
@@ -167,20 +167,20 @@ function doGet() {
 }
 
 /**
- * Funcion de diagnonstico que retorna informacion del sistema
+ * Funcion de diagnostico que retorna informacion del sistema
  * Se puede llamar desde la Web App para debugging
  */
 function diagnosticoSistema() {
   try {
     const propiedades = PropertiesService.getScriptProperties();
-    const spreadshtId = propiedades.getProperty('SPREADSHT_ID');
+    const spreadsheetId = propiedades.getProperty('SPREADSHEET_ID');
 
     return {
       success: true,
-      spreadshtId: spreadshtId,
+      spreadsheetId: spreadsheetId,
       usuario: Session.getEffectiveUser().getEmail(),
       timestamp: new Date().toISOString(),
-      tieneSpreadsht: spreadshtId ? true : false,
+      tieneSpreadsheet: spreadsheetId ? true : false,
       mensaje: 'Sistema funcionando correctamente'
     };
   } catch (error) {
@@ -193,8 +193,8 @@ function diagnosticoSistema() {
 }
 
 /**
- * Funcion de prueba para verificar que l sistema funciona
- * jecutar desde l ditor para verificar que todo ste OK
+ * Funcion de prueba para verificar que el sistema funciona
+ * Ejecutar desde el editor para verificar que todo este OK
  */
 function probarSistema() {
   Logger.log(' Iniciando prueba del sistema...');
@@ -228,78 +228,13 @@ function probarSistema() {
 
   } catch (error) {
     Logger.log('');
-    Logger.log('[ERROR]Error en prueba: ' + error.message);
+    Logger.log('[ERROR] Error en prueba: ' + error.message);
     Logger.log('Stack: ' + error.stack);
     return null;
   }
 }
 
-/**
- * Funcion de inicializacion del sistema
- * jecutar sta funcion una vez desde l ditor de scripts para configurar l sistema
- * Guarda l ID del spreadsht para que funcione como Web App
- */
-function inicializarSistema() {
-  Logger.log('INICIALIZANDO SISTEMA SOL & VERDE V18.1 CON OPTIMIZACIONES AVANZADAS');
-
-  try {
-    // PASO 1: Verificar spreadsht
-    Logger.log('Paso 1: Verificando spreadsht...');
-    const ss = getSpreadsheet();
-    if (!ss) throw new Error('No se pudo acceder al spreadsht');
-
-    // PASO 2: Inicializar indices de alto rendimiento
-    Logger.log('Paso 2: Inicializando indices de alto rendimiento...');
-    IndicesCache.reconstruirIndices();
-
-    // PASO 3: Inicializar sistema de backup automatico
-    Logger.log('Paso 3: Inicializando backup automatico...');
-    BackupAutomatico.iniciar();
-
-    // PASO 4: Verificar integridad del sistema
-    Logger.log('Paso 4: Verificando integridad del sistema...');
-    const integridad = verificarIntegridadSistema();
-
-    // PASO 5: Registrar inicializacion n auditoria
-    AuditoriaSistema.registrar(
-      AuditoriaSistema.TIPOS_OPERACION.CONFIGURACION,
-      'SISTEMA',
-      'Inicializacion completa del sistema V18.1',
-      { indices: IndicesCache.obtenerEstadisticas() }
-    );
-
-    Logger.log('SISTEMA INICIALIZADO XITOSAMENTE');
-    Logger.log('=== OPTIMIZACIONES ACTIVAS ===');
-    Logger.log('   - Indices de alto rendimiento: ACTIVO');
-    Logger.log('   - Compresion de respuestas: ACTIVO');
-    Logger.log('   - Circuit breakers: ACTIVO');
-    Logger.log('   - Auditoria completa: ACTIVO');
-    Logger.log('   - Rate limiting: ACTIVO');
-    Logger.log('   - Backup automatico: ACTIVO');
-    Logger.log('   - Metricas n tiempo real: ACTIVO');
-
-    return {
-      success: true,
-      mensaje: 'Sistema inicializado con optimizaciones avanzadas V18.1',
-      indices: IndicesCache.obtenerEstadisticas(),
-      integridad: integridad
-    };
-
-  } catch (error) {
-    Logger.log('[ERROR]ERROR EN INICIALIZACION: ' + error.message);
-    AuditoriaSistema.registrar(
-      AuditoriaSistema.TIPOS_OPERACION.ERROR,
-      'SISTEMA',
-      'Error en inicializacion del sistema',
-      { error: error.message }
-    );
-
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
+// NOTA: La funcion inicializarSistema() esta definida arriba (linea 38)
 
 
 // ============================================================================
@@ -315,7 +250,7 @@ function inicializarSistema() {
 // ============================================================================
 
 /**
- * Helper para logging condicional basado n configuracion
+ * Helper para logging condicional basado en configuracion
  * @param {string} mensaje - Mensaje a loggear
  * @param {string} nivel - Nivel: 'info', 'debug', 'error'
  */
@@ -327,28 +262,28 @@ function log(mensaje, nivel = 'info') {
 }
 
 /**
- * Obtiene l spreadsht de forma robusta
+ * Obtiene el spreadsheet de forma robusta
  * Usa getActive() pero con manejo de errores y cache
- * @returns {Spreadsht} l spreadsht activo
+ * @returns {Spreadsheet} el spreadsheet activo
  */
 function getSpreadsheet() {
   log(' getSpreadsheet() - Inicio', 'debug');
 
   try {
-    // Primero intentar obtener l ID guardado n propiedades
+    // Primero intentar obtener el ID guardado en propiedades
     log('   Intentando obtener propiedades del script...', 'debug');
     const propiedades = PropertiesService.getScriptProperties();
     log('  [OK] Propiedades obtenidas correctamente', 'debug');
 
-    let spreadshtId = propiedades.getProperty('SPREADSHT_ID');
-    log('  Spreadsht ID guardado: ' + (spreadshtId || 'ninguno'), 'debug');
+    let spreadsheetId = propiedades.getProperty('SPREADSHEET_ID');
+    log('  Spreadsheet ID guardado: ' + (spreadsheetId || 'ninguno'), 'debug');
 
     // Si hay ID guardado, intentar abrir por ID
-    if (spreadshtId) {
+    if (spreadsheetId) {
       try {
-        log('  Intentando abrir spreadsht por ID: ' + spreadshtId, 'debug');
-        const ss = SpreadsheetApp.openById(spreadshtId);
-        log('  [OK]Spreadsht abierto xitosamente por ID', 'debug');
+        log('  Intentando abrir spreadsheet por ID: ' + spreadsheetId, 'debug');
+        const ss = SpreadsheetApp.openById(spreadsheetId);
+        log('  [OK] Spreadsheet abierto eexitosamente por ID', 'debug');
         log('  Nombre: ' + ss.getName(), 'debug');
         return ss;
       } catch (errorId) {
@@ -364,24 +299,24 @@ function getSpreadsheet() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     if (!ss) {
-      log('  [ERROR]getActiveSpreadsheet() retorno null', 'error');
+      log('  [ERROR] getActiveSpreadsheet() retorno null', 'error');
       throw new Error('No se pudo obtener el spreadsheet activo');
     }
 
-    log('  [OK]Spreadsheet activo obtenido', 'debug');
+    log('  [OK] Spreadsheet activo obtenido', 'debug');
 
-    // Si se obtuvo xitosamente, guardar su ID para futuros usos
-    spreadshtId = ss.getId();
-    log('  Guardando ID: ' + spreadshtId, 'debug');
-    propiedades.setProperty('SPREADSHT_ID', spreadshtId);
-    log('  [OK]ID guardado n propiedades', 'debug');
+    // Si se obtuvo eexitosamente, guardar su ID para futuros usos
+    spreadsheetId = ss.getId();
+    log('  Guardando ID: ' + spreadsheetId, 'debug');
+    propiedades.setProperty('SPREADSHEET_ID', spreadsheetId);
+    log('  [OK] ID guardado en propiedades', 'debug');
 
     return ss;
   } catch (error) {
-    log('[ERROR]ERROR CRTICO n getSpreadsheet():', 'error');
+    log('[ERROR] ERROR CRITICO en getSpreadsheet():', 'error');
     log('   Mensaje: ' + error.message, 'error');
     log('   Stack: ' + error.stack, 'error');
-    throw new Error('No se pudo acceder a la base de datos. Por favor, jecute la funcion inicializarSistema() desde l ditor de scripts.');
+    throw new Error('No se pudo acceder a la base de datos. Por favor, ejecute la funcion inicializarSistema() desde el editor de scripts.');
   }
 }
 
@@ -389,7 +324,7 @@ function getSpreadsheet() {
  * Convierte objetos Date a strings ISO para serializacion Web
  * Procesa recursivamente objetos y arrays para asegurar que
  * todos los Date objects se conviertan a strings antes de
- * nviarlos a traves de google.script.run
+ * enviarlos a traves de google.script.run
  *
  * @param {*} obj - Objeto a procesar (puede ser cualquier tipo)
  * @returns {*} Objeto con fechas convertidas a strings ISO
@@ -431,19 +366,19 @@ function serializarParaWeb(obj) {
 // ============================================================================
 
 /**
- * Calcula la distancia de Levenshtein ntre dos strings
- * Optimizado con arly termination para busquedas fuzzy
+ * Calcula la distancia de Levenshtein entre dos strings
+ * Optimizado con early termination para busquedas fuzzy
  * @param {string} a - Primer string
  * @param {string} b - Segundo string
  * @param {number} maxDistance - Distancia maxima antes de abandonar (opcional)
- * @returns {number} Distancia de Levenshtein (o maxDistance+1 si xcede)
+ * @returns {number} Distancia de Levenshtein (o maxDistance+1 si excede)
  */
 function levenshteinDistance(a, b, maxDistance = Infinity) {
   // Caso base: strings vacios
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
   
-  // Optimizacion: si la diferencia de longitud ya xcede maxDistance, retornar temprano
+  // Optimizacion: si la diferencia de longitud ya excede maxDistance, retornar temprano
   const lengthDiff = Math.abs(a.length - b.length);
   if (lengthDiff > maxDistance) {
     return maxDistance + 1;
@@ -459,7 +394,7 @@ function levenshteinDistance(a, b, maxDistance = Infinity) {
     matrix[0][j] = j;
   }
 
-  // Llenar matriz con arly termination
+  // Llenar matriz con early termination
   for (let i = 1; i <= b.length; i++) {
     let minInRow = Infinity;
     
@@ -470,14 +405,14 @@ function levenshteinDistance(a, b, maxDistance = Infinity) {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1, // Sustitucion
           matrix[i][j - 1] + 1,     // Insercion
-          matrix[i - 1][j] + 1      // liminacion
+          matrix[i - 1][j] + 1      // Eliminacion
         );
       }
       
       minInRow = Math.min(minInRow, matrix[i][j]);
     }
     
-    // arly termination: si l minimo n sta fila xcede maxDistance, no hay match posible
+    // Early termination: si el minimo en esta fila excede maxDistance, no hay match posible
     if (minInRow > maxDistance) {
       return maxDistance + 1;
     }
@@ -487,14 +422,14 @@ function levenshteinDistance(a, b, maxDistance = Infinity) {
 }
 
 /**
- * Calcula un score de similitud fuzzy ntre dos strings
- * Optimizado con arly returns
+ * Calcula un score de similitud fuzzy entre dos strings
+ * Optimizado con early returns
  * @param {string} busqueda - String de busqueda (normalizado)
  * @param {string} candidato - String candidato (normalizado)
  * @returns {number} Score de 0-100
  */
 function calcularScoreFuzzy(busqueda, candidato) {
-  // Match xacto - retornar inmediatamente
+  // Match exacto - retornar inmediatamente
   if (busqueda === candidato) {
     return CONFIG.FUZZY.PESO_EXACTO;
   }
@@ -512,12 +447,12 @@ function calcularScoreFuzzy(busqueda, candidato) {
   // Distancia Levenshtein solo si los anteriores fallaron
   const maxLen = Math.max(busqueda.length, candidato.length);
   
-  // Calcular distancia maxima aceptable basada n MIN_SCORE
+  // Calcular distancia maxima aceptable basada en MIN_SCORE
   const maxDistanceAllowed = Math.floor(maxLen * (1 - CONFIG.FUZZY.MIN_SCORE / 100));
   
   const distancia = levenshteinDistance(busqueda, candidato, maxDistanceAllowed);
   
-  // Si xcede la distancia maxima, retornar score bajo
+  // Si excede la distancia maxima, retornar score bajo
   if (distancia > maxDistanceAllowed) {
     return 0;
   }
@@ -528,7 +463,7 @@ function calcularScoreFuzzy(busqueda, candidato) {
 }
 
 /**
- * Normaliza un string para comparacion (mayusculas, sin spacios extras)
+ * Normaliza un string para comparacion (mayusculas, sin espacios extras)
  * @param {string} str - String a normalizar
  * @returns {string} String normalizado
  */
@@ -540,7 +475,7 @@ function normalizarString(str) {
 /**
  * Valida que un tipo de movimiento sea valido
  * @param {string} tipo - Tipo a validar
- * @returns {boolean} True si s valido
+ * @returns {boolean} True si es valido
  */
 function esTipoMovimientoValido(tipo) {
   return tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE ||
@@ -550,16 +485,16 @@ function esTipoMovimientoValido(tipo) {
 /**
  * Valida que un monto sea positivo
  * @param {number} monto - Monto a validar
- * @returns {boolean} True si s valido
+ * @returns {boolean} True si es valido
  */
 function esMontoValido(monto) {
   return typeof monto === 'number' && monto > 0 && isFinite(monto);
 }
 
 /**
- * Valida y convierte una fecha de ntrada
+ * Valida y convierte una fecha de entrada
  * @param {string|Date} fecha - Fecha a validar
- * @returns {Date|null} Objeto Date valido o null si s invalido
+ * @returns {Date|null} Objeto Date valido o null si es invalido
  */
 function validarFecha(fecha) {
   if (!fecha) return null;
@@ -567,22 +502,22 @@ function validarFecha(fecha) {
   try {
     const fechaObj = fecha instanceof Date ? fecha : new Date(fecha);
     
-    // Verificar si la fecha s valida
+    // Verificar si la fecha es valida
     if (isNaN(fechaObj.getTime())) {
       log('Fecha invalida: ' + fecha, 'error');
       return null;
     }
     
-    // Verificar que la fecha ste n un rango razonable (1900-2100)
+    // Verificar que la fecha este en un rango razonable (1900-2100)
     const year = fechaObj.getFullYear();
     if (year < 1900 || year > 2100) {
-      log('Aoo fuera de rango: ' + year, 'error');
+      log('Ano fuera de rango: ' + year, 'error');
       return null;
     }
     
     return fechaObj;
   } catch (error) {
-    log('[ERROR]Error al validar fecha: ' + error.message, 'error');
+    log('[ERROR] Error al validar fecha: ' + error.message, 'error');
     return null;
   }
 }
@@ -620,14 +555,14 @@ function validarMovimiento(mov) {
 
 
 // ============================================================================
-// 3. CLIENTES REPOSITORY (Implementado n clientes.gs)
+// 3. CLIENTES REPOSITORY (Implementado en clientes.gs)
 // ============================================================================
 
 // ClientesRepository se importa desde clientes.gs
 
 
 // ============================================================================
-// 4. MOVIMIENTOS REPOSITORY (Implementado n movimientos.gs)
+// 4. MOVIMIENTOS REPOSITORY (Implementado en movimientos.gs)
 // ============================================================================
 
 // MovimientosRepository se importa desde movimientos.gs
@@ -637,11 +572,11 @@ function validarMovimiento(mov) {
 // 5. SISTEMAS DE OPTIMIZACION AVANZADA
 // ============================================================================
 
-// Los sistemas de optimizacion se implementan n indices_cache.gs
+// Los sistemas de optimizacion se implementan en indices_cache.gs
 
 
 // ============================================================================
-// 6. API PUBLICA - 12 FUNCIONES XPUESTAS AL HTML
+// 6. API PUBLICA - 12 FUNCIONES EXPUESTAS AL HTML
 // ============================================================================
 
 /**
@@ -685,10 +620,10 @@ function obtenerPorCliente(nombreCliente) {
   }
 
   /**
-   * limina todos los movimientos de un cliente
+   * Elimina todos los movimientos de un cliente
    * @param {string} nombreCliente - Nombre del cliente
    */
-  function liminarPorCliente(nombreCliente) {
+  function eliminarPorCliente(nombreCliente) {
     const nombreNorm = normalizarString(nombreCliente);
     const hoja = MovimientosRepository.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -702,13 +637,13 @@ function obtenerPorCliente(nombreCliente) {
     }
   }
 
-  /**
-   * Obtiene movimientos n un rango de fechas
-   * @param {Date} desde - Fecha inicio
-   * @param {Date} hasta - Fecha fin
-   * @returns {Array<Object>} Array de movimientos
-   */
-  function obtenerPorRango(desde, hasta) {
+/**
+ * Obtiene movimientos en un rango de fechas
+ * @param {Date} desde - Fecha inicio
+ * @param {Date} hasta - Fecha fin
+ * @returns {Array<Object>} Array de movimientos
+ */
+function obtenerPorRango(desde, hasta) {
     const hoja = MovimientosRepository.getHoja();
     const datos = hoja.getDataRange().getValues();
 
@@ -775,7 +710,7 @@ const RecaudacionRepository = {
         .setFontWeight('bold')
         .setBackground('#FF6F00')
         .setFontColor('#FFFFFF');
-      Logger.log('[OK]Hoja RECAUDACION_EFECTIVO creada');
+      Logger.log('[OK] Hoja RECAUDACION_EFECTIVO creada');
     }
 
     return hoja;
@@ -815,7 +750,7 @@ const RecaudacionRepository = {
       }
 
       if (!ClientesRepository.buscarPorNombre(clienteNorm)) {
-        throw new Error(`Cliente "${clienteNorm}" no ncontrado`);
+        throw new Error(`Cliente "${clienteNorm}" no encontrado`);
       }
 
       if (!recaudacionData.monto || recaudacionData.monto <= 0) {
@@ -857,7 +792,7 @@ const RecaudacionRepository = {
         forma_pago: formaPago,
         obs: recaudacionData.obs || '',
         usuario: usuario,
-        stado: 'REGISTRADO'
+        estado: 'REGISTRADO'
       };
 
     } catch (error) {
@@ -891,7 +826,7 @@ const RecaudacionRepository = {
           obs: datos[i][RECAUDACION_CONFIG.COLS.OBS] || '',
           usuario: datos[i][RECAUDACION_CONFIG.COLS.USUARIO] || '',
           timestamp: datos[i][RECAUDACION_CONFIG.COLS.TIMESTAMP],
-          stado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
+          estado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
         });
       }
     }
@@ -900,7 +835,7 @@ const RecaudacionRepository = {
   },
 
   /**
-   * Obtiene recaudaciones n rango de fechas
+   * Obtiene recaudaciones en rango de fechas
    */
   obtenerPorRango: function(desde, hasta) {
     const hoja = this.getHoja();
@@ -927,7 +862,7 @@ const RecaudacionRepository = {
           forma_pago: datos[i][RECAUDACION_CONFIG.COLS.FORMA_PAGO],
           obs: datos[i][RECAUDACION_CONFIG.COLS.OBS] || '',
           usuario: datos[i][RECAUDACION_CONFIG.COLS.USUARIO] || '',
-          stado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
+          estado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
         });
       }
     }
@@ -964,11 +899,11 @@ const RecaudacionRepository = {
 
 
 // ============================================================================
-// 6. API PUBLICA - 12 FUNCIONES XPUESTAS AL HTML
+// 6. API PUBLICA - 12 FUNCIONES EXPUESTAS AL HTML
 // ============================================================================
 
 /**
- * API 1: Obtiene datos iniciales para l dashboard (clientes + movimientos recientes)
+ * API 1: Obtiene datos iniciales para el dashboard (clientes + movimientos recientes)
  * @returns {Object} {clientes: Array, movimientos: Array}
  */
 /**
@@ -982,12 +917,12 @@ function obtenerDatosParaHTML() {
 
   // Verificar rate limiting
   if (!RateLimiter.verificarLimite('obtenerDatosParaHTML', usuario)) {
-    const error = 'Rate limit xcedido. Demasiadas solicitudes.';
+    const error = 'Rate limit eexcedido. Demasiadas solicitudes.';
     MetricasSistema.registrarError('RATE_LIMIT', error);
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'API',
-      'Rate limit xcedido n obtenerDatosParaHTML',
+      'Rate limit eexcedido en obtenerDatosParaHTML',
       { usuario: usuario }
     );
     return ResponseCompressor.comprimirRespuesta({
@@ -1008,7 +943,7 @@ function obtenerDatosParaHTML() {
   };
 
   try {
-    // Registrar operacion n auditoria
+    // Registrar operacion en auditoria
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.LECTURA,
       'API',
@@ -1054,9 +989,9 @@ function obtenerDatosParaHTML() {
       movimientos.push(mov.datos);
     }
 
-    log(`[OK]Datos obtenidos con indices: ${clientes.length} clientes, ${movimientos.length} movimientos`, 'debug');
+    log(`[OK] Datos obtenidos con indices: ${clientes.length} clientes, ${movimientos.length} movimientos`, 'debug');
 
-    // PASO 3: Obtener stadisticas del sistema
+    // PASO 3: Obtener estadisticas del sistema
     const statsIndices = IndicesCache.obtenerEstadisticas();
     const metricas = MetricasSistema.obtenerMetricas();
 
@@ -1077,7 +1012,7 @@ function obtenerDatosParaHTML() {
     log('[INFO]', 'debug');
     log('[OK]obtenerDatosParaHTML V18.1 - EXITO', 'debug');
     log(`    Rendimiento: ${Date.now() - startTime}ms`, 'debug');
-    log(`    ndices: ${statsIndices.clientesIndexados} clientes, ${statsIndices.movimientosIndexados} movimientos`, 'debug');
+    log(`    Indices: ${statsIndices.clientesIndexados} clientes, ${statsIndices.movimientosIndexados} movimientos`, 'debug');
     log(`    Memoria: ${statsIndices.memoriaEstimada}`, 'debug');
     log('[INFO]', 'debug');
 
@@ -1089,14 +1024,14 @@ function obtenerDatosParaHTML() {
     return respuestaComprimida;
 
   } catch (error) {
-    // Registrar error n metricas y auditoria
+    // Registrar error en metricas y auditoria
     MetricasSistema.registrarError('API_ERROR', error.message);
     MetricasSistema.registrarRequest('obtenerDatosParaHTML', Date.now() - startTime, false);
 
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'API',
-      'Error n obtenerDatosParaHTML',
+      'Error en obtenerDatosParaHTML',
       {
         usuario: usuario,
         error: error.message,
@@ -1105,7 +1040,7 @@ function obtenerDatosParaHTML() {
     );
 
     log('[INFO]', 'error');
-    log('[ERROR]ERROR CAPTURADO en obtenerDatosParaHTML V18.1', 'error');
+    log('[ERROR] ERROR CAPTURADO en obtenerDatosParaHTML V18.1', 'error');
     log('Mensaje: ' + (error.message || 'Sin mensaje'), 'error');
     log('Stack: ' + (error.stack || 'Sin stack'), 'error');
     log('[INFO]', 'error');
@@ -1137,7 +1072,7 @@ function obtenerDatosCompletoCliente(nombreCliente) {
     const resultado = ClientesRepository.buscarPorNombre(nombreCliente);
 
     if (!resultado) {
-      throw new Error(`Cliente "${nombreCliente}" no ncontrado`);
+      throw new Error(`Cliente "${nombreCliente}" no encontrado`);
     }
 
     const movimientos = MovimientosRepository.obtenerPorCliente(nombreCliente);
@@ -1148,7 +1083,7 @@ function obtenerDatosCompletoCliente(nombreCliente) {
       movimientos: movimientos
     };
   } catch (error) {
-    log('Error n obtenerDatosCompletoCliente: ' + error.message, 'error');
+    log('Error en obtenerDatosCompletoCliente: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -1252,7 +1187,7 @@ function obtenerEstadisticas(desde, hasta) {
       }
     };
   } catch (error) {
-    Logger.log('Error n obtenerEstadisticas: ' + error.message);
+    Logger.log('Error en obtenerEstadisticas: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -1274,7 +1209,7 @@ function verificarApiKeyPresente() {
       configurada: !!apiKey
     };
   } catch (error) {
-    Logger.log('Error n verificarApiKeyPresente: ' + error.message);
+    Logger.log('Error en verificarApiKeyPresente: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -1330,7 +1265,7 @@ function obtenerResumenMovimientosPorCliente() {
       clientesResumen: clientesResumen
     };
   } catch (error) {
-    Logger.log('Error n obtenerResumenMovimientosPorCliente: ' + error.message);
+    Logger.log('Error en obtenerResumenMovimientosPorCliente: ' + error.message);
     return {
       success: false,
       error: error.message,
@@ -1392,7 +1327,7 @@ function rematchearNombreConSugerencias(nombre) {
       total: sugerenciasLimitadas.length
     };
   } catch (error) {
-    log('Error n rematchearNombreConSugerencias: ' + error.message, 'error');
+    log('Error en rematchearNombreConSugerencias: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -1411,12 +1346,12 @@ function guardarMovimientoDesdeHTML(movimientoData) {
 
   // Verificar rate limiting
   if (!RateLimiter.verificarLimite('guardarMovimientoDesdeHTML', usuario)) {
-    const error = 'Rate limit xcedido. Intente nuevamente n unos minutos.';
+    const error = 'Rate limit excedido. Intente nuevamente en unos minutos.';
     MetricasSistema.registrarError('RATE_LIMIT', error);
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'MOVIMIENTO',
-      'Rate limit xcedido n guardarMovimientoDesdeHTML',
+      'Rate limit excedido en guardarMovimientoDesdeHTML',
       { usuario: usuario, cliente: movimientoData?.cliente }
     );
     return ResponseCompressor.comprimirRespuesta({
@@ -1448,7 +1383,7 @@ function guardarMovimientoDesdeHTML(movimientoData) {
     // Normalizar cliente
     movimientoData.cliente = normalizarString(movimientoData.cliente);
 
-    // Registrar operacion n auditoria
+    // Registrar operacion en auditoria
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ESCRITURA,
       'MOVIMIENTO',
@@ -1469,7 +1404,7 @@ function guardarMovimientoDesdeHTML(movimientoData) {
     // Invalidar indices despues de modificacion
     IndicesCache.invalidarIndices();
 
-    log('[OK]Movimiento guardado xitosamente - ID: ' + (movimiento.id || 'N/A'), 'debug');
+    log('[OK] Movimiento guardado eexitosamente - ID: ' + (movimiento.id || 'N/A'), 'debug');
 
     // Registrar metricas de xito
     MetricasSistema.registrarRequest('guardarMovimientoDesdeHTML', Date.now() - startTime, true);
@@ -1485,7 +1420,7 @@ function guardarMovimientoDesdeHTML(movimientoData) {
     return ResponseCompressor.comprimirRespuesta(resultado);
 
   } catch (error) {
-    // Registrar error n metricas y auditoria
+    // Registrar error en metricas y auditoria
     MetricasSistema.registrarError('API_ERROR', error.message);
     MetricasSistema.registrarRequest('guardarMovimientoDesdeHTML', Date.now() - startTime, false);
 
@@ -1502,7 +1437,7 @@ function guardarMovimientoDesdeHTML(movimientoData) {
       }
     );
 
-    log('[ERROR]Error n guardarMovimientoDesdeHTML V18.1: ' + error.message, 'error');
+    log('[ERROR] Error en guardarMovimientoDesdeHTML V18.1: ' + error.message, 'error');
     log('Stack trace: ' + error.stack, 'error');
 
     const resultadoError = {
@@ -1535,7 +1470,7 @@ function guardarMovimientosDesdeVR(payload) {
       totalErrores: resultado.errores.length
     };
   } catch (error) {
-    Logger.log('Error n guardarMovimientosDesdeVR: ' + error.message);
+    Logger.log('Error en guardarMovimientosDesdeVR: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -1566,7 +1501,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
     }
 
     if (rowIndex === -1) {
-      throw new Error('Movimiento no ncontrado');
+      throw new Error('Movimiento no encontrado');
     }
 
     const movimientoRow = datos[rowIndex - 1];
@@ -1593,7 +1528,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
 
     ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
 
-    log('[OK]Movimiento ' + idMovimiento + ' actualizado', 'debug');
+    log('[OK] Movimiento ' + idMovimiento + ' actualizado', 'debug');
 
     return {
       success: true,
@@ -1605,7 +1540,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
       }
     };
   } catch (error) {
-    log('[ERROR]ERROR n actualizarMovimiento: ' + error.message, 'error');
+    log('[ERROR] ERROR en actualizarMovimiento: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -1637,7 +1572,7 @@ function liminarMovimiento(idMovimiento) {
     }
 
     if (rowIndex === -1) {
-      throw new Error('Movimiento no ncontrado');
+      throw new Error('Movimiento no encontrado');
     }
 
     const movimientoRow = datos[rowIndex - 1];
@@ -1657,15 +1592,15 @@ function liminarMovimiento(idMovimiento) {
 
     ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
 
-    log('[OK]Movimiento ' + idMovimiento + ' liminado', 'debug');
+    log('[OK] Movimiento ' + idMovimiento + ' eliminado', 'debug');
 
     return {
       success: true,
-      mensaje: 'Movimiento liminado',
+      mensaje: 'Movimiento eliminado',
       nuevoSaldo: nuevoSaldo
     };
   } catch (error) {
-    log('[ERROR]ERROR n liminarMovimiento: ' + error.message, 'error');
+    log('[ERROR] ERROR en liminarMovimiento: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -1676,9 +1611,9 @@ function liminarMovimiento(idMovimiento) {
 }
 
 /**
- * Recalcula todos los saldos de clientes basandose n los movimientos
+ * Recalcula todos los saldos de clientes basandose en los movimientos
  * Optimizado con operaciones batch para mejor rendimiento
- * til cuando hay inconsistencias n los datos
+ * Util cuando hay inconsistencias en los datos
  */
 function recalcularTodosSaldos() {
   try {
@@ -1745,7 +1680,7 @@ function recalcularTodosSaldos() {
       });
     }
 
-    log('[OK]Recalculo completado: ' + clientesActualizados + ' clientes corregidos', 'info');
+    log('[OK] Recalculo completado: ' + clientesActualizados + ' clientes corregidos', 'info');
     return {
       success: true,
       mensaje: clientesActualizados + ' clientes fueron recalculados',
@@ -1754,7 +1689,7 @@ function recalcularTodosSaldos() {
     };
 
   } catch (error) {
-    log('[ERROR]Error n recalcularTodosSaldos: ' + error.message, 'error');
+    log('[ERROR] Error en recalcularTodosSaldos: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -1786,14 +1721,14 @@ function crearNuevoClienteCompleto(clienteData) {
 
     const cliente = ClientesRepository.crear(clienteData);
 
-    Logger.log('[OK]Cliente creado xitosamente: ' + clienteData.nombre);
+    Logger.log('[OK] Cliente creado eexitosamente: ' + clienteData.nombre);
 
     return {
       success: true,
       cliente: cliente
     };
   } catch (error) {
-    Logger.log('[ERROR]Error n crearNuevoClienteCompleto: ' + error.message);
+    Logger.log('[ERROR] Error en crearNuevoClienteCompleto: ' + error.message);
     Logger.log('Stack trace: ' + error.stack);
     return {
       success: false,
@@ -1827,14 +1762,14 @@ function actualizarDatosCliente(nombreCliente, datos) {
 
     const cliente = ClientesRepository.actualizar(nombreCliente, datos);
 
-    Logger.log('[OK]Cliente actualizado xitosamente: ' + nombreCliente);
+    Logger.log('[OK] Cliente actualizado eexitosamente: ' + nombreCliente);
 
     return {
       success: true,
       cliente: cliente
     };
   } catch (error) {
-    Logger.log('[ERROR]Error n actualizarDatosCliente: ' + error.message);
+    Logger.log('[ERROR] Error en actualizarDatosCliente: ' + error.message);
     Logger.log('Stack trace: ' + error.stack);
     return {
       success: false,
@@ -1854,10 +1789,10 @@ function liminarClienteCompleto(nombreCliente) {
 
     return {
       success: true,
-      mensaje: `Cliente "${nombreCliente}" liminado correctamente`
+      mensaje: `Cliente "${nombreCliente}" eliminado correctamente`
     };
   } catch (error) {
-    Logger.log('Error n liminarClienteCompleto: ' + error.message);
+    Logger.log('Error en eliminarClienteCompleto: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -1884,7 +1819,7 @@ function guardarApiKey(apiKey) {
       mensaje: 'API Key guardada correctamente'
     };
   } catch (error) {
-    Logger.log('Error n guardarApiKey: ' + error.message);
+    Logger.log('Error en guardarApiKey: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -1898,8 +1833,8 @@ function guardarApiKey(apiKey) {
  * @returns {Object} Movimientos xtraidos
  */
 /**
- * FIX: Recibe token n lugar de Base64 directamente
- * l Base64 se guarda n l frontend n sessionStorage y luego n backend CacheService
+ * FIX: Recibe token en lugar de Base64 directamente
+ * l Base64 se guarda en el frontend en sessionStorage y luego en backend CacheService
  * sto vita l limite de serializacion silencioso de google.script.run
  */
 /**
@@ -1914,13 +1849,13 @@ function analizarImagenVisualReasoningSimple(imageBase64) {
     Logger.log(' Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
 
     if (!imageBase64 || imageBase64.length < 100) {
-      throw new Error('Base64 invalido o muy pequeoo');
+      throw new Error('Base64 invalido o muy pequeno');
     }
 
     Logger.log('E Llamando ClaudeService.analizarImagen()...');
     const resultado = ClaudeService.analizarImagen(imageBase64);
 
-    Logger.log('[OK]Analisis completado');
+    Logger.log('[OK] Analisis completado');
     Logger.log(' Movimientos xtraidos: ' + resultado.totalExtraidos);
 
     return {
@@ -1929,7 +1864,7 @@ function analizarImagenVisualReasoningSimple(imageBase64) {
       totalExtraidos: resultado.totalExtraidos
     };
   } catch (error) {
-    Logger.log('[ERROR]ERROR: ' + error.message);
+    Logger.log('[ERROR] ERROR: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -1946,16 +1881,16 @@ function guardarImagenTemporalVR(imageBase64) {
     Logger.log(' Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
 
     if (!imageBase64 || imageBase64.length < 100) {
-      throw new Error('Base64 invalido o muy pequeoo');
+      throw new Error('Base64 invalido o muy pequeno');
     }
 
     const token = Utilities.getUuid();
-    Logger.log('[OK]Token generado: ' + token);
+    Logger.log('[OK] Token generado: ' + token);
 
     const cache = CacheService.getUserCache();
     cache.put('vr_image_' + token, imageBase64, 900);
 
-    Logger.log('[OK]Base64 guardado n cache con token: ' + token);
+    Logger.log('[OK] Base64 guardado en cache con token: ' + token);
 
     return {
       success: true,
@@ -1963,7 +1898,7 @@ function guardarImagenTemporalVR(imageBase64) {
       dataSize: imageBase64.length
     };
   } catch (error) {
-    Logger.log('[ERROR]ERROR n guardarImagenTemporalVR: ' + error.message);
+    Logger.log('[ERROR] ERROR en guardarImagenTemporalVR: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -1980,12 +1915,12 @@ function analizarImagenConToken(vrDataToken) {
 
   // Verificar rate limiting (estricta para analisis de imagenes)
   if (!RateLimiter.verificarLimite('analizarImagenConToken', usuario)) {
-    const error = 'Rate limit xcedido. Solo se permiten 10 analisis por minuto.';
+    const error = 'Rate limit excedido. Solo se permiten 10 analisis por minuto.';
     MetricasSistema.registrarError('RATE_LIMIT', error);
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'CLAUDE_AI',
-      'Rate limit xcedido n analizarImagenConToken',
+      'Rate limit excedido en analizarImagenConToken',
       { usuario: usuario }
     );
     return ResponseCompressor.comprimirRespuesta({
@@ -1998,7 +1933,7 @@ function analizarImagenConToken(vrDataToken) {
   Logger.log(' Token recibido: ' + vrDataToken);
 
   try {
-    // Registrar operacion n auditoria
+    // Registrar operacion en auditoria
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.CONFIGURACION,
       'CLAUDE_AI',
@@ -2009,10 +1944,10 @@ function analizarImagenConToken(vrDataToken) {
     const cache = CacheService.getUserCache();
     const imageBase64 = cache.get('vr_image_' + vrDataToken);
 
-    Logger.log('[OK]Base64 recuperado, longitud: ' + (imageBase64 ? imageBase64.length : 0));
+    Logger.log('[OK] Base64 recuperado, longitud: ' + (imageBase64 ? imageBase64.length : 0));
 
     if (!imageBase64 || imageBase64.length < 100) {
-      const errorMsg = !imageBase64 ? 'No se ncontron Base64 n cache' : 'Base64 muy pequeoo';
+      const errorMsg = !imageBase64 ? 'No se encontro Base64 en cache' : 'Base64 muy pequeno';
       MetricasSistema.registrarError('CACHE_ERROR', errorMsg);
       throw new Error('Image Base64 invalida: ' + errorMsg);
     }
@@ -2024,7 +1959,7 @@ function analizarImagenConToken(vrDataToken) {
       return ClaudeService.analizarImagen(imageBase64);
     });
 
-    Logger.log('[OK]Analisis completado xitosamente');
+    Logger.log('[OK] Analisis completado exitosamente');
     cache.remove('vr_image_' + vrDataToken);
 
     // Registrar metricas de xito
@@ -2042,14 +1977,14 @@ function analizarImagenConToken(vrDataToken) {
     return ResponseCompressor.comprimirRespuesta(respuesta);
 
   } catch (error) {
-    // Registrar error n metricas y auditoria
+    // Registrar error en metricas y auditoria
     MetricasSistema.registrarError('CLAUDE_API_ERROR', error.message);
     MetricasSistema.registrarRequest('analizarImagenConToken', Date.now() - startTime, false);
 
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'CLAUDE_AI',
-      'Error n analisis de imagen',
+      'Error en analisis de imagen',
       {
         usuario: usuario,
         token: vrDataToken,
@@ -2057,7 +1992,7 @@ function analizarImagenConToken(vrDataToken) {
       }
     );
 
-    Logger.log('[ERROR]ERROR n analizarImagenConToken V18.1: ' + error.message);
+    Logger.log('[ERROR] ERROR en analizarImagenConToken V18.1: ' + error.message);
     Logger.log('Stack trace: ' + error.stack);
 
     const respuestaError = {
@@ -2153,7 +2088,7 @@ function crearClientesMasivos(payload) {
     };
 
   } catch (error) {
-    Logger.log('Error n crearClientesMasivos: ' + error.message);
+    Logger.log('Error en crearClientesMasivos: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -2176,14 +2111,14 @@ function guardarRecaudacion(recaudacionData) {
 
     const recaudacion = RecaudacionRepository.registrar(recaudacionData);
 
-    Logger.log('[OK]Recaudacion guardada - ID: ' + recaudacion.id);
+    Logger.log('[OK] Recaudacion guardada - ID: ' + recaudacion.id);
 
     return {
       success: true,
       recaudacion: recaudacion
     };
   } catch (error) {
-    Logger.log('[ERROR]Error n guardarRecaudacion: ' + error.message);
+    Logger.log('[ERROR] Error en guardarRecaudacion: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -2205,7 +2140,7 @@ function obtenerRecaudacionesPorCliente(nombreCliente) {
       recaudaciones: recaudaciones
     };
   } catch (error) {
-    Logger.log('Error n obtenerRecaudacionesPorCliente: ' + error.message);
+    Logger.log('Error en obtenerRecaudacionesPorCliente: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -2215,7 +2150,7 @@ function obtenerRecaudacionesPorCliente(nombreCliente) {
 
 /**
  * API 16: Obtiene totales diarios de recaudacion
- * @param {string} fecha - Fecha n formato YYYY-MM-DD
+ * @param {string} fecha - Fecha en formato YYYY-MM-DD
  * @returns {Object} {success, totales}
  */
 function obtenerTotalesRecaudacionDia(fecha) {
@@ -2227,7 +2162,7 @@ function obtenerTotalesRecaudacionDia(fecha) {
       totales: totales
     };
   } catch (error) {
-    Logger.log('Error n obtenerTotalesRecaudacionDia: ' + error.message);
+    Logger.log('Error en obtenerTotalesRecaudacionDia: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -2269,13 +2204,13 @@ function setupCashSystemShts() {
 
     return { success: true, message: 'Hojas inicializadas correctamente' };
   } catch (error) {
-    Logger.log('Error n setupCashSystemShts: ' + error.message);
+    Logger.log('Error en setupCashSystemShts: ' + error.message);
     return { success: false, error: error.message };
   }
 }
 
 /**
- * Inicializa l historial de Arqueo de Caja con datos histonricos
+ * Inicializa l historial de Arqueo de Caja con datos historicos
  * Agrega 4 registros de cierre de caja desde 19-23 de nero 2026
  * @returns {Object} {success: true, recordsAdded: N}
  */
@@ -2290,11 +2225,11 @@ function initializeHistoricalCashData() {
 
     // Verificar si ya hay datos
     if (sht.getLastRow() > 1) {
-      Logger.log('[OK]Historial_Caja ya contiene datos, skipping initialization');
+      Logger.log('[OK] Historial_Caja ya contiene datos, skipping initialization');
       return { success: true, recordsAdded: 0 };
     }
 
-    // Datos histonricos de 4 cierres de caja
+    // Datos historicos de 4 cierres de caja
     const historicalRecords = [
       {
         fecha: '2026-01-19',
@@ -2362,7 +2297,7 @@ function initializeHistoricalCashData() {
       }
     ];
 
-    // Agregar los registros histonricos
+    // Agregar los registros historicos
     let recordsAdded = 0;
     for (const record of historicalRecords) {
       sht.appendRow([
@@ -2379,11 +2314,11 @@ function initializeHistoricalCashData() {
       recordsAdded++;
     }
 
-    Logger.log(`[OK]Historial_Caja inicializado con ${recordsAdded} registros histonricos`);
+    Logger.log(`[OK] Historial_Caja inicializado con ${recordsAdded} registros historicos`);
     return { success: true, recordsAdded: recordsAdded };
 
   } catch (error) {
-    Logger.log('Error n initializeHistoricalCashData: ' + error.message);
+    Logger.log('Error en initializeHistoricalCashData: ' + error.message);
     return { success: false, error: error.message };
   }
 }
@@ -2415,14 +2350,14 @@ function getCashSystemConfig() {
     // Si no hay datos, retornar provdores predeterminados
     return { providers: ['Provdor 1', 'Provdor 2', 'Provdor 3'] };
   } catch (error) {
-    Logger.log('Error n getCashSystemConfig: ' + error.message);
+    Logger.log('Error en getCashSystemConfig: ' + error.message);
     return { providers: ['Provdor 1', 'Provdor 2', 'Provdor 3'] };
   }
 }
 
 /**
  * Obtiene l historial de cierres de caja de manera inteligente
- * Busca l JSON n cualquier columna y lo parsea correctamente
+ * Busca el JSON en cualquier columna y lo parsea correctamente
  * @returns {Array} Array de ntradas histonricas
  */
 function getCashHistoryEntries() {
@@ -2485,7 +2420,7 @@ function getCashHistoryEntries() {
     // Devolver invertido para ver lo mas reciente arriba
     return ntries.reverse();
   } catch (error) {
-    Logger.log('Error n getCashHistoryEntries: ' + error.message);
+    Logger.log('Error en getCashHistoryEntries: ' + error.message);
     return [];
   }
 }
@@ -2499,7 +2434,7 @@ function saveCashSessionData(data) {
   try {
     // FIX: Validar que hay fectivo antes de guardar
     if (!data || !data.totals || data.totals.cash <= 0) {
-      throw new Error('El total de fectivo debe ser mayor a 0. Por favor, ingrese montos n las denominaciones.');
+      throw new Error('El total de efectivo debe ser mayor a 0. Por favor, ingrese montos en las denominaciones.');
     }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -2543,7 +2478,7 @@ function saveCashSessionData(data) {
 
     return { success: true, message: 'Cierre guardado correctamente.' };
   } catch (error) {
-    Logger.log('Error n saveCashSessionData: ' + error.message);
+    Logger.log('Error en saveCashSessionData: ' + error.message);
     return { success: false, error: error.message };
   }
 }

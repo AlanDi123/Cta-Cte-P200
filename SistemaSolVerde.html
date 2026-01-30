@@ -4138,46 +4138,7 @@
     }
     window.diagnosticarSistema = diagnosticarSistema;
 
-    // Robustecer función de descompresión y validación de datos
-    function descomprimirRespuesta(datos) {
-      try {
-        if (typeof datos !== 'string') {
-          console.log('📦 Datos no son string, retornando tal cual');
-          return datos;
-        }
-        // Intentar parsear como JSON directo
-        try {
-          const json = JSON.parse(datos);
-          console.log('✅ Respuesta era JSON sin comprimir');
-          return json;
-        } catch (e) {
-          console.log('No es JSON directo, intentando descompresión...');
-        }
-        // Validar base64
-        const base64Regex = /^[A-Za-z0-9+/=\r\n]+$/;
-        if (!base64Regex.test(datos)) {
-          throw new Error('Los datos no tienen formato base64 válido');
-        }
-        // Descomprimir
-        let descomp;
-        try {
-          descomp = LZString.decompressFromBase64(datos);
-        } catch (e) {
-          throw new Error('Error en descompresión base64: ' + e.message);
-        }
-        if (!descomp) throw new Error('Descompresión fallida: resultado vacío');
-        try {
-          return JSON.parse(descomp);
-        } catch (e) {
-          throw new Error('Descompresión exitosa pero JSON inválido: ' + e.message);
-        }
-      } catch (err) {
-        console.error('❌ Error general en descompresión:', err);
-        console.error('Datos recibidos (primeros 200 chars):', typeof datos === 'string' ? datos.substring(0, 200) : datos);
-        return null;
-      }
-    }
-    window.descomprimirRespuesta = descomprimirRespuesta;
+    // NOTA: La funcion descomprimirRespuesta() esta definida mas abajo con el algoritmo compatible con el backend
 
     // Si usas iframes, asegúrate de no usar sandbox="allow-scripts allow-same-origin" juntos a menos que sea estrictamente necesario.
     // Si no usas iframes, ignora esta advertencia.
@@ -4316,6 +4277,7 @@
         return datosComprimidos;
       }
     }
+    window.descomprimirRespuesta = descomprimirRespuesta;
 
     function restaurarFechas(obj) {
       if (!obj || typeof obj !== 'object') return;

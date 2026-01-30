@@ -150,10 +150,10 @@ function probarUtilidades() {
   const normalized = normalizarString('  HOLA  mundo  ');
   if (normalized !== 'HOLA MUNDO') throw new Error('normalizarString no funciona correctamente');
 
-  // Probar estipoMovimientoValido
-  if (!estipoMovimientoValido('DEBE')) throw new Error('estipoMovimientoValido falla con DEBE');
-  if (!estipoMovimientoValido('HABER')) throw new Error('estipoMovimientoValido falla con HABER');
-  if (estipoMovimientoValido('INVALIDO')) throw new Error('estipoMovimientoValido acepta tipo inválido');
+  // Probar esTipoMovimientoValido
+  if (!esTipoMovimientoValido('DEBE')) throw new Error('esTipoMovimientoValido falla con DEBE');
+  if (!esTipoMovimientoValido('HABER')) throw new Error('esTipoMovimientoValido falla con HABER');
+  if (esTipoMovimientoValido('INVALIDO')) throw new Error('esTipoMovimientoValido acepta tipo inválido');
 
   // Probar esMontoValido
   if (!esMontoValido(100)) throw new Error('esMontoValido falla con monto válido');
