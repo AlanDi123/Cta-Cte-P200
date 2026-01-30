@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ============================================================================
  * SISTEMA SOL & VERDE V18.0 - BACKEND GOOGLE APPS SCRIPT
  * ============================================================================
@@ -15,14 +15,14 @@
  * - Calculo automatico de saldos
  * - Validaciones y seguridad robustas
  *
- * [INFO] OPTIMIZACIONES AVANZADAS V18.1:
+ *  OPTIMIZACIONES AVANZADAS V18.1:
  * - Indices de alto rendimiento (10x mas rapido)
  * - Compresion de respuestas (70% menos ancho de banda)
  * - Circuit breakers (99.9% disponibilidad)
  * - Auditoria completa (trazabilidad total)
  * - Rate limiting inteligente (seguridad reforzada)
  * - Backup automatico (recuperacion garantizada)
- * - Metricas [INFO]n tiempo real (monitoreo avanzado)
+ * - Metricas n tiempo real (monitoreo avanzado)
  *
  * ============================================================================
  */
@@ -32,17 +32,17 @@
 // ============================================================================
 
 /**
- * Inicializa [INFO]l sistema con todas las optimizaciones avanzadas
+ * Inicializa el sistema con todas las optimizaciones avanzadas
  * @returns {Object} Resultado de la inicializacion
  */
 function inicializarSistema() {
   Logger.log('INICIALIZANDO SISTEMA SOL & VERDE V18.1 CON OPTIMIZACIONES AVANZADAS');
 
   try {
-    // PASO 1: Verificar spreadsht
-    Logger.log('Paso 1: Verificando spreadsht...');
-    const ss = getSpreadsht();
-    if (!ss) throw new [INFO]rror('No se pudo acceder al spreadsht');
+    // PASO 1: Verificar spreadsheet
+    Logger.log('Paso 1: Verificando spreadsheet...');
+    const ss = getSpreadsheet();
+    if (!ss) throw new Error('No se pudo acceder al spreadsheet');
 
     // PASO 2: Inicializar indices de alto rendimiento
     Logger.log('Paso 2: Inicializando indices de alto rendimiento...');
@@ -56,7 +56,7 @@ function inicializarSistema() {
     Logger.log('Paso 4: Verificando integridad del sistema...');
     const integridad = verificarIntegridadSistema();
 
-    // PASO 5: Registrar inicializacion [INFO]n auditoria
+    // PASO 5: Registrar inicializacion n auditoria
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.CONFIGURACION,
       'SISTEMA',
@@ -64,7 +64,7 @@ function inicializarSistema() {
       { indices: IndicesCache.obtenerEstadisticas() }
     );
 
-    Logger.log('SISTEMA INICIALIZADO [INFO]XITOSAMENTE');
+    Logger.log('SISTEMA INICIALIZADO XITOSAMENTE');
     Logger.log('=== OPTIMIZACIONES ACTIVAS ===');
     Logger.log('   - Indices de alto rendimiento: ACTIVO');
     Logger.log('   - Compresion de respuestas: ACTIVO');
@@ -72,7 +72,7 @@ function inicializarSistema() {
     Logger.log('   - Auditoria completa: ACTIVO');
     Logger.log('   - Rate limiting: ACTIVO');
     Logger.log('   - Backup automatico: ACTIVO');
-    Logger.log('   - Metricas [INFO]n tiempo real: ACTIVO');
+    Logger.log('   - Metricas n tiempo real: ACTIVO');
 
     return {
       success: true,
@@ -82,24 +82,24 @@ function inicializarSistema() {
     };
 
   } catch (error) {
-    Logger.log('[ERROR]ERROR [INFO]N INICIALIZACIN: ' + [INFO]rror.message);
+    Logger.log('[ERROR]ERROR EN INICIALIZACION: ' + error.message);
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'SISTEMA',
-      'Error [INFO]n inicializacion del sistema',
-      { [INFO]rror: [INFO]rror.message }
+      'Error en inicializacion del sistema',
+      { error: error.message }
     );
 
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
  * Verifica la integridad del sistema
- * @returns {Object} [INFO]stado de integridad
+ * @returns {Object} stado de integridad
  */
 function verificarIntegridadSistema() {
   const integridad = {
@@ -114,7 +114,7 @@ function verificarIntegridadSistema() {
 
   try {
     // Verificar spreadsht
-    const ss = getSpreadsht();
+    const ss = getSpreadsheet();
     integridad.spreadsht = !!ss;
     if (integridad.spreadsht) integridad.total++;
 
@@ -122,7 +122,7 @@ function verificarIntegridadSistema() {
     if (ss) {
       const hojasRequeridas = ['CLIENTES', 'MOVIMIENTOS'];
       const hojasExistentes = hojasRequeridas.filter(nombre =>
-        ss.getShtByName(nombre) !== null
+        ss.getSheetByName(nombre) !== null
       );
       integridad.hojas = hojasExistentes.length === hojasRequeridas.length;
       if (integridad.hojas) integridad.total++;
@@ -137,12 +137,12 @@ function verificarIntegridadSistema() {
     if (integridad.backup) integridad.total++;
 
     // Verificar circuit breakers
-    const [INFO]stadosCB = CircuitBreaker.obtenerEstados();
+    const estadosCB = CircuitBreaker.obtenerEstados();
     integridad.circuitBreakers = Object.values(estadosCB).every(cb => cb.estado === 'CERRADO');
     if (integridad.circuitBreakers) integridad.total++;
 
   } catch (error) {
-    Logger.log('Error verificando integridad: ' + [INFO]rror.message);
+    Logger.log('Error verificando integridad: ' + error.message);
   }
 
   integridad.porcentaje = Math.round((integridad.total / integridad.maximo) * 100);
@@ -157,7 +157,7 @@ function verificarIntegridadSistema() {
 
 /**
  * Funcion obligatoria para servir la aplicacion web
- * Google Apps Script llama a [INFO]sta funcion cuando se accede a la URL de la app
+ * Google Apps Script llama a sta funcion cuando se accede a la URL de la app
  * @returns {HtmlOutput} Pagina HTML del sistema
  */
 function doGet() {
@@ -186,15 +186,15 @@ function diagnosticoSistema() {
   } catch (error) {
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message,
-      stack: [INFO]rror.stack
+      error: error.message,
+      stack: error.stack
     };
   }
 }
 
 /**
- * Funcion de prueba para verificar que [INFO]l sistema funciona
- * [INFO]jecutar desde [INFO]l [INFO]ditor para verificar que todo [INFO]ste OK
+ * Funcion de prueba para verificar que l sistema funciona
+ * jecutar desde l ditor para verificar que todo ste OK
  */
 function probarSistema() {
   Logger.log(' Iniciando prueba del sistema...');
@@ -228,16 +228,16 @@ function probarSistema() {
 
   } catch (error) {
     Logger.log('');
-    Logger.log('[ERROR]Error [INFO]n prueba: ' + [INFO]rror.message);
-    Logger.log('Stack: ' + [INFO]rror.stack);
+    Logger.log('[ERROR]Error en prueba: ' + error.message);
+    Logger.log('Stack: ' + error.stack);
     return null;
   }
 }
 
 /**
  * Funcion de inicializacion del sistema
- * [INFO]jecutar [INFO]sta funcion una vez desde [INFO]l [INFO]ditor de scripts para configurar [INFO]l sistema
- * Guarda [INFO]l ID del spreadsht para que funcione como Web App
+ * jecutar sta funcion una vez desde l ditor de scripts para configurar l sistema
+ * Guarda l ID del spreadsht para que funcione como Web App
  */
 function inicializarSistema() {
   Logger.log('INICIALIZANDO SISTEMA SOL & VERDE V18.1 CON OPTIMIZACIONES AVANZADAS');
@@ -245,8 +245,8 @@ function inicializarSistema() {
   try {
     // PASO 1: Verificar spreadsht
     Logger.log('Paso 1: Verificando spreadsht...');
-    const ss = getSpreadsht();
-    if (!ss) throw new [INFO]rror('No se pudo acceder al spreadsht');
+    const ss = getSpreadsheet();
+    if (!ss) throw new Error('No se pudo acceder al spreadsht');
 
     // PASO 2: Inicializar indices de alto rendimiento
     Logger.log('Paso 2: Inicializando indices de alto rendimiento...');
@@ -260,7 +260,7 @@ function inicializarSistema() {
     Logger.log('Paso 4: Verificando integridad del sistema...');
     const integridad = verificarIntegridadSistema();
 
-    // PASO 5: Registrar inicializacion [INFO]n auditoria
+    // PASO 5: Registrar inicializacion n auditoria
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.CONFIGURACION,
       'SISTEMA',
@@ -268,7 +268,7 @@ function inicializarSistema() {
       { indices: IndicesCache.obtenerEstadisticas() }
     );
 
-    Logger.log('SISTEMA INICIALIZADO [INFO]XITOSAMENTE');
+    Logger.log('SISTEMA INICIALIZADO XITOSAMENTE');
     Logger.log('=== OPTIMIZACIONES ACTIVAS ===');
     Logger.log('   - Indices de alto rendimiento: ACTIVO');
     Logger.log('   - Compresion de respuestas: ACTIVO');
@@ -276,7 +276,7 @@ function inicializarSistema() {
     Logger.log('   - Auditoria completa: ACTIVO');
     Logger.log('   - Rate limiting: ACTIVO');
     Logger.log('   - Backup automatico: ACTIVO');
-    Logger.log('   - Metricas [INFO]n tiempo real: ACTIVO');
+    Logger.log('   - Metricas n tiempo real: ACTIVO');
 
     return {
       success: true,
@@ -286,17 +286,17 @@ function inicializarSistema() {
     };
 
   } catch (error) {
-    Logger.log('[ERROR]ERROR [INFO]N INICIALIZACIN: ' + [INFO]rror.message);
+    Logger.log('[ERROR]ERROR EN INICIALIZACION: ' + error.message);
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'SISTEMA',
-      'Error [INFO]n inicializacion del sistema',
-      { [INFO]rror: [INFO]rror.message }
+      'Error en inicializacion del sistema',
+      { error: error.message }
     );
 
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
@@ -307,35 +307,35 @@ function inicializarSistema() {
 // ============================================================================
 
 const CONFIG = {
-  // Nombres de hojas [INFO]n Google Shts
+  // Nombres de hojas n Google Shts
   HOJAS: {
     CLIENTES: 'CLIENTES',
     MOVIMIENTOS: 'MOVIMIENTOS'
   },
 
-  // ndices de columnas [INFO]n hoja CLIENTES (base 0)
+  // ndices de columnas n hoja CLIENTES (base 0)
   COLS_CLIENTES: {
     NOMBRE: 0,      // A: String, UPPERCASE, PK
     TEL: 1,         // B: String
-    [INFO]MAIL: 2,       // C: String
+    email: 2,       // C: String
     LIMITE: 3,      // D: Number (default: 100000)
-    SALDO: 4,       // [INFO]: Number (calculado automatico)
+    SALDO: 4,       // : Number (calculado automatico)
     TOTAL_MOVS: 5,  // F: Number (contador)
     ALTA: 6,        // G: Date
     ULTIMO_MOV: 7,  // H: Date
     OBS: 8          // I: String
   },
 
-  // ndices de columnas [INFO]n hoja MOVIMIENTOS (base 0)
+  // ndices de columnas n hoja MOVIMIENTOS (base 0)
   COLS_MOVS: {
     ID: 0,          // A: Number autoincremental, PK
     FECHA: 1,       // B: Date ISO
     CLIENTE: 2,     // C: String, UPPERCASE, FK
     TIPO: 3,        // D: "DEBE" | "HABER"
-    MONTO: 4,       // [INFO]: Number positivo
+    MONTO: 4,       // : Number positivo
     SALDO_POST: 5,  // F: Number (saldo despues del movimiento)
     OBS: 6,         // G: String
-    USUARIO: 7      // H: [INFO]mail (auditoria)
+    USUARIO: 7      // H: email (auditoria)
   },
 
   // Tipos de movimiento validos
@@ -356,7 +356,7 @@ const CONFIG = {
   FUZZY: {
     MIN_SCORE: 65,           // Score minimo para considerar match
     MAX_SUGERENCIAS: 5,      // Maximo de sugerencias a devolver
-    PESO_EXACTO: 100,        // Peso para match [INFO]xacto
+    PESO_EXACTO: 100,        // Peso para match xacto
     PESO_COMIENZA: 85,       // Peso para "comienza con"
     PESO_CONTIENE: 70,       // Peso para "contiene"
     PESO_LEVENSHTEIN: 50     // Peso base para distancia Levenshtein
@@ -370,7 +370,7 @@ const CONFIG = {
   // Configuracion de cache
   CACHE: {
     CLIENTES_TTL: 60,        // Segundos de cache para clientes
-    [INFO]NABLED: true             // Habilitar/deshabilitar cache
+    ENABLED: true             // Habilitar/deshabilitar cache
   },
 
   // Configuracion de paginacion
@@ -381,7 +381,7 @@ const CONFIG = {
 
   // Configuracion de logging
   LOGGING: {
-    [INFO]NABLED: false,          // Deshabilitar logging verbose [INFO]n produccion
+    ENABLED: false,          // Deshabilitar logging verbose n produccion
     DEBUG_MODE: false        // Modo debug solo para desarrollo
   }
 };
@@ -392,7 +392,7 @@ const CONFIG = {
 // ============================================================================
 
 /**
- * Helper para logging condicional basado [INFO]n configuracion
+ * Helper para logging condicional basado n configuracion
  * @param {string} mensaje - Mensaje a loggear
  * @param {string} nivel - Nivel: 'info', 'debug', 'error'
  */
@@ -404,61 +404,61 @@ function log(mensaje, nivel = 'info') {
 }
 
 /**
- * Obtiene [INFO]l spreadsht de forma robusta
- * Usa getActive() pero con manejo de [INFO]rrores y cache
- * @returns {Spreadsht} [INFO]l spreadsht activo
+ * Obtiene l spreadsht de forma robusta
+ * Usa getActive() pero con manejo de errores y cache
+ * @returns {Spreadsht} l spreadsht activo
  */
-function getSpreadsht() {
-  log(' getSpreadsht() - Inicio', 'debug');
+function getSpreadsheet() {
+  log(' getSpreadsheet() - Inicio', 'debug');
 
   try {
-    // Primero intentar obtener [INFO]l ID guardado [INFO]n propiedades
-    log('  [INFO] Intentando obtener propiedades del script...', 'debug');
+    // Primero intentar obtener l ID guardado n propiedades
+    log('   Intentando obtener propiedades del script...', 'debug');
     const propiedades = PropertiesService.getScriptProperties();
     log('  [OK] Propiedades obtenidas correctamente', 'debug');
 
     let spreadshtId = propiedades.getProperty('SPREADSHT_ID');
-    log('  [INFO]Spreadsht ID guardado: ' + (spreadshtId || 'ninguno'), 'debug');
+    log('  Spreadsht ID guardado: ' + (spreadshtId || 'ninguno'), 'debug');
 
     // Si hay ID guardado, intentar abrir por ID
     if (spreadshtId) {
       try {
-        log('  [INFO]Intentando abrir spreadsht por ID: ' + spreadshtId, 'debug');
-        const ss = SpreadshtApp.openById(spreadshtId);
-        log('  [OK]Spreadsht abierto [INFO]xitosamente por ID', 'debug');
-        log('  [INFO]Nombre: ' + ss.getName(), 'debug');
+        log('  Intentando abrir spreadsht por ID: ' + spreadshtId, 'debug');
+        const ss = SpreadsheetApp.openById(spreadshtId);
+        log('  [OK]Spreadsht abierto xitosamente por ID', 'debug');
+        log('  Nombre: ' + ss.getName(), 'debug');
         return ss;
       } catch (errorId) {
-        log('  [INFO]rror al abrir por ID: ' + [INFO]rrorId.message, 'debug');
-        log('  [INFO]Continuando con getActiveSpreadsht()...', 'debug');
+        log('  error al abrir por ID: ' + errorId.message, 'debug');
+        log('  Continuando con getActiveSpreadsheet()...', 'debug');
       }
-    } [INFO]lse {
-      log('  [INFO]No hay ID guardado, intentando getActiveSpreadsht()...', 'debug');
+    } else {
+      log('  No hay ID guardado, intentando getActiveSpreadsheet()...', 'debug');
     }
 
-    // Intentar obtener [INFO]l spreadsht activo
-    log('  [INFO]Llamando a getActiveSpreadsht()...', 'debug');
-    const ss = SpreadshtApp.getActiveSpreadsht();
+    // Intentar obtener el spreadsheet activo
+    log('  Llamando a getActiveSpreadsheet()...', 'debug');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     if (!ss) {
-      log('  [ERROR]getActiveSpreadsht() retornon null', 'error');
-      throw new [INFO]rror('No se pudo obtener [INFO]l spreadsht activo');
+      log('  [ERROR]getActiveSpreadsheet() retorno null', 'error');
+      throw new Error('No se pudo obtener el spreadsheet activo');
     }
 
-    log('  [OK]Spreadsht activo obtenido', 'debug');
+    log('  [OK]Spreadsheet activo obtenido', 'debug');
 
-    // Si se obtuvo [INFO]xitosamente, guardar su ID para futuros usos
+    // Si se obtuvo xitosamente, guardar su ID para futuros usos
     spreadshtId = ss.getId();
-    log('  [INFO]Guardando ID: ' + spreadshtId, 'debug');
+    log('  Guardando ID: ' + spreadshtId, 'debug');
     propiedades.setProperty('SPREADSHT_ID', spreadshtId);
-    log('  [OK]ID guardado [INFO]n propiedades', 'debug');
+    log('  [OK]ID guardado n propiedades', 'debug');
 
     return ss;
   } catch (error) {
-    log('[ERROR]ERROR CRTICO [INFO]n getSpreadsht():', 'error');
-    log('   Mensaje: ' + [INFO]rror.message, 'error');
-    log('   Stack: ' + [INFO]rror.stack, 'error');
-    throw new [INFO]rror('No se pudo acceder a la base de datos. Por favor, [INFO]jecute la funcion inicializarSistema() desde [INFO]l [INFO]ditor de scripts.');
+    log('[ERROR]ERROR CRTICO n getSpreadsheet():', 'error');
+    log('   Mensaje: ' + error.message, 'error');
+    log('   Stack: ' + error.stack, 'error');
+    throw new Error('No se pudo acceder a la base de datos. Por favor, jecute la funcion inicializarSistema() desde l ditor de scripts.');
   }
 }
 
@@ -466,7 +466,7 @@ function getSpreadsht() {
  * Convierte objetos Date a strings ISO para serializacion Web
  * Procesa recursivamente objetos y arrays para asegurar que
  * todos los Date objects se conviertan a strings antes de
- * [INFO]nviarlos a traves de google.script.run
+ * nviarlos a traves de google.script.run
  *
  * @param {*} obj - Objeto a procesar (puede ser cualquier tipo)
  * @returns {*} Objeto con fechas convertidas a strings ISO
@@ -508,19 +508,19 @@ function serializarParaWeb(obj) {
 // ============================================================================
 
 /**
- * Calcula la distancia de Levenshtein [INFO]ntre dos strings
- * Optimizado con [INFO]arly termination para busquedas fuzzy
+ * Calcula la distancia de Levenshtein ntre dos strings
+ * Optimizado con arly termination para busquedas fuzzy
  * @param {string} a - Primer string
  * @param {string} b - Segundo string
  * @param {number} maxDistance - Distancia maxima antes de abandonar (opcional)
- * @returns {number} Distancia de Levenshtein (o maxDistance+1 si [INFO]xcede)
+ * @returns {number} Distancia de Levenshtein (o maxDistance+1 si xcede)
  */
 function levenshteinDistance(a, b, maxDistance = Infinity) {
   // Caso base: strings vacios
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
   
-  // Optimizacion: si la diferencia de longitud ya [INFO]xcede maxDistance, retornar temprano
+  // Optimizacion: si la diferencia de longitud ya xcede maxDistance, retornar temprano
   const lengthDiff = Math.abs(a.length - b.length);
   if (lengthDiff > maxDistance) {
     return maxDistance + 1;
@@ -536,25 +536,25 @@ function levenshteinDistance(a, b, maxDistance = Infinity) {
     matrix[0][j] = j;
   }
 
-  // Llenar matriz con [INFO]arly termination
+  // Llenar matriz con arly termination
   for (let i = 1; i <= b.length; i++) {
     let minInRow = Infinity;
     
     for (let j = 1; j <= a.length; j++) {
       if (b.charAt(i - 1) === a.charAt(j - 1)) {
         matrix[i][j] = matrix[i - 1][j - 1];
-      } [INFO]lse {
+      } else {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1, // Sustitucion
           matrix[i][j - 1] + 1,     // Insercion
-          matrix[i - 1][j] + 1      // [INFO]liminacion
+          matrix[i - 1][j] + 1      // liminacion
         );
       }
       
       minInRow = Math.min(minInRow, matrix[i][j]);
     }
     
-    // [INFO]arly termination: si [INFO]l minimo [INFO]n [INFO]sta fila [INFO]xcede maxDistance, no hay match posible
+    // arly termination: si l minimo n sta fila xcede maxDistance, no hay match posible
     if (minInRow > maxDistance) {
       return maxDistance + 1;
     }
@@ -564,14 +564,14 @@ function levenshteinDistance(a, b, maxDistance = Infinity) {
 }
 
 /**
- * Calcula un score de similitud fuzzy [INFO]ntre dos strings
- * Optimizado con [INFO]arly returns
+ * Calcula un score de similitud fuzzy ntre dos strings
+ * Optimizado con arly returns
  * @param {string} busqueda - String de busqueda (normalizado)
  * @param {string} candidato - String candidato (normalizado)
  * @returns {number} Score de 0-100
  */
 function calcularScoreFuzzy(busqueda, candidato) {
-  // Match [INFO]xacto - retornar inmediatamente
+  // Match xacto - retornar inmediatamente
   if (busqueda === candidato) {
     return CONFIG.FUZZY.PESO_EXACTO;
   }
@@ -589,12 +589,12 @@ function calcularScoreFuzzy(busqueda, candidato) {
   // Distancia Levenshtein solo si los anteriores fallaron
   const maxLen = Math.max(busqueda.length, candidato.length);
   
-  // Calcular distancia maxima aceptable basada [INFO]n MIN_SCORE
+  // Calcular distancia maxima aceptable basada n MIN_SCORE
   const maxDistanceAllowed = Math.floor(maxLen * (1 - CONFIG.FUZZY.MIN_SCORE / 100));
   
   const distancia = levenshteinDistance(busqueda, candidato, maxDistanceAllowed);
   
-  // Si [INFO]xcede la distancia maxima, retornar score bajo
+  // Si xcede la distancia maxima, retornar score bajo
   if (distancia > maxDistanceAllowed) {
     return 0;
   }
@@ -605,7 +605,7 @@ function calcularScoreFuzzy(busqueda, candidato) {
 }
 
 /**
- * Normaliza un string para comparacion (mayusculas, sin [INFO]spacios [INFO]xtras)
+ * Normaliza un string para comparacion (mayusculas, sin spacios extras)
  * @param {string} str - String a normalizar
  * @returns {string} String normalizado
  */
@@ -617,9 +617,9 @@ function normalizarString(str) {
 /**
  * Valida que un tipo de movimiento sea valido
  * @param {string} tipo - Tipo a validar
- * @returns {boolean} True si [INFO]s valido
+ * @returns {boolean} True si s valido
  */
-function [INFO]stipoMovimientoValido(tipo) {
+function esTipoMovimientoValido(tipo) {
   return tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE ||
          tipo === CONFIG.TIPOS_MOVIMIENTO.HABER;
 }
@@ -627,16 +627,16 @@ function [INFO]stipoMovimientoValido(tipo) {
 /**
  * Valida que un monto sea positivo
  * @param {number} monto - Monto a validar
- * @returns {boolean} True si [INFO]s valido
+ * @returns {boolean} True si s valido
  */
-function [INFO]sMontoValido(monto) {
+function esMontoValido(monto) {
   return typeof monto === 'number' && monto > 0 && isFinite(monto);
 }
 
 /**
- * Valida y convierte una fecha de [INFO]ntrada
+ * Valida y convierte una fecha de ntrada
  * @param {string|Date} fecha - Fecha a validar
- * @returns {Date|null} Objeto Date valido o null si [INFO]s invalido
+ * @returns {Date|null} Objeto Date valido o null si s invalido
  */
 function validarFecha(fecha) {
   if (!fecha) return null;
@@ -644,13 +644,13 @@ function validarFecha(fecha) {
   try {
     const fechaObj = fecha instanceof Date ? fecha : new Date(fecha);
     
-    // Verificar si la fecha [INFO]s valida
+    // Verificar si la fecha s valida
     if (isNaN(fechaObj.getTime())) {
       log('Fecha invalida: ' + fecha, 'error');
       return null;
     }
     
-    // Verificar que la fecha [INFO]ste [INFO]n un rango razonable (1900-2100)
+    // Verificar que la fecha ste n un rango razonable (1900-2100)
     const year = fechaObj.getFullYear();
     if (year < 1900 || year > 2100) {
       log('Aoo fuera de rango: ' + year, 'error');
@@ -659,7 +659,7 @@ function validarFecha(fecha) {
     
     return fechaObj;
   } catch (error) {
-    log('[ERROR]Error al validar fecha: ' + [INFO]rror.message, 'error');
+    log('[ERROR]Error al validar fecha: ' + error.message, 'error');
     return null;
   }
 }
@@ -667,44 +667,44 @@ function validarFecha(fecha) {
 /**
  * Valida un objeto de movimiento completo
  * @param {Object} mov - Objeto movimiento
- * @returns {Object} {valid: boolean, [INFO]rrors: Array}
+ * @returns {Object} {valid: boolean, errors: Array}
  */
 function validarMovimiento(mov) {
-  const [INFO]rrors = [];
+  const errors = [];
   
   if (!mov.cliente || typeof mov.cliente !== 'string' || mov.cliente.trim() === '') {
-    [INFO]rrors.push('Cliente [INFO]s requerido');
+    errors.push('Cliente es requerido');
   }
   
-  if (!estipoMovimientoValido(mov.tipo)) {
-    [INFO]rrors.push('Tipo de movimiento invalido (debe ser DEBE o HABER)');
+  if (!esTipoMovimientoValido(mov.tipo)) {
+    errors.push('Tipo de movimiento invalido (debe ser DEBE o HABER)');
   }
   
   if (!esMontoValido(mov.monto)) {
-    [INFO]rrors.push('Monto invalido (debe ser un numero positivo)');
+    errors.push('Monto invalido (debe ser un numero positivo)');
   }
   
   const fechaVal = validarFecha(mov.fecha);
   if (!fechaVal) {
-    [INFO]rrors.push('Fecha invalida');
+    errors.push('Fecha invalida');
   }
   
   return {
-    valid: [INFO]rrors.length === 0,
-    [INFO]rrors: [INFO]rrors
+    valid: errors.length === 0,
+    errors: errors
   };
 }
 
 
 // ============================================================================
-// 3. CLIENTES REPOSITORY (Implementado [INFO]n clientes.gs)
+// 3. CLIENTES REPOSITORY (Implementado n clientes.gs)
 // ============================================================================
 
 // ClientesRepository se importa desde clientes.gs
 
 
 // ============================================================================
-// 4. MOVIMIENTOS REPOSITORY (Implementado [INFO]n movimientos.gs)
+// 4. MOVIMIENTOS REPOSITORY (Implementado n movimientos.gs)
 // ============================================================================
 
 // MovimientosRepository se importa desde movimientos.gs
@@ -714,11 +714,11 @@ function validarMovimiento(mov) {
 // 5. SISTEMAS DE OPTIMIZACION AVANZADA
 // ============================================================================
 
-// Los sistemas de optimizacion se implementan [INFO]n indices_cache.gs
+// Los sistemas de optimizacion se implementan n indices_cache.gs
 
 
 // ============================================================================
-// 6. API PUBLICA - 12 FUNCIONES [INFO]XPUESTAS AL HTML
+// 6. API PUBLICA - 12 FUNCIONES XPUESTAS AL HTML
 // ============================================================================
 
 /**
@@ -762,10 +762,10 @@ function obtenerPorCliente(nombreCliente) {
   }
 
   /**
-   * [INFO]limina todos los movimientos de un cliente
+   * limina todos los movimientos de un cliente
    * @param {string} nombreCliente - Nombre del cliente
    */
-  function [INFO]liminarPorCliente(nombreCliente) {
+  function liminarPorCliente(nombreCliente) {
     const nombreNorm = normalizarString(nombreCliente);
     const hoja = MovimientosRepository.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -780,7 +780,7 @@ function obtenerPorCliente(nombreCliente) {
   }
 
   /**
-   * Obtiene movimientos [INFO]n un rango de fechas
+   * Obtiene movimientos n un rango de fechas
    * @param {Date} desde - Fecha inicio
    * @param {Date} hasta - Fecha fin
    * @returns {Array<Object>} Array de movimientos
@@ -828,7 +828,7 @@ function obtenerPorCliente(nombreCliente) {
 // ============================================================================
 
 /**
- * Configuracion [INFO]specifica para Recaudacion
+ * Configuracion specifica para Recaudacion
  */
 const RECAUDACION_CONFIG = {
   HOJA: 'RECAUDACION_EFECTIVO',
@@ -841,10 +841,10 @@ const RECAUDACION_CONFIG = {
     OBS: 5,
     USUARIO: 6,
     TIMESTAMP: 7,
-    [INFO]STADO: 8
+    STADO: 8
   },
   FORMAS_PAGO: ['EFECTIVO', 'CHEQUE', 'TRANSFERENCIA', 'TARJETA', 'OTRO'],
-  [INFO]STADOS: ['REGISTRADO', 'DEPOSITADO', 'CONCILIADO']
+  STADOS: ['REGISTRADO', 'DEPOSITADO', 'CONCILIADO']
 };
 
 const RecaudacionRepository = {
@@ -852,11 +852,11 @@ const RecaudacionRepository = {
    * Obtiene o crea la hoja RECAUDACION_EFECTIVO
    */
   getHoja: function() {
-    const ss = getSpreadsht();
-    let hoja = ss.getShtByName(RECAUDACION_CONFIG.HOJA);
+    const ss = getSpreadsheet();
+    let hoja = ss.getSheetByName(RECAUDACION_CONFIG.HOJA);
 
     if (!hoja) {
-      hoja = ss.insertSht(RECAUDACION_CONFIG.HOJA);
+      hoja = ss.insertSheet(RECAUDACION_CONFIG.HOJA);
       hoja.appendRow([
         'ID', 'FECHA', 'CLIENTE', 'MONTO', 'FORMA_PAGO',
         'OBS', 'USUARIO', 'TIMESTAMP', 'ESTADO'
@@ -901,20 +901,20 @@ const RecaudacionRepository = {
       // Validaciones
       const clienteNorm = normalizarString(recaudacionData.cliente);
       if (!clienteNorm) {
-        throw new [INFO]rror('Cliente requerido');
+        throw new Error('Cliente requerido');
       }
 
       if (!ClientesRepository.buscarPorNombre(clienteNorm)) {
-        throw new [INFO]rror(`Cliente "${clienteNorm}" no [INFO]ncontrado`);
+        throw new Error(`Cliente "${clienteNorm}" no ncontrado`);
       }
 
       if (!recaudacionData.monto || recaudacionData.monto <= 0) {
-        throw new [INFO]rror('Monto debe ser positivo');
+        throw new Error('Monto debe ser positivo');
       }
 
       const formaPago = String(recaudacionData.forma_pago || 'EFECTIVO').toUpperCase();
       if (!RECAUDACION_CONFIG.FORMAS_PAGO.includes(formaPago)) {
-        throw new [INFO]rror('Forma de pago invalida');
+        throw new Error('Forma de pago invalida');
       }
 
       // Registrar recaudacion
@@ -947,12 +947,12 @@ const RecaudacionRepository = {
         forma_pago: formaPago,
         obs: recaudacionData.obs || '',
         usuario: usuario,
-        [INFO]stado: 'REGISTRADO'
+        stado: 'REGISTRADO'
       };
 
     } catch (error) {
       lock.releaseLock();
-      throw [INFO]rror;
+      throw error;
     }
   },
 
@@ -981,7 +981,7 @@ const RecaudacionRepository = {
           obs: datos[i][RECAUDACION_CONFIG.COLS.OBS] || '',
           usuario: datos[i][RECAUDACION_CONFIG.COLS.USUARIO] || '',
           timestamp: datos[i][RECAUDACION_CONFIG.COLS.TIMESTAMP],
-          [INFO]stado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
+          stado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
         });
       }
     }
@@ -990,7 +990,7 @@ const RecaudacionRepository = {
   },
 
   /**
-   * Obtiene recaudaciones [INFO]n rango de fechas
+   * Obtiene recaudaciones n rango de fechas
    */
   obtenerPorRango: function(desde, hasta) {
     const hoja = this.getHoja();
@@ -1017,7 +1017,7 @@ const RecaudacionRepository = {
           forma_pago: datos[i][RECAUDACION_CONFIG.COLS.FORMA_PAGO],
           obs: datos[i][RECAUDACION_CONFIG.COLS.OBS] || '',
           usuario: datos[i][RECAUDACION_CONFIG.COLS.USUARIO] || '',
-          [INFO]stado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
+          stado: datos[i][RECAUDACION_CONFIG.COLS.ESTADO]
         });
       }
     }
@@ -1054,16 +1054,16 @@ const RecaudacionRepository = {
 
 
 // ============================================================================
-// 6. API PUBLICA - 12 FUNCIONES [INFO]XPUESTAS AL HTML
+// 6. API PUBLICA - 12 FUNCIONES XPUESTAS AL HTML
 // ============================================================================
 
 /**
- * API 1: Obtiene datos iniciales para [INFO]l dashboard (clientes + movimientos recientes)
+ * API 1: Obtiene datos iniciales para l dashboard (clientes + movimientos recientes)
  * @returns {Object} {clientes: Array, movimientos: Array}
  */
 /**
  * API 1 OPTIMIZADA V18.1: Obtiene datos principales para la interfaz HTML
- * [INFO][INFO] 10x mas rapido con indices, compresion de respuestas, auditoria completa
+ *  10x mas rapido con indices, compresion de respuestas, auditoria completa
  * @returns {Object} Datos serializados y comprimidos
  */
 function obtenerDatosParaHTML() {
@@ -1072,17 +1072,17 @@ function obtenerDatosParaHTML() {
 
   // Verificar rate limiting
   if (!RateLimiter.verificarLimite('obtenerDatosParaHTML', usuario)) {
-    const [INFO]rror = 'Rate limit [INFO]xcedido. Demasiadas solicitudes.';
-    MetricasSistema.registrarError('RATE_LIMIT', [INFO]rror);
+    const error = 'Rate limit xcedido. Demasiadas solicitudes.';
+    MetricasSistema.registrarError('RATE_LIMIT', error);
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'API',
-      'Rate limit [INFO]xcedido [INFO]n obtenerDatosParaHTML',
+      'Rate limit xcedido n obtenerDatosParaHTML',
       { usuario: usuario }
     );
     return ResponseCompressor.comprimirRespuesta({
       success: false,
-      [INFO]rror: [INFO]rror,
+      error: error,
       clientes: [],
       movimientos: []
     });
@@ -1092,13 +1092,13 @@ function obtenerDatosParaHTML() {
   // para garantizar que SIEMPRE se retorne algo valido
   const respuestaDefault = {
     success: false,
-    [INFO]rror: 'Error inesperado - funcion no completada',
+    error: 'Error inesperado - funcion no completada',
     clientes: [],
     movimientos: []
   };
 
   try {
-    // Registrar operacion [INFO]n auditoria
+    // Registrar operacion n auditoria
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.LECTURA,
       'API',
@@ -1106,19 +1106,19 @@ function obtenerDatosParaHTML() {
       { usuario: usuario }
     );
 
-    log('[INFO]', 'debug');
-    log('[INFO] obtenerDatosParaHTML V18.1 - INICIO (OPTIMIZADO)', 'debug');
+    log('', 'debug');
+    log(' obtenerDatosParaHTML V18.1 - INICIO (OPTIMIZADO)', 'debug');
     log('Usuario: ' + usuario, 'debug');
-    log('[INFO]', 'debug');
+    log('', 'debug');
 
     // PASO 1: Verificar indices y reconstruir si necesario
     if (!IndicesCache.indicesValidos()) {
-      log('[INFO] Indices no validos, reconstruyendo...', 'debug');
+      log(' Indices no validos, reconstruyendo...', 'debug');
       IndicesCache.reconstruirIndices();
     }
 
     // PASO 2: Obtener datos usando indices de alto rendimiento
-    log('[INFO] Obteniendo datos con indices optimizados...', 'debug');
+    log(' Obteniendo datos con indices optimizados...', 'debug');
     const pageSize = CONFIG.PAGINATION.DEFAULT_PAGE_SIZE;
 
     // Usar indices para obtener clientes (10x mas rapido)
@@ -1146,7 +1146,7 @@ function obtenerDatosParaHTML() {
 
     log(`[OK]Datos obtenidos con indices: ${clientes.length} clientes, ${movimientos.length} movimientos`, 'debug');
 
-    // PASO 3: Obtener [INFO]stadisticas del sistema
+    // PASO 3: Obtener stadisticas del sistema
     const statsIndices = IndicesCache.obtenerEstadisticas();
     const metricas = MetricasSistema.obtenerMetricas();
 
@@ -1164,12 +1164,12 @@ function obtenerDatosParaHTML() {
       }
     };
 
-    log('E, 'debug');
-    log('[OK]obtenerDatosParaHTML V18.1 - XITO', 'debug');
-    log(`   [INFO][INFO] Rendimiento: ${Date.now() - startTime}ms`, 'debug');
+    log('[INFO]', 'debug');
+    log('[OK]obtenerDatosParaHTML V18.1 - EXITO', 'debug');
+    log(`    Rendimiento: ${Date.now() - startTime}ms`, 'debug');
     log(`    ndices: ${statsIndices.clientesIndexados} clientes, ${statsIndices.movimientosIndexados} movimientos`, 'debug');
     log(`    Memoria: ${statsIndices.memoriaEstimada}`, 'debug');
-    log('E, 'debug');
+    log('[INFO]', 'debug');
 
     // Registrar metricas
     MetricasSistema.registrarRequest('obtenerDatosParaHTML', Date.now() - startTime, true);
@@ -1179,36 +1179,36 @@ function obtenerDatosParaHTML() {
     return respuestaComprimida;
 
   } catch (error) {
-    // Registrar [INFO]rror [INFO]n metricas y auditoria
-    MetricasSistema.registrarError('API_ERROR', [INFO]rror.message);
+    // Registrar error n metricas y auditoria
+    MetricasSistema.registrarError('API_ERROR', error.message);
     MetricasSistema.registrarRequest('obtenerDatosParaHTML', Date.now() - startTime, false);
 
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'API',
-      'Error [INFO]n obtenerDatosParaHTML',
+      'Error n obtenerDatosParaHTML',
       {
         usuario: usuario,
-        [INFO]rror: [INFO]rror.message,
-        stack: [INFO]rror.stack
+        error: error.message,
+        stack: error.stack
       }
     );
 
-    log('E, 'error');
-    log('[ERROR]ERROR CAPTURADO [INFO]n obtenerDatosParaHTML V18.1', 'error');
+    log('[INFO]', 'error');
+    log('[ERROR]ERROR CAPTURADO en obtenerDatosParaHTML V18.1', 'error');
     log('Mensaje: ' + (error.message || 'Sin mensaje'), 'error');
     log('Stack: ' + (error.stack || 'Sin stack'), 'error');
-    log('E, 'error');
+    log('[INFO]', 'error');
 
-    // Verificar si [INFO]s [INFO]rror de acceso a base de datos
-    let mensajrror = [INFO]rror.message || 'Error desconocido';
-    if (mensajrror.includes('No se pudo acceder a la base de datos')) {
-      mensajrror = 'Sistema no inicializado. [INFO]jecute la funcion "inicializarSistema()" desde [INFO]l [INFO]ditor de scripts (Extensiones > Apps Script).';
+    // Verificar si es error de acceso a base de datos
+    let mensajeError = error.message || 'Error desconocido';
+    if (mensajeError.includes('No se pudo acceder a la base de datos')) {
+      mensajeError = 'Sistema no inicializado. Ejecute la funcion "inicializarSistema()" desde el editor de scripts (Extensiones > Apps Script).';
     }
 
     const resultadoError = {
       success: false,
-      [INFO]rror: mensajrror,
+      error: mensajeError,
       clientes: [],
       movimientos: []
     };
@@ -1227,7 +1227,7 @@ function obtenerDatosCompletoCliente(nombreCliente) {
     const resultado = ClientesRepository.buscarPorNombre(nombreCliente);
 
     if (!resultado) {
-      throw new [INFO]rror(`Cliente "${nombreCliente}" no [INFO]ncontrado`);
+      throw new Error(`Cliente "${nombreCliente}" no ncontrado`);
     }
 
     const movimientos = MovimientosRepository.obtenerPorCliente(nombreCliente);
@@ -1238,19 +1238,19 @@ function obtenerDatosCompletoCliente(nombreCliente) {
       movimientos: movimientos
     };
   } catch (error) {
-    log('Error [INFO]n obtenerDatosCompletoCliente: ' + [INFO]rror.message, 'error');
+    log('Error n obtenerDatosCompletoCliente: ' + error.message, 'error');
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
- * API 3: Obtiene [INFO]stadisticas para [INFO]l dashboard
+ * API 3: Obtiene stadisticas para l dashboard
  * @param {string} desde - Fecha inicio (ISO string)
  * @param {string} hasta - Fecha fin (ISO string)
- * @returns {Object} [INFO]stadisticas completas
+ * @returns {Object} stadisticas completas
  */
 function obtenerEstadisticas(desde, hasta) {
   try {
@@ -1271,7 +1271,7 @@ function obtenerEstadisticas(desde, hasta) {
     movimientos.forEach(mov => {
       if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
         totalDebe += mov.monto;
-      } [INFO]lse {
+      } else {
         totalHaber += mov.monto;
       }
       clientesConMovimientos.add(mov.cliente);
@@ -1287,7 +1287,7 @@ function obtenerEstadisticas(desde, hasta) {
       if (cliente.saldo > 0) {
         saldoPositivo += cliente.saldo;
         clientesConSaldoPositivo++;
-      } [INFO]lse if (cliente.saldo < 0) {
+      } else if (cliente.saldo < 0) {
         saldoNegativo += Math.abs(cliente.saldo);
         clientesConSaldoNegativo++;
       }
@@ -1307,26 +1307,26 @@ function obtenerEstadisticas(desde, hasta) {
       .slice(0, 10)
       .map(([nombre, cantidad]) => ({ nombre, cantidad }));
 
-    // [INFO]volucion diaria
-    const [INFO]volucionDiaria = {};
+    // volucion diaria
+    const evolucionDiaria = {};
     movimientos.forEach(mov => {
       const fecha = new Date(mov.fecha);
       const fechaKey = fecha.toISOString().split('T')[0];
 
       if (!evolucionDiaria[fechaKey]) {
-        [INFO]volucionDiaria[fechaKey] = { debe: 0, haber: 0 };
+        evolucionDiaria[fechaKey] = { debe: 0, haber: 0 };
       }
 
       if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
-        [INFO]volucionDiaria[fechaKey].debe += mov.monto;
-      } [INFO]lse {
-        [INFO]volucionDiaria[fechaKey].haber += mov.monto;
+        evolucionDiaria[fechaKey].debe += mov.monto;
+      } else {
+        evolucionDiaria[fechaKey].haber += mov.monto;
       }
     });
 
     return {
       success: true,
-      [INFO]stadisticas: {
+      stadisticas: {
         totalClientes: clientes.length,
         clientesActivos: clientesConMovimientos.size,
         totalMovimientos: totalMovimientos,
@@ -1338,20 +1338,20 @@ function obtenerEstadisticas(desde, hasta) {
         clientesConSaldoPositivo: clientesConSaldoPositivo,
         clientesConSaldoNegativo: clientesConSaldoNegativo,
         clientesMasActivos: clientesMasActivos,
-        [INFO]volucionDiaria: [INFO]volucionDiaria
+        evolucionDiaria: evolucionDiaria
       }
     };
   } catch (error) {
-    Logger.log('Error [INFO]n obtenerEstadisticas: ' + [INFO]rror.message);
+    Logger.log('Error n obtenerEstadisticas: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
- * API 4: Verifica si la API Key de Claude [INFO]sta presente
+ * API 4: Verifica si la API Key de Claude sta presente
  * @returns {Object} {presente: boolean}
  */
 function verificarApiKeyPresente() {
@@ -1364,10 +1364,10 @@ function verificarApiKeyPresente() {
       configurada: !!apiKey
     };
   } catch (error) {
-    Logger.log('Error [INFO]n verificarApiKeyPresente: ' + [INFO]rror.message);
+    Logger.log('Error n verificarApiKeyPresente: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
@@ -1385,7 +1385,7 @@ function obtenerResumenMovimientosPorCliente() {
     // Crear mapa para almacenar resumen por cliente
     const resumenPorCliente = {};
     
-    // Inicializar todos los clientes con valores [INFO]n 0
+    // Inicializar todos los clientes con valores n 0
     todosClientes.forEach(cliente => {
       const nombreNorm = normalizarString(cliente.nombre);
       resumenPorCliente[nombreNorm] = {
@@ -1396,7 +1396,7 @@ function obtenerResumenMovimientosPorCliente() {
       };
     });
     
-    // Procesar todos los movimientos (saltar [INFO]ncabezado)
+    // Procesar todos los movimientos (saltar ncabezado)
     for (let i = 1; i < datos.length; i++) {
       const fila = datos[i];
       const clienteNorm = normalizarString(fila[CONFIG.COLS_MOVS.CLIENTE]);
@@ -1406,7 +1406,7 @@ function obtenerResumenMovimientosPorCliente() {
       if (resumenPorCliente[clienteNorm]) {
         if (tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
           resumenPorCliente[clienteNorm].totalDebe += monto;
-        } [INFO]lse if (tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) {
+        } else if (tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) {
           resumenPorCliente[clienteNorm].totalHaber += monto;
         }
       }
@@ -1420,10 +1420,10 @@ function obtenerResumenMovimientosPorCliente() {
       clientesResumen: clientesResumen
     };
   } catch (error) {
-    Logger.log('Error [INFO]n obtenerResumenMovimientosPorCliente: ' + [INFO]rror.message);
+    Logger.log('Error n obtenerResumenMovimientosPorCliente: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message,
+      error: error.message,
       clientesResumen: []
     };
   }
@@ -1431,7 +1431,7 @@ function obtenerResumenMovimientosPorCliente() {
 
 /**
  * API 5: Fuzzy matching para buscar clientes con sugerencias
- * Optimizado para [INFO]arly termination
+ * Optimizado para arly termination
  * @param {string} nombre - Nombre a buscar
  * @returns {Object} {sugerencias: Array}
  */
@@ -1449,7 +1449,7 @@ function rematchearNombreConSugerencias(nombre) {
     const clientes = ClientesRepository.obtenerTodos();
     const sugerencias = [];
 
-    // Calcular score para cada cliente con [INFO]arly termination
+    // Calcular score para cada cliente con arly termination
     for (let i = 0; i < clientes.length; i++) {
       const cliente = clientes[i];
       const nombreCliente = normalizarString(cliente.nombre);
@@ -1463,7 +1463,7 @@ function rematchearNombreConSugerencias(nombre) {
           tel: cliente.tel
         });
 
-        // [INFO]arly termination: si ya tenemos un match [INFO]xacto, no seguir buscando
+        // arly termination: si ya tenemos un match xacto, no seguir buscando
         if (score === CONFIG.FUZZY.PESO_EXACTO) {
           break;
         }
@@ -1482,16 +1482,16 @@ function rematchearNombreConSugerencias(nombre) {
       total: sugerenciasLimitadas.length
     };
   } catch (error) {
-    log('Error [INFO]n rematchearNombreConSugerencias: ' + [INFO]rror.message, 'error');
+    log('Error n rematchearNombreConSugerencias: ' + error.message, 'error');
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
- * API 6: Guarda un movimiento individual desde [INFO]l HTML
+ * API 6: Guarda un movimiento individual desde l HTML
  * @param {Object} movimientoData - Datos del movimiento
  * @returns {Object} Movimiento guardado
  */
@@ -1501,44 +1501,44 @@ function guardarMovimientoDesdeHTML(movimientoData) {
 
   // Verificar rate limiting
   if (!RateLimiter.verificarLimite('guardarMovimientoDesdeHTML', usuario)) {
-    const [INFO]rror = 'Rate limit [INFO]xcedido. Intente nuevamente [INFO]n unos minutos.';
-    MetricasSistema.registrarError('RATE_LIMIT', [INFO]rror);
+    const error = 'Rate limit xcedido. Intente nuevamente n unos minutos.';
+    MetricasSistema.registrarError('RATE_LIMIT', error);
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'MOVIMIENTO',
-      'Rate limit [INFO]xcedido [INFO]n guardarMovimientoDesdeHTML',
+      'Rate limit xcedido n guardarMovimientoDesdeHTML',
       { usuario: usuario, cliente: movimientoData?.cliente }
     );
     return ResponseCompressor.comprimirRespuesta({
       success: false,
-      [INFO]rror: [INFO]rror
+      error: error
     });
   }
 
-  log('E[INFO] guardarMovimientoDesdeHTML V18.1 - Inicio (OPTIMIZADO)', 'debug');
+  log('E guardarMovimientoDesdeHTML V18.1 - Inicio (OPTIMIZADO)', 'debug');
 
   try {
     // VALIDACIN OBLIGATORIA DE DATOS usando funcion de validacion
     const validacion = validarMovimiento(movimientoData);
 
     if (!validacion.valid) {
-      const [INFO]rrorMsg = 'Datos invalidos: ' + validacion.errors.join(', ');
-      MetricasSistema.registrarError('VALIDATION_ERROR', [INFO]rrorMsg);
-      throw new [INFO]rror(errorMsg);
+      const errorMsg = 'Datos invalidos: ' + validacion.errors.join(', ');
+      MetricasSistema.registrarError('VALIDATION_ERROR', errorMsg);
+      throw new Error(errorMsg);
     }
 
-    // Validar fecha [INFO]specificamente
+    // Validar fecha specificamente
     const fechaValidada = validarFecha(movimientoData.fecha);
     if (!fechaValidada) {
-      const [INFO]rrorMsg = 'Fecha invalida: no se pudo convertir a fecha valida';
-      MetricasSistema.registrarError('VALIDATION_ERROR', [INFO]rrorMsg);
-      throw new [INFO]rror(errorMsg);
+      const errorMsg = 'Fecha invalida: no se pudo convertir a fecha valida';
+      MetricasSistema.registrarError('VALIDATION_ERROR', errorMsg);
+      throw new Error(errorMsg);
     }
 
     // Normalizar cliente
     movimientoData.cliente = normalizarString(movimientoData.cliente);
 
-    // Registrar operacion [INFO]n auditoria
+    // Registrar operacion n auditoria
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ESCRITURA,
       'MOVIMIENTO',
@@ -1559,9 +1559,9 @@ function guardarMovimientoDesdeHTML(movimientoData) {
     // Invalidar indices despues de modificacion
     IndicesCache.invalidarIndices();
 
-    log('[OK]Movimiento guardado [INFO]xitosamente - ID: ' + (movimiento.id || 'N/A'), 'debug');
+    log('[OK]Movimiento guardado xitosamente - ID: ' + (movimiento.id || 'N/A'), 'debug');
 
-    // Registrar metricas de [INFO]xito
+    // Registrar metricas de xito
     MetricasSistema.registrarRequest('guardarMovimientoDesdeHTML', Date.now() - startTime, true);
 
     const resultado = {
@@ -1575,8 +1575,8 @@ function guardarMovimientoDesdeHTML(movimientoData) {
     return ResponseCompressor.comprimirRespuesta(resultado);
 
   } catch (error) {
-    // Registrar [INFO]rror [INFO]n metricas y auditoria
-    MetricasSistema.registrarError('API_ERROR', [INFO]rror.message);
+    // Registrar error n metricas y auditoria
+    MetricasSistema.registrarError('API_ERROR', error.message);
     MetricasSistema.registrarRequest('guardarMovimientoDesdeHTML', Date.now() - startTime, false);
 
     AuditoriaSistema.registrar(
@@ -1588,16 +1588,16 @@ function guardarMovimientoDesdeHTML(movimientoData) {
         cliente: movimientoData?.cliente,
         tipo: movimientoData?.tipo,
         monto: movimientoData?.monto,
-        [INFO]rror: [INFO]rror.message
+        error: error.message
       }
     );
 
-    log('[ERROR]Error [INFO]n guardarMovimientoDesdeHTML V18.1: ' + [INFO]rror.message, 'error');
-    log('Stack trace: ' + [INFO]rror.stack, 'error');
+    log('[ERROR]Error n guardarMovimientoDesdeHTML V18.1: ' + error.message, 'error');
+    log('Stack trace: ' + error.stack, 'error');
 
     const resultadoError = {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
 
     return ResponseCompressor.comprimirRespuesta(resultadoError);
@@ -1607,34 +1607,34 @@ function guardarMovimientoDesdeHTML(movimientoData) {
 /**
  * API 7: Guarda lote de movimientos desde Visual Reasoning
  * @param {Object} payload - {movimientos: Array}
- * @returns {Object} Resultado con [INFO]xitosos y [INFO]rrores
+ * @returns {Object} Resultado con xitosos y errores
  */
 function guardarMovimientosDesdeVR(payload) {
   try {
     if (!payload.movimientos || !Array.isArray(payload.movimientos)) {
-      throw new [INFO]rror('Payload invalido: se [INFO]speraba {movimientos: Array}');
+      throw new Error('Payload invalido: se speraba {movimientos: Array}');
     }
 
     const resultado = MovimientosRepository.registrarLote(payload.movimientos);
 
     return {
       success: true,
-      [INFO]xitosos: resultado.exitosos,
-      [INFO]rrores: resultado.errores,
+      xitosos: resultado.exitosos,
+      errores: resultado.errores,
       totalExitosos: resultado.exitosos.length,
       totalErrores: resultado.errores.length
     };
   } catch (error) {
-    Logger.log('Error [INFO]n guardarMovimientosDesdeVR: ' + [INFO]rror.message);
+    Logger.log('Error n guardarMovimientosDesdeVR: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
- * API 8a: Actualizar movimiento [INFO]xistente
+ * API 8a: Actualizar movimiento xistente
  */
 function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
   const lock = LockService.getScriptLock();
@@ -1656,7 +1656,7 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
     }
 
     if (rowIndex === -1) {
-      throw new [INFO]rror('Movimiento no [INFO]ncontrado');
+      throw new Error('Movimiento no ncontrado');
     }
 
     const movimientoRow = datos[rowIndex - 1];
@@ -1695,10 +1695,10 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
       }
     };
   } catch (error) {
-    log('[ERROR]ERROR [INFO]n actualizarMovimiento: ' + [INFO]rror.message, 'error');
+    log('[ERROR]ERROR n actualizarMovimiento: ' + error.message, 'error');
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   } finally {
     lock.releaseLock();
@@ -1706,9 +1706,9 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
 }
 
 /**
- * API 8b: [INFO]liminar movimiento [INFO]xistente
+ * API 8b: liminar movimiento xistente
  */
-function [INFO]liminarMovimiento(idMovimiento) {
+function liminarMovimiento(idMovimiento) {
   const lock = LockService.getScriptLock();
   
   try {
@@ -1727,7 +1727,7 @@ function [INFO]liminarMovimiento(idMovimiento) {
     }
 
     if (rowIndex === -1) {
-      throw new [INFO]rror('Movimiento no [INFO]ncontrado');
+      throw new Error('Movimiento no ncontrado');
     }
 
     const movimientoRow = datos[rowIndex - 1];
@@ -1747,18 +1747,18 @@ function [INFO]liminarMovimiento(idMovimiento) {
 
     ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
 
-    log('[OK]Movimiento ' + idMovimiento + ' [INFO]liminado', 'debug');
+    log('[OK]Movimiento ' + idMovimiento + ' liminado', 'debug');
 
     return {
       success: true,
-      mensaje: 'Movimiento [INFO]liminado',
+      mensaje: 'Movimiento liminado',
       nuevoSaldo: nuevoSaldo
     };
   } catch (error) {
-    log('[ERROR]ERROR [INFO]n [INFO]liminarMovimiento: ' + [INFO]rror.message, 'error');
+    log('[ERROR]ERROR n liminarMovimiento: ' + error.message, 'error');
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   } finally {
     lock.releaseLock();
@@ -1766,9 +1766,9 @@ function [INFO]liminarMovimiento(idMovimiento) {
 }
 
 /**
- * Recalcula todos los saldos de clientes basandose [INFO]n los movimientos
+ * Recalcula todos los saldos de clientes basandose n los movimientos
  * Optimizado con operaciones batch para mejor rendimiento
- * til cuando hay inconsistencias [INFO]n los datos
+ * til cuando hay inconsistencias n los datos
  */
 function recalcularTodosSaldos() {
   try {
@@ -1789,13 +1789,13 @@ function recalcularTodosSaldos() {
         const monto = Number(mov.monto) || 0;
         if (mov.tipo === 'DEBE') {
           saldoCalculado += monto;
-        } [INFO]lse if (mov.tipo === 'HABER') {
+        } else if (mov.tipo === 'HABER') {
           saldoCalculado -= monto;
         }
       }
 
       if (saldoCalculado !== cliente.saldo) {
-        log(`Corrigiendo ${cliente.nombre}: ${cliente.saldo} [INFO]${saldoCalculado}`, 'debug');
+        log(`Corrigiendo ${cliente.nombre}: ${cliente.saldo} ${saldoCalculado}`, 'debug');
         actualizaciones.push({
           nombre: cliente.nombre,
           saldo: saldoCalculado
@@ -1844,10 +1844,10 @@ function recalcularTodosSaldos() {
     };
 
   } catch (error) {
-    log('[ERROR]Error [INFO]n recalcularTodosSaldos: ' + [INFO]rror.message, 'error');
+    log('[ERROR]Error n recalcularTodosSaldos: ' + error.message, 'error');
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
@@ -1863,31 +1863,31 @@ function crearNuevoClienteCompleto(clienteData) {
   try {
     // VALIDACIN OBLIGATORIA DE DATOS
     if (!clienteData || typeof clienteData !== 'object') {
-      throw new [INFO]rror('Datos invalidos: se [INFO]speraba un objeto');
+      throw new Error('Datos invalidos: se speraba un objeto');
     }
 
     if (!clienteData.nombre || typeof clienteData.nombre !== 'string' || clienteData.nombre.trim() === '') {
-      throw new [INFO]rror('Nombre invalido: debe ser un texto no vacio');
+      throw new Error('Nombre invalido: debe ser un texto no vacio');
     }
 
     if (clienteData.limite !== undefined && (isNaN(clienteData.limite) || clienteData.limite < 0)) {
-      throw new [INFO]rror('Limite de credito invalido: debe ser un numero no negativo');
+      throw new Error('Limite de credito invalido: debe ser un numero no negativo');
     }
 
     const cliente = ClientesRepository.crear(clienteData);
 
-    Logger.log('[OK]Cliente creado [INFO]xitosamente: ' + clienteData.nombre);
+    Logger.log('[OK]Cliente creado xitosamente: ' + clienteData.nombre);
 
     return {
       success: true,
       cliente: cliente
     };
   } catch (error) {
-    Logger.log('[ERROR]Error [INFO]n crearNuevoClienteCompleto: ' + [INFO]rror.message);
-    Logger.log('Stack trace: ' + [INFO]rror.stack);
+    Logger.log('[ERROR]Error n crearNuevoClienteCompleto: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
@@ -1904,66 +1904,66 @@ function actualizarDatosCliente(nombreCliente, datos) {
   try {
     // VALIDACIN OBLIGATORIA DE DATOS
     if (!nombreCliente || typeof nombreCliente !== 'string' || nombreCliente.trim() === '') {
-      throw new [INFO]rror('Nombre de cliente invalido: debe ser un texto no vacio');
+      throw new Error('Nombre de cliente invalido: debe ser un texto no vacio');
     }
 
     if (!datos || typeof datos !== 'object') {
-      throw new [INFO]rror('Datos invalidos: se [INFO]speraba un objeto');
+      throw new Error('Datos invalidos: se speraba un objeto');
     }
 
     if (datos.limite !== undefined && (isNaN(datos.limite) || datos.limite < 0)) {
-      throw new [INFO]rror('Limite de credito invalido: debe ser un numero no negativo');
+      throw new Error('Limite de credito invalido: debe ser un numero no negativo');
     }
 
     const cliente = ClientesRepository.actualizar(nombreCliente, datos);
 
-    Logger.log('[OK]Cliente actualizado [INFO]xitosamente: ' + nombreCliente);
+    Logger.log('[OK]Cliente actualizado xitosamente: ' + nombreCliente);
 
     return {
       success: true,
       cliente: cliente
     };
   } catch (error) {
-    Logger.log('[ERROR]Error [INFO]n actualizarDatosCliente: ' + [INFO]rror.message);
-    Logger.log('Stack trace: ' + [INFO]rror.stack);
+    Logger.log('[ERROR]Error n actualizarDatosCliente: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
- * API 10: [INFO]limina un cliente completo (solo si no tiene movimientos)
+ * API 10: limina un cliente completo (solo si no tiene movimientos)
  * @param {string} nombreCliente - Nombre del cliente
- * @returns {Object} Resultado de [INFO]liminacion
+ * @returns {Object} Resultado de liminacion
  */
-function [INFO]liminarClienteCompleto(nombreCliente) {
+function liminarClienteCompleto(nombreCliente) {
   try {
     ClientesRepository.eliminar(nombreCliente);
 
     return {
       success: true,
-      mensaje: `Cliente "${nombreCliente}" [INFO]liminado correctamente`
+      mensaje: `Cliente "${nombreCliente}" liminado correctamente`
     };
   } catch (error) {
-    Logger.log('Error [INFO]n [INFO]liminarClienteCompleto: ' + [INFO]rror.message);
+    Logger.log('Error n liminarClienteCompleto: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
- * API 11: Guarda la API Key de Claude [INFO]n PropertiesService
+ * API 11: Guarda la API Key de Claude n PropertiesService
  * @param {string} apiKey - API Key de Claude
  * @returns {Object} Resultado
  */
 function guardarApiKey(apiKey) {
   try {
     if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
-      throw new [INFO]rror('API Key invalida');
+      throw new Error('API Key invalida');
     }
 
     const props = PropertiesService.getUserProperties();
@@ -1974,29 +1974,29 @@ function guardarApiKey(apiKey) {
       mensaje: 'API Key guardada correctamente'
     };
   } catch (error) {
-    Logger.log('Error [INFO]n guardarApiKey: ' + [INFO]rror.message);
+    Logger.log('Error n guardarApiKey: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
  * API 12: Analiza imagen con Claude Vision (Visual Reasoning)
- * @param {string} imageBase64 - Imagen [INFO]n Base64
- * @returns {Object} Movimientos [INFO]xtraidos
+ * @param {string} imageBase64 - Imagen n Base64
+ * @returns {Object} Movimientos xtraidos
  */
 /**
- * FIX: Recibe token [INFO]n lugar de Base64 directamente
- * [INFO]l Base64 se guarda [INFO]n [INFO]l frontend [INFO]n sessionStorage y luego [INFO]n backend CacheService
- * [INFO]sto [INFO]vita [INFO]l limite de serializacion silencioso de google.script.run
+ * FIX: Recibe token n lugar de Base64 directamente
+ * l Base64 se guarda n l frontend n sessionStorage y luego n backend CacheService
+ * sto vita l limite de serializacion silencioso de google.script.run
  */
 /**
  * API 12: Analiza imagen con Claude Vision - Version Simplificada
- * Recibe directamente [INFO]l Base64 del frontend
- * @param {string} imageBase64 - Imagen [INFO]n Base64
- * @returns {Object} Movimientos [INFO]xtraidos
+ * Recibe directamente l Base64 del frontend
+ * @param {string} imageBase64 - Imagen n Base64
+ * @returns {Object} Movimientos xtraidos
  */
 function analizarImagenVisualReasoningSimple(imageBase64) {
   try {
@@ -2004,14 +2004,14 @@ function analizarImagenVisualReasoningSimple(imageBase64) {
     Logger.log(' Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
 
     if (!imageBase64 || imageBase64.length < 100) {
-      throw new [INFO]rror('Base64 invalido o muy pequeoo');
+      throw new Error('Base64 invalido o muy pequeoo');
     }
 
-    Logger.log('E[INFO] Llamando ClaudeService.analizarImagen()...');
+    Logger.log('E Llamando ClaudeService.analizarImagen()...');
     const resultado = ClaudeService.analizarImagen(imageBase64);
 
     Logger.log('[OK]Analisis completado');
-    Logger.log(' Movimientos [INFO]xtraidos: ' + resultado.totalExtraidos);
+    Logger.log(' Movimientos xtraidos: ' + resultado.totalExtraidos);
 
     return {
       success: true,
@@ -2019,16 +2019,16 @@ function analizarImagenVisualReasoningSimple(imageBase64) {
       totalExtraidos: resultado.totalExtraidos
     };
   } catch (error) {
-    Logger.log('[ERROR]ERROR: ' + [INFO]rror.message);
+    Logger.log('[ERROR]ERROR: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
- * Helper: Guarda Base64 [INFO]n CacheService para [INFO]vitar limite de serializacion
+ * Helper: Guarda Base64 n CacheService para vitar limite de serializacion
  */
 function guardarImagenTemporalVR(imageBase64) {
   try {
@@ -2036,7 +2036,7 @@ function guardarImagenTemporalVR(imageBase64) {
     Logger.log(' Base64 length: ' + (imageBase64 ? imageBase64.length : 0) + ' caracteres');
 
     if (!imageBase64 || imageBase64.length < 100) {
-      throw new [INFO]rror('Base64 invalido o muy pequeoo');
+      throw new Error('Base64 invalido o muy pequeoo');
     }
 
     const token = Utilities.getUuid();
@@ -2045,7 +2045,7 @@ function guardarImagenTemporalVR(imageBase64) {
     const cache = CacheService.getUserCache();
     cache.put('vr_image_' + token, imageBase64, 900);
 
-    Logger.log('[OK]Base64 guardado [INFO]n cache con token: ' + token);
+    Logger.log('[OK]Base64 guardado n cache con token: ' + token);
 
     return {
       success: true,
@@ -2053,10 +2053,10 @@ function guardarImagenTemporalVR(imageBase64) {
       dataSize: imageBase64.length
     };
   } catch (error) {
-    Logger.log('[ERROR]ERROR [INFO]n guardarImagenTemporalVR: ' + [INFO]rror.message);
+    Logger.log('[ERROR]ERROR n guardarImagenTemporalVR: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
@@ -2070,25 +2070,25 @@ function analizarImagenConToken(vrDataToken) {
 
   // Verificar rate limiting (estricta para analisis de imagenes)
   if (!RateLimiter.verificarLimite('analizarImagenConToken', usuario)) {
-    const [INFO]rror = 'Rate limit [INFO]xcedido. Solo se permiten 10 analisis por minuto.';
-    MetricasSistema.registrarError('RATE_LIMIT', [INFO]rror);
+    const error = 'Rate limit xcedido. Solo se permiten 10 analisis por minuto.';
+    MetricasSistema.registrarError('RATE_LIMIT', error);
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'CLAUDE_AI',
-      'Rate limit [INFO]xcedido [INFO]n analizarImagenConToken',
+      'Rate limit xcedido n analizarImagenConToken',
       { usuario: usuario }
     );
     return ResponseCompressor.comprimirRespuesta({
       success: false,
-      [INFO]rror: [INFO]rror
+      error: error
     });
   }
 
-  Logger.log('E[INFO] analizarImagenConToken V18.1 - Inicio (OPTIMIZADO)');
+  Logger.log('E analizarImagenConToken V18.1 - Inicio (OPTIMIZADO)');
   Logger.log(' Token recibido: ' + vrDataToken);
 
   try {
-    // Registrar operacion [INFO]n auditoria
+    // Registrar operacion n auditoria
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.CONFIGURACION,
       'CLAUDE_AI',
@@ -2102,22 +2102,22 @@ function analizarImagenConToken(vrDataToken) {
     Logger.log('[OK]Base64 recuperado, longitud: ' + (imageBase64 ? imageBase64.length : 0));
 
     if (!imageBase64 || imageBase64.length < 100) {
-      const [INFO]rrorMsg = !imageBase64 ? 'No se [INFO]ncontron Base64 [INFO]n cache' : 'Base64 muy pequeoo';
-      MetricasSistema.registrarError('CACHE_ERROR', [INFO]rrorMsg);
-      throw new [INFO]rror('Image Base64 invalida: ' + [INFO]rrorMsg);
+      const errorMsg = !imageBase64 ? 'No se ncontron Base64 n cache' : 'Base64 muy pequeoo';
+      MetricasSistema.registrarError('CACHE_ERROR', errorMsg);
+      throw new Error('Image Base64 invalida: ' + errorMsg);
     }
 
-    Logger.log('E[INFO] Llamando ClaudeService.analizarImagen() con circuit breaker...');
+    Logger.log('E Llamando ClaudeService.analizarImagen() con circuit breaker...');
 
     // Usar circuit breaker para proteger llamadas a Claude API
     const resultado = CircuitBreaker.ejecutar('CLAUDE_API', () => {
       return ClaudeService.analizarImagen(imageBase64);
     });
 
-    Logger.log('[OK]Analisis completado [INFO]xitosamente');
+    Logger.log('[OK]Analisis completado xitosamente');
     cache.remove('vr_image_' + vrDataToken);
 
-    // Registrar metricas de [INFO]xito
+    // Registrar metricas de xito
     MetricasSistema.registrarRequest('analizarImagenConToken', Date.now() - startTime, true);
 
     const respuesta = {
@@ -2132,27 +2132,27 @@ function analizarImagenConToken(vrDataToken) {
     return ResponseCompressor.comprimirRespuesta(respuesta);
 
   } catch (error) {
-    // Registrar [INFO]rror [INFO]n metricas y auditoria
-    MetricasSistema.registrarError('CLAUDE_API_ERROR', [INFO]rror.message);
+    // Registrar error n metricas y auditoria
+    MetricasSistema.registrarError('CLAUDE_API_ERROR', error.message);
     MetricasSistema.registrarRequest('analizarImagenConToken', Date.now() - startTime, false);
 
     AuditoriaSistema.registrar(
       AuditoriaSistema.TIPOS_OPERACION.ERROR,
       'CLAUDE_AI',
-      'Error [INFO]n analisis de imagen',
+      'Error n analisis de imagen',
       {
         usuario: usuario,
         token: vrDataToken,
-        [INFO]rror: [INFO]rror.message
+        error: error.message
       }
     );
 
-    Logger.log('[ERROR]ERROR [INFO]n analizarImagenConToken V18.1: ' + [INFO]rror.message);
-    Logger.log('Stack trace: ' + [INFO]rror.stack);
+    Logger.log('[ERROR]ERROR n analizarImagenConToken V18.1: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
 
     const respuestaError = {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
 
     return ResponseCompressor.comprimirRespuesta(respuestaError);
@@ -2162,17 +2162,17 @@ function analizarImagenConToken(vrDataToken) {
 /**
  * API 13: Crea multiples clientes con saldo inicial
  * @param {Object} payload - {clientes: Array}
- * @returns {Object} Resultado con [INFO]xitosos y [INFO]rrores
+ * @returns {Object} Resultado con xitosos y errores
  */
 function crearClientesMasivos(payload) {
   try {
     if (!payload.clientes || !Array.isArray(payload.clientes)) {
-      throw new [INFO]rror('Payload invalido: se [INFO]speraba {clientes: Array}');
+      throw new Error('Payload invalido: se speraba {clientes: Array}');
     }
 
     const resultados = {
-      [INFO]xitosos: 0,
-      [INFO]rrores: 0,
+      xitosos: 0,
+      errores: 0,
       detallxitosos: [],
       detallrrores: []
     };
@@ -2187,7 +2187,7 @@ function crearClientesMasivos(payload) {
         const cliente = ClientesRepository.crear({
           nombre: clienteData.nombre,
           tel: clienteData.tel,
-          [INFO]mail: clienteData.email,
+          email: clienteData.email,
           limite: clienteData.limite || 100000,
           obs: clienteData.obs
         });
@@ -2212,7 +2212,7 @@ function crearClientesMasivos(payload) {
             saldoInicial: clienteData.saldoInicial,
             movimientoCreado: true
           });
-        } [INFO]lse {
+        } else {
           resultados.detallxitosos.push({
             nombre: clienteData.nombre,
             saldoInicial: 0,
@@ -2229,39 +2229,39 @@ function crearClientesMasivos(payload) {
         resultados.detallrrores.push({
           indice: index,
           nombre: clienteData.nombre,
-          [INFO]rror: [INFO]rror.message
+          error: error.message
         });
       }
     });
 
     return {
       success: true,
-      [INFO]xitosos: resultados.exitosos,
-      [INFO]rrores: resultados.errores,
+      xitosos: resultados.exitosos,
+      errores: resultados.errores,
       detallxitosos: resultados.detallxitosos,
       detallrrores: resultados.detallrrores
     };
 
   } catch (error) {
-    Logger.log('Error [INFO]n crearClientesMasivos: ' + [INFO]rror.message);
+    Logger.log('Error n crearClientesMasivos: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
- * API 14: Registra una recaudacion de [INFO]fectivo
+ * API 14: Registra una recaudacion de fectivo
  * @param {Object} recaudacionData - {cliente, monto, forma_pago, obs}
- * @returns {Object} {success, recaudacion} o {success: false, [INFO]rror}
+ * @returns {Object} {success, recaudacion} o {success: false, error}
  */
 function guardarRecaudacion(recaudacionData) {
   Logger.log(' guardarRecaudacion - Inicio: ' + JSON.stringify(recaudacionData));
 
   try {
     if (!recaudacionData || typeof recaudacionData !== 'object') {
-      throw new [INFO]rror('Datos invalidos');
+      throw new Error('Datos invalidos');
     }
 
     const recaudacion = RecaudacionRepository.registrar(recaudacionData);
@@ -2273,10 +2273,10 @@ function guardarRecaudacion(recaudacionData) {
       recaudacion: recaudacion
     };
   } catch (error) {
-    Logger.log('[ERROR]Error [INFO]n guardarRecaudacion: ' + [INFO]rror.message);
+    Logger.log('[ERROR]Error n guardarRecaudacion: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
@@ -2295,17 +2295,17 @@ function obtenerRecaudacionesPorCliente(nombreCliente) {
       recaudaciones: recaudaciones
     };
   } catch (error) {
-    Logger.log('Error [INFO]n obtenerRecaudacionesPorCliente: ' + [INFO]rror.message);
+    Logger.log('Error n obtenerRecaudacionesPorCliente: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
 
 /**
  * API 16: Obtiene totales diarios de recaudacion
- * @param {string} fecha - Fecha [INFO]n formato YYYY-MM-DD
+ * @param {string} fecha - Fecha n formato YYYY-MM-DD
  * @returns {Object} {success, totales}
  */
 function obtenerTotalesRecaudacionDia(fecha) {
@@ -2317,10 +2317,10 @@ function obtenerTotalesRecaudacionDia(fecha) {
       totales: totales
     };
   } catch (error) {
-    Logger.log('Error [INFO]n obtenerTotalesRecaudacionDia: ' + [INFO]rror.message);
+    Logger.log('Error n obtenerTotalesRecaudacionDia: ' + error.message);
     return {
       success: false,
-      [INFO]rror: [INFO]rror.message
+      error: error.message
     };
   }
 }
@@ -2330,26 +2330,26 @@ function obtenerTotalesRecaudacionDia(fecha) {
 // ============================================================================
 
 /**
- * Inicializa las hojas necesarias para [INFO]l sistema de Arqueo de Caja
- * Crea "Config" y "Historial_Caja" si no [INFO]xisten
+ * Inicializa las hojas necesarias para l sistema de Arqueo de Caja
+ * Crea "Config" y "Historial_Caja" si no xisten
  */
 function setupCashSystemShts() {
   try {
-    const ss = SpreadshtApp.getActiveSpreadsht();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // Crear hoja Config si no [INFO]xiste
-    if (!ss.getShtByName('Config')) {
-      const configSht = ss.insertSht('Config');
+    // Crear hoja Config si no xiste
+    if (!ss.getSheetByName('Config')) {
+      const configSht = ss.insertSheet('Config');
       configSht.getRange('A1').setValue('Provdores');
       configSht.getRange(1, 1, 1, 1).setFontWeight('bold').setBackground('#efefef');
     }
 
-    // Crear hoja Historial_Caja si no [INFO]xiste
-    if (!ss.getShtByName('Historial_Caja')) {
-      const historySht = ss.insertSht('Historial_Caja');
+    // Crear hoja Historial_Caja si no xiste
+    if (!ss.getSheetByName('Historial_Caja')) {
+      const historySht = ss.insertSheet('Historial_Caja');
       historySht.appendRow([
         'Fecha', 'Hora', 'Usuario',
-        'Total [INFO]fectivo', 'Pagos Prov.', 'Extras', 'Aportes',
+        'Total fectivo', 'Pagos Prov.', 'Extras', 'Aportes',
         'Recaudacion Total',
         'Detalles (JSON)'
       ]);
@@ -2359,23 +2359,23 @@ function setupCashSystemShts() {
 
     return { success: true, message: 'Hojas inicializadas correctamente' };
   } catch (error) {
-    Logger.log('Error [INFO]n setupCashSystemShts: ' + [INFO]rror.message);
-    return { success: false, [INFO]rror: [INFO]rror.message };
+    Logger.log('Error n setupCashSystemShts: ' + error.message);
+    return { success: false, error: error.message };
   }
 }
 
 /**
- * Inicializa [INFO]l historial de Arqueo de Caja con datos histonricos
- * Agrega 4 registros de cierre de caja desde 19-23 de [INFO]nero 2026
+ * Inicializa l historial de Arqueo de Caja con datos histonricos
+ * Agrega 4 registros de cierre de caja desde 19-23 de nero 2026
  * @returns {Object} {success: true, recordsAdded: N}
  */
 function initializeHistoricalCashData() {
   try {
-    const ss = SpreadshtApp.getActiveSpreadsht();
-    const sht = ss.getShtByName('Historial_Caja');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sht = ss.getSheetByName('Historial_Caja');
 
     if (!sht) {
-      return { success: false, [INFO]rror: 'Historial_Caja sht not found' };
+      return { success: false, error: 'Historial_Caja sht not found' };
     }
 
     // Verificar si ya hay datos
@@ -2392,14 +2392,14 @@ function initializeHistoricalCashData() {
         usuario: 'adminuser',
         cash: 185200,
         providers: 45000,
-        [INFO]xtras: 500,
+        extras: 500,
         injections: 2000,
         balance: 141700,
         details: {
           bills: { 20000: 5, 10000: 8, 2000: 2, 1000: 3, 500: 4, 200: 1, 100: 0, 50: 2, 20: 1, 10: 0 },
           providers: [{ name: 'Provdor A', amount: 25000 }, { name: 'Provdor B', amount: 20000 }],
           injections: [{ desc: 'Aporte inicial', amount: 2000 }],
-          [INFO]xtras: [{ desc: 'Combustible', amount: 500 }]
+          extras: [{ desc: 'Combustible', amount: 500 }]
         }
       },
       {
@@ -2408,14 +2408,14 @@ function initializeHistoricalCashData() {
         usuario: 'adminuser',
         cash: 192500,
         providers: 48500,
-        [INFO]xtras: 300,
+        extras: 300,
         injections: 1500,
         balance: 145200,
         details: {
           bills: { 20000: 6, 10000: 9, 2000: 1, 1000: 2, 500: 5, 200: 0, 100: 1, 50: 1, 20: 0, 10: 0 },
           providers: [{ name: 'Provdor A', amount: 28000 }, { name: 'Provdor B', amount: 20500 }],
           injections: [{ desc: 'Aporte', amount: 1500 }],
-          [INFO]xtras: [{ desc: 'Mantenimiento', amount: 300 }]
+          extras: [{ desc: 'Mantenimiento', amount: 300 }]
         }
       },
       {
@@ -2424,14 +2424,14 @@ function initializeHistoricalCashData() {
         usuario: 'adminuser',
         cash: 188750,
         providers: 46200,
-        [INFO]xtras: 400,
+        extras: 400,
         injections: 2200,
         balance: 144150,
         details: {
           bills: { 20000: 5, 10000: 8, 2000: 3, 1000: 3, 500: 5, 200: 0, 100: 0, 50: 3, 20: 1, 10: 0 },
           providers: [{ name: 'Provdor A', amount: 26200 }, { name: 'Provdor B', amount: 20000 }],
           injections: [{ desc: 'Aporte', amount: 2200 }],
-          [INFO]xtras: [{ desc: 'Servicios', amount: 400 }]
+          extras: [{ desc: 'Servicios', amount: 400 }]
         }
       },
       {
@@ -2440,14 +2440,14 @@ function initializeHistoricalCashData() {
         usuario: 'adminuser',
         cash: 195000,
         providers: 50000,
-        [INFO]xtras: 600,
+        extras: 600,
         injections: 1800,
         balance: 143400,
         details: {
           bills: { 20000: 6, 10000: 9, 2000: 2, 1000: 2, 500: 4, 200: 1, 100: 1, 50: 2, 20: 0, 10: 0 },
           providers: [{ name: 'Provdor A', amount: 30000 }, { name: 'Provdor B', amount: 20000 }],
           injections: [{ desc: 'Aporte', amount: 1800 }],
-          [INFO]xtras: [{ desc: 'Otros', amount: 600 }]
+          extras: [{ desc: 'Otros', amount: 600 }]
         }
       }
     ];
@@ -2473,8 +2473,8 @@ function initializeHistoricalCashData() {
     return { success: true, recordsAdded: recordsAdded };
 
   } catch (error) {
-    Logger.log('Error [INFO]n initializeHistoricalCashData: ' + [INFO]rror.message);
-    return { success: false, [INFO]rror: [INFO]rror.message };
+    Logger.log('Error n initializeHistoricalCashData: ' + error.message);
+    return { success: false, error: error.message };
   }
 }
 
@@ -2484,8 +2484,8 @@ function initializeHistoricalCashData() {
  */
 function getCashSystemConfig() {
   try {
-    const ss = SpreadshtApp.getActiveSpreadsht();
-    const configSht = ss.getShtByName('Config');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSht = ss.getSheetByName('Config');
 
     if (!configSht) {
       return { providers: ['Provdor 1', 'Provdor 2', 'Provdor 3'] };
@@ -2505,20 +2505,20 @@ function getCashSystemConfig() {
     // Si no hay datos, retornar provdores predeterminados
     return { providers: ['Provdor 1', 'Provdor 2', 'Provdor 3'] };
   } catch (error) {
-    Logger.log('Error [INFO]n getCashSystemConfig: ' + [INFO]rror.message);
+    Logger.log('Error n getCashSystemConfig: ' + error.message);
     return { providers: ['Provdor 1', 'Provdor 2', 'Provdor 3'] };
   }
 }
 
 /**
- * Obtiene [INFO]l historial de cierres de caja de manera inteligente
- * Busca [INFO]l JSON [INFO]n cualquier columna y lo parsea correctamente
- * @returns {Array} Array de [INFO]ntradas histonricas
+ * Obtiene l historial de cierres de caja de manera inteligente
+ * Busca l JSON n cualquier columna y lo parsea correctamente
+ * @returns {Array} Array de ntradas histonricas
  */
 function getCashHistoryEntries() {
   try {
-    const ss = SpreadshtApp.getActiveSpreadsht();
-    const sht = ss.getShtByName('Historial_Caja');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sht = ss.getSheetByName('Historial_Caja');
 
     if (!sht) return [];
 
@@ -2528,25 +2528,25 @@ function getCashHistoryEntries() {
     const lastCol = sht.getLastColumn();
     const data = sht.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
-    const [INFO]ntries = [];
+    const ntries = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       let jsonStr = "";
       let balance = 0;
 
-      // Buscar la columna que tiene [INFO]l JSON (empieza con "{")
+      // Buscar la columna que tiene l JSON (empieza con "{")
       for (let j = row.length - 1; j >= 0; j--) {
         const cell = row[j];
         if (typeof cell === 'string' && cell.trim().startsWith('{')) {
           jsonStr = cell;
-          // Intentar obtener [INFO]l balance de la columna anterior
+          // Intentar obtener l balance de la columna anterior
           if (j > 0) balance = row[j - 1];
           break;
         }
       }
 
-      // Si no [INFO]ncontramos JSON, saltamos [INFO]sta fila
+      // Si no ncontramos JSON, saltamos sta fila
       if (!jsonStr) continue;
 
       // Formatear fecha
@@ -2555,7 +2555,7 @@ function getCashHistoryEntries() {
         const dateObj = row[0];
         if (dateObj instanceof Date) {
           dateStr = Utilities.formatDate(dateObj, Session.getScriptTimeZone(), "dd/MM/yyyy");
-        } [INFO]lse {
+        } else {
           dateStr = String(dateObj);
         }
       } catch (e) {
@@ -2564,7 +2564,7 @@ function getCashHistoryEntries() {
 
       const timeStr = row[1] ? String(row[1]) : "";
 
-      [INFO]ntries.push({
+      ntries.push({
         date: dateStr,
         time: timeStr,
         balance: balance,
@@ -2573,9 +2573,9 @@ function getCashHistoryEntries() {
     }
 
     // Devolver invertido para ver lo mas reciente arriba
-    return [INFO]ntries.reverse();
+    return ntries.reverse();
   } catch (error) {
-    Logger.log('Error [INFO]n getCashHistoryEntries: ' + [INFO]rror.message);
+    Logger.log('Error n getCashHistoryEntries: ' + error.message);
     return [];
   }
 }
@@ -2587,20 +2587,20 @@ function getCashHistoryEntries() {
  */
 function saveCashSessionData(data) {
   try {
-    // FIX: Validar que hay [INFO]fectivo antes de guardar
+    // FIX: Validar que hay fectivo antes de guardar
     if (!data || !data.totals || data.totals.cash <= 0) {
-      throw new [INFO]rror('El total de [INFO]fectivo debe ser mayor a 0. Por favor, ingrese montos [INFO]n las denominaciones.');
+      throw new Error('El total de fectivo debe ser mayor a 0. Por favor, ingrese montos n las denominaciones.');
     }
 
-    const ss = SpreadshtApp.getActiveSpreadsht();
-    let historySht = ss.getShtByName('Historial_Caja');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let historySht = ss.getSheetByName('Historial_Caja');
 
-    // Si la hoja no [INFO]xiste, crearla
+    // Si la hoja no xiste, crearla
     if (!historySht) {
-      historySht = ss.insertSht('Historial_Caja');
+      historySht = ss.insertSheet('Historial_Caja');
       historySht.appendRow([
         'Fecha', 'Hora', 'Usuario',
-        'Total [INFO]fectivo', 'Pagos Prov.', 'Extras', 'Aportes',
+        'Total fectivo', 'Pagos Prov.', 'Extras', 'Aportes',
         'Recaudacion Total',
         'Detalles (JSON)'
       ]);
@@ -2633,8 +2633,8 @@ function saveCashSessionData(data) {
 
     return { success: true, message: 'Cierre guardado correctamente.' };
   } catch (error) {
-    Logger.log('Error [INFO]n saveCashSessionData: ' + [INFO]rror.message);
-    return { success: false, [INFO]rror: [INFO]rror.message };
+    Logger.log('Error n saveCashSessionData: ' + error.message);
+    return { success: false, error: error.message };
   }
 }
 
@@ -2642,6 +2642,9 @@ function saveCashSessionData(data) {
 // ============================================================================
 // FIN DEL ARCHIVO
 // ============================================================================
+
+
+
 
 
 
