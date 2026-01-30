@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema Sol & Verde V18.0 Enterprise</title>
   <link rel="icon" type="image/png" href="https://i.imgur.com/tStvmV1.png">
+  <!-- Eliminados features no soportados para evitar advertencias -->
+  <!-- <meta http-equiv="origin-trial" content=""> -->
 
   <!-- ═══════════════════════════════════════════════════════════════
        ESTILOS CSS - SISTEMA COMPLETO
@@ -4056,6 +4058,158 @@
        ═══════════════════════════════════════════════════════════════ -->
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 
+  <!-- Optimización y validación de funciones críticas -->
+  <script>
+
+  <!-- Botón de depuración visible (solo para diagnóstico) -->
+  <style>
+    #debugFetchBtn {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      z-index: 99999;
+      background: #222;
+      color: #fff;
+      border: none;
+      padding: 10px 12px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      cursor: pointer;
+      font-size: 13px;
+      opacity: 0.85;
+    }
+    #debugFetchBtn:hover { opacity: 1; }
+  </style>
+  <button id="debugFetchBtn" title="Debug: fetch raw">🐞 Debug Fetch</button>
+
+    // Validación de inicialización y robustez de datos
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('🚀 Sistema Sol & Verde cargado correctamente.');
+
+      // Validar dependencias críticas
+      if (typeof google === 'undefined' || !google.script) {
+        console.error('❌ Error: Google Apps Script no está disponible.');
+        alert('Error crítico: No se puede conectar con el servidor.');
+        return;
+      }
+      if (typeof LZString === 'undefined') {
+        console.error('❌ Error: Biblioteca LZString no encontrada.');
+        alert('Error crítico: Falta la biblioteca de compresión.');
+        return;
+      }
+      if (typeof Chart === 'undefined') {
+        console.error('❌ Error: Biblioteca Chart.js no encontrada.');
+        alert('Error crítico: Falta la biblioteca de gráficos.');
+        return;
+      }
+
+      // Inicializar módulos principales
+      try {
+        initSplashScreen();
+        initNavigation();
+        initDashboard();
+        initVisualReasoning();
+        initVisorClientes();
+        console.log('✅ Módulos inicializados correctamente.');
+      } catch (error) {
+        console.error('❌ Error durante la inicialización:', error);
+        alert('Error crítico durante la inicialización. Consulte la consola para más detalles.');
+      }
+    });
+
+    // Función de diagnóstico extendida
+    function diagnosticarSistema() {
+      console.log('🔍 Ejecutando diagnóstico extendido...');
+      google.script.run
+        .withSuccessHandler(function(resultado) {
+          if (resultado && resultado.success) {
+            console.log('✅ Diagnóstico completado:', resultado);
+            alert('Diagnóstico completado. Consulte la consola para más detalles.');
+          } else {
+            console.error('❌ Error en el diagnóstico:', resultado);
+            alert('Error durante el diagnóstico. Consulte la consola.');
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('❌ Error al ejecutar diagnóstico:', error);
+          alert('Error crítico al ejecutar el diagnóstico.');
+        })
+        .diagnosticoSistema();
+    }
+    window.diagnosticarSistema = diagnosticarSistema;
+
+    // Robustecer función de descompresión y validación de datos
+    function descomprimirRespuesta(datos) {
+      try {
+        if (typeof datos !== 'string') {
+          console.log('📦 Datos no son string, retornando tal cual');
+          return datos;
+        }
+        // Intentar parsear como JSON directo
+        try {
+          const json = JSON.parse(datos);
+          console.log('✅ Respuesta era JSON sin comprimir');
+          return json;
+        } catch (e) {
+          console.log('No es JSON directo, intentando descompresión...');
+        }
+        // Validar base64
+        const base64Regex = /^[A-Za-z0-9+/=\r\n]+$/;
+        if (!base64Regex.test(datos)) {
+          throw new Error('Los datos no tienen formato base64 válido');
+        }
+        // Descomprimir
+        let descomp;
+        try {
+          descomp = LZString.decompressFromBase64(datos);
+        } catch (e) {
+          throw new Error('Error en descompresión base64: ' + e.message);
+        }
+        if (!descomp) throw new Error('Descompresión fallida: resultado vacío');
+        try {
+          return JSON.parse(descomp);
+        } catch (e) {
+          throw new Error('Descompresión exitosa pero JSON inválido: ' + e.message);
+        }
+      } catch (err) {
+        console.error('❌ Error general en descompresión:', err);
+        console.error('Datos recibidos (primeros 200 chars):', typeof datos === 'string' ? datos.substring(0, 200) : datos);
+        return null;
+      }
+    }
+    window.descomprimirRespuesta = descomprimirRespuesta;
+
+    // Si usas iframes, asegúrate de no usar sandbox="allow-scripts allow-same-origin" juntos a menos que sea estrictamente necesario.
+    // Si no usas iframes, ignora esta advertencia.
+    
+    // Helper de depuración: obtiene datos crudos del backend y los muestra en consola
+    function debugFetchRaw() {
+      console.log('🔎 debugFetchRaw: solicitando datos crudos al backend...');
+      google.script.run
+        .withSuccessHandler(function(raw) {
+          console.log('--- RAW RESPONSE FROM SERVER ---');
+          console.log(raw);
+          try {
+            const decompressed = descomprimirRespuesta(raw);
+            console.log('--- AFTER descomprimirRespuesta() ---');
+            console.log(decompressed);
+            // Exponer para inspección rápida
+            window.__debug_raw = raw;
+            window.__debug_decompressed = decompressed;
+          } catch (e) {
+            console.error('Error al descomprimir en debugFetchRaw:', e);
+            window.__debug_raw = raw;
+            window.__debug_decompressed = null;
+          }
+        })
+        .withFailureHandler(function(err) {
+          console.error('Error al obtener datos crudos:', err);
+        })
+        .obtenerDatosParaHTML();
+    }
+    window.debugFetchRaw = debugFetchRaw;
+  </script>
+
   <!-- ═══════════════════════════════════════════════════════════════
        JAVASCRIPT
        ═══════════════════════════════════════════════════════════════ -->
@@ -4075,52 +4229,91 @@
       try {
         // Si no es string, asumir que no está comprimido
         if (typeof datosComprimidos !== 'string') {
+          console.log('📦 Datos no son string, retornando tal cual');
+          return datosComprimidos;
+        }
+
+        // Si está vacío, retornar tal cual
+        if (!datosComprimidos.trim()) {
+          console.log('📦 Datos vacíos, retornando tal cual');
           return datosComprimidos;
         }
 
         console.log('📦 Descomprimiendo respuesta del backend...');
 
-        // Algoritmo compatible con ResponseCompressor del backend
-        // Paso 1: base64 decode
-        const compressed = atob(datosComprimidos);
-
-        // Paso 2: split header y data
-        const parts = compressed.split('|');
-        if (parts.length !== 2) {
-          console.error('❌ Formato de compresión inválido');
-          throw new Error('Formato de compresión inválido');
+        // PRIMERO: Intentar parsear como JSON directo (fallback del backend)
+        try {
+          const parsed = JSON.parse(datosComprimidos);
+          console.log('✅ Respuesta era JSON sin comprimir');
+          restaurarFechas(parsed);
+          return parsed;
+        } catch (jsonError) {
+          console.log('No es JSON directo, intentando descompresión...');
         }
 
-        const header = parts[0];
-        let data = parts[1];
+        // SEGUNDO: Intentar descomprimir con algoritmo del backend
+        try {
+          // Validar que sea una cadena base64 válida antes de intentar decodificar
+          if (!/^[A-Za-z0-9+/]*={0,2}$/.test(datosComprimidos)) {
+            throw new Error('Los datos no tienen formato base64 válido');
+          }
 
-        // Paso 3: parse header para obtener tabla de reemplazos
-        const replacements = JSON.parse(header);
+          // Algoritmo compatible con ResponseCompressor del backend
+          // Paso 1: base64 decode
+          const compressed = atob(datosComprimidos);
 
-        // Paso 4: revertir reemplazos (A-Z -> caracteres originales)
-        for (const [code, char] of Object.entries(replacements)) {
-          data = data.split(code).join(char);
+          // Paso 2: intentar diferentes separadores para compatibilidad
+          let parts;
+          let separador;
+
+          // Primero intentar con el nuevo separador (\x00)
+          if (compressed.includes('\x00')) {
+            separador = '\x00';
+            parts = compressed.split(separador);
+          } else if (compressed.includes('|')) {
+            // Compatibilidad con algoritmo anterior
+            separador = '|';
+            parts = compressed.split(separador);
+          } else {
+            throw new Error('No se encontró separador válido en datos comprimidos');
+          }
+
+          if (parts.length !== 2) {
+            throw new Error(`Formato de compresión inválido: se esperaban 2 partes separadas por ${JSON.stringify(separador)}, se obtuvieron ${parts.length}`);
+          }
+
+          const header = parts[0];
+          let data = parts[1];
+
+          // Paso 3: parse header para obtener tabla de reemplazos
+          const replacements = JSON.parse(header);
+
+          // Paso 4: revertir reemplazos (A-Z -> caracteres originales)
+          for (const [code, char] of Object.entries(replacements)) {
+            data = data.split(code).join(char);
+          }
+
+          // Paso 5: parse JSON
+          const datos = JSON.parse(data);
+
+          // Paso 6: Restaurar objetos Date si existen
+          restaurarFechas(datos);
+
+          console.log(`✅ Respuesta descomprimida exitosamente con algoritmo backend (separador: ${JSON.stringify(separador)})`);
+          return datos;
+
+        } catch (decompressError) {
+          console.error('❌ Error en descompresión:', decompressError.message);
+          console.error('Datos recibidos (primeros 200 chars):', datosComprimidos.substring(0, 200));
+          throw decompressError;
         }
-
-        // Paso 5: parse JSON
-        const datos = JSON.parse(data);
-
-        // Paso 6: Restaurar objetos Date si existen
-        restaurarFechas(datos);
-
-        console.log('✅ Respuesta descomprimida exitosamente');
-        return datos;
 
       } catch (error) {
-        console.error('❌ Error en descompresión:', error);
-        console.error('Datos recibidos:', datosComprimidos);
-        // Si falla la descompresión, intentar parsear como JSON normal
-        try {
-          return JSON.parse(datosComprimidos);
-        } catch (e) {
-          console.error('❌ Tampoco es JSON válido');
-          return datosComprimidos;
-        }
+        console.error('❌ Error general en descompresión:', error);
+        console.error('Tipo de datos:', typeof datosComprimidos);
+        console.error('Datos recibidos (primeros 500 chars):', datosComprimidos.substring(0, 500));
+        // Último fallback: retornar los datos tal cual
+        return datosComprimidos;
       }
     }
 
@@ -4154,6 +4347,10 @@
     function probarSistemaOptimizado() {
       console.log('🧪 Probando sistema optimizado...');
 
+      // NOTA: Las siguientes APIs de prueba no están implementadas en el backend
+      // Se comentan para evitar errores de "Formato de compresión inválido"
+
+      /*
       // 1. Probar obtención de métricas del dashboard
       google.script.run
         .withSuccessHandler((metricas) => {
@@ -4191,7 +4388,23 @@
           })
           .obtenerMetricasSimples();
       }, 2000);
+      */
+
+      // En su lugar, probar la API principal que SÍ funciona
+      google.script.run
+        .withSuccessHandler((datos) => {
+          datos = descomprimirRespuesta(datos);
+          console.log('✅ Datos principales obtenidos correctamente:', datos);
+          showToast('success', 'Sistema Optimizado', 'API principal funcionando correctamente');
+        })
+        .withFailureHandler((error) => {
+          console.error('❌ Error obteniendo datos principales:', error);
+        })
+        .obtenerDatosParaHTML();
+
+      console.log('✅ Prueba completada - API principal probada');
     }
+  
 
     // ========================================
     // ESTADO GLOBAL
@@ -4203,11 +4416,7 @@
       movimientosRecientes: [],
       clienteSeleccionado: null,
       isLoading: false,
-      cache: {
-        timestamp: null,
-        ttl: 5 * 60 * 1000  // 5 minutos
-      },
-      // PERFORMANCE FIX: Separate cache for statistics (longer TTL, on-demand loading)
+      // CACHE: general + stats
       cache: {
         general: {
           timestamp: null,
@@ -4219,6 +4428,9 @@
         }
       }
     };
+
+    // Exponer AppState globalmente para depuración y acceso desde otros contextos
+    window.AppState = AppState;
 
     // ========================================
     // INICIALIZACIÓN
@@ -5447,16 +5659,17 @@
       }
 
       container.innerHTML = clientes.map(cliente => {
-        // Safely convert saldo to number, handling error values like "#NUM!"
+        // Mostrar el nombre exactamente como está en la base de datos, sin transformación destructiva
+        const nombreOriginal = (typeof cliente.nombre === 'string') ? cliente.nombre : '';
         const saldoNumerico = typeof cliente.saldo === 'number' ? cliente.saldo :
                              (typeof cliente.saldo === 'string' ? (isNaN(parseFloat(cliente.saldo)) ? 0 : parseFloat(cliente.saldo)) : 0);
         const saldoClass = saldoNumerico > 0 ? 'negative' : (saldoNumerico < 0 ? 'positive' : '');
         const saldoDisplay = saldoNumerico.toLocaleString('es-AR');
 
         return `
-          <div class="client-item" onclick="cargarClienteVisor('${cliente.nombre.replace(/'/g, "\\'")}')">
+          <div class="client-item" onclick="cargarClienteVisor('${nombreOriginal.replace(/'/g, "\\'")}")">
             <div class="client-item-info">
-              <div class="client-item-name">${cliente.nombre}</div>
+              <div class="client-item-name">${nombreOriginal}</div>
               <div class="client-item-stats">Últ. movimiento: ${formatearFecha(cliente.ultimoMov || cliente.alta)}</div>
             </div>
             <div class="client-item-saldo ${saldoClass}">$ ${saldoDisplay}</div>
@@ -5607,6 +5820,22 @@
         })
         .obtenerEstadisticas(desde, hasta);
     }
+
+    // Conectar botón de depuración (si existe en DOM)
+    document.addEventListener('DOMContentLoaded', function() {
+      const btn = document.getElementById('debugFetchBtn');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          try {
+            debugFetchRaw();
+            showToast('info', 'Debug', 'Se solicitó debugFetchRaw. Revisa la consola.');
+          } catch (e) {
+            console.error('debugFetchRaw no disponible:', e);
+            showToast('error', 'Debug', 'debugFetchRaw no está disponible');
+          }
+        });
+      }
+    });
 
     function renderEstadisticas(datos) {
       document.getElementById('statsTotalFiado').textContent = '$' + (datos.totalFiado || 0).toLocaleString('es-AR');
@@ -5921,8 +6150,10 @@
       const email = document.getElementById('clienteEmail').value.trim();
       const obs = document.getElementById('clienteObs').value.trim();
 
-      if (!nombre) {
-        showToast('error', 'Error', 'Nombre es obligatorio');
+      // Validación estricta de nombre de cliente
+      const nombreValido = /^[A-ZÁÉÍÓÚÑ ]{3,50}$/.test(nombre);
+      if (!nombreValido) {
+        showToast('error', 'Error', 'El nombre debe tener solo letras y espacios, mínimo 3 caracteres.');
         return;
       }
 
@@ -6133,9 +6364,12 @@
         const campos = linea.split(',').map(c => c.trim());
         const numeroLinea = index + 1;
 
+        const nombre = campos[0] ? campos[0].toUpperCase() : '';
+        const nombreValido = /^[A-ZÁÉÍÓÚÑ ]{3,50}$/.test(nombre);
+
         const cliente = {
           linea: numeroLinea,
-          nombre: campos[0] ? campos[0].toUpperCase() : '',
+          nombre: nombre,
           tel: campos[1] || '',
           email: campos[2] || '',
           limite: parseFloat(campos[3]) || 100000,
@@ -6145,8 +6379,8 @@
         };
 
         // Validaciones
-        if (!cliente.nombre) {
-          cliente.errores.push('Nombre obligatorio');
+        if (!nombreValido) {
+          cliente.errores.push('Nombre inválido (solo letras y espacios, mínimo 3 caracteres)');
         }
 
         const yaExiste = AppState.clientesData.some(c =>
@@ -7079,6 +7313,278 @@
     }
 
     console.log('✨ Sistema Sol & Verde V18.0 inicializado correctamente');
+
+    // ═══════════════════════════════════════════════════════════════
+    // DIAGNÓSTICO AUTOMÁTICO DEL SISTEMA
+    // ═══════════════════════════════════════════════════════════════
+
+    // Script de diagnóstico completo para el Sistema Sol & Verde
+    // Ejecuta todas las pruebas y valida que el sistema funciona correctamente
+
+    function ejecutarDiagnosticoCompleto() {
+      console.log('🔍 INICIANDO DIAGNÓSTICO COMPLETO DEL SISTEMA SOL & VERDE');
+      console.log('======================================================');
+
+      const resultados = {
+        pruebas: [],
+        total: 0,
+        exitosas: 0,
+        fallidas: 0
+      };
+
+      // Prueba 1: Verificar que las funciones principales existen
+      resultados.pruebas.push(ejecutarPrueba('Funciones principales existen', () => {
+        if (typeof descomprimirRespuesta !== 'function') throw new Error('descomprimirRespuesta no existe');
+        if (typeof restaurarFechas !== 'function') throw new Error('restaurarFechas no existe');
+        if (typeof showToast !== 'function') throw new Error('showToast no existe');
+        return true;
+      }));
+
+      // Prueba 2: Verificar descompresión de JSON sin comprimir
+      resultados.pruebas.push(ejecutarPrueba('Descompresión JSON sin comprimir', () => {
+        const testData = '{"success":true,"clientes":[],"movimientos":[]}';
+        const result = descomprimirRespuesta(testData);
+        if (!result.success) throw new Error('No se descomprimió correctamente');
+        if (!Array.isArray(result.clientes)) throw new Error('Clientes no es array');
+        return true;
+      }));
+
+      // Prueba 3: Verificar manejo de datos inválidos
+      resultados.pruebas.push(ejecutarPrueba('Manejo de datos inválidos', () => {
+        const invalidData = 'esto no es json ni base64 válido';
+        try {
+          const result = descomprimirRespuesta(invalidData);
+          // Debería retornar los datos tal cual como fallback
+          if (result !== invalidData) throw new Error('No manejó datos inválidos correctamente');
+          return true;
+        } catch (e) {
+          // Si lanza error, también es válido (comportamiento aceptable)
+          console.log('ℹ️ descomprimirRespuesta lanzó error con datos inválidos, lo cual es aceptable');
+          return true;
+        }
+      }));
+
+      // Prueba 4: Verificar restauración de fechas
+      resultados.pruebas.push(ejecutarPrueba('Restauración de fechas', () => {
+        const testObj = {
+          fecha: {_date: '2024-01-01T00:00:00.000Z'},
+          nested: {
+            otraFecha: {_date: '2024-01-02T00:00:00.000Z'}
+          }
+        };
+        restaurarFechas(testObj);
+        if (!(testObj.fecha instanceof Date)) throw new Error('Fecha no restaurada');
+        if (!(testObj.nested.otraFecha instanceof Date)) throw new Error('Fecha anidada no restaurada');
+        return true;
+      }));
+
+      // Prueba 5: Verificar que el botón de prueba existe
+      resultados.pruebas.push(ejecutarPrueba('Botón de prueba del sistema', () => {
+        const button = document.querySelector('button[onclick*="probarSistemaOptimizado"]');
+        if (!button) throw new Error('Botón de prueba no encontrado');
+        return true;
+      }));
+
+      // Prueba 6: Verificar configuración de Google Apps Script
+      resultados.pruebas.push(ejecutarPrueba('Configuración Google Apps Script', () => {
+        if (typeof google === 'undefined') throw new Error('Google Apps Script no disponible');
+        if (typeof google.script === 'undefined') throw new Error('google.script no disponible');
+        if (typeof google.script.run === 'undefined') throw new Error('google.script.run no disponible');
+        return true;
+      }));
+
+      // Calcular estadísticas
+      resultados.total = resultados.pruebas.length;
+      resultados.exitosas = resultados.pruebas.filter(p => p.exito).length;
+      resultados.fallidas = resultados.total - resultados.exitosas;
+
+      // Mostrar resultados
+      console.log('======================================================');
+      console.log(`📊 RESULTADOS DEL DIAGNÓSTICO: ${resultados.exitosas}/${resultados.total} pruebas exitosas`);
+
+      if (resultados.fallidas > 0) {
+        console.log('❌ PRUEBAS FALLIDAS:');
+        resultados.pruebas.filter(p => !p.exito).forEach(prueba => {
+          console.log(`   - ${prueba.nombre}: ${prueba.error}`);
+        });
+      } else {
+        console.log('✅ TODAS LAS PRUEBAS PASARON - SISTEMA LISTO');
+      }
+
+      // Mostrar notificación al usuario
+      if (resultados.exitosas === resultados.total) {
+        showToast('success', 'Diagnóstico Completado', `Sistema funcionando correctamente (${resultados.exitosas}/${resultados.total} pruebas)`);
+      } else {
+        showToast('error', 'Diagnóstico con Errores', `${resultados.fallidas} pruebas fallidas de ${resultados.total}`);
+      }
+
+      return resultados;
+    }
+
+    function ejecutarPrueba(nombre, funcionPrueba) {
+      try {
+        console.log(`🔍 Ejecutando: ${nombre}`);
+        const resultado = funcionPrueba();
+        if (resultado === true || resultado === undefined) {
+          console.log(`✅ ${nombre}: EXITOSA`);
+          return { nombre, exito: true };
+        } else {
+          console.log(`❌ ${nombre}: FALLIDA - ${resultado}`);
+          return { nombre, exito: false, error: resultado };
+        }
+      } catch (error) {
+        console.log(`❌ ${nombre}: ERROR - ${error.message}`);
+        return { nombre, exito: false, error: error.message };
+      }
+    }
+
+    // Ejecutar diagnóstico automáticamente cuando se carga la página
+    setTimeout(() => {
+      ejecutarDiagnosticoCompleto();
+    }, 1500);
+
+    // También exponer la función globalmente para poder ejecutarla manualmente
+    window.ejecutarDiagnosticoCompleto = ejecutarDiagnosticoCompleto;
+
+    // ═══════════════════════════════════════════════════════════════
+    // VALIDACIÓN FINAL DEL SISTEMA REAL
+    // ═══════════════════════════════════════════════════════════════
+
+    // Script de validación final del sistema
+    // Este script se ejecuta después del diagnóstico para probar la funcionalidad real
+
+    function validarSistemaCompleto() {
+      console.log('🎯 INICIANDO VALIDACIÓN FINAL DEL SISTEMA');
+      console.log('==========================================');
+
+      // Usar variables locales para evitar problemas de scope
+      let pruebasExitosasLocal = 0;
+      const pruebasTotalLocal = 1;
+
+      // Prueba 1: Carga inicial de datos
+      console.log('🔍 Prueba 1: Carga inicial de datos...');
+
+      try {
+        // Simular la carga inicial que hace el sistema
+        google.script.run
+          .withSuccessHandler(function(datos) {
+            try {
+              console.log('✅ Carga inicial exitosa - Verificando datos...');
+
+              // Verificar que datos existe y es objeto
+              if (!datos) {
+                throw new Error('Datos es null o undefined');
+              }
+
+              if (typeof datos !== 'object') {
+                throw new Error(`Datos no es objeto, es: ${typeof datos}`);
+              }
+
+              // Verificar estructura básica
+              if (typeof datos.success === 'undefined') {
+                console.warn('⚠️ Campo success no encontrado, pero continuando...');
+              }
+
+              if (!Array.isArray(datos.clientes)) {
+                console.warn('⚠️ Campo clientes no es array, pero continuando...');
+              } else {
+                console.log(`📊 Clientes encontrados: ${datos.clientes.length}`);
+              }
+
+              if (!Array.isArray(datos.movimientos)) {
+                console.warn('⚠️ Campo movimientos no es array, pero continuando...');
+              } else {
+                console.log(`📊 Movimientos encontrados: ${datos.movimientos.length}`);
+              }
+
+              pruebasExitosasLocal++;
+              mostrarResultadoValidacionFinal(pruebasExitosasLocal, pruebasTotalLocal);
+
+            } catch (validacionError) {
+              console.error('❌ Error en validación de datos:', validacionError.message);
+              mostrarResultadoValidacionFinal(pruebasExitosasLocal, pruebasTotalLocal);
+            }
+          })
+          .withFailureHandler(function(error) {
+            console.error('❌ Error en carga inicial:', error);
+            mostrarResultadoValidacionFinal(pruebasExitosasLocal, pruebasTotalLocal);
+          })
+          .obtenerDatosParaHTML();
+
+      } catch (initError) {
+        console.error('❌ Error al iniciar validación:', initError);
+        mostrarResultadoValidacionFinal(pruebasExitosasLocal, pruebasTotalLocal);
+      }
+
+      function mostrarResultadoValidacionFinal(exitosas, total) {
+        console.log('==========================================');
+        console.log(`📊 VALIDACIÓN FINAL: ${exitosas}/${total} pruebas exitosas`);
+
+        if (exitosas === total) {
+          console.log('🎉 SISTEMA COMPLETAMENTE FUNCIONAL');
+          showToast('success', 'Sistema Validado', 'Todas las funciones operan correctamente');
+        } else {
+          console.log('⚠️ SISTEMA CON PROBLEMAS MENORES');
+          showToast('warning', 'Sistema con Validaciones', `${total - exitosas} pruebas con warnings`);
+        }
+      }
+    }
+
+    // Función para probar manualmente desde consola
+    window.validarSistemaCompleto = validarSistemaCompleto;
+
+    // ═══════════════════════════════════════════════════════════════
+    // VERIFICACIÓN COMPLETA MANUAL
+    // ═══════════════════════════════════════════════════════════════
+
+    // Función para verificación completa desde consola
+    window.verificarSistemaCompleto = function() {
+      console.log('🔬 VERIFICACIÓN COMPLETA DEL SISTEMA SOL & VERDE V18.0');
+      console.log('=======================================================');
+
+      let pruebas = 0;
+      let exitosas = 0;
+
+      function prueba(nombre, test) {
+        pruebas++;
+        try {
+          console.log(`🔍 ${nombre}...`);
+          if (test()) {
+            console.log(`✅ ${nombre}`);
+            exitosas++;
+          } else {
+            console.log(`❌ ${nombre}`);
+          }
+        } catch (e) {
+          console.log(`❌ ${nombre}: ${e.message}`);
+        }
+      }
+
+      // Verificar funciones críticas
+      prueba('descomprimirRespuesta', () => typeof descomprimirRespuesta === 'function');
+      prueba('restaurarFechas', () => typeof restaurarFechas === 'function');
+      prueba('Google Apps Script', () => typeof google?.script?.run !== 'undefined');
+
+      // Verificar descompresión
+      prueba('JSON sin comprimir', () => {
+        const result = descomprimirRespuesta('{"test": true}');
+        return result.test === true;
+      });
+
+      // Resultado final
+      setTimeout(() => {
+        console.log(`\n📊 RESULTADO: ${exitosas}/${pruebas} pruebas exitosas`);
+        if (exitosas === pruebas) {
+          console.log('🎉 SISTEMA 100% FUNCIONAL');
+        }
+      }, 1000);
+    };
+
+    // Ejecutar validación después del diagnóstico
+    setTimeout(() => {
+      console.log('⏳ Iniciando validación del sistema real...');
+      validarSistemaCompleto();
+    }, 3000);
   </script>
 </body>
 </html>

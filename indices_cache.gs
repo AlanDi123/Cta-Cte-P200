@@ -309,13 +309,18 @@ const ResponseCompressor = {
     // Algoritmo de compresión por frecuencia
     const freq = {};
     for (let char of str) {
-      freq[char] = (freq[char] || 0) + 1;
+      // Solo contar letras minúsculas comunes que no interfieran con JSON
+      // Evitar números, mayúsculas, comillas, llaves, corchetes, etc.
+      if (/[a-z]/.test(char) && !/[aeiou]/.test(char)) {
+        // Solo consonantes minúsculas
+        freq[char] = (freq[char] || 0) + 1;
+      }
     }
 
-    // Crear tabla de frecuencias ordenada
+    // Crear tabla de frecuencias ordenada (solo consonantes)
     const sortedChars = Object.keys(freq).sort((a, b) => freq[b] - freq[a]);
 
-    // Reemplazar caracteres frecuentes con códigos cortos
+    // Reemplazar caracteres frecuentes con códigos cortos (A-Z)
     let compressed = str;
     const replacements = {};
 
@@ -326,8 +331,9 @@ const ResponseCompressor = {
       compressed = compressed.split(char).join(code);
     }
 
-    // Agregar tabla de reemplazos al inicio
-    const header = JSON.stringify(replacements) + '|';
+    // Usar separador que no aparezca en JSON: \x00 (null character)
+    const separador = '\x00';
+    const header = JSON.stringify(replacements) + separador;
     return header + compressed;
   },
 
@@ -337,7 +343,9 @@ const ResponseCompressor = {
    * @returns {string} String original
    */
   _descomprimirString: function(compressed) {
-    const parts = compressed.split('|');
+    // Usar el mismo separador que en compresión
+    const separador = '\x00';
+    const parts = compressed.split(separador);
     if (parts.length !== 2) return compressed;
 
     const replacements = JSON.parse(parts[0]);
