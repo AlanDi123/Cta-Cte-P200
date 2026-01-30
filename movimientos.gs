@@ -72,7 +72,7 @@ const MovimientosRepository = {
         throw new Error(`Cliente "${clienteNorm}" no encontrado`);
       }
 
-      if (!estipoMovimientoValido(movimientoData.tipo)) {
+      if (!esTipoMovimientoValido(movimientoData.tipo)) {
         throw new Error(`Tipo de movimiento inválido: "${movimientoData.tipo}". Debe ser DEBE o HABER`);
       }
 
