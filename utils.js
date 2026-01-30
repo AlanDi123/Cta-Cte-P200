@@ -1,0 +1,250 @@
+/**
+ * ============================================================================
+ * UTILIDADES GLOBALES - SISTEMA SOL & VERDE
+ * ============================================================================
+ *
+ * Archivo: utils.js
+ * Descripción: Funciones de utilidad comunes
+ *
+ * ============================================================================
+ */
+
+/**
+ * Helper para logging condicional basado en configuración
+ * @param {string} mensaje - Mensaje a loggear
+ * @param {string} nivel - Nivel: 'info', 'debug', 'error'
+ */
+function log(mensaje, nivel = 'info') {
+  if (nivel === 'error' || CONFIG.LOGGING.ENABLED) {
+    if (nivel === 'debug' && !CONFIG.LOGGING.DEBUG_MODE) return;
+    Logger.log(mensaje);
+  }
+}
+
+/**
+ * Calcula la distancia de Levenshtein entre dos strings
+ * Optimizado con early termination para búsquedas fuzzy
+ * @param {string} a - Primer string
+ * @param {string} b - Segundo string
+ * @param {number} maxDistance - Distancia máxima antes de abandonar (opcional)
+ * @returns {number} Distancia de Levenshtein (o maxDistance+1 si excede)
+ */
+function levenshteinDistance(a, b, maxDistance = Infinity) {
+  // Caso base: strings vacíos
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  // Optimización: si la diferencia de longitud ya excede maxDistance, retornar temprano
+  const lengthDiff = Math.abs(a.length - b.length);
+  if (lengthDiff > maxDistance) {
+    return maxDistance + 1;
+  }
+
+  const matrix = [];
+
+  // Inicializar primera fila y columna
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  // Llenar matriz con early termination
+  for (let i = 1; i <= b.length; i++) {
+    let minInRow = Infinity;
+
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // Sustitución
+          matrix[i][j - 1] + 1,     // Inserción
+          matrix[i - 1][j] + 1      // Eliminación
+        );
+      }
+
+      minInRow = Math.min(minInRow, matrix[i][j]);
+    }
+
+    // Early termination: si el mínimo en esta fila excede maxDistance, no hay match posible
+    if (minInRow > maxDistance) {
+      return maxDistance + 1;
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Calcula un score de similitud fuzzy entre dos strings
+ * Optimizado con early returns
+ * @param {string} busqueda - String de búsqueda (normalizado)
+ * @param {string} candidato - String candidato (normalizado)
+ * @returns {number} Score de 0-100
+ */
+function calcularScoreFuzzy(busqueda, candidato) {
+  // Match exacto - retornar inmediatamente
+  if (busqueda === candidato) {
+    return CONFIG.FUZZY.PESO_EXACTO;
+  }
+
+  // Comienza con - retornar inmediatamente
+  if (candidato.startsWith(busqueda)) {
+    return CONFIG.FUZZY.PESO_COMIENZA;
+  }
+
+  // Contiene - retornar inmediatamente
+  if (candidato.includes(busqueda)) {
+    return CONFIG.FUZZY.PESO_CONTIENE;
+  }
+
+  // Distancia Levenshtein solo si los anteriores fallaron
+  const maxLen = Math.max(busqueda.length, candidato.length);
+
+  // Calcular distancia máxima aceptable basada en MIN_SCORE
+  const maxDistanceAllowed = Math.floor(maxLen * (1 - CONFIG.FUZZY.MIN_SCORE / 100));
+
+  const distancia = levenshteinDistance(busqueda, candidato, maxDistanceAllowed);
+
+  // Si excede la distancia máxima, retornar score bajo
+  if (distancia > maxDistanceAllowed) {
+    return 0;
+  }
+
+  // Convertir distancia a score (0-100)
+  const similitud = 1 - (distancia / maxLen);
+  return Math.round(similitud * CONFIG.FUZZY.PESO_LEVENSHTEIN);
+}
+
+/**
+ * Normaliza un string para comparación (mayúsculas, sin espacios extras)
+ * @param {string} str - String a normalizar
+ * @returns {string} String normalizado
+ */
+function normalizarString(str) {
+  if (!str) return '';
+  return String(str).toUpperCase().trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Valida que un tipo de movimiento sea válido
+ * @param {string} tipo - Tipo a validar
+ * @returns {boolean} True si es válido
+ */
+function estipoMovimientoValido(tipo) {
+  return tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE ||
+         tipo === CONFIG.TIPOS_MOVIMIENTO.HABER;
+}
+
+/**
+ * Valida que un monto sea positivo
+ * @param {number} monto - Monto a validar
+ * @returns {boolean} True si es válido
+ */
+function esMontoValido(monto) {
+  return typeof monto === 'number' && monto > 0 && isFinite(monto);
+}
+
+/**
+ * Valida y convierte una fecha de entrada
+ * @param {string|Date} fecha - Fecha a validar
+ * @returns {Date|null} Objeto Date válido o null si es inválido
+ */
+function validarFecha(fecha) {
+  if (!fecha) return null;
+
+  try {
+    const fechaObj = fecha instanceof Date ? fecha : new Date(fecha);
+
+    // Verificar si la fecha es válida
+    if (isNaN(fechaObj.getTime())) {
+      log('⚠️ Fecha inválida: ' + fecha, 'error');
+      return null;
+    }
+
+    // Verificar que la fecha esté en un rango razonable (1900-2100)
+    const year = fechaObj.getFullYear();
+    if (year < 1900 || year > 2100) {
+      log('⚠️ Año fuera de rango: ' + year, 'error');
+      return null;
+    }
+
+    return fechaObj;
+  } catch (error) {
+    log('❌ Error al validar fecha: ' + error.message, 'error');
+    return null;
+  }
+}
+
+/**
+ * Valida un objeto de movimiento completo
+ * @param {Object} mov - Objeto movimiento
+ * @returns {Object} {valid: boolean, errors: Array}
+ */
+function validarMovimiento(mov) {
+  const errors = [];
+
+  if (!mov.cliente || typeof mov.cliente !== 'string' || mov.cliente.trim() === '') {
+    errors.push('Cliente es requerido');
+  }
+
+  if (!estipoMovimientoValido(mov.tipo)) {
+    errors.push('Tipo de movimiento inválido (debe ser DEBE o HABER)');
+  }
+
+  if (!esMontoValido(mov.monto)) {
+    errors.push('Monto inválido (debe ser un número positivo)');
+  }
+
+  const fechaVal = validarFecha(mov.fecha);
+  if (!fechaVal) {
+    errors.push('Fecha inválida');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors: errors
+  };
+}
+
+/**
+ * Convierte objetos Date a strings ISO para serialización Web
+ * Procesa recursivamente objetos y arrays para asegurar que
+ * todos los Date objects se conviertan a strings antes de
+ * enviarlos a través de google.script.run
+ *
+ * @param {*} obj - Objeto a procesar (puede ser cualquier tipo)
+ * @returns {*} Objeto con fechas convertidas a strings ISO
+ */
+function serializarParaWeb(obj) {
+  // Manejar null y undefined
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  // Convertir Date a ISO string
+  if (obj instanceof Date) {
+    return obj.toISOString();
+  }
+
+  // Procesar arrays recursivamente
+  if (Array.isArray(obj)) {
+    return obj.map(item => serializarParaWeb(item));
+  }
+
+  // Procesar objetos recursivamente
+  if (typeof obj === 'object') {
+    const resultado = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        resultado[key] = serializarParaWeb(obj[key]);
+      }
+    }
+    return resultado;
+  }
+
+  // Retornar primitivos sin cambios
+  return obj;
+}

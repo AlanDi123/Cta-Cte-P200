@@ -1661,13 +1661,14 @@ function obtenerDatosParaHTML() {
   };
 
   try {
-    // Inicializar sistema de Arqueo de Caja si no existe
-    try {
-      setupCashSystemSheets();
-      initializeHistoricalCashData();
-    } catch (e) {
-      log('⚠️ Nota: Error inicializando Arqueo (no crítico): ' + e.message, 'debug');
-    }
+    // REMOVER: Inicialización de Arqueo de Caja que causa problemas
+    // Estas funciones se llamarán solo cuando sea necesario desde el frontend
+    // try {
+    //   setupCashSystemSheets();
+    //   initializeHistoricalCashData();
+    // } catch (e) {
+    //   log('⚠️ Nota: Error inicializando Arqueo (no crítico): ' + e.message, 'debug');
+    // }
 
     log('═══════════════════════════════════════════════════', 'debug');
     log('📥 obtenerDatosParaHTML - INICIO', 'debug');
@@ -1678,7 +1679,7 @@ function obtenerDatosParaHTML() {
     const pageSize = CONFIG.PAGINATION.DEFAULT_PAGE_SIZE;
     const clientes = ClientesRepository.obtenerTodos(0, pageSize);
     const totalClientes = ClientesRepository.contarTodos();
-    
+
     log(`✅ Clientes cargados: ${clientes.length} de ${totalClientes}`, 'debug');
 
     const movimientos = MovimientosRepository.obtenerRecientes(20);
@@ -1698,8 +1699,8 @@ function obtenerDatosParaHTML() {
     log('   Movimientos: ' + resultado.movimientos.length, 'debug');
     log('═══════════════════════════════════════════════════', 'debug');
 
-    // Retornar explícitamente
-    return resultado;
+    // Retornar explícita y serializar fechas
+    return serializarParaWeb(resultado);
 
   } catch (error) {
     log('═══════════════════════════════════════════════════', 'error');
@@ -1722,7 +1723,7 @@ function obtenerDatosParaHTML() {
     };
 
     log('Retornando objeto de error', 'error');
-    return resultadoError;
+    return serializarParaWeb(resultadoError);
   }
 }
 
