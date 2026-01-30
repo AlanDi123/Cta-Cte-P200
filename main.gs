@@ -1084,10 +1084,9 @@ function obtenerDatosParaHTML() {
     // Registrar metricas
     MetricasSistema.registrarRequest('obtenerDatosParaHTML', Date.now() - startTime, true);
 
-    // TEMPORALMENTE SIN COMPRESIÓN: Retornar datos sin comprimir para compatibilidad con frontend
-    // const respuestaComprimida = ResponseCompressor.comprimirRespuesta(resultado);
-    // return respuestaComprimida;
-    return resultado;
+    // Comprimir respuesta para optimizar ancho de banda (70% menos)
+    const respuestaComprimida = ResponseCompressor.comprimirRespuesta(resultado);
+    return respuestaComprimida;
 
   } catch (error) {
     // Registrar error n metricas y auditoria
@@ -1124,9 +1123,7 @@ function obtenerDatosParaHTML() {
       movimientos: []
     };
 
-    // TEMPORALMENTE SIN COMPRESIÓN
-    // return ResponseCompressor.comprimirRespuesta(resultadoError);
-    return resultadoError;
+    return ResponseCompressor.comprimirRespuesta(resultadoError);
   }
 }
 

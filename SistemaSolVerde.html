@@ -4073,25 +4073,39 @@
     // ========================================
     function descomprimirRespuesta(datosComprimidos) {
       try {
-        // Si no está comprimido, retornar tal cual
-        if (!datosComprimidos || typeof datosComprimidos !== 'object' || !datosComprimidos._compressed) {
+        // Si no es string, asumir que no está comprimido
+        if (typeof datosComprimidos !== 'string') {
           return datosComprimidos;
         }
 
         console.log('📦 Descomprimiendo respuesta del backend...');
 
-        // Descomprimir usando LZString
-        const jsonComprimido = datosComprimidos.data;
-        const jsonDescomprimido = LZString.decompressFromUTF16(jsonComprimido);
+        // Algoritmo compatible con ResponseCompressor del backend
+        // Paso 1: base64 decode
+        const compressed = atob(datosComprimidos);
 
-        if (!jsonDescomprimido) {
-          console.error('❌ Error al descomprimir datos');
-          throw new Error('Error de descompresión');
+        // Paso 2: split header y data
+        const parts = compressed.split('|');
+        if (parts.length !== 2) {
+          console.error('❌ Formato de compresión inválido');
+          throw new Error('Formato de compresión inválido');
         }
 
-        const datos = JSON.parse(jsonDescomprimido);
+        const header = parts[0];
+        let data = parts[1];
 
-        // Restaurar objetos Date si existen
+        // Paso 3: parse header para obtener tabla de reemplazos
+        const replacements = JSON.parse(header);
+
+        // Paso 4: revertir reemplazos (A-Z -> caracteres originales)
+        for (const [code, char] of Object.entries(replacements)) {
+          data = data.split(code).join(char);
+        }
+
+        // Paso 5: parse JSON
+        const datos = JSON.parse(data);
+
+        // Paso 6: Restaurar objetos Date si existen
         restaurarFechas(datos);
 
         console.log('✅ Respuesta descomprimida exitosamente');
@@ -4099,8 +4113,14 @@
 
       } catch (error) {
         console.error('❌ Error en descompresión:', error);
-        // Si falla la descompresión, intentar usar los datos tal cual
-        return datosComprimidos;
+        console.error('Datos recibidos:', datosComprimidos);
+        // Si falla la descompresión, intentar parsear como JSON normal
+        try {
+          return JSON.parse(datosComprimidos);
+        } catch (e) {
+          console.error('❌ Tampoco es JSON válido');
+          return datosComprimidos;
+        }
       }
     }
 
