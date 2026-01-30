@@ -2481,6 +2481,12 @@
             Dashboard Principal
           </h1>
           <p class="module-subtitle">Carga rápida de movimientos de cuenta corriente</p>
+          <div class="module-actions">
+            <button class="btn btn-secondary" onclick="probarSistemaOptimizado()" title="Probar sistema optimizado">
+              <span>⚡</span>
+              Probar Optimización
+            </button>
+          </div>
         </div>
 
         <div class="card">
@@ -4058,6 +4064,111 @@
     };
 
     // ========================================
+    // SISTEMA DE DESCOMPRESIÓN OPTIMIZADO
+    // ========================================
+    function descomprimirRespuesta(datosComprimidos) {
+      try {
+        // Si no está comprimido, retornar tal cual
+        if (!datosComprimidos || typeof datosComprimidos !== 'object' || !datosComprimidos._compressed) {
+          return datosComprimidos;
+        }
+
+        console.log('📦 Descomprimiendo respuesta del backend...');
+
+        // Descomprimir usando LZString
+        const jsonComprimido = datosComprimidos.data;
+        const jsonDescomprimido = LZString.decompressFromUTF16(jsonComprimido);
+
+        if (!jsonDescomprimido) {
+          console.error('❌ Error al descomprimir datos');
+          throw new Error('Error de descompresión');
+        }
+
+        const datos = JSON.parse(jsonDescomprimido);
+
+        // Restaurar objetos Date si existen
+        restaurarFechas(datos);
+
+        console.log('✅ Respuesta descomprimida exitosamente');
+        return datos;
+
+      } catch (error) {
+        console.error('❌ Error en descompresión:', error);
+        // Si falla la descompresión, intentar usar los datos tal cual
+        return datosComprimidos;
+      }
+    }
+
+    function restaurarFechas(obj) {
+      if (!obj || typeof obj !== 'object') return;
+
+      // Recorrer todas las propiedades del objeto
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          const value = obj[key];
+
+          // Si es un objeto con _date, restaurar como Date
+          if (value && typeof value === 'object' && value._date) {
+            obj[key] = new Date(value._date);
+          }
+          // Si es un array, procesar recursivamente
+          else if (Array.isArray(value)) {
+            value.forEach(item => restaurarFechas(item));
+          }
+          // Si es un objeto, procesar recursivamente
+          else if (value && typeof value === 'object') {
+            restaurarFechas(value);
+          }
+        }
+      }
+    }
+
+    // ========================================
+    // PRUEBA DEL SISTEMA OPTIMIZADO
+    // ========================================
+    function probarSistemaOptimizado() {
+      console.log('🧪 Probando sistema optimizado...');
+
+      // 1. Probar obtención de métricas del dashboard
+      google.script.run
+        .withSuccessHandler((metricas) => {
+          metricas = descomprimirRespuesta(metricas);
+          console.log('✅ Dashboard métricas:', metricas);
+          showToast('success', 'Sistema Optimizado', 'Métricas obtenidas correctamente');
+        })
+        .withFailureHandler((error) => {
+          console.error('❌ Error obteniendo métricas:', error);
+        })
+        .obtenerDashboardMetricas();
+
+      // 2. Probar estado de salud del sistema
+      setTimeout(() => {
+        google.script.run
+          .withSuccessHandler((salud) => {
+            salud = descomprimirRespuesta(salud);
+            console.log('✅ Estado de salud:', salud);
+          })
+          .withFailureHandler((error) => {
+            console.error('❌ Error obteniendo estado de salud:', error);
+          })
+          .obtenerEstadoSalud();
+      }, 1000);
+
+      // 3. Probar métricas simples
+      setTimeout(() => {
+        google.script.run
+          .withSuccessHandler((simples) => {
+            simples = descomprimirRespuesta(simples);
+            console.log('✅ Métricas simples:', simples);
+          })
+          .withFailureHandler((error) => {
+            console.error('❌ Error obteniendo métricas simples:', error);
+          })
+          .obtenerMetricasSimples();
+      }, 2000);
+    }
+
+    // ========================================
     // ESTADO GLOBAL
     // ========================================
     const AppState = {
@@ -4563,6 +4674,9 @@
     }
 
     function handleGuardarExito(result) {
+      // DESCOMPRESIÓN OPTIMIZADA: Descomprimir respuesta del backend
+      result = descomprimirRespuesta(result);
+
       AppState.isLoading = false;
 
       if (result && result.success) {
@@ -4678,6 +4792,10 @@
       google.script.run
         .withSuccessHandler(function(datos) {
           clearTimeout(timeoutId); // Cancelar timeout si hay respuesta
+
+          // DESCOMPRESIÓN OPTIMIZADA: Descomprimir respuesta del backend
+          datos = descomprimirRespuesta(datos);
+
           console.log('✅ Respuesta recibida del backend');
           console.log('   Tipo:', typeof datos);
           console.log('   Es null:', datos === null);
@@ -5016,6 +5134,9 @@
     }
 
     function handleAnalisisVRSuccess(resultado) {
+      // DESCOMPRESIÓN OPTIMIZADA: Descomprimir respuesta del backend
+      resultado = descomprimirRespuesta(resultado);
+
       document.getElementById('vrAnalyzeBtn').disabled = false;
       document.getElementById('vrAnalyzeBtn').innerHTML = '<span>🔍</span><span>ANALIZAR CON CLAUDE AI</span>';
 
@@ -5175,6 +5296,9 @@
 
       google.script.run
         .withSuccessHandler((resultado) => {
+          // DESCOMPRESIÓN OPTIMIZADA: Descomprimir respuesta del backend
+          resultado = descomprimirRespuesta(resultado);
+
           document.getElementById('vrGuardarTodos').disabled = false;
           if (resultado && resultado.success) {
             const totalGuardados = resultado.totalExitosos || 0;
@@ -5334,6 +5458,9 @@
 
       google.script.run
         .withSuccessHandler((datos) => {
+          // DESCOMPRESIÓN OPTIMIZADA: Descomprimir respuesta del backend
+          datos = descomprimirRespuesta(datos);
+
           if (!datos || !datos.success) {
             showToast('error', 'Error', datos?.error || 'Error cargando cliente');
             return;
@@ -5444,6 +5571,9 @@
 
       google.script.run
         .withSuccessHandler((datos) => {
+          // DESCOMPRESIÓN OPTIMIZADA: Descomprimir respuesta del backend
+          datos = descomprimirRespuesta(datos);
+
           renderEstadisticas(datos);
           showToast('success', 'Completado', 'Estadísticas actualizadas');
         })
@@ -6588,6 +6718,9 @@
     }
 
     function cargarConfigProveedores(config) {
+      // DESCOMPRESIÓN OPTIMIZADA: Descomprimir respuesta del backend
+      config = descomprimirRespuesta(config);
+
       if (!config || !config.providers) return;
       const sel = document.getElementById('newProvSelect');
       if (sel) {
