@@ -1,108 +1,159 @@
 /**
  * ============================================================================
- * CONFIGURACIÓN GLOBAL - SISTEMA SOL & VERDE
+ * CONFIGURACION GLOBAL - SISTEMA SOL & VERDE
  * ============================================================================
- *
- * Archivo: config.js
- * Descripción: Constantes y configuración global del sistema
- *
+ * Sistema de Cuenta Corriente para gestion de clientes y movimientos
+ * Version: 2.0.0
  * ============================================================================
  */
 
 const CONFIG = {
-  // Nombres de hojas en Google Sheets
-  HOJAS: {
-    CLIENTES: 'CLIENTES',
-    MOVIMIENTOS: 'MOVIMIENTOS'
+  // Nombre del sistema
+  SISTEMA: {
+    NOMBRE: 'Sol & Verde',
+    VERSION: '2.0.0'
   },
 
-  // Índices de columnas en hoja CLIENTES (base 0)
+  // Nombres de las hojas de Google Sheets
+  HOJAS: {
+    CLIENTES: 'CLIENTES',
+    MOVIMIENTOS: 'MOVIMIENTOS',
+    CAJA_ARQUEOS: 'CAJA_ARQUEOS',
+    CONFIGURACION: 'CONFIGURACION'
+  },
+
+  // Indices de columnas para CLIENTES (0-based)
   COLS_CLIENTES: {
-    NOMBRE: 0,      // A: String, UPPERCASE, PK
+    NOMBRE: 0,      // A: String, UPPERCASE, clave primaria
     TEL: 1,         // B: String
     EMAIL: 2,       // C: String
-    LIMITE: 3,      // D: Number (default: 100000)
-    SALDO: 4,       // E: Number (calculado automático)
+    LIMITE: 3,      // D: Number (limite de credito)
+    SALDO: 4,       // E: Number (calculado automatico)
     TOTAL_MOVS: 5,  // F: Number (contador)
     ALTA: 6,        // G: Date
     ULTIMO_MOV: 7,  // H: Date
     OBS: 8          // I: String
   },
 
-  // Índices de columnas en hoja MOVIMIENTOS (base 0)
+  // Indices de columnas para MOVIMIENTOS (0-based)
   COLS_MOVS: {
-    ID: 0,          // A: Number autoincremental, PK
-    FECHA: 1,       // B: Date ISO
-    CLIENTE: 2,     // C: String, UPPERCASE, FK
-    TIPO: 3,        // D: "DEBE" | "HABER"
+    ID: 0,          // A: Number autoincremental
+    FECHA: 1,       // B: Date
+    CLIENTE: 2,     // C: String, UPPERCASE
+    TIPO: 3,        // D: "DEBE" o "HABER"
     MONTO: 4,       // E: Number positivo
-    SALDO_POST: 5,  // F: Number (saldo después del movimiento)
+    SALDO_POST: 5,  // F: Number (saldo despues del movimiento)
     OBS: 6,         // G: String
-    USUARIO: 7      // H: Email (auditoría)
+    USUARIO: 7      // H: Email (auditoria)
   },
 
-  // Tipos de movimiento válidos
+  // Indices de columnas para CAJA_ARQUEOS (0-based)
+  COLS_CAJA: {
+    ID: 0,          // A: Number autoincremental
+    FECHA: 1,       // B: Date
+    SESION_ID: 2,   // C: String (identificador de sesion)
+    TIPO: 3,        // D: String (tipo de registro)
+    DESCRIPCION: 4, // E: String
+    MONTO: 5,       // F: Number
+    USUARIO: 6,     // G: Email
+    TIMESTAMP: 7    // H: DateTime
+  },
+
+  // Tipos de movimiento
+  // DEBE = FIADO (aumenta saldo del cliente - nos debe mas)
+  // HABER = PAGO (disminuye saldo del cliente - nos pago)
   TIPOS_MOVIMIENTO: {
-    DEBE: 'DEBE',
-    HABER: 'HABER'
+    DEBE: 'DEBE',   // FIADO
+    HABER: 'HABER'  // PAGO
   },
 
-  // Configuración de Claude AI
+  // Tipos de registro de caja
+  TIPOS_CAJA: {
+    // Billetes
+    BILLETE_1000: 'BILLETE_1000',
+    BILLETE_500: 'BILLETE_500',
+    BILLETE_200: 'BILLETE_200',
+    BILLETE_100: 'BILLETE_100',
+    BILLETE_50: 'BILLETE_50',
+    BILLETE_20: 'BILLETE_20',
+    BILLETE_10: 'BILLETE_10',
+    // Monedas
+    MONEDA_500: 'MONEDA_500',
+    MONEDA_200: 'MONEDA_200',
+    MONEDA_100: 'MONEDA_100',
+    MONEDA_50: 'MONEDA_50',
+    MONEDA_25: 'MONEDA_25',
+    MONEDA_10: 'MONEDA_10',
+    MONEDA_5: 'MONEDA_5',
+    MONEDA_1: 'MONEDA_1',
+    // Otros
+    PROVEEDOR: 'PROVEEDOR',
+    GASTO_EXTRA: 'GASTO_EXTRA',
+    INGRESO: 'INGRESO',
+    COBRANZA: 'COBRANZA',
+    FIADO_DIA: 'FIADO_DIA'
+  },
+
+  // Configuracion de busqueda fuzzy
+  FUZZY: {
+    MIN_SCORE: 65,
+    MAX_SUGERENCIAS: 5,
+    PESO_EXACTO: 100,
+    PESO_COMIENZA: 85,
+    PESO_CONTIENE: 70,
+    PESO_LEVENSHTEIN: 50
+  },
+
+  // Paginacion
+  PAGINATION: {
+    DEFAULT_PAGE_SIZE: 50,
+    MAX_PAGE_SIZE: 100
+  },
+
+  // Valores por defecto
+  DEFAULTS: {
+    LIMITE_CREDITO: 100000,
+    SALDO_INICIAL: 0
+  },
+
+  // Configuracion de Claude AI
   CLAUDE: {
     API_URL: 'https://api.anthropic.com/v1/messages',
-    MODEL: 'claude-opus-4-5-20251101',
+    MODEL: 'claude-sonnet-4-20250514',
     MAX_TOKENS: 4096,
     VERSION: '2023-06-01'
   },
 
-  // Parámetros de fuzzy matching
-  FUZZY: {
-    MIN_SCORE: 65,           // Score mínimo para considerar match
-    MAX_SUGERENCIAS: 5,      // Máximo de sugerencias a devolver
-    PESO_EXACTO: 100,        // Peso para match exacto
-    PESO_COMIENZA: 85,       // Peso para "comienza con"
-    PESO_CONTIENE: 70,       // Peso para "contiene"
-    PESO_LEVENSHTEIN: 50     // Peso base para distancia Levenshtein
-  },
-
-  // Claves de PropertiesService
-  PROPS: {
-    API_KEY: 'CLAUDE_API_KEY'
-  },
-
-  // Configuración de cache
-  CACHE: {
-    CLIENTES_TTL: 60,        // Segundos de cache para clientes
-    ENABLED: true             // Habilitar/deshabilitar cache
-  },
-
-  // Configuración de paginación
-  PAGINATION: {
-    DEFAULT_PAGE_SIZE: 50,   // Tamaño de página por defecto (reducido de 100)
-    MAX_PAGE_SIZE: 100       // Tamaño máximo de página
-  },
-
-  // Configuración de logging
-  LOGGING: {
-    ENABLED: false,          // Deshabilitar logging verbose en producción
-    DEBUG_MODE: false        // Modo debug solo para desarrollo
+  // Colores del sistema (para referencia en el frontend)
+  COLORES: {
+    PRIMARIO: '#2E7D32',
+    SECUNDARIO: '#FF6F00',
+    EXITO: '#4CAF50',
+    PELIGRO: '#C62828',
+    ADVERTENCIA: '#FBC02D',
+    INFO: '#00ACC1'
   }
 };
 
-// Configuración específica para Recaudación
-const RECAUDACION_CONFIG = {
-  HOJA: 'RECAUDACION_EFECTIVO',
-  COLS: {
-    ID: 0,
-    FECHA: 1,
-    CLIENTE: 2,
-    MONTO: 3,
-    FORMA_PAGO: 4,
-    OBS: 5,
-    USUARIO: 6,
-    TIMESTAMP: 7,
-    ESTADO: 8
-  },
-  FORMAS_PAGO: ['EFECTIVO', 'CHEQUE', 'TRANSFERENCIA', 'TARJETA', 'OTRO'],
-  ESTADOS: ['REGISTRADO', 'DEPOSITADO', 'CONCILIADO']
+// Denominaciones de billetes y monedas (pesos argentinos)
+const DENOMINACIONES = {
+  BILLETES: [
+    { tipo: 'BILLETE_1000', valor: 1000, nombre: 'Billete $1.000' },
+    { tipo: 'BILLETE_500', valor: 500, nombre: 'Billete $500' },
+    { tipo: 'BILLETE_200', valor: 200, nombre: 'Billete $200' },
+    { tipo: 'BILLETE_100', valor: 100, nombre: 'Billete $100' },
+    { tipo: 'BILLETE_50', valor: 50, nombre: 'Billete $50' },
+    { tipo: 'BILLETE_20', valor: 20, nombre: 'Billete $20' },
+    { tipo: 'BILLETE_10', valor: 10, nombre: 'Billete $10' }
+  ],
+  MONEDAS: [
+    { tipo: 'MONEDA_500', valor: 500, nombre: 'Moneda $500' },
+    { tipo: 'MONEDA_200', valor: 200, nombre: 'Moneda $200' },
+    { tipo: 'MONEDA_100', valor: 100, nombre: 'Moneda $100' },
+    { tipo: 'MONEDA_50', valor: 50, nombre: 'Moneda $50' },
+    { tipo: 'MONEDA_25', valor: 25, nombre: 'Moneda $25' },
+    { tipo: 'MONEDA_10', valor: 10, nombre: 'Moneda $10' },
+    { tipo: 'MONEDA_5', valor: 5, nombre: 'Moneda $5' },
+    { tipo: 'MONEDA_1', valor: 1, nombre: 'Moneda $1' }
+  ]
 };

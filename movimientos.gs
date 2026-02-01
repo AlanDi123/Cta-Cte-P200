@@ -1,11 +1,8 @@
 /**
  * ============================================================================
- * MOVIMIENTOS REPOSITORY - SISTEMA SOL & VERDE
+ * REPOSITORIO DE MOVIMIENTOS - SISTEMA SOL & VERDE
  * ============================================================================
- *
- * Archivo: movimientos.js
- * Descripción: Lógica de acceso a datos para movimientos
- *
+ * Gestion de movimientos: FIADO (DEBE) y PAGO (HABER)
  * ============================================================================
  */
 
@@ -21,9 +18,9 @@ const MovimientosRepository = {
     // Crear hoja si no existe
     if (!hoja) {
       hoja = ss.insertSheet(CONFIG.HOJAS.MOVIMIENTOS);
-      // Agregar encabezados
       hoja.appendRow(['ID', 'FECHA', 'CLIENTE', 'TIPO', 'MONTO', 'SALDO_POST', 'OBS', 'USUARIO']);
       hoja.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#27AE60').setFontColor('#FFFFFF');
+      hoja.setFrozenRows(1);
     }
 
     return hoja;
@@ -37,9 +34,8 @@ const MovimientosRepository = {
     const hoja = this.getHoja();
     const datos = hoja.getDataRange().getValues();
 
-    if (datos.length <= 1) return 1; // Primer movimiento
+    if (datos.length <= 1) return 1;
 
-    // Obtener último ID
     let maxId = 0;
     for (let i = 1; i < datos.length; i++) {
       const id = datos[i][CONFIG.COLS_MOVS.ID];
@@ -52,7 +48,9 @@ const MovimientosRepository = {
   },
 
   /**
-   * Registra un movimiento individual
+   * Registra un movimiento
+   * DEBE (FIADO) = aumenta saldo del cliente
+   * HABER (PAGO) = disminuye saldo del cliente
    * @param {Object} movimientoData - Datos del movimiento
    * @returns {Object} Movimiento registrado
    */
@@ -60,28 +58,26 @@ const MovimientosRepository = {
     const lock = LockService.getScriptLock();
 
     try {
-      lock.waitLock(30000); // Timeout de 30 segundos
+      lock.waitLock(30000);
 
-      // Validaciones
+      // Validar datos
+      const validacion = validarMovimiento(movimientoData);
+      if (!validacion.valid) {
+        throw new Error('Movimiento invalido: ' + validacion.errors.join(', '));
+      }
+
       const clienteNorm = normalizarString(movimientoData.cliente);
-      if (!clienteNorm) {
-        throw new Error('El nombre del cliente no puede estar vacío');
-      }
 
-      if (!ClientesRepository.buscarPorNombre(clienteNorm)) {
-        throw new Error(`Cliente "${clienteNorm}" no encontrado`);
-      }
-
-      if (!esTipoMovimientoValido(movimientoData.tipo)) {
-        throw new Error(`Tipo de movimiento inválido: "${movimientoData.tipo}". Debe ser DEBE o HABER`);
-      }
-
-      if (!esMontoValido(movimientoData.monto)) {
-        throw new Error('El monto debe ser un número positivo');
+      // Verificar que el cliente exista
+      const cliente = ClientesRepository.buscarPorNombre(clienteNorm);
+      if (!cliente) {
+        throw new Error('Cliente no encontrado: ' + clienteNorm);
       }
 
       // Calcular nuevo saldo
-      const saldoAnterior = ClientesRepository.obtenerSaldo(clienteNorm);
+      // DEBE (FIADO) = cliente nos debe mas = aumenta saldo
+      // HABER (PAGO) = cliente pago = disminuye saldo
+      const saldoAnterior = cliente.saldo;
       let nuevoSaldo;
 
       if (movimientoData.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
@@ -93,31 +89,30 @@ const MovimientosRepository = {
       // Registrar movimiento
       const hoja = this.getHoja();
       const nuevoID = this.generarNuevoID();
-      // Use the user-provided date if available, otherwise use current date
       const fecha = movimientoData.fecha ? new Date(movimientoData.fecha) : new Date();
       const usuario = Session.getActiveUser().getEmail();
 
       const nuevaFila = [
-        nuevoID,                              // ID
-        fecha,                                // FECHA
-        clienteNorm,                          // CLIENTE
-        movimientoData.tipo,                  // TIPO
-        movimientoData.monto,                 // MONTO
-        nuevoSaldo,                           // SALDO_POST
-        movimientoData.obs || '',             // OBS
-        usuario                               // USUARIO
+        nuevoID,
+        fecha,
+        clienteNorm,
+        movimientoData.tipo,
+        movimientoData.monto,
+        nuevoSaldo,
+        movimientoData.obs || '',
+        usuario
       ];
 
       hoja.appendRow(nuevaFila);
 
-      // Actualizar cliente
+      // Actualizar saldo del cliente
       ClientesRepository.actualizarSaldoYContadores(clienteNorm, nuevoSaldo, fecha);
 
       lock.releaseLock();
 
       return {
         id: nuevoID,
-        fecha: fecha.toISOString(),  // Convertir Date a ISO string
+        fecha: fecha.toISOString(),
         cliente: clienteNorm,
         tipo: movimientoData.tipo,
         monto: movimientoData.monto,
@@ -133,9 +128,9 @@ const MovimientosRepository = {
   },
 
   /**
-   * Registra un lote de movimientos (para Visual Reasoning)
+   * Registra multiples movimientos (para Visual Reasoning)
    * @param {Array<Object>} movimientos - Array de movimientos
-   * @returns {Object} Resultado con movimientos exitosos y errores
+   * @returns {Object} {exitosos: Array, errores: Array}
    */
   registrarLote: function(movimientos) {
     const resultados = {
@@ -161,37 +156,33 @@ const MovimientosRepository = {
   },
 
   /**
-   * Obtiene los movimientos más recientes
-   * @param {number} limite - Cantidad máxima de movimientos
+   * Obtiene los movimientos mas recientes
+   * @param {number} limite - Cantidad maxima
    * @returns {Array<Object>} Array de movimientos
    */
-  obtenerRecientes: function(limite) {
+  obtenerRecientes: function(limite = 50) {
     const hoja = this.getHoja();
     const lastRow = hoja.getLastRow();
 
-    if (lastRow <= 1) return []; // Solo encabezados o vacío
+    if (lastRow <= 1) return [];
 
-    // PERFORMANCE FIX: Instead of reading entire sheet, read only last N+buffer rows
-    // Buffer of 50% extra to ensure we get all we need (sorted by date, not insertion order)
-    const buffer = Math.ceil(limite * 1.5);
-    const rowsToRead = Math.min(buffer, lastRow - 1); // Don't read more than available
-    const startRow = Math.max(2, lastRow - rowsToRead + 1); // Start from appropriate row
-
-    let datos = [];
-    if (rowsToRead > 0) {
-      datos = hoja.getRange(startRow, 1, rowsToRead, 8).getValues();
-    }
+    // Leer solo las ultimas filas necesarias
+    const rowsToRead = Math.min(limite + 10, lastRow - 1);
+    const startRow = Math.max(2, lastRow - rowsToRead + 1);
+    const datos = hoja.getRange(startRow, 1, rowsToRead, 8).getValues();
 
     const movimientos = [];
 
-    // Comenzar desde el final (más recientes primero)
+    // Recorrer desde el final (mas recientes primero)
     for (let i = datos.length - 1; i >= 0 && movimientos.length < limite; i--) {
       const fila = datos[i];
+      if (!fila[CONFIG.COLS_MOVS.ID]) continue;
+
       const fecha = fila[CONFIG.COLS_MOVS.FECHA];
 
       movimientos.push({
         id: fila[CONFIG.COLS_MOVS.ID],
-        fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
+        fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
         cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
         tipo: fila[CONFIG.COLS_MOVS.TIPO],
         monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -227,7 +218,7 @@ const MovimientosRepository = {
 
         movimientos.push({
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -238,10 +229,154 @@ const MovimientosRepository = {
       }
     }
 
-    // Ordenar por ID descendente (más recientes primero)
+    // Ordenar por ID descendente
     movimientos.sort((a, b) => b.id - a.id);
 
     return movimientos;
+  },
+
+  /**
+   * Obtiene movimientos por rango de fechas
+   * @param {Date|string} desde - Fecha inicio
+   * @param {Date|string} hasta - Fecha fin
+   * @returns {Array<Object>} Array de movimientos
+   */
+  obtenerPorRango: function(desde, hasta) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return [];
+
+    const fechaDesde = new Date(desde);
+    const fechaHasta = new Date(hasta);
+    fechaDesde.setHours(0, 0, 0, 0);
+    fechaHasta.setHours(23, 59, 59, 999);
+
+    const movimientos = [];
+
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+      const fechaMov = new Date(fila[CONFIG.COLS_MOVS.FECHA]);
+
+      if (fechaMov >= fechaDesde && fechaMov <= fechaHasta) {
+        movimientos.push({
+          id: fila[CONFIG.COLS_MOVS.ID],
+          fecha: fila[CONFIG.COLS_MOVS.FECHA] instanceof Date ? fila[CONFIG.COLS_MOVS.FECHA].toISOString() : fila[CONFIG.COLS_MOVS.FECHA],
+          cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
+          tipo: fila[CONFIG.COLS_MOVS.TIPO],
+          monto: fila[CONFIG.COLS_MOVS.MONTO],
+          saldoPost: fila[CONFIG.COLS_MOVS.SALDO_POST],
+          obs: fila[CONFIG.COLS_MOVS.OBS] || '',
+          usuario: fila[CONFIG.COLS_MOVS.USUARIO] || ''
+        });
+      }
+    }
+
+    return movimientos;
+  },
+
+  /**
+   * Busca un movimiento por ID
+   * @param {number} id - ID del movimiento
+   * @returns {Object|null} Movimiento encontrado o null
+   */
+  buscarPorId: function(id) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    for (let i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG.COLS_MOVS.ID] === id) {
+        const fila = datos[i];
+        const fecha = fila[CONFIG.COLS_MOVS.FECHA];
+        return {
+          id: fila[CONFIG.COLS_MOVS.ID],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+          cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
+          tipo: fila[CONFIG.COLS_MOVS.TIPO],
+          monto: fila[CONFIG.COLS_MOVS.MONTO],
+          saldoPost: fila[CONFIG.COLS_MOVS.SALDO_POST],
+          obs: fila[CONFIG.COLS_MOVS.OBS] || '',
+          usuario: fila[CONFIG.COLS_MOVS.USUARIO] || '',
+          fila: i + 1
+        };
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Edita un movimiento existente
+   * @param {number} id - ID del movimiento
+   * @param {Object} datos - Datos a actualizar (monto, obs)
+   * @returns {Object} Movimiento actualizado
+   */
+  editar: function(id, datos) {
+    const mov = this.buscarPorId(id);
+    if (!mov) {
+      throw new Error('Movimiento no encontrado: ' + id);
+    }
+
+    const hoja = this.getHoja();
+    const fila = mov.fila;
+
+    // Solo permitir editar monto y observaciones
+    if (datos.monto !== undefined && esMontoValido(datos.monto)) {
+      const diferencia = datos.monto - mov.monto;
+
+      // Recalcular saldo del cliente
+      const cliente = ClientesRepository.buscarPorNombre(mov.cliente);
+      if (cliente) {
+        let nuevoSaldoCliente;
+        if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+          nuevoSaldoCliente = cliente.saldo + diferencia;
+        } else {
+          nuevoSaldoCliente = cliente.saldo - diferencia;
+        }
+
+        hoja.getRange(fila, CONFIG.COLS_MOVS.MONTO + 1).setValue(datos.monto);
+
+        // Actualizar saldo en cliente
+        const hojaClientes = ClientesRepository.getHoja();
+        hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldoCliente);
+      }
+    }
+
+    if (datos.obs !== undefined) {
+      hoja.getRange(fila, CONFIG.COLS_MOVS.OBS + 1).setValue(datos.obs);
+    }
+
+    return this.buscarPorId(id);
+  },
+
+  /**
+   * Elimina un movimiento y recalcula el saldo del cliente
+   * @param {number} id - ID del movimiento
+   */
+  eliminar: function(id) {
+    const mov = this.buscarPorId(id);
+    if (!mov) {
+      throw new Error('Movimiento no encontrado: ' + id);
+    }
+
+    // Recalcular saldo del cliente
+    const cliente = ClientesRepository.buscarPorNombre(mov.cliente);
+    if (cliente) {
+      let nuevoSaldoCliente;
+      if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+        nuevoSaldoCliente = cliente.saldo - mov.monto;
+      } else {
+        nuevoSaldoCliente = cliente.saldo + mov.monto;
+      }
+
+      // Actualizar saldo en cliente
+      const hojaClientes = ClientesRepository.getHoja();
+      hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldoCliente);
+    }
+
+    // Eliminar fila
+    const hoja = this.getHoja();
+    hoja.deleteRow(mov.fila);
   },
 
   /**
@@ -253,7 +388,7 @@ const MovimientosRepository = {
     const hoja = this.getHoja();
     const datos = hoja.getDataRange().getValues();
 
-    // Recorrer de abajo hacia arriba para no alterar índices
+    // Recorrer de abajo hacia arriba
     for (let i = datos.length - 1; i >= 1; i--) {
       const clienteFila = normalizarString(datos[i][CONFIG.COLS_MOVS.CLIENTE]);
       if (clienteFila === nombreNorm) {
@@ -263,45 +398,75 @@ const MovimientosRepository = {
   },
 
   /**
-   * Obtiene movimientos en un rango de fechas
-   * @param {Date} desde - Fecha inicio
-   * @param {Date} hasta - Fecha fin
-   * @returns {Array<Object>} Array de movimientos
+   * Recalcula todos los saldos de clientes basandose en movimientos
+   * @returns {Object} {clientesActualizados: number}
    */
-  obtenerPorRango: function(desde, hasta) {
-    const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
+  recalcularTodosSaldos: function() {
+    const clientes = ClientesRepository.obtenerTodos();
+    let actualizados = 0;
 
-    if (datos.length <= 1) return [];
+    for (const cliente of clientes) {
+      const movimientos = this.obtenerPorCliente(cliente.nombre);
 
-    const movimientos = [];
-    const fechaDesde = new Date(desde);
-    const fechaHasta = new Date(hasta);
+      let saldoCalculado = 0;
+      for (const mov of movimientos) {
+        if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+          saldoCalculado += mov.monto;
+        } else {
+          saldoCalculado -= mov.monto;
+        }
+      }
 
-    // Normalizar a medianoche
-    fechaDesde.setHours(0, 0, 0, 0);
-    fechaHasta.setHours(23, 59, 59, 999);
-
-    for (let i = 1; i < datos.length; i++) {
-      const fila = datos[i];
-      const fechaMov = new Date(fila[CONFIG.COLS_MOVS.FECHA]);
-
-      if (fechaMov >= fechaDesde && fechaMov <= fechaHasta) {
-        const fecha = fila[CONFIG.COLS_MOVS.FECHA];
-
-        movimientos.push({
-          id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
-          cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
-          tipo: fila[CONFIG.COLS_MOVS.TIPO],
-          monto: fila[CONFIG.COLS_MOVS.MONTO],
-          saldoPost: fila[CONFIG.COLS_MOVS.SALDO_POST],
-          obs: fila[CONFIG.COLS_MOVS.OBS] || '',
-          usuario: fila[CONFIG.COLS_MOVS.USUARIO] || ''
-        });
+      if (saldoCalculado !== cliente.saldo) {
+        const clienteData = ClientesRepository.buscarPorNombre(cliente.nombre);
+        if (clienteData) {
+          const hoja = ClientesRepository.getHoja();
+          hoja.getRange(clienteData.fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(saldoCalculado);
+          actualizados++;
+        }
       }
     }
 
-    return movimientos;
+    return { clientesActualizados: actualizados };
+  },
+
+  /**
+   * Obtiene estadisticas de movimientos
+   * @returns {Object} Estadisticas
+   */
+  obtenerEstadisticas: function() {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    let totalMovimientos = 0;
+    let totalFiados = 0;
+    let totalPagos = 0;
+    let montoFiados = 0;
+    let montoPagos = 0;
+
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+      if (!fila[CONFIG.COLS_MOVS.ID]) continue;
+
+      totalMovimientos++;
+      const monto = fila[CONFIG.COLS_MOVS.MONTO] || 0;
+
+      if (fila[CONFIG.COLS_MOVS.TIPO] === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+        totalFiados++;
+        montoFiados += monto;
+      } else {
+        totalPagos++;
+        montoPagos += monto;
+      }
+    }
+
+    return {
+      totalMovimientos,
+      totalFiados,
+      totalPagos,
+      montoFiados,
+      montoPagos,
+      saldoNeto: montoFiados - montoPagos
+    };
   }
 };
