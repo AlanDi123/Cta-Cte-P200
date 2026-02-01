@@ -134,9 +134,27 @@
     }
 
     .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    .header-logo-img {
+      height: 36px;
+      width: auto;
+      border-radius: 4px;
+    }
+
+    .header-logo-text {
       font-size: 1.25rem;
       font-weight: bold;
-      flex: 1;
+    }
+
+    @media (max-width: 480px) {
+      .header-logo-text {
+        display: none;
+      }
     }
 
     .header-btn {
@@ -445,6 +463,74 @@
       to { transform: translateX(0); opacity: 1; }
     }
 
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Aplicar animaciones */
+    .module-view.active {
+      animation: fadeIn 0.3s ease;
+    }
+
+    .card {
+      animation: slideUp 0.3s ease;
+    }
+
+    .modal-content {
+      animation: scaleIn 0.25s ease;
+    }
+
+    .stat-card {
+      animation: slideUp 0.3s ease;
+      animation-fill-mode: both;
+    }
+
+    .stat-card:nth-child(1) { animation-delay: 0.05s; }
+    .stat-card:nth-child(2) { animation-delay: 0.1s; }
+    .stat-card:nth-child(3) { animation-delay: 0.15s; }
+    .stat-card:nth-child(4) { animation-delay: 0.2s; }
+
+    .btn {
+      transform: translateY(0);
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--sv-sombra);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .menu-item {
+      transform: translateX(0);
+    }
+
+    .menu-item:hover {
+      transform: translateX(4px);
+    }
+
+    .fadeOut {
+      animation: fadeOut 0.2s ease forwards;
+    }
+
     /* Loading */
     .loading-overlay {
       position: fixed;
@@ -536,8 +622,13 @@
       color: var(--sv-texto-muted);
     }
 
-    /* Impresion */
+    /* Impresion A4 optimizada */
     @media print {
+      @page {
+        size: A4 portrait;
+        margin: 1cm;
+      }
+
       .no-print {
         display: none !important;
       }
@@ -547,14 +638,65 @@
       }
 
       body {
-        background: white;
-        color: black;
+        background: white !important;
+        color: black !important;
+        font-size: 10pt;
+        line-height: 1.3;
       }
 
       .card {
-        border: 1px solid #ccc;
+        border: none;
         box-shadow: none;
+        padding: 0;
+        margin: 0;
+        animation: none;
       }
+
+      .table-print {
+        width: 100%;
+        font-size: 9pt;
+        border-collapse: collapse;
+      }
+
+      .table-print th,
+      .table-print td {
+        padding: 4px 8px;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .table-print th {
+        background: #f5f5f5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-size: 8pt;
+        text-transform: uppercase;
+      }
+
+      .table-print tfoot td {
+        border-top: 2px solid #333;
+        padding-top: 8px;
+      }
+
+      .print-header {
+        font-size: 14pt;
+        margin-bottom: 5px !important;
+      }
+
+      .print-logo {
+        display: block !important;
+        width: 60px;
+        height: auto;
+        margin: 0 auto 10px;
+      }
+
+      .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    }
+
+    .print-logo {
+      display: none;
     }
 
     /* Sugerencias autocomplete */
@@ -699,7 +841,10 @@
     <!-- Header -->
     <header class="app-header no-print">
       <button class="header-btn" id="menuToggle" title="Menu">☰</button>
-      <div class="header-logo">Sol & Verde</div>
+      <div class="header-logo">
+        <img src="https://i.imgur.com/tStvmV1.png" alt="Sol & Verde" class="header-logo-img">
+        <span class="header-logo-text">Sol & Verde</span>
+      </div>
       <button class="header-btn" id="themeToggle" title="Cambiar tema">🌙</button>
     </header>
 
@@ -978,28 +1123,35 @@
         <h2 style="margin-bottom: 1.5rem;" class="no-print">Imprimir Saldos Pendientes</h2>
 
         <div class="card">
-          <div class="no-print" style="margin-bottom: 1rem;">
+          <div class="no-print" style="margin-bottom: 1rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label">Filtrar por fecha</label>
+              <input type="date" class="form-input" id="fechaSaldos" onchange="cargarSaldosPendientes()">
+            </div>
             <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
           </div>
 
-          <h3 style="text-align: center; margin-bottom: 1rem;">Saldos Pendientes - Sol & Verde</h3>
-          <p style="text-align: center; margin-bottom: 1rem;" id="fechaImpresion"></p>
+          <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" class="print-logo">
+          <h3 class="print-header" style="text-align: center; margin-bottom: 0.5rem;">Saldos Pendientes - Sol & Verde</h3>
+          <p style="text-align: center; margin-bottom: 1rem; font-size: 0.875rem;" id="fechaImpresion"></p>
 
           <div class="table-container">
-            <table class="table">
+            <table class="table table-print">
               <thead>
                 <tr>
                   <th>Cliente</th>
-                  <th>Saldo</th>
-                  <th>Ultimo Mov</th>
+                  <th style="text-align: right;">Pagos</th>
+                  <th style="text-align: right;">Fiados</th>
+                  <th style="text-align: right;">Saldo</th>
                 </tr>
               </thead>
               <tbody id="tbodySaldos"></tbody>
               <tfoot>
-                <tr style="font-weight: bold;">
+                <tr style="font-weight: bold; border-top: 2px solid var(--sv-borde);">
                   <td>TOTAL</td>
-                  <td id="totalSaldos">$0</td>
-                  <td></td>
+                  <td style="text-align: right;" id="totalPagosDia">$0</td>
+                  <td style="text-align: right;" id="totalFiadosDia">$0</td>
+                  <td style="text-align: right;" id="totalSaldos">$0</td>
                 </tr>
               </tfoot>
             </table>
@@ -1012,13 +1164,8 @@
         <h2 style="margin-bottom: 1.5rem;">Arqueo de Efectivo</h2>
 
         <div class="card">
-          <div class="card-title">Denominaciones</div>
-
-          <h4 style="margin-bottom: 0.75rem;">Billetes</h4>
+          <div class="card-title">Denominaciones de Billetes</div>
           <div class="denom-grid" id="gridBilletes"></div>
-
-          <h4 style="margin: 1.5rem 0 0.75rem;">Monedas</h4>
-          <div class="denom-grid" id="gridMonedas"></div>
 
           <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 2px solid var(--sv-borde);">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1030,6 +1177,9 @@
 
         <div class="card">
           <div class="card-title">Pagos a Proveedores</div>
+          <p style="font-size: 0.875rem; color: var(--sv-texto-secundario); margin-bottom: 1rem;">
+            Escribe el nombre del proveedor para ver sugerencias del historial
+          </p>
           <div id="listaProveedores"></div>
           <button class="btn btn-outline" onclick="agregarProveedor()">+ Agregar Proveedor</button>
         </div>
@@ -1178,38 +1328,82 @@
       <div class="module-view" id="module-configuracion">
         <h2 style="margin-bottom: 1.5rem;">Configuracion</h2>
 
-        <div class="card">
-          <div class="card-title">API Key de Claude (Vision)</div>
-          <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario);">
-            Necesaria para analizar imagenes con Visual Reasoning.
-            Obtenla en <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
-          </p>
+        <div class="grid grid-2">
+          <!-- Columna izquierda -->
+          <div>
+            <div class="card">
+              <div class="card-title">🔑 API Key de Claude (Vision)</div>
+              <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Necesaria para analizar imagenes con Visual Reasoning.
+                <a href="https://console.anthropic.com" target="_blank" style="color: var(--sv-primario);">Obtener API Key</a>
+              </p>
 
-          <div class="form-group">
-            <input type="password" class="form-input" id="inputApiKey" placeholder="sk-ant-...">
+              <div class="form-group">
+                <input type="password" class="form-input" id="inputApiKey" placeholder="sk-ant-...">
+              </div>
+              <button class="btn btn-primary" onclick="guardarApiKeyConfig()">Guardar API Key</button>
+              <p id="estadoApiKey" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🎨 Apariencia</div>
+
+              <div class="form-group">
+                <label class="form-label">Tema</label>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button class="btn btn-outline" onclick="setTema('light')" id="btnTemaClaro">☀️ Claro</button>
+                  <button class="btn btn-outline" onclick="setTema('dark')" id="btnTemaOscuro">🌙 Oscuro</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Animaciones</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                  <input type="checkbox" id="toggleAnimaciones" checked onchange="toggleAnimaciones(this.checked)">
+                  <span>Habilitar animaciones</span>
+                </label>
+              </div>
+            </div>
           </div>
-          <button class="btn btn-primary" onclick="guardarApiKeyConfig()">Guardar API Key</button>
 
-          <p id="estadoApiKey" style="margin-top: 0.5rem;"></p>
-        </div>
+          <!-- Columna derecha -->
+          <div>
+            <div class="card">
+              <div class="card-title">🛠️ Herramientas</div>
 
-        <div class="card">
-          <div class="card-title">Herramientas</div>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <button class="btn btn-outline" onclick="recalcularTodosSaldos()">
+                  🔄 Recalcular Saldos
+                </button>
+                <button class="btn btn-outline" onclick="exportarDatos()">
+                  📥 Exportar Datos (CSV)
+                </button>
+                <button class="btn btn-outline" onclick="limpiarCacheLocal()">
+                  🗑️ Limpiar Cache Local
+                </button>
+              </div>
+            </div>
 
-          <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
-            <button class="btn btn-outline" onclick="recalcularTodosSaldos()">
-              🔄 Recalcular Saldos
-            </button>
-            <button class="btn btn-outline" onclick="exportarDatos()">
-              📥 Exportar Datos
-            </button>
+            <div class="card">
+              <div class="card-title">📊 Datos del Sistema</div>
+              <div id="datosDelSistema" style="font-size: 0.875rem;">
+                <p><strong>Clientes:</strong> <span id="configTotalClientes">-</span></p>
+                <p><strong>Movimientos:</strong> <span id="configTotalMovimientos">-</span></p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">ℹ️ Acerca de</div>
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 50px; height: 50px; border-radius: 8px;">
+                <div>
+                  <p><strong>Sol & Verde</strong></p>
+                  <p style="font-size: 0.875rem; color: var(--sv-texto-secundario);">Sistema de Cuenta Corriente</p>
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted);">Version 2.1.0</p>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Acerca de</div>
-          <p><strong>Sol & Verde</strong> - Sistema de Cuenta Corriente</p>
-          <p>Version 2.0.0</p>
         </div>
       </div>
 
@@ -1280,7 +1474,8 @@
       vrImagenToken: null,
       vrMovimientos: [],
       configuracion: null,
-      arqueo: {}
+      arqueo: {},
+      proveedoresHistorial: JSON.parse(localStorage.getItem('proveedoresHistorial') || '[]')
     };
 
     // ============================================================================
@@ -1292,14 +1487,11 @@
       document.getElementById('movFecha').value = hoy;
       document.getElementById('vrFecha').value = hoy;
       document.getElementById('fechaHojaRuta').value = hoy;
+      document.getElementById('fechaSaldos').value = hoy;
       document.getElementById('fechaImpresion').textContent = 'Fecha: ' + formatearFecha(hoy);
 
-      // Cargar tema guardado
-      const temaGuardado = localStorage.getItem('tema');
-      if (temaGuardado === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        document.getElementById('themeToggle').textContent = '☀️';
-      }
+      // Cargar preferencias guardadas
+      cargarConfiguracionInicial();
 
       // Cargar datos iniciales
       cargarDatosIniciales();
@@ -1316,6 +1508,7 @@
             Estado.movimientos = data.movimientos || [];
             renderMovimientos();
             renderClientesGestion();
+            actualizarDatosSistema();
           }
 
           // Ocultar splash
@@ -1644,6 +1837,7 @@
     // ============================================================================
     function cargarSaldosPendientes() {
       mostrarLoading(true);
+      const fecha = document.getElementById('fechaSaldos').value || new Date().toISOString().split('T')[0];
 
       google.script.run
         .withSuccessHandler(function(result) {
@@ -1652,19 +1846,23 @@
             document.getElementById('tbodySaldos').innerHTML = result.deudores.map(d => `
               <tr>
                 <td>${d.nombre}</td>
-                <td style="font-weight: bold;">${formatearMonto(d.saldo)}</td>
-                <td>${d.ultimoMov ? formatearFecha(d.ultimoMov) : '-'}</td>
+                <td style="text-align: right; color: var(--sv-exito);">${d.pagosDia > 0 ? formatearMonto(d.pagosDia) : '-'}</td>
+                <td style="text-align: right; color: var(--sv-peligro);">${d.fiadosDia > 0 ? formatearMonto(d.fiadosDia) : '-'}</td>
+                <td style="text-align: right; font-weight: bold;">${formatearMonto(d.saldo)}</td>
               </tr>
             `).join('');
 
+            document.getElementById('totalPagosDia').textContent = formatearMonto(result.totalPagosDia || 0);
+            document.getElementById('totalFiadosDia').textContent = formatearMonto(result.totalFiadosDia || 0);
             document.getElementById('totalSaldos').textContent = formatearMonto(result.totalAdeudado);
+            document.getElementById('fechaImpresion').textContent = 'Fecha: ' + formatearFecha(fecha);
           }
         })
         .withFailureHandler(function(error) {
           mostrarLoading(false);
           mostrarToast('Error: ' + error.message, 'error');
         })
-        .obtenerDeudores();
+        .obtenerSaldosConMovimientosDia(fecha);
     }
 
     // ============================================================================
@@ -1819,17 +2017,8 @@
       if (!Estado.configuracion) return;
 
       const gridBilletes = document.getElementById('gridBilletes');
-      const gridMonedas = document.getElementById('gridMonedas');
 
       gridBilletes.innerHTML = Estado.configuracion.denominaciones.BILLETES.map(d => `
-        <div class="denom-item">
-          <span class="denom-label">${d.nombre}</span>
-          <input type="number" class="denom-input" min="0" value="0" data-tipo="${d.tipo}" data-valor="${d.valor}" onchange="calcularTotalEfectivo()">
-          <span class="denom-total" data-total="${d.tipo}">$0</span>
-        </div>
-      `).join('');
-
-      gridMonedas.innerHTML = Estado.configuracion.denominaciones.MONEDAS.map(d => `
         <div class="denom-item">
           <span class="denom-label">${d.nombre}</span>
           <input type="number" class="denom-input" min="0" value="0" data-tipo="${d.tipo}" data-valor="${d.valor}" onchange="calcularTotalEfectivo()">
@@ -1861,14 +2050,100 @@
     function agregarProveedor() {
       const lista = document.getElementById('listaProveedores');
       const item = document.createElement('div');
-      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem;';
+      item.className = 'proveedor-item';
+      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;';
+
+      const itemId = 'prov-' + Date.now();
+
       item.innerHTML = `
-        <input type="text" class="form-input" placeholder="Descripcion" style="flex: 1;">
+        <div class="form-group-autocomplete" style="flex: 1; position: relative; margin: 0;">
+          <input type="text" class="form-input prov-desc" placeholder="Nombre del proveedor"
+                 id="${itemId}" autocomplete="off"
+                 oninput="buscarProveedorAutocomplete(this)"
+                 onfocus="buscarProveedorAutocomplete(this)">
+          <div class="suggestions-list prov-sugerencias" style="display: none;"></div>
+        </div>
         <input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()">
-        <button class="btn btn-outline" onclick="this.parentElement.remove(); calcularNetoArqueo();">✗</button>
+        <button class="btn btn-outline btn-eliminar-prov" onclick="confirmarEliminarProveedor(this)" style="padding: 0.5rem; color: var(--sv-peligro);" title="Eliminar">✗</button>
       `;
       lista.appendChild(item);
+
+      // Focus en el input de descripcion
+      item.querySelector('.prov-desc').focus();
     }
+
+    function buscarProveedorAutocomplete(input) {
+      const sugerenciasDiv = input.parentElement.querySelector('.prov-sugerencias');
+      const termino = input.value.toLowerCase();
+
+      if (termino.length === 0) {
+        // Mostrar ultimos 5 proveedores usados
+        if (Estado.proveedoresHistorial.length > 0) {
+          sugerenciasDiv.innerHTML = Estado.proveedoresHistorial.slice(0, 5).map(p => `
+            <div class="suggestion-item" onclick="seleccionarProveedor('${input.id}', '${p.replace(/'/g, "\\'")}')">${p}</div>
+          `).join('');
+          sugerenciasDiv.style.display = 'block';
+        } else {
+          sugerenciasDiv.style.display = 'none';
+        }
+        return;
+      }
+
+      const matches = Estado.proveedoresHistorial.filter(p => p.toLowerCase().includes(termino)).slice(0, 5);
+
+      if (matches.length === 0) {
+        sugerenciasDiv.style.display = 'none';
+        return;
+      }
+
+      sugerenciasDiv.innerHTML = matches.map(p => `
+        <div class="suggestion-item" onclick="seleccionarProveedor('${input.id}', '${p.replace(/'/g, "\\'")}')">${p}</div>
+      `).join('');
+      sugerenciasDiv.style.display = 'block';
+    }
+
+    function seleccionarProveedor(inputId, nombre) {
+      const input = document.getElementById(inputId);
+      input.value = nombre;
+      input.parentElement.querySelector('.prov-sugerencias').style.display = 'none';
+      // Focus al monto
+      input.parentElement.parentElement.querySelector('.prov-monto').focus();
+    }
+
+    function guardarProveedorEnHistorial(nombre) {
+      if (!nombre || nombre.trim() === '') return;
+
+      // Quitar si ya existe y agregar al principio
+      Estado.proveedoresHistorial = Estado.proveedoresHistorial.filter(p => p.toLowerCase() !== nombre.toLowerCase());
+      Estado.proveedoresHistorial.unshift(nombre.trim());
+
+      // Mantener maximo 20 proveedores
+      Estado.proveedoresHistorial = Estado.proveedoresHistorial.slice(0, 20);
+
+      localStorage.setItem('proveedoresHistorial', JSON.stringify(Estado.proveedoresHistorial));
+    }
+
+    function confirmarEliminarProveedor(btn) {
+      const item = btn.closest('.proveedor-item');
+      const monto = item.querySelector('.prov-monto').value;
+
+      if (monto && parseFloat(monto) > 0) {
+        if (!confirm('¿Eliminar este proveedor?')) return;
+      }
+
+      item.classList.add('fadeOut');
+      setTimeout(() => {
+        item.remove();
+        calcularNetoArqueo();
+      }, 200);
+    }
+
+    // Cerrar sugerencias al hacer clic fuera
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.form-group-autocomplete')) {
+        document.querySelectorAll('.prov-sugerencias').forEach(s => s.style.display = 'none');
+      }
+    });
 
     function agregarGasto() {
       const lista = document.getElementById('listaGastos');
@@ -1918,13 +2193,18 @@
 
     function guardarArqueo() {
       const proveedores = [];
-      document.querySelectorAll('#listaProveedores > div').forEach(item => {
-        const inputs = item.querySelectorAll('input');
-        if (inputs[1].value) {
+      document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
+        const desc = item.querySelector('.prov-desc');
+        const monto = item.querySelector('.prov-monto');
+        if (monto && monto.value) {
           proveedores.push({
-            descripcion: inputs[0].value,
-            monto: parseFloat(inputs[1].value)
+            descripcion: desc ? desc.value : '',
+            monto: parseFloat(monto.value)
           });
+          // Guardar proveedor en historial
+          if (desc && desc.value.trim()) {
+            guardarProveedorEnHistorial(desc.value);
+          }
         }
       });
 
@@ -2256,6 +2536,67 @@
 
     function exportarDatos() {
       mostrarToast('Exportacion no implementada aun', 'info');
+    }
+
+    // ============================================================================
+    // CONFIGURACION AVANZADA
+    // ============================================================================
+    function cargarConfiguracionInicial() {
+      // Cargar tema guardado
+      const temaGuardado = localStorage.getItem('tema') || 'light';
+      setTema(temaGuardado);
+
+      // Cargar animaciones
+      const animaciones = localStorage.getItem('animaciones') !== 'false';
+      document.getElementById('toggleAnimaciones').checked = animaciones;
+      toggleAnimaciones(animaciones);
+    }
+
+    function setTema(tema) {
+      document.documentElement.setAttribute('data-theme', tema === 'dark' ? 'dark' : '');
+      document.getElementById('themeToggle').textContent = tema === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('tema', tema);
+
+      // Actualizar botones
+      const btnClaro = document.getElementById('btnTemaClaro');
+      const btnOscuro = document.getElementById('btnTemaOscuro');
+      if (btnClaro && btnOscuro) {
+        btnClaro.className = 'btn ' + (tema === 'light' ? 'btn-primary' : 'btn-outline');
+        btnOscuro.className = 'btn ' + (tema === 'dark' ? 'btn-primary' : 'btn-outline');
+      }
+    }
+
+    function toggleAnimaciones(habilitado) {
+      localStorage.setItem('animaciones', habilitado ? 'true' : 'false');
+
+      let style = document.getElementById('no-animations-style');
+
+      if (!habilitado) {
+        if (!style) {
+          style = document.createElement('style');
+          style.id = 'no-animations-style';
+          style.textContent = '*, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; }';
+          document.head.appendChild(style);
+        }
+      } else {
+        if (style) style.remove();
+      }
+    }
+
+    function limpiarCacheLocal() {
+      if (!confirm('¿Limpiar toda la cache local? Esto incluye el historial de proveedores.')) return;
+
+      localStorage.removeItem('proveedoresHistorial');
+      Estado.proveedoresHistorial = [];
+      mostrarToast('Cache local limpiada', 'success');
+    }
+
+    function actualizarDatosSistema() {
+      const totalClientes = document.getElementById('configTotalClientes');
+      const totalMovimientos = document.getElementById('configTotalMovimientos');
+
+      if (totalClientes) totalClientes.textContent = Estado.clientes.length;
+      if (totalMovimientos) totalMovimientos.textContent = Estado.movimientos.length;
     }
 
     // ============================================================================
