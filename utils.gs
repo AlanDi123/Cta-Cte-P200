@@ -1,127 +1,19 @@
 /**
  * ============================================================================
- * UTILIDADES GLOBALES - SISTEMA SOL & VERDE
+ * UTILIDADES - SISTEMA SOL & VERDE
  * ============================================================================
- *
- * Archivo: utils.js
- * Descripción: Funciones de utilidad comunes
- *
+ * Funciones de utilidad, validacion y busqueda
  * ============================================================================
  */
 
-/**
- * Helper para logging condicional basado en configuración
- * @param {string} mensaje - Mensaje a loggear
- * @param {string} nivel - Nivel: 'info', 'debug', 'error'
- */
-function log(mensaje, nivel = 'info') {
-  if (nivel === 'error' || CONFIG.LOGGING.ENABLED) {
-    if (nivel === 'debug' && !CONFIG.LOGGING.DEBUG_MODE) return;
-    Logger.log(mensaje);
-  }
-}
+// ============================================================================
+// NORMALIZACION Y STRINGS
+// ============================================================================
 
 /**
- * Calcula la distancia de Levenshtein entre dos strings
- * Optimizado con early termination para búsquedas fuzzy
- * @param {string} a - Primer string
- * @param {string} b - Segundo string
- * @param {number} maxDistance - Distancia máxima antes de abandonar (opcional)
- * @returns {number} Distancia de Levenshtein (o maxDistance+1 si excede)
- */
-function levenshteinDistance(a, b, maxDistance = Infinity) {
-  // Caso base: strings vacíos
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
-
-  // Optimización: si la diferencia de longitud ya excede maxDistance, retornar temprano
-  const lengthDiff = Math.abs(a.length - b.length);
-  if (lengthDiff > maxDistance) {
-    return maxDistance + 1;
-  }
-
-  const matrix = [];
-
-  // Inicializar primera fila y columna
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
-  }
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
-  }
-
-  // Llenar matriz con early termination
-  for (let i = 1; i <= b.length; i++) {
-    let minInRow = Infinity;
-
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // Sustitución
-          matrix[i][j - 1] + 1,     // Inserción
-          matrix[i - 1][j] + 1      // Eliminación
-        );
-      }
-
-      minInRow = Math.min(minInRow, matrix[i][j]);
-    }
-
-    // Early termination: si el mínimo en esta fila excede maxDistance, no hay match posible
-    if (minInRow > maxDistance) {
-      return maxDistance + 1;
-    }
-  }
-
-  return matrix[b.length][a.length];
-}
-
-/**
- * Calcula un score de similitud fuzzy entre dos strings
- * Optimizado con early returns
- * @param {string} busqueda - String de búsqueda (normalizado)
- * @param {string} candidato - String candidato (normalizado)
- * @returns {number} Score de 0-100
- */
-function calcularScoreFuzzy(busqueda, candidato) {
-  // Match exacto - retornar inmediatamente
-  if (busqueda === candidato) {
-    return CONFIG.FUZZY.PESO_EXACTO;
-  }
-
-  // Comienza con - retornar inmediatamente
-  if (candidato.startsWith(busqueda)) {
-    return CONFIG.FUZZY.PESO_COMIENZA;
-  }
-
-  // Contiene - retornar inmediatamente
-  if (candidato.includes(busqueda)) {
-    return CONFIG.FUZZY.PESO_CONTIENE;
-  }
-
-  // Distancia Levenshtein solo si los anteriores fallaron
-  const maxLen = Math.max(busqueda.length, candidato.length);
-
-  // Calcular distancia máxima aceptable basada en MIN_SCORE
-  const maxDistanceAllowed = Math.floor(maxLen * (1 - CONFIG.FUZZY.MIN_SCORE / 100));
-
-  const distancia = levenshteinDistance(busqueda, candidato, maxDistanceAllowed);
-
-  // Si excede la distancia máxima, retornar score bajo
-  if (distancia > maxDistanceAllowed) {
-    return 0;
-  }
-
-  // Convertir distancia a score (0-100)
-  const similitud = 1 - (distancia / maxLen);
-  return Math.round(similitud * CONFIG.FUZZY.PESO_LEVENSHTEIN);
-}
-
-/**
- * Normaliza un string para comparación (mayúsculas, sin espacios extras)
+ * Normaliza un string para comparacion
  * @param {string} str - String a normalizar
- * @returns {string} String normalizado
+ * @returns {string} String normalizado (mayusculas, sin espacios extras)
  */
 function normalizarString(str) {
   if (!str) return '';
@@ -129,9 +21,34 @@ function normalizarString(str) {
 }
 
 /**
- * Valida que un tipo de movimiento sea válido
+ * Serializa objetos para enviar al frontend (convierte Dates a ISO strings)
+ * @param {*} obj - Objeto a serializar
+ * @returns {*} Objeto serializado
+ */
+function serializarParaWeb(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (obj instanceof Date) return obj.toISOString();
+  if (Array.isArray(obj)) return obj.map(item => serializarParaWeb(item));
+  if (typeof obj === 'object') {
+    const resultado = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        resultado[key] = serializarParaWeb(obj[key]);
+      }
+    }
+    return resultado;
+  }
+  return obj;
+}
+
+// ============================================================================
+// VALIDACIONES
+// ============================================================================
+
+/**
+ * Valida que un tipo de movimiento sea valido
  * @param {string} tipo - Tipo a validar
- * @returns {boolean} True si es válido
+ * @returns {boolean} True si es valido
  */
 function esTipoMovimientoValido(tipo) {
   return tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE ||
@@ -141,39 +58,26 @@ function esTipoMovimientoValido(tipo) {
 /**
  * Valida que un monto sea positivo
  * @param {number} monto - Monto a validar
- * @returns {boolean} True si es válido
+ * @returns {boolean} True si es valido
  */
 function esMontoValido(monto) {
   return typeof monto === 'number' && monto > 0 && isFinite(monto);
 }
 
 /**
- * Valida y convierte una fecha de entrada
+ * Valida y convierte una fecha
  * @param {string|Date} fecha - Fecha a validar
- * @returns {Date|null} Objeto Date válido o null si es inválido
+ * @returns {Date|null} Objeto Date valido o null
  */
 function validarFecha(fecha) {
   if (!fecha) return null;
-
   try {
     const fechaObj = fecha instanceof Date ? fecha : new Date(fecha);
-
-    // Verificar si la fecha es válida
-    if (isNaN(fechaObj.getTime())) {
-      log('⚠️ Fecha inválida: ' + fecha, 'error');
-      return null;
-    }
-
-    // Verificar que la fecha esté en un rango razonable (1900-2100)
+    if (isNaN(fechaObj.getTime())) return null;
     const year = fechaObj.getFullYear();
-    if (year < 1900 || year > 2100) {
-      log('⚠️ Año fuera de rango: ' + year, 'error');
-      return null;
-    }
-
+    if (year < 1900 || year > 2100) return null;
     return fechaObj;
   } catch (error) {
-    log('❌ Error al validar fecha: ' + error.message, 'error');
     return null;
   }
 }
@@ -191,16 +95,11 @@ function validarMovimiento(mov) {
   }
 
   if (!esTipoMovimientoValido(mov.tipo)) {
-    errors.push('Tipo de movimiento inválido (debe ser DEBE o HABER)');
+    errors.push('Tipo de movimiento invalido (debe ser DEBE o HABER)');
   }
 
   if (!esMontoValido(mov.monto)) {
-    errors.push('Monto inválido (debe ser un número positivo)');
-  }
-
-  const fechaVal = validarFecha(mov.fecha);
-  if (!fechaVal) {
-    errors.push('Fecha inválida');
+    errors.push('Monto invalido (debe ser un numero positivo)');
   }
 
   return {
@@ -210,41 +109,187 @@ function validarMovimiento(mov) {
 }
 
 /**
- * Convierte objetos Date a strings ISO para serialización Web
- * Procesa recursivamente objetos y arrays para asegurar que
- * todos los Date objects se conviertan a strings antes de
- * enviarlos a través de google.script.run
- *
- * @param {*} obj - Objeto a procesar (puede ser cualquier tipo)
- * @returns {*} Objeto con fechas convertidas a strings ISO
+ * Valida datos de cliente
+ * @param {Object} cliente - Datos del cliente
+ * @returns {Object} {valid: boolean, errors: Array}
  */
-function serializarParaWeb(obj) {
-  // Manejar null y undefined
-  if (obj === null || obj === undefined) {
-    return obj;
+function validarCliente(cliente) {
+  const errors = [];
+
+  if (!cliente.nombre || typeof cliente.nombre !== 'string' || cliente.nombre.trim() === '') {
+    errors.push('Nombre es requerido');
   }
 
-  // Convertir Date a ISO string
-  if (obj instanceof Date) {
-    return obj.toISOString();
+  if (cliente.limite !== undefined && (typeof cliente.limite !== 'number' || cliente.limite < 0)) {
+    errors.push('Limite de credito invalido');
   }
 
-  // Procesar arrays recursivamente
-  if (Array.isArray(obj)) {
-    return obj.map(item => serializarParaWeb(item));
+  return {
+    valid: errors.length === 0,
+    errors: errors
+  };
+}
+
+// ============================================================================
+// BUSQUEDA FUZZY
+// ============================================================================
+
+/**
+ * Calcula la distancia de Levenshtein entre dos strings
+ * @param {string} a - Primer string
+ * @param {string} b - Segundo string
+ * @param {number} maxDistance - Distancia maxima antes de abandonar
+ * @returns {number} Distancia de Levenshtein
+ */
+function levenshteinDistance(a, b, maxDistance = Infinity) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const lengthDiff = Math.abs(a.length - b.length);
+  if (lengthDiff > maxDistance) return maxDistance + 1;
+
+  const matrix = [];
+
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
   }
 
-  // Procesar objetos recursivamente
-  if (typeof obj === 'object') {
-    const resultado = {};
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        resultado[key] = serializarParaWeb(obj[key]);
+  for (let i = 1; i <= b.length; i++) {
+    let minInRow = Infinity;
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
       }
+      minInRow = Math.min(minInRow, matrix[i][j]);
     }
-    return resultado;
+    if (minInRow > maxDistance) return maxDistance + 1;
   }
 
-  // Retornar primitivos sin cambios
-  return obj;
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Calcula un score de similitud fuzzy entre dos strings
+ * @param {string} busqueda - String de busqueda
+ * @param {string} candidato - String candidato
+ * @returns {number} Score de 0-100
+ */
+function calcularScoreFuzzy(busqueda, candidato) {
+  // Match exacto
+  if (busqueda === candidato) return CONFIG.FUZZY.PESO_EXACTO;
+
+  // Comienza con
+  if (candidato.startsWith(busqueda)) return CONFIG.FUZZY.PESO_COMIENZA;
+
+  // Contiene
+  if (candidato.includes(busqueda)) return CONFIG.FUZZY.PESO_CONTIENE;
+
+  // Levenshtein
+  const maxLen = Math.max(busqueda.length, candidato.length);
+  const maxDistanceAllowed = Math.floor(maxLen * (1 - CONFIG.FUZZY.MIN_SCORE / 100));
+  const distancia = levenshteinDistance(busqueda, candidato, maxDistanceAllowed);
+
+  if (distancia > maxDistanceAllowed) return 0;
+
+  const similitud = 1 - (distancia / maxLen);
+  return Math.round(similitud * CONFIG.FUZZY.PESO_LEVENSHTEIN);
+}
+
+/**
+ * Busca sugerencias de clientes por nombre fuzzy
+ * @param {string} termino - Termino de busqueda
+ * @param {Array} clientes - Array de clientes
+ * @returns {Array} Array de sugerencias ordenadas por score
+ */
+function buscarClientesFuzzy(termino, clientes) {
+  const terminoNorm = normalizarString(termino);
+  if (!terminoNorm) return [];
+
+  const resultados = [];
+
+  for (const cliente of clientes) {
+    const nombreNorm = normalizarString(cliente.nombre);
+    const score = calcularScoreFuzzy(terminoNorm, nombreNorm);
+
+    if (score >= CONFIG.FUZZY.MIN_SCORE) {
+      resultados.push({
+        cliente: cliente,
+        score: score,
+        esExacto: score === CONFIG.FUZZY.PESO_EXACTO
+      });
+    }
+  }
+
+  // Ordenar por score descendente
+  resultados.sort((a, b) => b.score - a.score);
+
+  return resultados.slice(0, CONFIG.FUZZY.MAX_SUGERENCIAS);
+}
+
+// ============================================================================
+// UTILIDADES DE FECHA
+// ============================================================================
+
+/**
+ * Formatea una fecha para mostrar
+ * @param {Date|string} fecha - Fecha a formatear
+ * @returns {string} Fecha formateada DD/MM/YYYY
+ */
+function formatearFecha(fecha) {
+  if (!fecha) return '';
+  const d = fecha instanceof Date ? fecha : new Date(fecha);
+  if (isNaN(d.getTime())) return '';
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const anio = d.getFullYear();
+  return `${dia}/${mes}/${anio}`;
+}
+
+/**
+ * Obtiene la fecha de hoy en formato YYYY-MM-DD
+ * @returns {string} Fecha de hoy
+ */
+function obtenerFechaHoy() {
+  const hoy = new Date();
+  const anio = hoy.getFullYear();
+  const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+  const dia = String(hoy.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+}
+
+// ============================================================================
+// UTILIDADES DE FORMATO
+// ============================================================================
+
+/**
+ * Formatea un numero como moneda
+ * @param {number} monto - Monto a formatear
+ * @returns {string} Monto formateado
+ */
+function formatearMonto(monto) {
+  if (typeof monto !== 'number') return '$0';
+  return '$' + monto.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+// ============================================================================
+// GENERACION DE IDS
+// ============================================================================
+
+/**
+ * Genera un ID de sesion unico
+ * @returns {string} ID de sesion
+ */
+function generarSesionId() {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `SES_${timestamp}_${random}`.toUpperCase();
 }
