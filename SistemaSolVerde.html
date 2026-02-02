@@ -1416,53 +1416,90 @@
 
           <h3 style="text-align: center; margin-bottom: 1rem;">Hoja de Ruta - <span id="fechaHojaRutaTitulo"></span></h3>
 
-          <div class="grid grid-2">
-            <div>
-              <h4 style="color: var(--sv-exito); margin-bottom: 0.5rem;">Cobranzas (Pagos)</h4>
-              <div class="table-container">
-                <table class="table">
-                  <thead>
-                    <tr>
-                      <th>Cliente</th>
-                      <th>Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody id="hojaRutaCobranzas"></tbody>
-                  <tfoot>
-                    <tr style="font-weight: bold;">
-                      <td>Total</td>
-                      <td id="totalHojaCobranzas">$0</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-
-            <div>
-              <h4 style="color: var(--sv-peligro); margin-bottom: 0.5rem;">Fiados</h4>
-              <div class="table-container">
-                <table class="table">
-                  <thead>
-                    <tr>
-                      <th>Cliente</th>
-                      <th>Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody id="hojaRutaFiados"></tbody>
-                  <tfoot>
-                    <tr style="font-weight: bold;">
-                      <td>Total</td>
-                      <td id="totalHojaFiados">$0</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+          <!-- Proveedores -->
+          <div style="margin-bottom: 1.5rem;">
+            <h4 style="color: var(--sv-primario); margin-bottom: 0.5rem;">Proveedores</h4>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Proveedor</th>
+                    <th>Importe</th>
+                  </tr>
+                </thead>
+                <tbody id="hojaRutaProveedores"></tbody>
+                <tfoot>
+                  <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
+                    <td>Total Proveedores</td>
+                    <td id="totalHojaProveedores">$0</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
 
-          <div style="margin-top: 1rem; padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius); text-align: center;">
-            <span style="font-size: 1.125rem;">Diferencia del dia: </span>
-            <span style="font-size: 1.5rem; font-weight: bold;" id="diferenciaHojaRuta">$0</span>
+          <!-- Gastos Extras -->
+          <div style="margin-bottom: 1.5rem;">
+            <h4 style="color: var(--sv-peligro); margin-bottom: 0.5rem;">Gastos Extras</h4>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Descripcion</th>
+                    <th>Importe</th>
+                  </tr>
+                </thead>
+                <tbody id="hojaRutaGastos"></tbody>
+                <tfoot>
+                  <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
+                    <td>Total Gastos</td>
+                    <td id="totalHojaGastos">$0</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Liquidaciones Pendientes -->
+          <div class="no-print" style="margin-bottom: 1.5rem; padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
+            <h4 style="color: var(--sv-advertencia); margin-bottom: 0.75rem;">Liquidaciones Pendientes (anteriores)</h4>
+            <p style="font-size: 0.875rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;">
+              Agrega liquidaciones de dias anteriores que no se enviaron y se incluyen hoy.
+            </p>
+            <div id="liquidacionesPendientesList" style="margin-bottom: 0.75rem;"></div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <input type="text" class="form-input" id="liqPendienteDesc" placeholder="Descripcion" style="flex: 2; min-width: 120px;">
+              <input type="number" class="form-input" id="liqPendienteMonto" placeholder="Monto" style="flex: 1; min-width: 80px;">
+              <button class="btn btn-outline" onclick="agregarLiquidacionPendiente()">+ Agregar</button>
+            </div>
+          </div>
+
+          <!-- Liquidaciones Pendientes para impresion -->
+          <div id="hojaRutaLiqPendientesSection" style="margin-bottom: 1.5rem; display: none;">
+            <h4 style="color: var(--sv-advertencia); margin-bottom: 0.5rem;">Liquidaciones Pendientes</h4>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Descripcion</th>
+                    <th>Importe</th>
+                  </tr>
+                </thead>
+                <tbody id="hojaRutaLiqPendientes"></tbody>
+                <tfoot>
+                  <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
+                    <td>Total Liq. Pendientes</td>
+                    <td id="totalHojaLiqPendientes">$0</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Total General -->
+          <div style="margin-top: 1rem; padding: 1rem; background: var(--sv-primario); color: white; border-radius: var(--sv-radius); text-align: center;">
+            <span style="font-size: 1.125rem;">Total Salidas del Dia: </span>
+            <span style="font-size: 1.5rem; font-weight: bold;" id="totalSalidasHojaRuta">$0</span>
           </div>
         </div>
       </div>
@@ -2715,6 +2752,10 @@
     // ============================================================================
     // HOJA DE RUTA
     // ============================================================================
+
+    // Array para almacenar liquidaciones pendientes agregadas manualmente
+    let liquidacionesPendientes = [];
+
     function cargarHojaRuta() {
       const fecha = document.getElementById('fechaHojaRuta').value;
       document.getElementById('fechaHojaRutaTitulo').textContent = formatearFecha(fecha);
@@ -2725,18 +2766,26 @@
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           if (result.success) {
-            document.getElementById('hojaRutaCobranzas').innerHTML = result.cobranzas.length ?
-              result.cobranzas.map(c => `<tr><td>${escapeHtml(c.cliente)}</td><td>${formatearMonto(c.monto)}</td></tr>`).join('') :
-              '<tr><td colspan="2" class="empty-state">Sin cobranzas</td></tr>';
+            // Proveedores
+            document.getElementById('hojaRutaProveedores').innerHTML = result.proveedores && result.proveedores.length ?
+              result.proveedores.map(p => `<tr><td>${escapeHtml(p.nombre)}</td><td>${formatearMonto(p.monto)}</td></tr>`).join('') :
+              '<tr><td colspan="2" class="empty-state">Sin proveedores</td></tr>';
 
-            document.getElementById('hojaRutaFiados').innerHTML = result.fiados.length ?
-              result.fiados.map(f => `<tr><td>${escapeHtml(f.cliente)}</td><td>${formatearMonto(f.monto)}</td></tr>`).join('') :
-              '<tr><td colspan="2" class="empty-state">Sin fiados</td></tr>';
+            // Gastos Extras
+            document.getElementById('hojaRutaGastos').innerHTML = result.gastos && result.gastos.length ?
+              result.gastos.map(g => `<tr><td>${escapeHtml(g.descripcion)}</td><td>${formatearMonto(g.monto)}</td></tr>`).join('') :
+              '<tr><td colspan="2" class="empty-state">Sin gastos extras</td></tr>';
 
-            document.getElementById('totalHojaCobranzas').textContent = formatearMonto(result.totalCobranzas);
-            document.getElementById('totalHojaFiados').textContent = formatearMonto(result.totalFiados);
-            document.getElementById('diferenciaHojaRuta').textContent = formatearMonto(result.diferencia);
-            document.getElementById('diferenciaHojaRuta').style.color = result.diferencia >= 0 ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+            // Totales
+            const totalProveedores = result.totalProveedores || 0;
+            const totalGastos = result.totalGastos || 0;
+
+            document.getElementById('totalHojaProveedores').textContent = formatearMonto(totalProveedores);
+            document.getElementById('totalHojaGastos').textContent = formatearMonto(totalGastos);
+
+            // Renderizar liquidaciones pendientes y calcular total
+            renderizarLiquidacionesPendientes();
+            actualizarTotalSalidas(totalProveedores, totalGastos);
           }
         })
         .withFailureHandler(function(error) {
@@ -2744,6 +2793,93 @@
           mostrarToast('Error: ' + error.message, 'error');
         })
         .obtenerHojaRuta(fecha);
+    }
+
+    function agregarLiquidacionPendiente() {
+      const descInput = document.getElementById('liqPendienteDesc');
+      const montoInput = document.getElementById('liqPendienteMonto');
+
+      const descripcion = descInput.value.trim();
+      const monto = parseFloat(montoInput.value) || 0;
+
+      if (!descripcion) {
+        mostrarToast('Ingresa una descripcion', 'error');
+        descInput.focus();
+        return;
+      }
+
+      if (monto <= 0) {
+        mostrarToast('Ingresa un monto valido', 'error');
+        montoInput.focus();
+        return;
+      }
+
+      liquidacionesPendientes.push({ descripcion, monto, id: Date.now() });
+
+      descInput.value = '';
+      montoInput.value = '';
+      descInput.focus();
+
+      renderizarLiquidacionesPendientes();
+      actualizarTotalSalidasDesdeDOM();
+      mostrarToast('Liquidacion pendiente agregada', 'success');
+    }
+
+    function eliminarLiquidacionPendiente(id) {
+      liquidacionesPendientes = liquidacionesPendientes.filter(l => l.id !== id);
+      renderizarLiquidacionesPendientes();
+      actualizarTotalSalidasDesdeDOM();
+    }
+
+    function renderizarLiquidacionesPendientes() {
+      const listContainer = document.getElementById('liquidacionesPendientesList');
+      const printSection = document.getElementById('hojaRutaLiqPendientesSection');
+      const printTbody = document.getElementById('hojaRutaLiqPendientes');
+      const totalEl = document.getElementById('totalHojaLiqPendientes');
+
+      if (liquidacionesPendientes.length === 0) {
+        listContainer.innerHTML = '<p style="color: var(--sv-texto-secundario); font-size: 0.875rem;">No hay liquidaciones pendientes agregadas.</p>';
+        printSection.style.display = 'none';
+        printTbody.innerHTML = '';
+        totalEl.textContent = '$0';
+        return;
+      }
+
+      // Lista editable (no se imprime)
+      listContainer.innerHTML = liquidacionesPendientes.map(l => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--sv-superficie); border-radius: var(--sv-radius); margin-bottom: 0.5rem;">
+          <span>${escapeHtml(l.descripcion)}</span>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-weight: bold;">${formatearMonto(l.monto)}</span>
+            <button class="btn btn-outline btn-sm" onclick="eliminarLiquidacionPendiente(${l.id})" style="color: var(--sv-peligro);">✕</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Tabla para impresion
+      printSection.style.display = 'block';
+      printTbody.innerHTML = liquidacionesPendientes.map(l =>
+        `<tr><td>${escapeHtml(l.descripcion)}</td><td>${formatearMonto(l.monto)}</td></tr>`
+      ).join('');
+
+      const totalLiqPendientes = liquidacionesPendientes.reduce((sum, l) => sum + l.monto, 0);
+      totalEl.textContent = formatearMonto(totalLiqPendientes);
+    }
+
+    function actualizarTotalSalidas(totalProveedores, totalGastos) {
+      const totalLiqPendientes = liquidacionesPendientes.reduce((sum, l) => sum + l.monto, 0);
+      const totalSalidas = totalProveedores + totalGastos + totalLiqPendientes;
+      document.getElementById('totalSalidasHojaRuta').textContent = formatearMonto(totalSalidas);
+    }
+
+    function actualizarTotalSalidasDesdeDOM() {
+      const totalProveedores = parsearMonto(document.getElementById('totalHojaProveedores').textContent);
+      const totalGastos = parsearMonto(document.getElementById('totalHojaGastos').textContent);
+      actualizarTotalSalidas(totalProveedores, totalGastos);
+    }
+
+    function parsearMonto(texto) {
+      return parseFloat(texto.replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
     }
 
     // ============================================================================
