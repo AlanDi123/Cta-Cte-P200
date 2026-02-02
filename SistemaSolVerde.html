@@ -767,6 +767,20 @@
         margin: 1cm;
       }
 
+      /* Forzar colores claros incluso en modo oscuro */
+      :root, [data-theme="dark"] {
+        --sv-fondo: white !important;
+        --sv-superficie: white !important;
+        --sv-superficie-elevada: #f5f5f5 !important;
+        --sv-texto: black !important;
+        --sv-texto-secundario: #333 !important;
+        --sv-texto-muted: #666 !important;
+        --sv-borde: #ddd !important;
+        --sv-primario: #2E7D32 !important;
+        --sv-peligro: #C62828 !important;
+        --sv-exito: #2E7D32 !important;
+      }
+
       .no-print {
         display: none !important;
       }
@@ -775,28 +789,51 @@
         background: white !important;
         color: black !important;
         font-size: 10pt;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
+      /* Cards */
       .card {
-        border: none;
-        box-shadow: none;
-        padding: 0;
-        margin: 0;
-        animation: none;
+        background: white !important;
+        color: black !important;
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        padding: 0.5rem !important;
+        margin: 0 !important;
+        animation: none !important;
       }
 
-      .table-print {
+      /* Tablas generales */
+      .table, .table-print {
         width: 100%;
         font-size: 9pt;
+        background: white !important;
       }
 
-      .table-print th, .table-print td {
+      .table th, .table td, .table-print th, .table-print td {
         padding: 4px 8px;
-        border-bottom: 1px solid #ddd;
+        border: 1px solid #ddd !important;
+        background: white !important;
+        color: black !important;
       }
 
-      .table-print th {
-        background: #f5f5f5 !important;
+      .table th, .table-print th {
+        background: #f0f0f0 !important;
+        color: black !important;
+        font-weight: bold;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* Textos y elementos con colores */
+      h1, h2, h3, h4, h5, h6, p, span, strong, div, td, th {
+        color: black !important;
+      }
+
+      /* Colores específicos para montos */
+      [style*="color: var(--sv-peligro)"],
+      [style*="color: var(--sv-exito)"] {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
@@ -810,6 +847,28 @@
       .main-content {
         margin: 0 !important;
         padding: 0 !important;
+        background: white !important;
+      }
+
+      /* Ocultar sidebar y header al imprimir */
+      .sidebar, .app-header, .nav-item, .btn, button {
+        display: none !important;
+      }
+
+      /* Mostrar solo el módulo activo */
+      .module-view {
+        display: none !important;
+      }
+
+      .module-view.active {
+        display: block !important;
+        background: white !important;
+      }
+
+      /* Asegurar que los totales se vean */
+      tfoot tr {
+        background: #f5f5f5 !important;
+        font-weight: bold;
       }
     }
 
@@ -1661,6 +1720,12 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">CUIT (opcional)</label>
+          <input type="text" class="form-input" id="clienteCuit" placeholder="XX-XXXXXXXX-X" inputmode="numeric">
+          <small style="color: var(--sv-texto-muted); font-size: 0.75rem;">Si no tiene CUIT, se considera Consumidor Final</small>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Limite de Credito</label>
           <input type="number" class="form-input" id="clienteLimite" value="100000" inputmode="numeric">
         </div>
@@ -2220,6 +2285,16 @@
     // ============================================================================
     // AUTOCOMPLETE
     // ============================================================================
+
+    // Normalizar texto: quitar acentos, pipes, guiones, espacios múltiples
+    function normalizarTexto(str) {
+      return str.toUpperCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Quitar acentos
+        .replace(/[|\\-]/g, ' ') // Reemplazar pipes y guiones por espacios
+        .replace(/\s+/g, ' ') // Múltiples espacios a uno
+        .trim();
+    }
+
     function buscarClienteAutocomplete(termino, contenedorId, esVisor = false) {
       const contenedor = document.getElementById(contenedorId);
 
@@ -2233,10 +2308,18 @@
         return;
       }
 
-      const terminoUpper = termino.toUpperCase();
-      const matches = Estado.clientes.filter(c =>
-        c.nombre.toUpperCase().includes(terminoUpper)
-      ).slice(0, 5);
+      // Normalizar término de búsqueda
+      const terminoNorm = normalizarTexto(termino);
+      const palabras = terminoNorm.split(' ').filter(p => p.length >= 2);
+
+      // Buscar coincidencia: nombre contiene término O alguna palabra coincide
+      const matches = Estado.clientes.filter(c => {
+        const nombreNorm = normalizarTexto(c.nombre);
+        // Coincidencia directa
+        if (nombreNorm.includes(terminoNorm)) return true;
+        // Coincidencia por cualquier palabra
+        return palabras.some(p => nombreNorm.includes(p));
+      }).slice(0, 8); // Aumentado a 8 resultados
 
       if (matches.length === 0) {
         contenedor.style.display = 'none';
@@ -2344,7 +2427,7 @@
     // ============================================================================
     function cargarSaldosPendientes() {
       mostrarLoading(true);
-      const fecha = document.getElementById('fechaSaldos').value || new Date().toISOString().split('T')[0];
+      const fecha = document.getElementById('fechaSaldos').value || obtenerFechaLocal();
 
       google.script.run
         .withSuccessHandler(function(result) {
@@ -2709,7 +2792,7 @@
       });
 
       // Calcular totales de cobranzas y fiados del dia
-      const hoy = new Date().toISOString().split('T')[0];
+      const hoy = obtenerFechaLocal();
       let totalCobranzas = 0;
       let totalFiados = 0;
 
@@ -2993,8 +3076,111 @@
         `).join('');
       }
 
+      // Botón para cargar sesión al formulario
+      html += `
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--sv-borde);">
+          <button class="btn btn-primary" style="width: 100%;" onclick="cargarSesionAlFormulario('${escapeHtml(sesionId)}')">
+            📥 Cargar al Formulario de Arqueo
+          </button>
+        </div>
+      `;
+
       document.getElementById('detalleSesionContenido').innerHTML = html;
       abrirModal('modalDetalleSesion');
+    }
+
+    // Cargar una sesión antigua al formulario de arqueo
+    function cargarSesionAlFormulario(sesionId) {
+      const sesion = Estado.sesionesCache[sesionId];
+      if (!sesion) {
+        mostrarToast('Sesion no encontrada', 'error');
+        return;
+      }
+
+      if (!confirm('¿Cargar esta sesión al formulario?\n\nSe sobrescribirán los datos actuales del arqueo.')) {
+        return;
+      }
+
+      // Limpiar formulario actual
+      document.querySelectorAll('.denom-input').forEach(i => i.value = 0);
+      document.getElementById('listaProveedores').innerHTML = '';
+      document.getElementById('listaGastos').innerHTML = '';
+      document.getElementById('listaIngresos').innerHTML = '';
+      Estado.arqueo = {};
+
+      // Cargar datos desde los detalles de la sesión
+      if (sesion.detalles && sesion.detalles.length > 0) {
+        sesion.detalles.forEach(d => {
+          // Cargar billetes
+          if (d.tipo && d.tipo.startsWith('BILLETE_')) {
+            const valorBillete = obtenerValorBillete(d.tipo);
+            if (valorBillete > 0) {
+              const cantidad = Math.round(d.monto / valorBillete);
+              const input = document.querySelector(`[data-tipo="${d.tipo}"]`);
+              if (input) {
+                input.value = cantidad;
+                Estado.arqueo[d.tipo] = cantidad;
+              }
+            }
+          }
+          // Cargar proveedores
+          else if (d.tipo === 'PROVEEDOR') {
+            agregarProveedor();
+            const items = document.querySelectorAll('#listaProveedores .proveedor-item');
+            const ultimo = items[items.length - 1];
+            if (ultimo) {
+              const descInput = ultimo.querySelector('.prov-desc');
+              const montoInput = ultimo.querySelector('.prov-monto');
+              if (descInput) descInput.value = d.descripcion || '';
+              if (montoInput) montoInput.value = d.monto || 0;
+            }
+          }
+          // Cargar gastos
+          else if (d.tipo === 'GASTO') {
+            agregarGasto();
+            const items = document.querySelectorAll('#listaGastos > div');
+            const ultimo = items[items.length - 1];
+            if (ultimo) {
+              const inputs = ultimo.querySelectorAll('input');
+              if (inputs[0]) inputs[0].value = d.descripcion || '';
+              if (inputs[1]) inputs[1].value = d.monto || 0;
+            }
+          }
+          // Cargar ingresos
+          else if (d.tipo === 'INGRESO') {
+            agregarIngreso();
+            const items = document.querySelectorAll('#listaIngresos > div');
+            const ultimo = items[items.length - 1];
+            if (ultimo) {
+              const inputs = ultimo.querySelectorAll('input');
+              if (inputs[0]) inputs[0].value = d.descripcion || '';
+              if (inputs[1]) inputs[1].value = d.monto || 0;
+            }
+          }
+        });
+      }
+
+      // Recalcular totales
+      calcularTotalEfectivo();
+
+      // Cerrar modal y navegar al arqueo
+      cerrarModal('modalDetalleSesion');
+      mostrarModulo('module-arqueo-efectivo');
+      mostrarToast('Sesión cargada correctamente', 'success');
+    }
+
+    // Obtener valor de billete por tipo
+    function obtenerValorBillete(tipo) {
+      const valores = {
+        'BILLETE_20000': 20000,
+        'BILLETE_10000': 10000,
+        'BILLETE_2000': 2000,
+        'BILLETE_1000': 1000,
+        'BILLETE_500': 500,
+        'BILLETE_200': 200,
+        'BILLETE_100': 100
+      };
+      return valores[tipo] || 0;
     }
 
     // ============================================================================
@@ -3070,6 +3256,7 @@
       document.getElementById('clienteNombre').value = cliente.nombre;
       document.getElementById('clienteTel').value = cliente.tel || '';
       document.getElementById('clienteEmail').value = cliente.email || '';
+      document.getElementById('clienteCuit').value = cliente.cuit || '';
       document.getElementById('clienteLimite').value = cliente.limite || 100000;
       document.getElementById('clienteObs').value = cliente.obs || '';
       abrirModal('modalCliente');
@@ -3079,10 +3266,13 @@
       e.preventDefault();
 
       const editando = document.getElementById('clienteEditando').value;
+      const cuitVal = document.getElementById('clienteCuit').value.trim();
       const datos = {
         nombre: document.getElementById('clienteNombre').value.trim(),
         tel: document.getElementById('clienteTel').value,
         email: document.getElementById('clienteEmail').value,
+        cuit: cuitVal,
+        condicionFiscal: cuitVal ? 'Responsable Inscripto' : 'Consumidor Final',
         limite: parseFloat(document.getElementById('clienteLimite').value) || 100000,
         obs: document.getElementById('clienteObs').value
       };
@@ -3247,7 +3437,7 @@
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = 'clientes_sol_verde_' + new Date().toISOString().split('T')[0] + '.csv';
+      link.download = 'clientes_sol_verde_' + obtenerFechaLocal() + '.csv';
       link.click();
 
       mostrarLoading(false);
