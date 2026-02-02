@@ -1406,12 +1406,15 @@
         <h2 style="margin-bottom: 1rem;" class="no-print">Hoja de Ruta</h2>
 
         <div class="card">
-          <div class="no-print" style="margin-bottom: 1rem; display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
-            <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
-              <label class="form-label">Fecha</label>
-              <input type="date" class="form-input" id="fechaHojaRuta" onchange="cargarHojaRuta()">
+          <div class="no-print" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
+            <p style="margin: 0 0 0.75rem 0; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+              Los datos se cargan en vivo desde el Arqueo de Caja actual. Primero carga los proveedores y gastos en el modulo de Caja.
+            </p>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+              <input type="date" class="form-input" id="fechaHojaRuta" style="flex: 1; min-width: 150px;">
+              <button class="btn btn-outline" onclick="cargarHojaRuta()">🔄 Actualizar</button>
+              <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
             </div>
-            <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
           </div>
 
           <h3 style="text-align: center; margin-bottom: 1rem;">Hoja de Ruta - <span id="fechaHojaRutaTitulo"></span></h3>
@@ -2760,39 +2763,63 @@
       const fecha = document.getElementById('fechaHojaRuta').value;
       document.getElementById('fechaHojaRutaTitulo').textContent = formatearFecha(fecha);
 
-      mostrarLoading(true);
+      // Leer datos EN VIVO del formulario de Arqueo de Caja
+      const proveedores = obtenerProveedoresEnVivo();
+      const gastos = obtenerGastosEnVivo();
 
-      google.script.run
-        .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          if (result.success) {
-            // Proveedores
-            document.getElementById('hojaRutaProveedores').innerHTML = result.proveedores && result.proveedores.length ?
-              result.proveedores.map(p => `<tr><td>${escapeHtml(p.nombre)}</td><td>${formatearMonto(p.monto)}</td></tr>`).join('') :
-              '<tr><td colspan="2" class="empty-state">Sin proveedores</td></tr>';
+      // Renderizar Proveedores
+      document.getElementById('hojaRutaProveedores').innerHTML = proveedores.length ?
+        proveedores.map(p => `<tr><td>${escapeHtml(p.nombre)}</td><td>${formatearMonto(p.monto)}</td></tr>`).join('') :
+        '<tr><td colspan="2" class="empty-state">Sin proveedores cargados</td></tr>';
 
-            // Gastos Extras
-            document.getElementById('hojaRutaGastos').innerHTML = result.gastos && result.gastos.length ?
-              result.gastos.map(g => `<tr><td>${escapeHtml(g.descripcion)}</td><td>${formatearMonto(g.monto)}</td></tr>`).join('') :
-              '<tr><td colspan="2" class="empty-state">Sin gastos extras</td></tr>';
+      // Renderizar Gastos Extras
+      document.getElementById('hojaRutaGastos').innerHTML = gastos.length ?
+        gastos.map(g => `<tr><td>${escapeHtml(g.descripcion)}</td><td>${formatearMonto(g.monto)}</td></tr>`).join('') :
+        '<tr><td colspan="2" class="empty-state">Sin gastos extras cargados</td></tr>';
 
-            // Totales
-            const totalProveedores = result.totalProveedores || 0;
-            const totalGastos = result.totalGastos || 0;
+      // Calcular totales
+      const totalProveedores = proveedores.reduce((sum, p) => sum + p.monto, 0);
+      const totalGastos = gastos.reduce((sum, g) => sum + g.monto, 0);
 
-            document.getElementById('totalHojaProveedores').textContent = formatearMonto(totalProveedores);
-            document.getElementById('totalHojaGastos').textContent = formatearMonto(totalGastos);
+      document.getElementById('totalHojaProveedores').textContent = formatearMonto(totalProveedores);
+      document.getElementById('totalHojaGastos').textContent = formatearMonto(totalGastos);
 
-            // Renderizar liquidaciones pendientes y calcular total
-            renderizarLiquidacionesPendientes();
-            actualizarTotalSalidas(totalProveedores, totalGastos);
-          }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .obtenerHojaRuta(fecha);
+      // Renderizar liquidaciones pendientes y calcular total
+      renderizarLiquidacionesPendientes();
+      actualizarTotalSalidas(totalProveedores, totalGastos);
+    }
+
+    // Lee los proveedores actuales del formulario de Arqueo de Caja
+    function obtenerProveedoresEnVivo() {
+      const proveedores = [];
+      document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
+        const desc = item.querySelector('.prov-desc');
+        const monto = item.querySelector('.prov-monto');
+        const montoVal = parseFloat(monto?.value) || 0;
+        if (montoVal > 0) {
+          proveedores.push({
+            nombre: desc?.value?.trim() || 'Proveedor',
+            monto: montoVal
+          });
+        }
+      });
+      return proveedores;
+    }
+
+    // Lee los gastos actuales del formulario de Arqueo de Caja
+    function obtenerGastosEnVivo() {
+      const gastos = [];
+      document.querySelectorAll('#listaGastos > div').forEach(item => {
+        const inputs = item.querySelectorAll('input');
+        const montoVal = parseFloat(inputs[1]?.value) || 0;
+        if (montoVal > 0) {
+          gastos.push({
+            descripcion: inputs[0]?.value?.trim() || 'Gasto',
+            monto: montoVal
+          });
+        }
+      });
+      return gastos;
     }
 
     function agregarLiquidacionPendiente() {
