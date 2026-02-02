@@ -842,8 +842,17 @@
       transition: background var(--sv-transition);
     }
 
-    .suggestion-item:hover, .suggestion-item:active {
+    .suggestion-item:hover, .suggestion-item:active, .suggestion-item.active {
       background: var(--sv-superficie-elevada);
+    }
+
+    .suggestion-item.active {
+      background: var(--sv-primario);
+      color: white;
+    }
+
+    .suggestion-item.active span {
+      color: rgba(255,255,255,0.8) !important;
     }
 
     .form-group-autocomplete {
@@ -871,6 +880,11 @@
 
     .tipo-tab:active {
       transform: scale(0.98);
+    }
+
+    .tipo-tab:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.3);
     }
 
     .tipo-tab.active-debe {
@@ -1087,42 +1101,46 @@
 
         <div class="card">
           <form id="formMovimiento" onsubmit="guardarMovimiento(event)">
+            <input type="hidden" id="movTipo" value="DEBE">
+
+            <!-- 1. FECHA -->
+            <div class="form-group">
+              <label class="form-label">Fecha</label>
+              <input type="date" class="form-input" id="movFecha" required tabindex="1">
+            </div>
+
+            <!-- 2. CLIENTE -->
+            <div class="form-group form-group-autocomplete">
+              <label class="form-label">Cliente *</label>
+              <input type="text" class="form-input" id="movCliente" placeholder="Buscar cliente..." autocomplete="off" required tabindex="2">
+              <div class="suggestions-list" id="clienteSugerencias" style="display: none;"></div>
+            </div>
+
+            <!-- 3. TIPO (PAGO/FIADO) -->
             <div class="tipo-tabs">
-              <div class="tipo-tab active-debe" id="tabFiado" onclick="seleccionarTipo('DEBE')">
+              <div class="tipo-tab active-debe" id="tabFiado" onclick="seleccionarTipo('DEBE')" tabindex="3" role="button" aria-pressed="true" onkeydown="handleTipoKeydown(event, 'DEBE')">
                 <div class="tipo-tab-label">FIADO</div>
                 <div class="tipo-tab-value" style="color: var(--sv-peligro);">+ Deuda</div>
               </div>
-              <div class="tipo-tab" id="tabPago" onclick="seleccionarTipo('HABER')">
+              <div class="tipo-tab" id="tabPago" onclick="seleccionarTipo('HABER')" tabindex="4" role="button" aria-pressed="false" onkeydown="handleTipoKeydown(event, 'HABER')">
                 <div class="tipo-tab-label">PAGO</div>
                 <div class="tipo-tab-value" style="color: var(--sv-exito);">- Deuda</div>
               </div>
             </div>
 
-            <input type="hidden" id="movTipo" value="DEBE">
-
-            <div class="grid grid-2">
-              <div class="form-group">
-                <label class="form-label">Fecha</label>
-                <input type="date" class="form-input" id="movFecha" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Monto *</label>
-                <input type="number" class="form-input" id="movMonto" placeholder="0" min="1" step="1" required inputmode="numeric">
-              </div>
+            <!-- 4. IMPORTE -->
+            <div class="form-group">
+              <label class="form-label">Importe *</label>
+              <input type="number" class="form-input" id="movMonto" placeholder="0" min="1" step="1" required inputmode="numeric" tabindex="5">
             </div>
 
-            <div class="form-group form-group-autocomplete">
-              <label class="form-label">Cliente *</label>
-              <input type="text" class="form-input" id="movCliente" placeholder="Buscar cliente..." autocomplete="off" required>
-              <div class="suggestions-list" id="clienteSugerencias" style="display: none;"></div>
-            </div>
-
+            <!-- 5. OBSERVACIONES -->
             <div class="form-group">
               <label class="form-label">Observaciones</label>
-              <input type="text" class="form-input" id="movObs" placeholder="Opcional">
+              <input type="text" class="form-input" id="movObs" placeholder="Opcional" tabindex="6">
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%;">
+            <button type="submit" class="btn btn-primary" style="width: 100%;" tabindex="7">
               💾 Guardar Movimiento
             </button>
           </form>
@@ -1702,8 +1720,17 @@
     // ============================================================================
     // INICIALIZACION
     // ============================================================================
+    // Obtener fecha local en formato YYYY-MM-DD (sin problemas de zona horaria)
+    function obtenerFechaLocal() {
+      const hoy = new Date();
+      const año = hoy.getFullYear();
+      const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+      const dia = String(hoy.getDate()).padStart(2, '0');
+      return `${año}-${mes}-${dia}`;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-      const hoy = new Date().toISOString().split('T')[0];
+      const hoy = obtenerFechaLocal();
       document.getElementById('movFecha').value = hoy;
       document.getElementById('vrFecha').value = hoy;
       document.getElementById('fechaHojaRuta').value = hoy;
@@ -1713,6 +1740,7 @@
       cargarConfiguracionInicial();
       cargarDatosIniciales();
       setupEventos();
+      setupNavegacionTeclado();
     });
 
     function cargarDatosIniciales() {
@@ -1831,6 +1859,155 @@
           manejarArchivoVR(this.files[0]);
         }
       });
+    }
+
+    // ============================================================================
+    // NAVEGACION CON TECLADO
+    // ============================================================================
+    function setupNavegacionTeclado() {
+      // Enter para avanzar al siguiente campo en el formulario de movimientos
+      const camposMovimiento = ['movFecha', 'movCliente', 'movMonto', 'movObs'];
+
+      camposMovimiento.forEach((campoId, index) => {
+        const campo = document.getElementById(campoId);
+        if (campo) {
+          campo.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+
+              // Si es el campo cliente y hay sugerencias visibles, no avanzar
+              if (campoId === 'movCliente') {
+                const sugerencias = document.getElementById('clienteSugerencias');
+                if (sugerencias && sugerencias.style.display !== 'none') {
+                  return;
+                }
+              }
+
+              // Avanzar al siguiente campo o enviar formulario
+              if (index < camposMovimiento.length - 1) {
+                const siguiente = document.getElementById(camposMovimiento[index + 1]);
+                if (siguiente) siguiente.focus();
+              } else {
+                // Ultimo campo, enviar formulario
+                document.getElementById('formMovimiento').dispatchEvent(new Event('submit', { cancelable: true }));
+              }
+            }
+          });
+        }
+      });
+
+      // Navegacion con flechas en tabs de tipo
+      document.getElementById('tabFiado').addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          document.getElementById('tabPago').focus();
+        }
+      });
+
+      document.getElementById('tabPago').addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          document.getElementById('tabFiado').focus();
+        }
+      });
+
+      // Navegacion en sugerencias de autocomplete con flechas
+      document.getElementById('movCliente').addEventListener('keydown', function(e) {
+        const sugerencias = document.getElementById('clienteSugerencias');
+        if (sugerencias.style.display === 'none') return;
+
+        const items = sugerencias.querySelectorAll('.suggestion-item');
+        if (items.length === 0) return;
+
+        const activo = sugerencias.querySelector('.suggestion-item.active');
+        let index = activo ? Array.from(items).indexOf(activo) : -1;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (activo) activo.classList.remove('active');
+          index = (index + 1) % items.length;
+          items[index].classList.add('active');
+          items[index].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (activo) activo.classList.remove('active');
+          index = index <= 0 ? items.length - 1 : index - 1;
+          items[index].classList.add('active');
+          items[index].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && activo) {
+          e.preventDefault();
+          activo.click();
+        } else if (e.key === 'Escape') {
+          sugerencias.style.display = 'none';
+        }
+      });
+
+      // Lo mismo para visor de cliente
+      document.getElementById('visorBuscar').addEventListener('keydown', function(e) {
+        const sugerencias = document.getElementById('visorSugerencias');
+        if (sugerencias.style.display === 'none') return;
+
+        const items = sugerencias.querySelectorAll('.suggestion-item');
+        if (items.length === 0) return;
+
+        const activo = sugerencias.querySelector('.suggestion-item.active');
+        let index = activo ? Array.from(items).indexOf(activo) : -1;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (activo) activo.classList.remove('active');
+          index = (index + 1) % items.length;
+          items[index].classList.add('active');
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (activo) activo.classList.remove('active');
+          index = index <= 0 ? items.length - 1 : index - 1;
+          items[index].classList.add('active');
+        } else if (e.key === 'Enter' && activo) {
+          e.preventDefault();
+          activo.click();
+        } else if (e.key === 'Escape') {
+          sugerencias.style.display = 'none';
+        }
+      });
+
+      // Escape para cerrar modales
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          document.querySelectorAll('.modal.active').forEach(modal => {
+            modal.classList.remove('active');
+          });
+        }
+      });
+
+      // Atajos de teclado globales
+      document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + numero para navegar a modulos
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+          const modulos = {
+            '1': 'dashboard',
+            '2': 'visual-reasoning',
+            '3': 'visor-cliente',
+            '4': 'gestion-clientes',
+            '5': 'estadisticas',
+            '6': 'arqueo-efectivo'
+          };
+
+          if (modulos[e.key]) {
+            e.preventDefault();
+            navegarA(modulos[e.key]);
+          }
+        }
+      });
+    }
+
+    function handleTipoKeydown(event, tipo) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        seleccionarTipo(tipo);
+        // Avanzar al campo de monto
+        document.getElementById('movMonto').focus();
+      }
     }
 
     // ============================================================================
