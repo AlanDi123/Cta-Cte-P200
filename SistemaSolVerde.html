@@ -2,7 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2E7D32">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Sol & Verde - Sistema de Cuenta Corriente</title>
   <style>
     /* ============================================================================
@@ -34,6 +37,7 @@
       --sv-sidebar-width: 260px;
       --sv-radius: 8px;
       --sv-transition: 0.25s ease;
+      --sv-touch-target: 48px;
     }
 
     [data-theme="dark"] {
@@ -54,6 +58,12 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      font-size: 16px;
+      -webkit-text-size-adjust: 100%;
     }
 
     body {
@@ -61,7 +71,9 @@
       background: var(--sv-fondo);
       color: var(--sv-texto);
       min-height: 100vh;
+      min-height: -webkit-fill-available;
       transition: background var(--sv-transition), color var(--sv-transition);
+      overflow-x: hidden;
     }
 
     /* ============================================================================
@@ -85,10 +97,11 @@
     }
 
     .splash-logo {
-      font-size: 3rem;
+      font-size: 2.5rem;
       font-weight: bold;
       color: white;
       margin-bottom: 1rem;
+      text-align: center;
     }
 
     .splash-spinner {
@@ -128,31 +141,54 @@
       display: flex;
       align-items: center;
       padding: 0 1rem;
-      gap: 1rem;
+      gap: 0.75rem;
       z-index: 100;
       box-shadow: 0 2px 8px var(--sv-sombra);
     }
 
     .header-logo {
-      font-size: 1.25rem;
-      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       flex: 1;
+      min-width: 0;
+    }
+
+    .header-logo-img {
+      height: 36px;
+      width: auto;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .header-logo-text {
+      font-size: 1.125rem;
+      font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .header-btn {
       background: rgba(255,255,255,0.1);
       border: none;
       color: white;
-      width: 40px;
-      height: 40px;
+      min-width: var(--sv-touch-target);
+      min-height: var(--sv-touch-target);
+      width: var(--sv-touch-target);
+      height: var(--sv-touch-target);
       border-radius: 50%;
       cursor: pointer;
       font-size: 1.25rem;
       transition: background var(--sv-transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
-    .header-btn:hover {
-      background: rgba(255,255,255,0.2);
+    .header-btn:hover, .header-btn:active {
+      background: rgba(255,255,255,0.25);
     }
 
     /* Sidebar */
@@ -167,10 +203,24 @@
       overflow-y: auto;
       transition: transform var(--sv-transition);
       z-index: 90;
+      -webkit-overflow-scrolling: touch;
     }
 
     .sidebar.collapsed {
       transform: translateX(-100%);
+    }
+
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      top: var(--sv-header-height);
+      background: rgba(0,0,0,0.5);
+      z-index: 85;
+    }
+
+    .sidebar-overlay.active {
+      display: block;
     }
 
     .menu-section {
@@ -191,15 +241,20 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.75rem 1rem;
+      padding: 0.875rem 1rem;
+      min-height: var(--sv-touch-target);
       color: var(--sv-texto);
       text-decoration: none;
       cursor: pointer;
-      transition: background var(--sv-transition);
+      transition: background var(--sv-transition), transform var(--sv-transition);
     }
 
     .menu-item:hover {
       background: var(--sv-superficie-elevada);
+    }
+
+    .menu-item:active {
+      transform: scale(0.98);
     }
 
     .menu-item.active {
@@ -209,19 +264,75 @@
 
     .menu-icon {
       font-size: 1.25rem;
+      width: 1.5rem;
+      text-align: center;
     }
 
     /* Main Content */
     .main-content {
       margin-left: var(--sv-sidebar-width);
       margin-top: var(--sv-header-height);
-      padding: 1.5rem;
+      padding: 1rem;
       min-height: calc(100vh - var(--sv-header-height));
       transition: margin var(--sv-transition);
     }
 
     .sidebar.collapsed + .main-content {
       margin-left: 0;
+    }
+
+    /* ============================================================================
+       RESPONSIVE - MOBILE FIRST
+       ============================================================================ */
+    @media (max-width: 768px) {
+      :root {
+        --sv-sidebar-width: 280px;
+      }
+
+      .header-logo-text {
+        font-size: 1rem;
+      }
+
+      .sidebar {
+        transform: translateX(-100%);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .main-content {
+        margin-left: 0;
+        padding: 0.75rem;
+      }
+
+      .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header-logo-text {
+        display: none;
+      }
+
+      .main-content {
+        padding: 0.5rem;
+      }
+
+      .card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .btn-group {
+        flex-direction: column;
+      }
     }
 
     /* ============================================================================
@@ -233,9 +344,10 @@
       background: var(--sv-superficie);
       border-radius: var(--sv-radius);
       border: 1px solid var(--sv-borde);
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
       box-shadow: 0 2px 8px var(--sv-sombra);
+      animation: slideUp 0.3s ease;
     }
 
     .card-title {
@@ -260,13 +372,15 @@
 
     .form-input, .form-select, .form-textarea {
       width: 100%;
-      padding: 0.75rem;
+      padding: 0.875rem;
+      min-height: var(--sv-touch-target);
       border: 1px solid var(--sv-borde);
       border-radius: var(--sv-radius);
       background: var(--sv-superficie);
       color: var(--sv-texto);
       font-size: 1rem;
       transition: border-color var(--sv-transition), box-shadow var(--sv-transition);
+      -webkit-appearance: none;
     }
 
     .form-input:focus, .form-select:focus, .form-textarea:focus {
@@ -275,19 +389,26 @@
       box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.2);
     }
 
+    .form-input::placeholder {
+      color: var(--sv-texto-muted);
+    }
+
     /* Botones */
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
+      padding: 0.875rem 1.5rem;
+      min-height: var(--sv-touch-target);
       border: none;
       border-radius: var(--sv-radius);
       font-size: 1rem;
       font-weight: 500;
       cursor: pointer;
       transition: all var(--sv-transition);
+      text-decoration: none;
+      white-space: nowrap;
     }
 
     .btn-primary {
@@ -295,7 +416,7 @@
       color: white;
     }
 
-    .btn-primary:hover {
+    .btn-primary:hover, .btn-primary:active {
       background: var(--sv-primario-oscuro);
     }
 
@@ -319,7 +440,7 @@
       color: var(--sv-texto);
     }
 
-    .btn-outline:hover {
+    .btn-outline:hover, .btn-outline:active {
       background: var(--sv-superficie-elevada);
     }
 
@@ -328,14 +449,30 @@
       cursor: not-allowed;
     }
 
-    /* Tablas */
+    .btn-sm {
+      padding: 0.5rem 1rem;
+      min-height: 40px;
+      font-size: 0.875rem;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    /* Tablas - Desktop */
     .table-container {
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -1rem;
+      padding: 0 1rem;
     }
 
     .table {
       width: 100%;
       border-collapse: collapse;
+      min-width: 500px;
     }
 
     .table th, .table td {
@@ -348,10 +485,56 @@
       background: var(--sv-superficie-elevada);
       font-weight: 600;
       color: var(--sv-primario);
+      font-size: 0.875rem;
+      white-space: nowrap;
     }
 
-    .table tr:hover {
+    .table tr:active {
       background: var(--sv-superficie-elevada);
+    }
+
+    /* Tablas - Responsive Cards para movil */
+    @media (max-width: 768px) {
+      .table-responsive-cards {
+        min-width: auto;
+      }
+
+      .table-responsive-cards thead {
+        display: none;
+      }
+
+      .table-responsive-cards tbody tr {
+        display: block;
+        background: var(--sv-superficie);
+        border: 1px solid var(--sv-borde);
+        border-radius: var(--sv-radius);
+        margin-bottom: 0.75rem;
+        padding: 0.75rem;
+      }
+
+      .table-responsive-cards td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--sv-borde);
+      }
+
+      .table-responsive-cards td:last-child {
+        border-bottom: none;
+      }
+
+      .table-responsive-cards td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--sv-texto-secundario);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+      }
+
+      .table-responsive-cards td:last-child {
+        justify-content: flex-end;
+      }
     }
 
     /* Tags */
@@ -384,30 +567,12 @@
     /* Grid */
     .grid {
       display: grid;
-      gap: 1.5rem;
+      gap: 1rem;
     }
 
     .grid-2 { grid-template-columns: repeat(2, 1fr); }
     .grid-3 { grid-template-columns: repeat(3, 1fr); }
     .grid-4 { grid-template-columns: repeat(4, 1fr); }
-
-    @media (max-width: 768px) {
-      .grid-2, .grid-3, .grid-4 {
-        grid-template-columns: 1fr;
-      }
-
-      .sidebar {
-        transform: translateX(-100%);
-      }
-
-      .sidebar.open {
-        transform: translateX(0);
-      }
-
-      .main-content {
-        margin-left: 0;
-      }
-    }
 
     /* Modulos */
     .module-view {
@@ -416,33 +581,72 @@
 
     .module-view.active {
       display: block;
+      animation: fadeIn 0.3s ease;
     }
 
     /* Toast */
     .toast-container {
       position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
+      bottom: 1rem;
+      left: 1rem;
+      right: 1rem;
       z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+
+    @media (min-width: 481px) {
+      .toast-container {
+        left: auto;
+        width: 320px;
+      }
     }
 
     .toast {
       background: var(--sv-superficie);
       border: 1px solid var(--sv-borde);
       border-radius: var(--sv-radius);
-      padding: 1rem 1.5rem;
-      margin-top: 0.5rem;
+      padding: 1rem;
       box-shadow: 0 4px 12px var(--sv-sombra);
       animation: slideIn 0.3s ease;
+      pointer-events: auto;
     }
 
     .toast-success { border-left: 4px solid var(--sv-exito); }
     .toast-error { border-left: 4px solid var(--sv-peligro); }
     .toast-warning { border-left: 4px solid var(--sv-advertencia); }
+    .toast-info { border-left: 4px solid var(--sv-info); }
 
+    /* Animaciones */
     @keyframes slideIn {
       from { transform: translateX(100%); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .fadeOut {
+      animation: fadeOut 0.2s ease forwards;
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
     }
 
     /* Loading */
@@ -474,20 +678,33 @@
       background: var(--sv-superficie);
       border-radius: var(--sv-radius);
       border: 1px solid var(--sv-borde);
-      padding: 1.25rem;
+      padding: 1rem;
       text-align: center;
+      animation: slideUp 0.3s ease both;
     }
 
+    .stat-card:nth-child(1) { animation-delay: 0.05s; }
+    .stat-card:nth-child(2) { animation-delay: 0.1s; }
+    .stat-card:nth-child(3) { animation-delay: 0.15s; }
+    .stat-card:nth-child(4) { animation-delay: 0.2s; }
+
     .stat-value {
-      font-size: 2rem;
+      font-size: 1.75rem;
       font-weight: bold;
       color: var(--sv-primario);
     }
 
     .stat-label {
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       color: var(--sv-texto-secundario);
       margin-top: 0.25rem;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 480px) {
+      .stat-value {
+        font-size: 1.5rem;
+      }
     }
 
     /* Modal */
@@ -509,11 +726,12 @@
     .modal-content {
       background: var(--sv-superficie);
       border-radius: var(--sv-radius);
-      padding: 1.5rem;
-      max-width: 500px;
+      padding: 1.25rem;
       width: 100%;
+      max-width: 500px;
       max-height: 90vh;
       overflow-y: auto;
+      animation: scaleIn 0.25s ease;
     }
 
     .modal-header {
@@ -521,6 +739,7 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1rem;
+      gap: 1rem;
     }
 
     .modal-title {
@@ -534,30 +753,71 @@
       font-size: 1.5rem;
       cursor: pointer;
       color: var(--sv-texto-muted);
+      min-width: var(--sv-touch-target);
+      min-height: var(--sv-touch-target);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    /* Impresion */
+    /* Impresion A4 */
     @media print {
+      @page {
+        size: A4 portrait;
+        margin: 1cm;
+      }
+
       .no-print {
         display: none !important;
       }
 
-      .print-only {
-        display: block !important;
-      }
-
       body {
-        background: white;
-        color: black;
+        background: white !important;
+        color: black !important;
+        font-size: 10pt;
       }
 
       .card {
-        border: 1px solid #ccc;
+        border: none;
         box-shadow: none;
+        padding: 0;
+        margin: 0;
+        animation: none;
+      }
+
+      .table-print {
+        width: 100%;
+        font-size: 9pt;
+      }
+
+      .table-print th, .table-print td {
+        padding: 4px 8px;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .table-print th {
+        background: #f5f5f5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .print-logo {
+        display: block !important;
+        width: 60px;
+        margin: 0 auto 10px;
+      }
+
+      .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
       }
     }
 
-    /* Sugerencias autocomplete */
+    .print-logo {
+      display: none;
+    }
+
+    /* Autocomplete */
     .suggestions-list {
       position: absolute;
       top: 100%;
@@ -573,20 +833,33 @@
     }
 
     .suggestion-item {
-      padding: 0.75rem 1rem;
+      padding: 0.875rem 1rem;
+      min-height: var(--sv-touch-target);
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       transition: background var(--sv-transition);
     }
 
-    .suggestion-item:hover {
+    .suggestion-item:hover, .suggestion-item:active, .suggestion-item.active {
       background: var(--sv-superficie-elevada);
+    }
+
+    .suggestion-item.active {
+      background: var(--sv-primario);
+      color: white;
+    }
+
+    .suggestion-item.active span {
+      color: rgba(255,255,255,0.8) !important;
     }
 
     .form-group-autocomplete {
       position: relative;
     }
 
-    /* Tabs de tipo movimiento */
+    /* Tipo tabs */
     .tipo-tabs {
       display: flex;
       gap: 0.5rem;
@@ -596,12 +869,22 @@
     .tipo-tab {
       flex: 1;
       padding: 1rem;
+      min-height: 70px;
       border: 2px solid var(--sv-borde);
       border-radius: var(--sv-radius);
       background: var(--sv-superficie);
       cursor: pointer;
       text-align: center;
       transition: all var(--sv-transition);
+    }
+
+    .tipo-tab:active {
+      transform: scale(0.98);
+    }
+
+    .tipo-tab:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.3);
     }
 
     .tipo-tab.active-debe {
@@ -628,13 +911,13 @@
     .upload-zone {
       border: 2px dashed var(--sv-borde);
       border-radius: var(--sv-radius);
-      padding: 3rem;
+      padding: 2rem 1rem;
       text-align: center;
       cursor: pointer;
       transition: all var(--sv-transition);
     }
 
-    .upload-zone:hover, .upload-zone.dragover {
+    .upload-zone:hover, .upload-zone.dragover, .upload-zone:active {
       border-color: var(--sv-primario);
       background: rgba(46, 125, 50, 0.05);
     }
@@ -645,173 +928,228 @@
 
     .upload-icon {
       font-size: 3rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem;
     }
 
-    /* Arqueo denominaciones */
+    /* Denominaciones */
     .denom-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
       gap: 0.75rem;
     }
 
     .denom-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem;
       background: var(--sv-superficie-elevada);
       border-radius: var(--sv-radius);
+      padding: 0.75rem;
+      text-align: center;
     }
 
     .denom-label {
-      flex: 1;
-      font-size: 0.875rem;
+      display: block;
+      font-size: 0.75rem;
+      color: var(--sv-texto-secundario);
+      margin-bottom: 0.5rem;
     }
 
     .denom-input {
-      width: 60px;
+      width: 100%;
       padding: 0.5rem;
       border: 1px solid var(--sv-borde);
-      border-radius: 4px;
+      border-radius: var(--sv-radius);
       text-align: center;
+      font-size: 1.125rem;
+      font-weight: bold;
       background: var(--sv-superficie);
       color: var(--sv-texto);
     }
 
     .denom-total {
-      width: 80px;
-      text-align: right;
-      font-weight: 500;
+      display: block;
+      font-size: 0.875rem;
+      color: var(--sv-primario);
+      margin-top: 0.25rem;
+      font-weight: 600;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--sv-texto-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Alert/Banner */
+    .alert {
+      padding: 1rem;
+      border-radius: var(--sv-radius);
+      margin-bottom: 1rem;
+    }
+
+    .alert-warning {
+      background: rgba(251, 192, 45, 0.2);
+      border: 1px solid var(--sv-advertencia);
+      color: #856404;
+    }
+
+    [data-theme="dark"] .alert-warning {
+      color: #FDD835;
+    }
+
+    .alert-info {
+      background: rgba(0, 172, 193, 0.1);
+      border: 1px solid var(--sv-info);
     }
   </style>
 </head>
 <body>
   <!-- Splash Screen -->
   <div id="splashScreen">
+    <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px;">
     <div class="splash-logo">Sol & Verde</div>
     <div class="splash-spinner"></div>
-    <p style="color: rgba(255,255,255,0.8); margin-top: 1rem;">Cargando sistema...</p>
   </div>
 
   <!-- App Container -->
   <div id="appContainer">
     <!-- Header -->
     <header class="app-header no-print">
-      <button class="header-btn" id="menuToggle" title="Menu">☰</button>
-      <div class="header-logo">Sol & Verde</div>
-      <button class="header-btn" id="themeToggle" title="Cambiar tema">🌙</button>
+      <button class="header-btn" id="menuToggle" title="Menu" aria-label="Abrir menu">☰</button>
+      <div class="header-logo">
+        <img src="https://i.imgur.com/tStvmV1.png" alt="Sol & Verde" class="header-logo-img">
+        <span class="header-logo-text">Sol & Verde</span>
+      </div>
+      <button class="header-btn" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">🌙</button>
     </header>
 
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay no-print" id="sidebarOverlay"></div>
+
     <!-- Sidebar -->
-    <aside class="sidebar no-print" id="sidebar">
+    <aside class="sidebar no-print collapsed" id="sidebar">
       <div class="menu-section">
         <div class="menu-section-title">Principal</div>
         <div class="menu-item active" data-module="dashboard">
-          <span class="menu-icon">🏠</span> Dashboard
+          <span class="menu-icon">📊</span>
+          <span>Dashboard</span>
         </div>
         <div class="menu-item" data-module="visual-reasoning">
-          <span class="menu-icon">🧠</span> Visual Reasoning
+          <span class="menu-icon">📷</span>
+          <span>Visual Reasoning</span>
         </div>
       </div>
 
       <div class="menu-section">
-        <div class="menu-section-title">Consultas</div>
-        <div class="menu-item" data-module="visor-clientes">
-          <span class="menu-icon">👁️</span> Visor de Clientes
+        <div class="menu-section-title">Clientes</div>
+        <div class="menu-item" data-module="visor-cliente">
+          <span class="menu-icon">👤</span>
+          <span>Visor de Cliente</span>
         </div>
+        <div class="menu-item" data-module="gestion-clientes">
+          <span class="menu-icon">👥</span>
+          <span>Gestion Clientes</span>
+        </div>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-section-title">Reportes</div>
         <div class="menu-item" data-module="estadisticas">
-          <span class="menu-icon">📊</span> Estadisticas
+          <span class="menu-icon">📈</span>
+          <span>Estadisticas</span>
         </div>
         <div class="menu-item" data-module="impresion-saldos">
-          <span class="menu-icon">🖨️</span> Imprimir Saldos
+          <span class="menu-icon">🖨️</span>
+          <span>Imprimir Saldos</span>
         </div>
       </div>
 
       <div class="menu-section">
-        <div class="menu-section-title">Arqueo de Caja</div>
+        <div class="menu-section-title">Caja</div>
         <div class="menu-item" data-module="arqueo-efectivo">
-          <span class="menu-icon">💵</span> Arqueo de Efectivo
+          <span class="menu-icon">💰</span>
+          <span>Arqueo Efectivo</span>
         </div>
         <div class="menu-item" data-module="hoja-ruta">
-          <span class="menu-icon">🚚</span> Hoja de Ruta
+          <span class="menu-icon">📋</span>
+          <span>Hoja de Ruta</span>
         </div>
         <div class="menu-item" data-module="historial-caja">
-          <span class="menu-icon">📂</span> Historial de Cierres
+          <span class="menu-icon">📚</span>
+          <span>Historial Caja</span>
         </div>
       </div>
 
       <div class="menu-section">
-        <div class="menu-section-title">Gestion</div>
-        <div class="menu-item" data-module="gestion-clientes">
-          <span class="menu-icon">👥</span> Gestion de Clientes
-        </div>
+        <div class="menu-section-title">Sistema</div>
         <div class="menu-item" data-module="configuracion">
-          <span class="menu-icon">⚙️</span> Configuracion
+          <span class="menu-icon">⚙️</span>
+          <span>Configuracion</span>
         </div>
       </div>
     </aside>
 
     <!-- Main Content -->
-    <main class="main-content" id="mainContent">
-
+    <main class="main-content">
       <!-- MODULO: DASHBOARD -->
       <div class="module-view active" id="module-dashboard">
-        <h2 style="margin-bottom: 1.5rem;">Dashboard</h2>
+        <h2 style="margin-bottom: 1rem;">Registrar Movimiento</h2>
 
-        <!-- Formulario de movimiento rapido -->
         <div class="card">
-          <div class="card-title">Nuevo Movimiento</div>
-
-          <!-- Tabs de tipo -->
-          <div class="tipo-tabs">
-            <div class="tipo-tab active-debe" id="tabFiado" onclick="seleccionarTipo('DEBE')">
-              <div class="tipo-tab-label">FIADO</div>
-              <div class="tipo-tab-value">📈 Aumenta deuda</div>
-            </div>
-            <div class="tipo-tab" id="tabPago" onclick="seleccionarTipo('HABER')">
-              <div class="tipo-tab-label">PAGO</div>
-              <div class="tipo-tab-value">📉 Disminuye deuda</div>
-            </div>
-          </div>
-
           <form id="formMovimiento" onsubmit="guardarMovimiento(event)">
             <input type="hidden" id="movTipo" value="DEBE">
 
-            <div class="grid grid-2">
-              <div class="form-group">
-                <label class="form-label">Fecha</label>
-                <input type="date" class="form-input" id="movFecha" required>
+            <!-- 1. FECHA -->
+            <div class="form-group">
+              <label class="form-label">Fecha</label>
+              <input type="date" class="form-input" id="movFecha" required tabindex="1">
+            </div>
+
+            <!-- 2. CLIENTE -->
+            <div class="form-group form-group-autocomplete">
+              <label class="form-label">Cliente *</label>
+              <input type="text" class="form-input" id="movCliente" placeholder="Buscar cliente..." autocomplete="off" required tabindex="2">
+              <div class="suggestions-list" id="clienteSugerencias" style="display: none;"></div>
+            </div>
+
+            <!-- 3. TIPO (PAGO/FIADO) -->
+            <div class="tipo-tabs">
+              <div class="tipo-tab active-debe" id="tabFiado" onclick="seleccionarTipo('DEBE')" tabindex="3" role="button" aria-pressed="true" onkeydown="handleTipoKeydown(event, 'DEBE')">
+                <div class="tipo-tab-label">FIADO</div>
+                <div class="tipo-tab-value" style="color: var(--sv-peligro);">+ Deuda</div>
               </div>
-              <div class="form-group form-group-autocomplete">
-                <label class="form-label">Cliente</label>
-                <input type="text" class="form-input" id="movCliente" placeholder="Nombre del cliente" required autocomplete="off">
-                <div class="suggestions-list" id="clienteSugerencias" style="display: none;"></div>
+              <div class="tipo-tab" id="tabPago" onclick="seleccionarTipo('HABER')" tabindex="4" role="button" aria-pressed="false" onkeydown="handleTipoKeydown(event, 'HABER')">
+                <div class="tipo-tab-label">PAGO</div>
+                <div class="tipo-tab-value" style="color: var(--sv-exito);">- Deuda</div>
               </div>
             </div>
 
-            <div class="grid grid-2">
-              <div class="form-group">
-                <label class="form-label">Monto ($)</label>
-                <input type="number" class="form-input" id="movMonto" min="1" step="1" placeholder="0" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Observaciones</label>
-                <input type="text" class="form-input" id="movObs" placeholder="Opcional">
-              </div>
+            <!-- 4. IMPORTE -->
+            <div class="form-group">
+              <label class="form-label">Importe *</label>
+              <input type="number" class="form-input" id="movMonto" placeholder="0" min="1" step="1" required inputmode="numeric" tabindex="5">
             </div>
 
-            <button type="submit" class="btn btn-primary" id="btnGuardarMov">
+            <!-- 5. OBSERVACIONES -->
+            <div class="form-group">
+              <label class="form-label">Observaciones</label>
+              <input type="text" class="form-input" id="movObs" placeholder="Opcional" tabindex="6">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;" tabindex="7">
               💾 Guardar Movimiento
             </button>
           </form>
         </div>
 
-        <!-- Ultimos movimientos -->
         <div class="card">
           <div class="card-title">Ultimos Movimientos</div>
           <div class="table-container">
-            <table class="table" id="tablaMovimientos">
+            <table class="table table-responsive-cards" id="tablaMovimientos">
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -822,9 +1160,7 @@
                   <th>Obs</th>
                 </tr>
               </thead>
-              <tbody id="tbodyMovimientos">
-                <tr><td colspan="6" style="text-align: center;">Cargando...</td></tr>
-              </tbody>
+              <tbody id="tbodyMovimientos"></tbody>
             </table>
           </div>
         </div>
@@ -832,97 +1168,98 @@
 
       <!-- MODULO: VISUAL REASONING -->
       <div class="module-view" id="module-visual-reasoning">
-        <h2 style="margin-bottom: 1.5rem;">Visual Reasoning</h2>
+        <h2 style="margin-bottom: 1rem;">Visual Reasoning</h2>
 
         <div class="card">
-          <div class="card-title">Analizar Imagen de Caja</div>
+          <div class="card-title">Analizar Imagen del Libro</div>
+          <p style="color: var(--sv-texto-secundario); margin-bottom: 1rem; font-size: 0.875rem;">
+            Sube una foto del libro de cobranzas y el sistema detectara automaticamente los movimientos.
+          </p>
 
           <div class="form-group">
-            <label class="form-label">Fecha del registro</label>
-            <input type="date" class="form-input" id="vrFecha" style="max-width: 200px;">
+            <label class="form-label">Fecha de los movimientos</label>
+            <input type="date" class="form-input" id="vrFecha">
           </div>
 
           <div class="upload-zone" id="uploadZone">
-            <input type="file" id="vrFileInput" accept="image/*">
+            <input type="file" id="vrFileInput" accept="image/*" capture="environment">
             <div class="upload-icon">📷</div>
-            <p>Arrastra una imagen aqui o haz clic para seleccionar</p>
-            <p style="font-size: 0.875rem; color: var(--sv-texto-muted);">JPG, PNG, WEBP</p>
+            <div>Toca para subir o tomar foto</div>
+            <div style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.5rem;">JPG, PNG hasta 10MB</div>
           </div>
 
           <div id="vrPreview" style="display: none; margin-top: 1rem;">
             <img id="vrPreviewImg" style="max-width: 100%; border-radius: var(--sv-radius);">
-            <button class="btn btn-primary" style="margin-top: 1rem;" onclick="analizarImagenVR()">
-              🧠 Analizar con Claude AI
-            </button>
-          </div>
-
-          <div id="vrResultados" style="display: none; margin-top: 1.5rem;">
-            <h4>Movimientos Detectados</h4>
-            <div class="table-container">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Cliente</th>
-                    <th>Tipo</th>
-                    <th>Monto</th>
-                    <th>Estado</th>
-                    <th>Accion</th>
-                  </tr>
-                </thead>
-                <tbody id="vrMovimientos"></tbody>
-              </table>
-            </div>
-            <button class="btn btn-primary" style="margin-top: 1rem;" onclick="guardarMovimientosVR()">
-              💾 Guardar Todos los Validos
+            <button class="btn btn-primary" onclick="analizarImagenVR()" style="width: 100%; margin-top: 1rem;">
+              🔍 Analizar con IA
             </button>
           </div>
         </div>
+
+        <div class="card" id="vrResultados" style="display: none;">
+          <div class="card-title">Movimientos Detectados</div>
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Tipo</th>
+                  <th>Monto</th>
+                  <th>Estado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="vrMovimientos"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-primary" onclick="guardarMovimientosVR()" style="width: 100%; margin-top: 1rem;">
+            💾 Guardar Movimientos Validos
+          </button>
+        </div>
       </div>
 
-      <!-- MODULO: VISOR DE CLIENTES -->
-      <div class="module-view" id="module-visor-clientes">
-        <h2 style="margin-bottom: 1.5rem;">Visor de Clientes</h2>
+      <!-- MODULO: VISOR CLIENTE -->
+      <div class="module-view" id="module-visor-cliente">
+        <h2 style="margin-bottom: 1rem;">Visor de Cliente</h2>
 
         <div class="card">
           <div class="form-group form-group-autocomplete">
             <label class="form-label">Buscar Cliente</label>
-            <input type="text" class="form-input" id="visorBuscar" placeholder="Nombre del cliente" autocomplete="off">
+            <input type="text" class="form-input" id="visorBuscar" placeholder="Escribi el nombre..." autocomplete="off">
             <div class="suggestions-list" id="visorSugerencias" style="display: none;"></div>
           </div>
         </div>
 
         <div id="visorResultado" style="display: none;">
-          <div class="card">
-            <div class="grid grid-4">
-              <div class="stat-card">
-                <div class="stat-value" id="visorSaldo">$0</div>
-                <div class="stat-label">Saldo Actual</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value" id="visorMovs">0</div>
-                <div class="stat-label">Total Movimientos</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value" id="visorLimite">$0</div>
-                <div class="stat-label">Limite Credito</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value" id="visorAlta">-</div>
-                <div class="stat-label">Fecha Alta</div>
-              </div>
+          <div class="grid grid-4">
+            <div class="stat-card">
+              <div class="stat-value" id="visorSaldo">$0</div>
+              <div class="stat-label">Saldo</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="visorMovs">0</div>
+              <div class="stat-label">Movimientos</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="visorLimite">$0</div>
+              <div class="stat-label">Limite</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="visorAlta" style="font-size: 1rem;">-</div>
+              <div class="stat-label">Alta</div>
             </div>
           </div>
 
           <div class="card">
-            <div class="card-title">Historial de Movimientos - <span id="visorClienteNombre"></span></div>
+            <div class="card-title">Historial de <span id="visorClienteNombre"></span></div>
             <div class="table-container">
-              <table class="table">
+              <table class="table table-responsive-cards">
                 <thead>
                   <tr>
                     <th>Fecha</th>
                     <th>Tipo</th>
                     <th>Monto</th>
-                    <th>Saldo Post</th>
+                    <th>Saldo</th>
                     <th>Obs</th>
                   </tr>
                 </thead>
@@ -935,31 +1272,31 @@
 
       <!-- MODULO: ESTADISTICAS -->
       <div class="module-view" id="module-estadisticas">
-        <h2 style="margin-bottom: 1.5rem;">Estadisticas</h2>
+        <h2 style="margin-bottom: 1rem;">Estadisticas</h2>
 
         <div class="grid grid-4">
           <div class="stat-card">
             <div class="stat-value" id="statClientes">0</div>
-            <div class="stat-label">Total Clientes</div>
+            <div class="stat-label">Clientes</div>
           </div>
           <div class="stat-card">
             <div class="stat-value" id="statDeudores">0</div>
-            <div class="stat-label">Clientes con Deuda</div>
+            <div class="stat-label">Deudores</div>
           </div>
           <div class="stat-card">
             <div class="stat-value" id="statTotalDeuda">$0</div>
-            <div class="stat-label">Total Adeudado</div>
+            <div class="stat-label">Total Deuda</div>
           </div>
           <div class="stat-card">
             <div class="stat-value" id="statMovimientos">0</div>
-            <div class="stat-label">Total Movimientos</div>
+            <div class="stat-label">Movimientos</div>
           </div>
         </div>
 
         <div class="card">
           <div class="card-title">Top 10 Deudores</div>
           <div class="table-container">
-            <table class="table">
+            <table class="table table-responsive-cards">
               <thead>
                 <tr>
                   <th>#</th>
@@ -975,31 +1312,38 @@
 
       <!-- MODULO: IMPRESION SALDOS -->
       <div class="module-view" id="module-impresion-saldos">
-        <h2 style="margin-bottom: 1.5rem;" class="no-print">Imprimir Saldos Pendientes</h2>
+        <h2 style="margin-bottom: 1rem;" class="no-print">Imprimir Saldos Pendientes</h2>
 
         <div class="card">
-          <div class="no-print" style="margin-bottom: 1rem;">
+          <div class="no-print" style="margin-bottom: 1rem; display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+            <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
+              <label class="form-label">Filtrar por fecha</label>
+              <input type="date" class="form-input" id="fechaSaldos" onchange="cargarSaldosPendientes()">
+            </div>
             <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
           </div>
 
-          <h3 style="text-align: center; margin-bottom: 1rem;">Saldos Pendientes - Sol & Verde</h3>
-          <p style="text-align: center; margin-bottom: 1rem;" id="fechaImpresion"></p>
+          <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" class="print-logo">
+          <h3 class="print-header" style="text-align: center; margin-bottom: 0.5rem;">Saldos Pendientes - Sol & Verde</h3>
+          <p style="text-align: center; margin-bottom: 1rem; font-size: 0.875rem;" id="fechaImpresion"></p>
 
           <div class="table-container">
-            <table class="table">
+            <table class="table table-print">
               <thead>
                 <tr>
                   <th>Cliente</th>
-                  <th>Saldo</th>
-                  <th>Ultimo Mov</th>
+                  <th style="text-align: right;">Pagos</th>
+                  <th style="text-align: right;">Fiados</th>
+                  <th style="text-align: right;">Saldo</th>
                 </tr>
               </thead>
               <tbody id="tbodySaldos"></tbody>
               <tfoot>
                 <tr style="font-weight: bold;">
                   <td>TOTAL</td>
-                  <td id="totalSaldos">$0</td>
-                  <td></td>
+                  <td style="text-align: right;" id="totalPagosDia">$0</td>
+                  <td style="text-align: right;" id="totalFiadosDia">$0</td>
+                  <td style="text-align: right;" id="totalSaldos">$0</td>
                 </tr>
               </tfoot>
             </table>
@@ -1009,20 +1353,15 @@
 
       <!-- MODULO: ARQUEO DE EFECTIVO -->
       <div class="module-view" id="module-arqueo-efectivo">
-        <h2 style="margin-bottom: 1.5rem;">Arqueo de Efectivo</h2>
+        <h2 style="margin-bottom: 1rem;">Arqueo de Efectivo</h2>
 
         <div class="card">
-          <div class="card-title">Denominaciones</div>
-
-          <h4 style="margin-bottom: 0.75rem;">Billetes</h4>
+          <div class="card-title">Billetes</div>
           <div class="denom-grid" id="gridBilletes"></div>
 
-          <h4 style="margin: 1.5rem 0 0.75rem;">Monedas</h4>
-          <div class="denom-grid" id="gridMonedas"></div>
-
-          <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 2px solid var(--sv-borde);">
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid var(--sv-borde);">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 1.25rem; font-weight: bold;">Total Efectivo:</span>
+              <span style="font-size: 1.125rem; font-weight: bold;">Total Efectivo:</span>
               <span style="font-size: 1.5rem; font-weight: bold; color: var(--sv-primario);" id="totalEfectivo">$0</span>
             </div>
           </div>
@@ -1030,30 +1369,33 @@
 
         <div class="card">
           <div class="card-title">Pagos a Proveedores</div>
+          <p style="font-size: 0.75rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;">
+            Escribi el nombre para ver sugerencias del historial
+          </p>
           <div id="listaProveedores"></div>
-          <button class="btn btn-outline" onclick="agregarProveedor()">+ Agregar Proveedor</button>
+          <button class="btn btn-outline" onclick="agregarProveedor()" style="width: 100%;">+ Agregar Proveedor</button>
         </div>
 
         <div class="card">
           <div class="card-title">Gastos Extras</div>
           <div id="listaGastos"></div>
-          <button class="btn btn-outline" onclick="agregarGasto()">+ Agregar Gasto</button>
+          <button class="btn btn-outline" onclick="agregarGasto()" style="width: 100%;">+ Agregar Gasto</button>
         </div>
 
         <div class="card">
           <div class="card-title">Ingresos Adicionales</div>
           <div id="listaIngresos"></div>
-          <button class="btn btn-outline" onclick="agregarIngreso()">+ Agregar Ingreso</button>
+          <button class="btn btn-outline" onclick="agregarIngreso()" style="width: 100%;">+ Agregar Ingreso</button>
         </div>
 
         <div class="card" style="background: var(--sv-primario); color: white;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <div>
-              <div style="font-size: 0.875rem;">Neto del dia</div>
+              <div style="font-size: 0.875rem; opacity: 0.9;">Neto del dia</div>
               <div style="font-size: 2rem; font-weight: bold;" id="netoArqueo">$0</div>
             </div>
             <button class="btn" style="background: white; color: var(--sv-primario);" onclick="guardarArqueo()">
-              💾 Guardar Cierre del Dia
+              💾 Guardar Cierre
             </button>
           </div>
         </div>
@@ -1061,72 +1403,114 @@
 
       <!-- MODULO: HOJA DE RUTA -->
       <div class="module-view" id="module-hoja-ruta">
-        <h2 style="margin-bottom: 1.5rem;" class="no-print">Hoja de Ruta</h2>
+        <h2 style="margin-bottom: 1rem;" class="no-print">Hoja de Ruta</h2>
 
         <div class="card">
-          <div class="no-print" style="margin-bottom: 1rem;">
-            <div class="form-group" style="max-width: 200px; display: inline-block; margin-right: 1rem;">
+          <div class="no-print" style="margin-bottom: 1rem; display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+            <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
+              <label class="form-label">Fecha</label>
               <input type="date" class="form-input" id="fechaHojaRuta" onchange="cargarHojaRuta()">
             </div>
             <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
           </div>
 
-          <h3 style="text-align: center;">Hoja de Ruta - <span id="fechaHojaRutaTitulo"></span></h3>
+          <h3 style="text-align: center; margin-bottom: 1rem;">Hoja de Ruta - <span id="fechaHojaRutaTitulo"></span></h3>
 
-          <div class="grid grid-2" style="margin-top: 1.5rem;">
-            <div>
-              <h4 style="color: var(--sv-exito); margin-bottom: 0.75rem;">COBRANZAS (Pagos)</h4>
+          <!-- Proveedores -->
+          <div style="margin-bottom: 1.5rem;">
+            <h4 style="color: var(--sv-primario); margin-bottom: 0.5rem;">Proveedores</h4>
+            <div class="table-container">
               <table class="table">
                 <thead>
                   <tr>
-                    <th>Cliente</th>
-                    <th>Monto</th>
+                    <th>Proveedor</th>
+                    <th>Importe</th>
                   </tr>
                 </thead>
-                <tbody id="hojaRutaCobranzas"></tbody>
+                <tbody id="hojaRutaProveedores"></tbody>
                 <tfoot>
-                  <tr style="font-weight: bold;">
-                    <td>Total</td>
-                    <td id="totalHojaCobranzas">$0</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            <div>
-              <h4 style="color: var(--sv-peligro); margin-bottom: 0.75rem;">FIADOS</h4>
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Cliente</th>
-                    <th>Monto</th>
-                  </tr>
-                </thead>
-                <tbody id="hojaRutaFiados"></tbody>
-                <tfoot>
-                  <tr style="font-weight: bold;">
-                    <td>Total</td>
-                    <td id="totalHojaFiados">$0</td>
+                  <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
+                    <td>Total Proveedores</td>
+                    <td id="totalHojaProveedores">$0</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           </div>
 
-          <div style="margin-top: 1.5rem; padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
-            <strong>Diferencia del dia:</strong>
-            <span id="diferenciaHojaRuta" style="font-size: 1.25rem; font-weight: bold; margin-left: 0.5rem;">$0</span>
+          <!-- Gastos Extras -->
+          <div style="margin-bottom: 1.5rem;">
+            <h4 style="color: var(--sv-peligro); margin-bottom: 0.5rem;">Gastos Extras</h4>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Descripcion</th>
+                    <th>Importe</th>
+                  </tr>
+                </thead>
+                <tbody id="hojaRutaGastos"></tbody>
+                <tfoot>
+                  <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
+                    <td>Total Gastos</td>
+                    <td id="totalHojaGastos">$0</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Liquidaciones Pendientes -->
+          <div class="no-print" style="margin-bottom: 1.5rem; padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
+            <h4 style="color: var(--sv-advertencia); margin-bottom: 0.75rem;">Liquidaciones Pendientes (anteriores)</h4>
+            <p style="font-size: 0.875rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;">
+              Agrega liquidaciones de dias anteriores que no se enviaron y se incluyen hoy.
+            </p>
+            <div id="liquidacionesPendientesList" style="margin-bottom: 0.75rem;"></div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <input type="text" class="form-input" id="liqPendienteDesc" placeholder="Descripcion" style="flex: 2; min-width: 120px;">
+              <input type="number" class="form-input" id="liqPendienteMonto" placeholder="Monto" style="flex: 1; min-width: 80px;">
+              <button class="btn btn-outline" onclick="agregarLiquidacionPendiente()">+ Agregar</button>
+            </div>
+          </div>
+
+          <!-- Liquidaciones Pendientes para impresion -->
+          <div id="hojaRutaLiqPendientesSection" style="margin-bottom: 1.5rem; display: none;">
+            <h4 style="color: var(--sv-advertencia); margin-bottom: 0.5rem;">Liquidaciones Pendientes</h4>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Descripcion</th>
+                    <th>Importe</th>
+                  </tr>
+                </thead>
+                <tbody id="hojaRutaLiqPendientes"></tbody>
+                <tfoot>
+                  <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
+                    <td>Total Liq. Pendientes</td>
+                    <td id="totalHojaLiqPendientes">$0</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Total General -->
+          <div style="margin-top: 1rem; padding: 1rem; background: var(--sv-primario); color: white; border-radius: var(--sv-radius); text-align: center;">
+            <span style="font-size: 1.125rem;">Total Salidas del Dia: </span>
+            <span style="font-size: 1.5rem; font-weight: bold;" id="totalSalidasHojaRuta">$0</span>
           </div>
         </div>
       </div>
 
       <!-- MODULO: HISTORIAL CAJA -->
       <div class="module-view" id="module-historial-caja">
-        <h2 style="margin-bottom: 1.5rem;">Historial de Cierres</h2>
+        <h2 style="margin-bottom: 1rem;">Historial de Caja</h2>
 
         <div class="card">
           <div class="table-container">
-            <table class="table">
+            <table class="table table-responsive-cards">
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -1134,7 +1518,7 @@
                   <th>Proveedores</th>
                   <th>Gastos</th>
                   <th>Neto</th>
-                  <th>Accion</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody id="historialCajaTbody"></tbody>
@@ -1143,28 +1527,24 @@
         </div>
       </div>
 
-      <!-- MODULO: GESTION DE CLIENTES -->
+      <!-- MODULO: GESTION CLIENTES -->
       <div class="module-view" id="module-gestion-clientes">
-        <h2 style="margin-bottom: 1.5rem;">Gestion de Clientes</h2>
+        <h2 style="margin-bottom: 1rem;">Gestion de Clientes</h2>
 
         <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <div class="card-title" style="margin: 0;">Lista de Clientes</div>
+          <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <input type="text" class="form-input" id="filtroClientes" placeholder="Filtrar por nombre..." style="flex: 1; min-width: 200px;" oninput="filtrarClientesDebounce()">
             <button class="btn btn-primary" onclick="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
           </div>
 
-          <div class="form-group" style="max-width: 300px;">
-            <input type="text" class="form-input" id="filtroClientes" placeholder="Filtrar clientes..." oninput="filtrarClientes()">
-          </div>
-
           <div class="table-container">
-            <table class="table">
+            <table class="table table-responsive-cards">
               <thead>
                 <tr>
                   <th>Nombre</th>
                   <th>Telefono</th>
                   <th>Saldo</th>
-                  <th>Movimientos</th>
+                  <th>Movs</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -1176,52 +1556,87 @@
 
       <!-- MODULO: CONFIGURACION -->
       <div class="module-view" id="module-configuracion">
-        <h2 style="margin-bottom: 1.5rem;">Configuracion</h2>
+        <h2 style="margin-bottom: 1rem;">Configuracion</h2>
 
-        <div class="card">
-          <div class="card-title">API Key de Claude (Vision)</div>
-          <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario);">
-            Necesaria para analizar imagenes con Visual Reasoning.
-            Obtenla en <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
-          </p>
+        <div class="grid grid-2">
+          <div>
+            <div class="card">
+              <div class="card-title">🔑 API Key de Claude</div>
+              <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Necesaria para Visual Reasoning.
+                <a href="https://console.anthropic.com" target="_blank" rel="noopener" style="color: var(--sv-primario);">Obtener API Key</a>
+              </p>
 
-          <div class="form-group">
-            <input type="password" class="form-input" id="inputApiKey" placeholder="sk-ant-...">
+              <div class="form-group">
+                <input type="password" class="form-input" id="inputApiKey" placeholder="sk-ant-...">
+              </div>
+              <button class="btn btn-primary" onclick="guardarApiKeyConfig()" style="width: 100%;">Guardar API Key</button>
+              <p id="estadoApiKey" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🎨 Apariencia</div>
+
+              <div class="form-group">
+                <label class="form-label">Tema</label>
+                <div class="btn-group">
+                  <button class="btn btn-outline" onclick="setTema('light')" id="btnTemaClaro">☀️ Claro</button>
+                  <button class="btn btn-outline" onclick="setTema('dark')" id="btnTemaOscuro">🌙 Oscuro</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; min-height: var(--sv-touch-target);">
+                  <input type="checkbox" id="toggleAnimaciones" checked onchange="toggleAnimaciones(this.checked)" style="width: 20px; height: 20px;">
+                  <span>Habilitar animaciones</span>
+                </label>
+              </div>
+            </div>
           </div>
-          <button class="btn btn-primary" onclick="guardarApiKeyConfig()">Guardar API Key</button>
 
-          <p id="estadoApiKey" style="margin-top: 0.5rem;"></p>
-        </div>
+          <div>
+            <div class="card">
+              <div class="card-title">🛠️ Herramientas</div>
 
-        <div class="card">
-          <div class="card-title">Herramientas</div>
+              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <button class="btn btn-outline" onclick="recalcularTodosSaldos()">🔄 Recalcular Saldos</button>
+                <button class="btn btn-outline" onclick="exportarDatosCSV()">📥 Exportar CSV</button>
+                <button class="btn btn-outline" onclick="limpiarCacheLocal()">🗑️ Limpiar Cache</button>
+              </div>
+            </div>
 
-          <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
-            <button class="btn btn-outline" onclick="recalcularTodosSaldos()">
-              🔄 Recalcular Saldos
-            </button>
-            <button class="btn btn-outline" onclick="exportarDatos()">
-              📥 Exportar Datos
-            </button>
+            <div class="card">
+              <div class="card-title">📊 Datos del Sistema</div>
+              <div style="font-size: 0.875rem;">
+                <p><strong>Clientes:</strong> <span id="configTotalClientes">-</span></p>
+                <p><strong>Movimientos:</strong> <span id="configTotalMovimientos">-</span></p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">ℹ️ Acerca de</div>
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 50px; height: 50px; border-radius: 8px;">
+                <div>
+                  <p><strong>Sol & Verde</strong></p>
+                  <p style="font-size: 0.875rem; color: var(--sv-texto-secundario);">Sistema de Cuenta Corriente</p>
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted);">Version 3.0.0</p>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Acerca de</div>
-          <p><strong>Sol & Verde</strong> - Sistema de Cuenta Corriente</p>
-          <p>Version 2.0.0</p>
         </div>
       </div>
 
     </main>
   </div>
 
-  <!-- Modal Nuevo/Editar Cliente -->
+  <!-- Modal Cliente -->
   <div class="modal" id="modalCliente">
     <div class="modal-content">
       <div class="modal-header">
         <div class="modal-title" id="modalClienteTitulo">Nuevo Cliente</div>
-        <button class="modal-close" onclick="cerrarModal('modalCliente')">&times;</button>
+        <button class="modal-close" onclick="cerrarModal('modalCliente')" aria-label="Cerrar">&times;</button>
       </div>
 
       <form id="formCliente" onsubmit="guardarCliente(event)">
@@ -1234,17 +1649,17 @@
 
         <div class="form-group">
           <label class="form-label">Telefono</label>
-          <input type="text" class="form-input" id="clienteTel">
+          <input type="tel" class="form-input" id="clienteTel" inputmode="tel">
         </div>
 
         <div class="form-group">
           <label class="form-label">Email</label>
-          <input type="email" class="form-input" id="clienteEmail">
+          <input type="email" class="form-input" id="clienteEmail" inputmode="email">
         </div>
 
         <div class="form-group">
           <label class="form-label">Limite de Credito</label>
-          <input type="number" class="form-input" id="clienteLimite" value="100000">
+          <input type="number" class="form-input" id="clienteLimite" value="100000" inputmode="numeric">
         </div>
 
         <div class="form-group">
@@ -1252,11 +1667,37 @@
           <textarea class="form-textarea" id="clienteObs" rows="2"></textarea>
         </div>
 
-        <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+        <div class="btn-group" style="justify-content: flex-end;">
           <button type="button" class="btn btn-outline" onclick="cerrarModal('modalCliente')">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal Detalle Sesion -->
+  <div class="modal" id="modalDetalleSesion">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Detalle de Cierre</div>
+        <button class="modal-close" onclick="cerrarModal('modalDetalleSesion')" aria-label="Cerrar">&times;</button>
+      </div>
+      <div id="detalleSesionContenido"></div>
+    </div>
+  </div>
+
+  <!-- Modal Confirmar Pago -->
+  <div class="modal" id="modalConfirmarPago">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">⚠️ Confirmar Pago</div>
+        <button class="modal-close" onclick="cerrarModal('modalConfirmarPago')" aria-label="Cerrar">&times;</button>
+      </div>
+      <div id="confirmarPagoContenido"></div>
+      <div class="btn-group" style="justify-content: flex-end; margin-top: 1rem;">
+        <button class="btn btn-outline" onclick="cerrarModal('modalConfirmarPago')">Cancelar</button>
+        <button class="btn btn-primary" id="btnConfirmarPago">Si, Registrar</button>
+      </div>
     </div>
   </div>
 
@@ -1270,6 +1711,34 @@
 
   <script>
     // ============================================================================
+    // UTILIDADES
+    // ============================================================================
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatearMonto(monto) {
+      return '$' + (monto || 0).toLocaleString('es-AR');
+    }
+
+    function formatearFecha(fecha) {
+      if (!fecha) return '-';
+      const d = new Date(fecha);
+      return d.toLocaleDateString('es-AR');
+    }
+
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    // ============================================================================
     // ESTADO GLOBAL
     // ============================================================================
     const Estado = {
@@ -1280,32 +1749,35 @@
       vrImagenToken: null,
       vrMovimientos: [],
       configuracion: null,
-      arqueo: {}
+      arqueo: {},
+      proveedoresHistorial: JSON.parse(localStorage.getItem('proveedoresHistorial') || '[]'),
+      sesionesCache: {}
     };
 
     // ============================================================================
     // INICIALIZACION
     // ============================================================================
+    // Obtener fecha local en formato YYYY-MM-DD (sin problemas de zona horaria)
+    function obtenerFechaLocal() {
+      const hoy = new Date();
+      const año = hoy.getFullYear();
+      const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+      const dia = String(hoy.getDate()).padStart(2, '0');
+      return `${año}-${mes}-${dia}`;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-      // Inicializar fecha de hoy
-      const hoy = new Date().toISOString().split('T')[0];
+      const hoy = obtenerFechaLocal();
       document.getElementById('movFecha').value = hoy;
       document.getElementById('vrFecha').value = hoy;
       document.getElementById('fechaHojaRuta').value = hoy;
+      document.getElementById('fechaSaldos').value = hoy;
       document.getElementById('fechaImpresion').textContent = 'Fecha: ' + formatearFecha(hoy);
 
-      // Cargar tema guardado
-      const temaGuardado = localStorage.getItem('tema');
-      if (temaGuardado === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        document.getElementById('themeToggle').textContent = '☀️';
-      }
-
-      // Cargar datos iniciales
+      cargarConfiguracionInicial();
       cargarDatosIniciales();
-
-      // Setup eventos
       setupEventos();
+      setupNavegacionTeclado();
     });
 
     function cargarDatosIniciales() {
@@ -1316,21 +1788,20 @@
             Estado.movimientos = data.movimientos || [];
             renderMovimientos();
             renderClientesGestion();
+            actualizarDatosSistema();
           }
 
-          // Ocultar splash
           document.getElementById('splashScreen').classList.add('hidden');
           document.getElementById('appContainer').classList.add('visible');
         })
         .withFailureHandler(function(error) {
-          console.error('Error cargando datos:', error);
-          mostrarToast('Error cargando datos: ' + error.message, 'error');
+          console.error('Error:', error);
+          mostrarToast('Error cargando datos', 'error');
           document.getElementById('splashScreen').classList.add('hidden');
           document.getElementById('appContainer').classList.add('visible');
         })
         .obtenerDatosParaHTML();
 
-      // Cargar configuracion
       google.script.run
         .withSuccessHandler(function(config) {
           Estado.configuracion = config;
@@ -1338,13 +1809,11 @@
         })
         .obtenerConfiguracion();
 
-      // Verificar API Key
       google.script.run
         .withSuccessHandler(function(result) {
-          document.getElementById('estadoApiKey').textContent = result.presente ?
-            '✓ API Key configurada' : '✗ API Key no configurada';
-          document.getElementById('estadoApiKey').style.color = result.presente ?
-            'var(--sv-exito)' : 'var(--sv-peligro)';
+          const el = document.getElementById('estadoApiKey');
+          el.textContent = result.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
+          el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
         })
         .verificarApiKey();
     }
@@ -1352,48 +1821,56 @@
     function setupEventos() {
       // Menu toggle
       document.getElementById('menuToggle').addEventListener('click', function() {
-        document.getElementById('sidebar').classList.toggle('collapsed');
-        document.getElementById('sidebar').classList.toggle('open');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        sidebar.classList.toggle('open');
+        sidebar.classList.toggle('collapsed');
+        overlay.classList.toggle('active', sidebar.classList.contains('open'));
+      });
+
+      // Sidebar overlay click
+      document.getElementById('sidebarOverlay').addEventListener('click', function() {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebar').classList.add('collapsed');
+        this.classList.remove('active');
       });
 
       // Tema toggle
       document.getElementById('themeToggle').addEventListener('click', function() {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.documentElement.setAttribute('data-theme', isDark ? '' : 'dark');
-        this.textContent = isDark ? '🌙' : '☀️';
-        localStorage.setItem('tema', isDark ? 'light' : 'dark');
+        setTema(isDark ? 'light' : 'dark');
       });
 
       // Navegacion
       document.querySelectorAll('.menu-item').forEach(function(item) {
         item.addEventListener('click', function() {
-          const modulo = this.getAttribute('data-module');
-          navegarA(modulo);
+          navegarA(this.getAttribute('data-module'));
         });
       });
 
-      // Autocomplete cliente en dashboard
+      // Autocomplete dashboard
       const inputCliente = document.getElementById('movCliente');
-      inputCliente.addEventListener('input', function() {
+      inputCliente.addEventListener('input', debounce(function() {
         buscarClienteAutocomplete(this.value, 'clienteSugerencias');
-      });
+      }, 200));
 
-      inputCliente.addEventListener('blur', function() {
-        setTimeout(() => {
-          document.getElementById('clienteSugerencias').style.display = 'none';
-        }, 200);
+      inputCliente.addEventListener('focus', function() {
+        if (this.value.length >= 2) {
+          buscarClienteAutocomplete(this.value, 'clienteSugerencias');
+        }
       });
 
       // Autocomplete visor
       const inputVisor = document.getElementById('visorBuscar');
-      inputVisor.addEventListener('input', function() {
+      inputVisor.addEventListener('input', debounce(function() {
         buscarClienteAutocomplete(this.value, 'visorSugerencias', true);
-      });
+      }, 200));
 
-      inputVisor.addEventListener('blur', function() {
-        setTimeout(() => {
-          document.getElementById('visorSugerencias').style.display = 'none';
-        }, 200);
+      // Cerrar sugerencias al hacer clic fuera
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.form-group-autocomplete')) {
+          document.querySelectorAll('.suggestions-list').forEach(s => s.style.display = 'none');
+        }
       });
 
       // Upload zone
@@ -1422,16 +1899,189 @@
     }
 
     // ============================================================================
+    // NAVEGACION CON TECLADO
+    // ============================================================================
+    function setupNavegacionTeclado() {
+      // Enter para avanzar al siguiente campo en el formulario de movimientos
+      const camposMovimiento = ['movFecha', 'movCliente', 'movMonto', 'movObs'];
+
+      camposMovimiento.forEach((campoId, index) => {
+        const campo = document.getElementById(campoId);
+        if (campo) {
+          campo.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+
+              // Si es el campo cliente y hay sugerencias visibles, no avanzar
+              if (campoId === 'movCliente') {
+                const sugerencias = document.getElementById('clienteSugerencias');
+                if (sugerencias && sugerencias.style.display !== 'none') {
+                  return;
+                }
+              }
+
+              // Avanzar al siguiente campo o enviar formulario
+              if (index < camposMovimiento.length - 1) {
+                const siguiente = document.getElementById(camposMovimiento[index + 1]);
+                if (siguiente) siguiente.focus();
+              } else {
+                // Ultimo campo, enviar formulario
+                document.getElementById('formMovimiento').dispatchEvent(new Event('submit', { cancelable: true }));
+              }
+            }
+          });
+        }
+      });
+
+      // Navegacion con flechas en tabs de tipo
+      document.getElementById('tabFiado').addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          document.getElementById('tabPago').focus();
+        }
+      });
+
+      document.getElementById('tabPago').addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          document.getElementById('tabFiado').focus();
+        }
+      });
+
+      // Navegacion en sugerencias de autocomplete con flechas
+      document.getElementById('movCliente').addEventListener('keydown', function(e) {
+        const sugerencias = document.getElementById('clienteSugerencias');
+        if (sugerencias.style.display === 'none') return;
+
+        const items = sugerencias.querySelectorAll('.suggestion-item');
+        if (items.length === 0) return;
+
+        const activo = sugerencias.querySelector('.suggestion-item.active');
+        let index = activo ? Array.from(items).indexOf(activo) : -1;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (activo) activo.classList.remove('active');
+          index = (index + 1) % items.length;
+          items[index].classList.add('active');
+          items[index].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (activo) activo.classList.remove('active');
+          index = index <= 0 ? items.length - 1 : index - 1;
+          items[index].classList.add('active');
+          items[index].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && activo) {
+          e.preventDefault();
+          activo.click();
+        } else if (e.key === 'Escape') {
+          sugerencias.style.display = 'none';
+        }
+      });
+
+      // Lo mismo para visor de cliente
+      document.getElementById('visorBuscar').addEventListener('keydown', function(e) {
+        const sugerencias = document.getElementById('visorSugerencias');
+        if (sugerencias.style.display === 'none') return;
+
+        const items = sugerencias.querySelectorAll('.suggestion-item');
+        if (items.length === 0) return;
+
+        const activo = sugerencias.querySelector('.suggestion-item.active');
+        let index = activo ? Array.from(items).indexOf(activo) : -1;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (activo) activo.classList.remove('active');
+          index = (index + 1) % items.length;
+          items[index].classList.add('active');
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (activo) activo.classList.remove('active');
+          index = index <= 0 ? items.length - 1 : index - 1;
+          items[index].classList.add('active');
+        } else if (e.key === 'Enter' && activo) {
+          e.preventDefault();
+          activo.click();
+        } else if (e.key === 'Escape') {
+          sugerencias.style.display = 'none';
+        }
+      });
+
+      // Escape para cerrar modales
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          document.querySelectorAll('.modal.active').forEach(modal => {
+            modal.classList.remove('active');
+          });
+        }
+      });
+
+      // Atajos de teclado globales
+      document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + numero para navegar a modulos
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+          const modulos = {
+            '1': 'dashboard',
+            '2': 'visual-reasoning',
+            '3': 'visor-cliente',
+            '4': 'gestion-clientes',
+            '5': 'estadisticas',
+            '6': 'arqueo-efectivo'
+          };
+
+          if (modulos[e.key]) {
+            e.preventDefault();
+            navegarA(modulos[e.key]);
+          }
+        }
+      });
+    }
+
+    function handleTipoKeydown(event, tipo) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        seleccionarTipo(tipo);
+        // Avanzar al campo de monto
+        document.getElementById('movMonto').focus();
+      }
+    }
+
+    // ============================================================================
+    // UI HELPERS
+    // ============================================================================
+    function mostrarLoading(show) {
+      document.getElementById('loadingOverlay').classList.toggle('active', show);
+    }
+
+    function mostrarToast(mensaje, tipo = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-' + tipo;
+      toast.textContent = mensaje;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('fadeOut');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    function abrirModal(id) {
+      document.getElementById(id).classList.add('active');
+    }
+
+    function cerrarModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    // ============================================================================
     // NAVEGACION
     // ============================================================================
     function navegarA(modulo) {
-      // Ocultar todos los modulos
       document.querySelectorAll('.module-view').forEach(v => v.classList.remove('active'));
-
-      // Mostrar el seleccionado
       document.getElementById('module-' + modulo).classList.add('active');
 
-      // Actualizar menu
       document.querySelectorAll('.menu-item').forEach(item => {
         item.classList.toggle('active', item.getAttribute('data-module') === modulo);
       });
@@ -1439,9 +2089,11 @@
       // Cerrar sidebar en movil
       if (window.innerWidth < 768) {
         document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebar').classList.add('collapsed');
+        document.getElementById('sidebarOverlay').classList.remove('active');
       }
 
-      // Cargar datos especificos del modulo
+      // Cargar datos del modulo
       if (modulo === 'estadisticas') cargarEstadisticas();
       if (modulo === 'impresion-saldos') cargarSaldosPendientes();
       if (modulo === 'hoja-ruta') cargarHojaRuta();
@@ -1454,7 +2106,6 @@
     function seleccionarTipo(tipo) {
       Estado.tipoMovimiento = tipo;
       document.getElementById('movTipo').value = tipo;
-
       document.getElementById('tabFiado').className = 'tipo-tab' + (tipo === 'DEBE' ? ' active-debe' : '');
       document.getElementById('tabPago').className = 'tipo-tab' + (tipo === 'HABER' ? ' active-haber' : '');
     }
@@ -1462,9 +2113,52 @@
     function guardarMovimiento(e) {
       e.preventDefault();
 
+      const clienteNombre = document.getElementById('movCliente').value.trim();
+      const monto = parseFloat(document.getElementById('movMonto').value);
+
+      if (!clienteNombre) {
+        mostrarToast('Ingresa un cliente', 'error');
+        return;
+      }
+
+      if (!monto || monto <= 0) {
+        mostrarToast('Ingresa un monto valido', 'error');
+        return;
+      }
+
+      // Validar si es pago mayor a deuda
+      if (Estado.tipoMovimiento === 'HABER') {
+        const cliente = Estado.clientes.find(c => c.nombre.toUpperCase() === clienteNombre.toUpperCase());
+        if (cliente && monto > cliente.saldo) {
+          mostrarModalConfirmarPago(cliente, monto);
+          return;
+        }
+      }
+
+      ejecutarGuardarMovimiento();
+    }
+
+    function mostrarModalConfirmarPago(cliente, monto) {
+      const diferencia = monto - cliente.saldo;
+      document.getElementById('confirmarPagoContenido').innerHTML = `
+        <div class="alert alert-warning">
+          <p><strong>${escapeHtml(cliente.nombre)}</strong> debe <strong>${formatearMonto(cliente.saldo)}</strong></p>
+          <p>Estas registrando un pago de <strong>${formatearMonto(monto)}</strong></p>
+          <p>Quedaria con <strong>${formatearMonto(-diferencia)}</strong> a favor.</p>
+        </div>
+        <p>¿Estas seguro de continuar?</p>
+      `;
+      document.getElementById('btnConfirmarPago').onclick = function() {
+        cerrarModal('modalConfirmarPago');
+        ejecutarGuardarMovimiento();
+      };
+      abrirModal('modalConfirmarPago');
+    }
+
+    function ejecutarGuardarMovimiento() {
       const datos = {
         fecha: document.getElementById('movFecha').value,
-        cliente: document.getElementById('movCliente').value,
+        cliente: document.getElementById('movCliente').value.trim(),
         tipo: Estado.tipoMovimiento,
         monto: parseFloat(document.getElementById('movMonto').value),
         obs: document.getElementById('movObs').value
@@ -1477,20 +2171,14 @@
           mostrarLoading(false);
           if (result.success) {
             mostrarToast(result.mensaje, 'success');
-
-            // Agregar movimiento a la lista
             Estado.movimientos.unshift(result.movimiento);
             renderMovimientos();
 
-            // Actualizar cliente en la lista
             if (result.cliente) {
               const idx = Estado.clientes.findIndex(c => c.nombre === result.cliente.nombre);
-              if (idx >= 0) {
-                Estado.clientes[idx] = result.cliente;
-              }
+              if (idx >= 0) Estado.clientes[idx] = result.cliente;
             }
 
-            // Limpiar formulario (mantener fecha y tipo)
             document.getElementById('movCliente').value = '';
             document.getElementById('movMonto').value = '';
             document.getElementById('movObs').value = '';
@@ -1509,30 +2197,35 @@
     function renderMovimientos() {
       const tbody = document.getElementById('tbodyMovimientos');
 
-      if (Estado.movimientos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay movimientos</td></tr>';
+      if (!Estado.movimientos || Estado.movimientos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay movimientos</td></tr>';
         return;
       }
 
       tbody.innerHTML = Estado.movimientos.slice(0, 50).map(m => `
         <tr>
-          <td>${formatearFecha(m.fecha)}</td>
-          <td>${m.cliente}</td>
-          <td><span class="tag tag-${m.tipo.toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
-          <td>${formatearMonto(m.monto)}</td>
-          <td>${formatearMonto(m.saldoPost)}</td>
-          <td>${m.obs || '-'}</td>
+          <td data-label="Fecha">${formatearFecha(m.fecha)}</td>
+          <td data-label="Cliente">${escapeHtml(m.cliente)}</td>
+          <td data-label="Tipo"><span class="tag tag-${m.tipo.toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
+          <td data-label="Monto">${formatearMonto(m.monto)}</td>
+          <td data-label="Saldo">${formatearMonto(m.saldoPost)}</td>
+          <td data-label="Obs">${escapeHtml(m.obs) || '-'}</td>
         </tr>
       `).join('');
     }
 
     // ============================================================================
-    // AUTOCOMPLETE CLIENTES
+    // AUTOCOMPLETE
     // ============================================================================
     function buscarClienteAutocomplete(termino, contenedorId, esVisor = false) {
       const contenedor = document.getElementById(contenedorId);
 
-      if (termino.length < 2) {
+      if (!termino || termino.length < 2) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      if (!Estado.clientes || Estado.clientes.length === 0) {
         contenedor.style.display = 'none';
         return;
       }
@@ -1548,32 +2241,36 @@
       }
 
       contenedor.innerHTML = matches.map(c => `
-        <div class="suggestion-item" onclick="${esVisor ? 'seleccionarClienteVisor' : 'seleccionarCliente'}('${c.nombre}')">
-          <strong>${c.nombre}</strong>
-          <span style="float: right; color: var(--sv-texto-muted);">${formatearMonto(c.saldo)}</span>
+        <div class="suggestion-item" data-nombre="${escapeHtml(c.nombre)}" data-visor="${esVisor}">
+          <strong>${escapeHtml(c.nombre)}</strong>
+          <span style="color: var(--sv-texto-muted);">${formatearMonto(c.saldo)}</span>
         </div>
       `).join('');
+
+      contenedor.querySelectorAll('.suggestion-item').forEach(item => {
+        item.addEventListener('click', function() {
+          const nombre = this.dataset.nombre;
+          if (this.dataset.visor === 'true') {
+            document.getElementById('visorBuscar').value = nombre;
+            contenedor.style.display = 'none';
+            cargarHistorialCliente(nombre);
+          } else {
+            document.getElementById('movCliente').value = nombre;
+            contenedor.style.display = 'none';
+            document.getElementById('movMonto').focus();
+          }
+        });
+      });
 
       contenedor.style.display = 'block';
     }
 
-    function seleccionarCliente(nombre) {
-      document.getElementById('movCliente').value = nombre;
-      document.getElementById('clienteSugerencias').style.display = 'none';
-      document.getElementById('movMonto').focus();
-    }
-
-    function seleccionarClienteVisor(nombre) {
-      document.getElementById('visorBuscar').value = nombre;
-      document.getElementById('visorSugerencias').style.display = 'none';
-      cargarHistorialCliente(nombre);
-    }
-
     // ============================================================================
-    // VISOR DE CLIENTES
+    // VISOR DE CLIENTE
     // ============================================================================
     function cargarHistorialCliente(nombre) {
       mostrarLoading(true);
+      document.getElementById('visorResultado').style.display = 'none';
 
       google.script.run
         .withSuccessHandler(function(result) {
@@ -1584,15 +2281,15 @@
             document.getElementById('visorMovs').textContent = c.totalMovs;
             document.getElementById('visorLimite').textContent = formatearMonto(c.limite);
             document.getElementById('visorAlta').textContent = c.alta ? formatearFecha(c.alta) : '-';
-            document.getElementById('visorClienteNombre').textContent = c.nombre;
+            document.getElementById('visorClienteNombre').textContent = escapeHtml(c.nombre);
 
             document.getElementById('visorHistorial').innerHTML = result.movimientos.map(m => `
               <tr>
-                <td>${formatearFecha(m.fecha)}</td>
-                <td><span class="tag tag-${m.tipo.toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
-                <td>${formatearMonto(m.monto)}</td>
-                <td>${formatearMonto(m.saldoPost)}</td>
-                <td>${m.obs || '-'}</td>
+                <td data-label="Fecha">${formatearFecha(m.fecha)}</td>
+                <td data-label="Tipo"><span class="tag tag-${m.tipo.toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
+                <td data-label="Monto">${formatearMonto(m.monto)}</td>
+                <td data-label="Saldo">${formatearMonto(m.saldoPost)}</td>
+                <td data-label="Obs">${escapeHtml(m.obs) || '-'}</td>
               </tr>
             `).join('');
 
@@ -1625,9 +2322,9 @@
 
             document.getElementById('topDeudores').innerHTML = result.topDeudores.map((d, i) => `
               <tr>
-                <td>${i + 1}</td>
-                <td>${d.nombre}</td>
-                <td style="font-weight: bold; color: var(--sv-peligro);">${formatearMonto(d.saldo)}</td>
+                <td data-label="#">${i + 1}</td>
+                <td data-label="Cliente">${escapeHtml(d.nombre)}</td>
+                <td data-label="Saldo" style="font-weight: bold; color: var(--sv-peligro);">${formatearMonto(d.saldo)}</td>
               </tr>
             `).join('');
           }
@@ -1644,27 +2341,36 @@
     // ============================================================================
     function cargarSaldosPendientes() {
       mostrarLoading(true);
+      const fecha = document.getElementById('fechaSaldos').value || new Date().toISOString().split('T')[0];
 
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           if (result.success) {
-            document.getElementById('tbodySaldos').innerHTML = result.deudores.map(d => `
-              <tr>
-                <td>${d.nombre}</td>
-                <td style="font-weight: bold;">${formatearMonto(d.saldo)}</td>
-                <td>${d.ultimoMov ? formatearFecha(d.ultimoMov) : '-'}</td>
-              </tr>
-            `).join('');
+            if (result.deudores.length === 0) {
+              document.getElementById('tbodySaldos').innerHTML = '<tr><td colspan="4" class="empty-state">No hay deudores</td></tr>';
+            } else {
+              document.getElementById('tbodySaldos').innerHTML = result.deudores.map(d => `
+                <tr>
+                  <td>${escapeHtml(d.nombre)}</td>
+                  <td style="text-align: right; color: var(--sv-exito);">${d.pagosDia > 0 ? formatearMonto(d.pagosDia) : '-'}</td>
+                  <td style="text-align: right; color: var(--sv-peligro);">${d.fiadosDia > 0 ? formatearMonto(d.fiadosDia) : '-'}</td>
+                  <td style="text-align: right; font-weight: bold;">${formatearMonto(d.saldo)}</td>
+                </tr>
+              `).join('');
+            }
 
+            document.getElementById('totalPagosDia').textContent = formatearMonto(result.totalPagosDia || 0);
+            document.getElementById('totalFiadosDia').textContent = formatearMonto(result.totalFiadosDia || 0);
             document.getElementById('totalSaldos').textContent = formatearMonto(result.totalAdeudado);
+            document.getElementById('fechaImpresion').textContent = 'Fecha: ' + formatearFecha(fecha);
           }
         })
         .withFailureHandler(function(error) {
           mostrarLoading(false);
           mostrarToast('Error: ' + error.message, 'error');
         })
-        .obtenerDeudores();
+        .obtenerSaldosConMovimientosDia(fecha);
     }
 
     // ============================================================================
@@ -1676,21 +2382,26 @@
         return;
       }
 
+      if (file.size > 10 * 1024 * 1024) {
+        mostrarToast('La imagen es muy grande (max 10MB)', 'error');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = function(e) {
         document.getElementById('vrPreviewImg').src = e.target.result;
         document.getElementById('vrPreview').style.display = 'block';
         document.getElementById('vrResultados').style.display = 'none';
 
-        // Guardar imagen temporalmente en el servidor
         mostrarLoading(true);
         google.script.run
           .withSuccessHandler(function(result) {
             mostrarLoading(false);
             if (result.success) {
               Estado.vrImagenToken = result.token;
+              mostrarToast('Imagen cargada. Toca Analizar para continuar.', 'success');
             } else {
-              mostrarToast('Error guardando imagen: ' + result.error, 'error');
+              mostrarToast('Error: ' + result.error, 'error');
             }
           })
           .withFailureHandler(function(error) {
@@ -1704,12 +2415,11 @@
 
     function analizarImagenVR() {
       if (!Estado.vrImagenToken) {
-        mostrarToast('Sube una imagen primero', 'error');
+        mostrarToast('Subi una imagen primero', 'error');
         return;
       }
 
       const fecha = document.getElementById('vrFecha').value;
-
       mostrarLoading(true);
 
       google.script.run
@@ -1744,20 +2454,20 @@
       tbody.innerHTML = Estado.vrMovimientos.map((m, i) => `
         <tr>
           <td>
-            ${m.valido ? m.cliente : `
+            ${m.valido ? escapeHtml(m.cliente) : `
               <select class="form-input" onchange="seleccionarClienteVR(${i}, this.value)" style="padding: 0.5rem;">
-                <option value="">${m.clienteOriginal} (no encontrado)</option>
-                ${(m.sugerencias || []).map(s => `<option value="${s}">${s}</option>`).join('')}
+                <option value="">${escapeHtml(m.clienteOriginal)} (no encontrado)</option>
+                ${(m.sugerencias || []).map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
               </select>
             `}
           </td>
           <td><span class="tag tag-${m.tipo.toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
           <td>
-            <input type="number" class="form-input" value="${m.monto}" onchange="actualizarMontoVR(${i}, this.value)" style="width: 100px; padding: 0.5rem;">
+            <input type="number" class="form-input" value="${m.monto}" onchange="actualizarMontoVR(${i}, this.value)" style="width: 100px; padding: 0.5rem;" inputmode="numeric">
           </td>
-          <td>${m.valido ? '✓ Valido' : (m.sugerencias && m.sugerencias.length ? '⚠ Seleccionar' : '✗ Nuevo')}</td>
+          <td>${m.valido ? '✓' : (m.sugerencias && m.sugerencias.length ? '⚠️' : '✗')}</td>
           <td>
-            <button class="btn btn-outline" onclick="eliminarMovVR(${i})" style="padding: 0.25rem 0.5rem;">✗</button>
+            <button class="btn btn-outline btn-sm" onclick="eliminarMovVR(${i})">✗</button>
           </td>
         </tr>
       `).join('');
@@ -1772,7 +2482,7 @@
     }
 
     function actualizarMontoVR(index, monto) {
-      Estado.vrMovimientos[index].monto = parseFloat(monto);
+      Estado.vrMovimientos[index].monto = parseFloat(monto) || 0;
     }
 
     function eliminarMovVR(index) {
@@ -1781,7 +2491,7 @@
     }
 
     function guardarMovimientosVR() {
-      const validos = Estado.vrMovimientos.filter(m => m.valido);
+      const validos = Estado.vrMovimientos.filter(m => m.valido && m.monto > 0);
 
       if (validos.length === 0) {
         mostrarToast('No hay movimientos validos para guardar', 'warning');
@@ -1798,8 +2508,6 @@
             document.getElementById('vrPreview').style.display = 'none';
             document.getElementById('vrResultados').style.display = 'none';
             Estado.vrMovimientos = [];
-
-            // Recargar movimientos
             cargarDatosIniciales();
           } else {
             mostrarToast(result.error, 'error');
@@ -1818,21 +2526,11 @@
     function renderDenominaciones() {
       if (!Estado.configuracion) return;
 
-      const gridBilletes = document.getElementById('gridBilletes');
-      const gridMonedas = document.getElementById('gridMonedas');
-
-      gridBilletes.innerHTML = Estado.configuracion.denominaciones.BILLETES.map(d => `
+      const grid = document.getElementById('gridBilletes');
+      grid.innerHTML = Estado.configuracion.denominaciones.BILLETES.map(d => `
         <div class="denom-item">
-          <span class="denom-label">${d.nombre}</span>
-          <input type="number" class="denom-input" min="0" value="0" data-tipo="${d.tipo}" data-valor="${d.valor}" onchange="calcularTotalEfectivo()">
-          <span class="denom-total" data-total="${d.tipo}">$0</span>
-        </div>
-      `).join('');
-
-      gridMonedas.innerHTML = Estado.configuracion.denominaciones.MONEDAS.map(d => `
-        <div class="denom-item">
-          <span class="denom-label">${d.nombre}</span>
-          <input type="number" class="denom-input" min="0" value="0" data-tipo="${d.tipo}" data-valor="${d.valor}" onchange="calcularTotalEfectivo()">
+          <span class="denom-label">${escapeHtml(d.nombre)}</span>
+          <input type="number" class="denom-input" min="0" value="0" data-tipo="${d.tipo}" data-valor="${d.valor}" onchange="calcularTotalEfectivo()" inputmode="numeric">
           <span class="denom-total" data-total="${d.tipo}">$0</span>
         </div>
       `).join('');
@@ -1851,7 +2549,8 @@
         Estado.arqueo[tipo] = cantidad;
         total += subtotal;
 
-        document.querySelector(`[data-total="${tipo}"]`).textContent = formatearMonto(subtotal);
+        const totalSpan = document.querySelector(`[data-total="${tipo}"]`);
+        if (totalSpan) totalSpan.textContent = formatearMonto(subtotal);
       });
 
       document.getElementById('totalEfectivo').textContent = formatearMonto(total);
@@ -1861,23 +2560,91 @@
     function agregarProveedor() {
       const lista = document.getElementById('listaProveedores');
       const item = document.createElement('div');
-      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem;';
+      item.className = 'proveedor-item';
+      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; flex-wrap: wrap;';
+
+      const itemId = 'prov-' + Date.now();
+
       item.innerHTML = `
-        <input type="text" class="form-input" placeholder="Descripcion" style="flex: 1;">
-        <input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()">
-        <button class="btn btn-outline" onclick="this.parentElement.remove(); calcularNetoArqueo();">✗</button>
+        <div class="form-group-autocomplete" style="flex: 1; min-width: 150px; position: relative; margin: 0;">
+          <input type="text" class="form-input prov-desc" placeholder="Proveedor" id="${itemId}" autocomplete="off" oninput="buscarProveedorAutocomplete(this)" onfocus="buscarProveedorAutocomplete(this)">
+          <div class="suggestions-list prov-sugerencias" style="display: none;"></div>
+        </div>
+        <input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">
+        <button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">✗</button>
       `;
       lista.appendChild(item);
+      item.querySelector('.prov-desc').focus();
+    }
+
+    function buscarProveedorAutocomplete(input) {
+      const sugerenciasDiv = input.parentElement.querySelector('.prov-sugerencias');
+      const termino = input.value.toLowerCase();
+
+      if (termino.length === 0 && Estado.proveedoresHistorial.length > 0) {
+        sugerenciasDiv.innerHTML = Estado.proveedoresHistorial.slice(0, 5).map(p => `
+          <div class="suggestion-item" data-nombre="${escapeHtml(p)}" data-input="${input.id}">${escapeHtml(p)}</div>
+        `).join('');
+        attachProveedorListeners(sugerenciasDiv);
+        sugerenciasDiv.style.display = 'block';
+        return;
+      }
+
+      const matches = Estado.proveedoresHistorial.filter(p => p.toLowerCase().includes(termino)).slice(0, 5);
+
+      if (matches.length === 0) {
+        sugerenciasDiv.style.display = 'none';
+        return;
+      }
+
+      sugerenciasDiv.innerHTML = matches.map(p => `
+        <div class="suggestion-item" data-nombre="${escapeHtml(p)}" data-input="${input.id}">${escapeHtml(p)}</div>
+      `).join('');
+      attachProveedorListeners(sugerenciasDiv);
+      sugerenciasDiv.style.display = 'block';
+    }
+
+    function attachProveedorListeners(container) {
+      container.querySelectorAll('.suggestion-item').forEach(item => {
+        item.addEventListener('click', function() {
+          const input = document.getElementById(this.dataset.input);
+          input.value = this.dataset.nombre;
+          container.style.display = 'none';
+          input.parentElement.parentElement.querySelector('.prov-monto').focus();
+        });
+      });
+    }
+
+    function guardarProveedorEnHistorial(nombre) {
+      if (!nombre || nombre.trim() === '') return;
+      Estado.proveedoresHistorial = Estado.proveedoresHistorial.filter(p => p.toLowerCase() !== nombre.toLowerCase());
+      Estado.proveedoresHistorial.unshift(nombre.trim());
+      Estado.proveedoresHistorial = Estado.proveedoresHistorial.slice(0, 20);
+      localStorage.setItem('proveedoresHistorial', JSON.stringify(Estado.proveedoresHistorial));
+    }
+
+    function confirmarEliminarItem(btn) {
+      const item = btn.closest('.proveedor-item') || btn.parentElement;
+      const montoInput = item.querySelector('.prov-monto, .gasto-monto, .ingreso-monto');
+      const monto = montoInput ? parseFloat(montoInput.value) : 0;
+
+      if (monto > 0 && !confirm('¿Eliminar este item?')) return;
+
+      item.classList.add('fadeOut');
+      setTimeout(() => {
+        item.remove();
+        calcularNetoArqueo();
+      }, 200);
     }
 
     function agregarGasto() {
       const lista = document.getElementById('listaGastos');
       const item = document.createElement('div');
-      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem;';
+      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;';
       item.innerHTML = `
-        <input type="text" class="form-input" placeholder="Descripcion" style="flex: 1;">
-        <input type="number" class="form-input gasto-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()">
-        <button class="btn btn-outline" onclick="this.parentElement.remove(); calcularNetoArqueo();">✗</button>
+        <input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">
+        <input type="number" class="form-input gasto-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">
+        <button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">✗</button>
       `;
       lista.appendChild(item);
     }
@@ -1885,32 +2652,27 @@
     function agregarIngreso() {
       const lista = document.getElementById('listaIngresos');
       const item = document.createElement('div');
-      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem;';
+      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;';
       item.innerHTML = `
-        <input type="text" class="form-input" placeholder="Descripcion" style="flex: 1;">
-        <input type="number" class="form-input ingreso-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()">
-        <button class="btn btn-outline" onclick="this.parentElement.remove(); calcularNetoArqueo();">✗</button>
+        <input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">
+        <input type="number" class="form-input ingreso-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">
+        <button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">✗</button>
       `;
       lista.appendChild(item);
     }
 
     function calcularNetoArqueo() {
-      const efectivo = parseInt(document.getElementById('totalEfectivo').textContent.replace(/\D/g, '')) || 0;
+      const efectivoText = document.getElementById('totalEfectivo').textContent;
+      const efectivo = parseInt(efectivoText.replace(/\D/g, '')) || 0;
 
       let proveedores = 0;
-      document.querySelectorAll('.prov-monto').forEach(input => {
-        proveedores += parseFloat(input.value) || 0;
-      });
+      document.querySelectorAll('.prov-monto').forEach(i => proveedores += parseFloat(i.value) || 0);
 
       let gastos = 0;
-      document.querySelectorAll('.gasto-monto').forEach(input => {
-        gastos += parseFloat(input.value) || 0;
-      });
+      document.querySelectorAll('.gasto-monto').forEach(i => gastos += parseFloat(i.value) || 0);
 
       let ingresos = 0;
-      document.querySelectorAll('.ingreso-monto').forEach(input => {
-        ingresos += parseFloat(input.value) || 0;
-      });
+      document.querySelectorAll('.ingreso-monto').forEach(i => ingresos += parseFloat(i.value) || 0);
 
       const neto = efectivo - proveedores - gastos + ingresos;
       document.getElementById('netoArqueo').textContent = formatearMonto(neto);
@@ -1918,35 +2680,40 @@
 
     function guardarArqueo() {
       const proveedores = [];
-      document.querySelectorAll('#listaProveedores > div').forEach(item => {
-        const inputs = item.querySelectorAll('input');
-        if (inputs[1].value) {
-          proveedores.push({
-            descripcion: inputs[0].value,
-            monto: parseFloat(inputs[1].value)
-          });
+      document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
+        const desc = item.querySelector('.prov-desc');
+        const monto = item.querySelector('.prov-monto');
+        if (monto && monto.value) {
+          proveedores.push({ descripcion: desc ? desc.value : '', monto: parseFloat(monto.value) });
+          if (desc && desc.value.trim()) guardarProveedorEnHistorial(desc.value);
         }
       });
 
       const gastos = [];
       document.querySelectorAll('#listaGastos > div').forEach(item => {
         const inputs = item.querySelectorAll('input');
-        if (inputs[1].value) {
-          gastos.push({
-            descripcion: inputs[0].value,
-            monto: parseFloat(inputs[1].value)
-          });
+        if (inputs[1] && inputs[1].value) {
+          gastos.push({ descripcion: inputs[0].value, monto: parseFloat(inputs[1].value) });
         }
       });
 
       const ingresos = [];
       document.querySelectorAll('#listaIngresos > div').forEach(item => {
         const inputs = item.querySelectorAll('input');
-        if (inputs[1].value) {
-          ingresos.push({
-            descripcion: inputs[0].value,
-            monto: parseFloat(inputs[1].value)
-          });
+        if (inputs[1] && inputs[1].value) {
+          ingresos.push({ descripcion: inputs[0].value, monto: parseFloat(inputs[1].value) });
+        }
+      });
+
+      // Calcular totales de cobranzas y fiados del dia
+      const hoy = new Date().toISOString().split('T')[0];
+      let totalCobranzas = 0;
+      let totalFiados = 0;
+
+      Estado.movimientos.forEach(m => {
+        if (m.fecha && m.fecha.startsWith(hoy)) {
+          if (m.tipo === 'HABER') totalCobranzas += m.monto;
+          else totalFiados += m.monto;
         }
       });
 
@@ -1954,7 +2721,9 @@
         arqueo: Estado.arqueo,
         proveedores: proveedores,
         gastos: gastos,
-        ingresos: ingresos
+        ingresos: ingresos,
+        totalCobranzas: totalCobranzas,
+        totalFiados: totalFiados
       };
 
       mostrarLoading(true);
@@ -1964,9 +2733,7 @@
           mostrarLoading(false);
           if (result.success) {
             mostrarToast('Arqueo guardado - Sesion: ' + result.sesionId, 'success');
-
-            // Limpiar formulario
-            document.querySelectorAll('.denom-input').forEach(input => input.value = 0);
+            document.querySelectorAll('.denom-input').forEach(i => i.value = 0);
             document.getElementById('listaProveedores').innerHTML = '';
             document.getElementById('listaGastos').innerHTML = '';
             document.getElementById('listaIngresos').innerHTML = '';
@@ -1985,6 +2752,10 @@
     // ============================================================================
     // HOJA DE RUTA
     // ============================================================================
+
+    // Array para almacenar liquidaciones pendientes agregadas manualmente
+    let liquidacionesPendientes = [];
+
     function cargarHojaRuta() {
       const fecha = document.getElementById('fechaHojaRuta').value;
       document.getElementById('fechaHojaRutaTitulo').textContent = formatearFecha(fecha);
@@ -1995,24 +2766,26 @@
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           if (result.success) {
-            document.getElementById('hojaRutaCobranzas').innerHTML = result.cobranzas.map(c => `
-              <tr>
-                <td>${c.cliente}</td>
-                <td>${formatearMonto(c.monto)}</td>
-              </tr>
-            `).join('') || '<tr><td colspan="2">Sin cobranzas</td></tr>';
+            // Proveedores
+            document.getElementById('hojaRutaProveedores').innerHTML = result.proveedores && result.proveedores.length ?
+              result.proveedores.map(p => `<tr><td>${escapeHtml(p.nombre)}</td><td>${formatearMonto(p.monto)}</td></tr>`).join('') :
+              '<tr><td colspan="2" class="empty-state">Sin proveedores</td></tr>';
 
-            document.getElementById('hojaRutaFiados').innerHTML = result.fiados.map(f => `
-              <tr>
-                <td>${f.cliente}</td>
-                <td>${formatearMonto(f.monto)}</td>
-              </tr>
-            `).join('') || '<tr><td colspan="2">Sin fiados</td></tr>';
+            // Gastos Extras
+            document.getElementById('hojaRutaGastos').innerHTML = result.gastos && result.gastos.length ?
+              result.gastos.map(g => `<tr><td>${escapeHtml(g.descripcion)}</td><td>${formatearMonto(g.monto)}</td></tr>`).join('') :
+              '<tr><td colspan="2" class="empty-state">Sin gastos extras</td></tr>';
 
-            document.getElementById('totalHojaCobranzas').textContent = formatearMonto(result.totalCobranzas);
-            document.getElementById('totalHojaFiados').textContent = formatearMonto(result.totalFiados);
-            document.getElementById('diferenciaHojaRuta').textContent = formatearMonto(result.diferencia);
-            document.getElementById('diferenciaHojaRuta').style.color = result.diferencia >= 0 ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+            // Totales
+            const totalProveedores = result.totalProveedores || 0;
+            const totalGastos = result.totalGastos || 0;
+
+            document.getElementById('totalHojaProveedores').textContent = formatearMonto(totalProveedores);
+            document.getElementById('totalHojaGastos').textContent = formatearMonto(totalGastos);
+
+            // Renderizar liquidaciones pendientes y calcular total
+            renderizarLiquidacionesPendientes();
+            actualizarTotalSalidas(totalProveedores, totalGastos);
           }
         })
         .withFailureHandler(function(error) {
@@ -2022,8 +2795,95 @@
         .obtenerHojaRuta(fecha);
     }
 
+    function agregarLiquidacionPendiente() {
+      const descInput = document.getElementById('liqPendienteDesc');
+      const montoInput = document.getElementById('liqPendienteMonto');
+
+      const descripcion = descInput.value.trim();
+      const monto = parseFloat(montoInput.value) || 0;
+
+      if (!descripcion) {
+        mostrarToast('Ingresa una descripcion', 'error');
+        descInput.focus();
+        return;
+      }
+
+      if (monto <= 0) {
+        mostrarToast('Ingresa un monto valido', 'error');
+        montoInput.focus();
+        return;
+      }
+
+      liquidacionesPendientes.push({ descripcion, monto, id: Date.now() });
+
+      descInput.value = '';
+      montoInput.value = '';
+      descInput.focus();
+
+      renderizarLiquidacionesPendientes();
+      actualizarTotalSalidasDesdeDOM();
+      mostrarToast('Liquidacion pendiente agregada', 'success');
+    }
+
+    function eliminarLiquidacionPendiente(id) {
+      liquidacionesPendientes = liquidacionesPendientes.filter(l => l.id !== id);
+      renderizarLiquidacionesPendientes();
+      actualizarTotalSalidasDesdeDOM();
+    }
+
+    function renderizarLiquidacionesPendientes() {
+      const listContainer = document.getElementById('liquidacionesPendientesList');
+      const printSection = document.getElementById('hojaRutaLiqPendientesSection');
+      const printTbody = document.getElementById('hojaRutaLiqPendientes');
+      const totalEl = document.getElementById('totalHojaLiqPendientes');
+
+      if (liquidacionesPendientes.length === 0) {
+        listContainer.innerHTML = '<p style="color: var(--sv-texto-secundario); font-size: 0.875rem;">No hay liquidaciones pendientes agregadas.</p>';
+        printSection.style.display = 'none';
+        printTbody.innerHTML = '';
+        totalEl.textContent = '$0';
+        return;
+      }
+
+      // Lista editable (no se imprime)
+      listContainer.innerHTML = liquidacionesPendientes.map(l => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--sv-superficie); border-radius: var(--sv-radius); margin-bottom: 0.5rem;">
+          <span>${escapeHtml(l.descripcion)}</span>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-weight: bold;">${formatearMonto(l.monto)}</span>
+            <button class="btn btn-outline btn-sm" onclick="eliminarLiquidacionPendiente(${l.id})" style="color: var(--sv-peligro);">✕</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Tabla para impresion
+      printSection.style.display = 'block';
+      printTbody.innerHTML = liquidacionesPendientes.map(l =>
+        `<tr><td>${escapeHtml(l.descripcion)}</td><td>${formatearMonto(l.monto)}</td></tr>`
+      ).join('');
+
+      const totalLiqPendientes = liquidacionesPendientes.reduce((sum, l) => sum + l.monto, 0);
+      totalEl.textContent = formatearMonto(totalLiqPendientes);
+    }
+
+    function actualizarTotalSalidas(totalProveedores, totalGastos) {
+      const totalLiqPendientes = liquidacionesPendientes.reduce((sum, l) => sum + l.monto, 0);
+      const totalSalidas = totalProveedores + totalGastos + totalLiqPendientes;
+      document.getElementById('totalSalidasHojaRuta').textContent = formatearMonto(totalSalidas);
+    }
+
+    function actualizarTotalSalidasDesdeDOM() {
+      const totalProveedores = parsearMonto(document.getElementById('totalHojaProveedores').textContent);
+      const totalGastos = parsearMonto(document.getElementById('totalHojaGastos').textContent);
+      actualizarTotalSalidas(totalProveedores, totalGastos);
+    }
+
+    function parsearMonto(texto) {
+      return parseFloat(texto.replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+    }
+
     // ============================================================================
-    // HISTORIAL DE CAJA
+    // HISTORIAL CAJA
     // ============================================================================
     function cargarHistorialCaja() {
       mostrarLoading(true);
@@ -2032,30 +2892,82 @@
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           if (result.success) {
+            if (result.sesiones.length === 0) {
+              document.getElementById('historialCajaTbody').innerHTML = '<tr><td colspan="6" class="empty-state">Sin registros</td></tr>';
+              return;
+            }
+
+            result.sesiones.forEach(s => Estado.sesionesCache[s.sesionId] = s);
+
             document.getElementById('historialCajaTbody').innerHTML = result.sesiones.map(s => `
               <tr>
-                <td>${formatearFecha(s.fecha)}</td>
-                <td>${formatearMonto(s.totales.efectivo)}</td>
-                <td style="color: var(--sv-peligro);">-${formatearMonto(s.totales.proveedores)}</td>
-                <td style="color: var(--sv-peligro);">-${formatearMonto(s.totales.gastos)}</td>
-                <td style="font-weight: bold;">${formatearMonto(s.totales.neto)}</td>
-                <td>
-                  <button class="btn btn-outline" onclick="verDetalleSesion('${s.sesionId}')" style="padding: 0.25rem 0.5rem;">Ver</button>
-                </td>
+                <td data-label="Fecha">${formatearFecha(s.fecha)}</td>
+                <td data-label="Efectivo">${formatearMonto(s.totales.efectivo)}</td>
+                <td data-label="Proveedores" style="color: var(--sv-peligro);">-${formatearMonto(s.totales.proveedores)}</td>
+                <td data-label="Gastos" style="color: var(--sv-peligro);">-${formatearMonto(s.totales.gastos)}</td>
+                <td data-label="Neto" style="font-weight: bold;">${formatearMonto(s.totales.neto)}</td>
+                <td data-label=""><button class="btn btn-outline btn-sm" onclick="verDetalleSesion('${escapeHtml(s.sesionId)}')">Ver</button></td>
               </tr>
-            `).join('') || '<tr><td colspan="6">Sin registros</td></tr>';
+            `).join('');
           }
         })
         .withFailureHandler(function(error) {
           mostrarLoading(false);
           mostrarToast('Error: ' + error.message, 'error');
         })
-        .obtenerHistorialCaja();
+        .obtenerHistorialCaja(30);
     }
 
     function verDetalleSesion(sesionId) {
-      mostrarToast('Sesion: ' + sesionId, 'info');
-      // Implementar modal de detalle si es necesario
+      const sesion = Estado.sesionesCache[sesionId];
+
+      if (!sesion) {
+        mostrarToast('Sesion no encontrada', 'error');
+        return;
+      }
+
+      let html = `
+        <div style="margin-bottom: 1rem;">
+          <strong>Fecha:</strong> ${formatearFecha(sesion.fecha)}<br>
+          <strong>Sesion:</strong> ${escapeHtml(sesionId)}
+        </div>
+
+        <div style="margin-bottom: 1rem; padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span>Efectivo:</span>
+            <strong>${formatearMonto(sesion.totales.efectivo)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span>Proveedores:</span>
+            <strong style="color: var(--sv-peligro);">-${formatearMonto(sesion.totales.proveedores)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span>Gastos:</span>
+            <strong style="color: var(--sv-peligro);">-${formatearMonto(sesion.totales.gastos)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span>Ingresos:</span>
+            <strong style="color: var(--sv-exito);">+${formatearMonto(sesion.totales.ingresos || 0)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding-top: 0.5rem; border-top: 1px solid var(--sv-borde);">
+            <span>NETO:</span>
+            <strong style="font-size: 1.25rem;">${formatearMonto(sesion.totales.neto)}</strong>
+          </div>
+        </div>
+      `;
+
+      if (sesion.detalles && sesion.detalles.length > 0) {
+        html += `<div class="card-title" style="margin-top: 1rem;">Detalles</div>`;
+        html += sesion.detalles.map(d => `
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--sv-borde);">
+            <span>${escapeHtml(d.tipo)}: ${escapeHtml(d.descripcion || '-')}</span>
+            <strong>${formatearMonto(d.monto)}</strong>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('detalleSesionContenido').innerHTML = html;
+      abrirModal('modalDetalleSesion');
     }
 
     // ============================================================================
@@ -2064,45 +2976,55 @@
     function renderClientesGestion() {
       const tbody = document.getElementById('gestionClientesTbody');
 
-      if (Estado.clientes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No hay clientes</td></tr>';
+      if (!Estado.clientes || Estado.clientes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay clientes</td></tr>';
         return;
       }
 
       tbody.innerHTML = Estado.clientes.map(c => `
         <tr>
-          <td><strong>${c.nombre}</strong></td>
-          <td>${c.tel || '-'}</td>
-          <td style="font-weight: bold; color: ${c.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)'};">${formatearMonto(c.saldo)}</td>
-          <td>${c.totalMovs}</td>
-          <td>
-            <button class="btn btn-outline" onclick="editarCliente('${c.nombre}')" style="padding: 0.25rem 0.5rem;">✏️</button>
-            <button class="btn btn-outline" onclick="eliminarClienteConfirm('${c.nombre}')" style="padding: 0.25rem 0.5rem; color: var(--sv-peligro);">🗑️</button>
+          <td data-label="Nombre"><strong>${escapeHtml(c.nombre)}</strong></td>
+          <td data-label="Telefono">${escapeHtml(c.tel) || '-'}</td>
+          <td data-label="Saldo" style="font-weight: bold; color: ${c.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)'};">${formatearMonto(c.saldo)}</td>
+          <td data-label="Movs">${c.totalMovs}</td>
+          <td data-label="Acciones">
+            <div class="btn-group">
+              <button class="btn btn-outline btn-sm" onclick="editarCliente('${escapeHtml(c.nombre)}')">✏️</button>
+              <button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm('${escapeHtml(c.nombre)}')" style="color: var(--sv-peligro);">🗑️</button>
+            </div>
           </td>
         </tr>
       `).join('');
     }
 
-    function filtrarClientes() {
+    const filtrarClientesDebounce = debounce(function() {
       const filtro = document.getElementById('filtroClientes').value.toUpperCase();
+      const tbody = document.getElementById('gestionClientesTbody');
+
       const clientesFiltrados = filtro ?
-        Estado.clientes.filter(c => c.nombre.includes(filtro)) :
+        Estado.clientes.filter(c => c.nombre.toUpperCase().includes(filtro)) :
         Estado.clientes;
 
-      const tbody = document.getElementById('gestionClientesTbody');
+      if (clientesFiltrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No se encontraron clientes</td></tr>';
+        return;
+      }
+
       tbody.innerHTML = clientesFiltrados.map(c => `
         <tr>
-          <td><strong>${c.nombre}</strong></td>
-          <td>${c.tel || '-'}</td>
-          <td style="font-weight: bold; color: ${c.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)'};">${formatearMonto(c.saldo)}</td>
-          <td>${c.totalMovs}</td>
-          <td>
-            <button class="btn btn-outline" onclick="editarCliente('${c.nombre}')" style="padding: 0.25rem 0.5rem;">✏️</button>
-            <button class="btn btn-outline" onclick="eliminarClienteConfirm('${c.nombre}')" style="padding: 0.25rem 0.5rem; color: var(--sv-peligro);">🗑️</button>
+          <td data-label="Nombre"><strong>${escapeHtml(c.nombre)}</strong></td>
+          <td data-label="Telefono">${escapeHtml(c.tel) || '-'}</td>
+          <td data-label="Saldo" style="font-weight: bold; color: ${c.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)'};">${formatearMonto(c.saldo)}</td>
+          <td data-label="Movs">${c.totalMovs}</td>
+          <td data-label="Acciones">
+            <div class="btn-group">
+              <button class="btn btn-outline btn-sm" onclick="editarCliente('${escapeHtml(c.nombre)}')">✏️</button>
+              <button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm('${escapeHtml(c.nombre)}')" style="color: var(--sv-peligro);">🗑️</button>
+            </div>
           </td>
         </tr>
       `).join('');
-    }
+    }, 300);
 
     function abrirModalNuevoCliente() {
       document.getElementById('modalClienteTitulo').textContent = 'Nuevo Cliente';
@@ -2123,7 +3045,6 @@
       document.getElementById('clienteEmail').value = cliente.email || '';
       document.getElementById('clienteLimite').value = cliente.limite || 100000;
       document.getElementById('clienteObs').value = cliente.obs || '';
-
       abrirModal('modalCliente');
     }
 
@@ -2132,54 +3053,51 @@
 
       const editando = document.getElementById('clienteEditando').value;
       const datos = {
-        nombre: document.getElementById('clienteNombre').value,
+        nombre: document.getElementById('clienteNombre').value.trim(),
         tel: document.getElementById('clienteTel').value,
         email: document.getElementById('clienteEmail').value,
-        limite: parseFloat(document.getElementById('clienteLimite').value),
+        limite: parseFloat(document.getElementById('clienteLimite').value) || 100000,
         obs: document.getElementById('clienteObs').value
       };
 
+      if (!datos.nombre) {
+        mostrarToast('El nombre es requerido', 'error');
+        return;
+      }
+
       mostrarLoading(true);
 
-      if (editando) {
-        google.script.run
-          .withSuccessHandler(function(result) {
-            mostrarLoading(false);
-            if (result.success) {
-              mostrarToast('Cliente actualizado', 'success');
-              cerrarModal('modalCliente');
-              cargarDatosIniciales();
-            } else {
-              mostrarToast(result.error, 'error');
-            }
-          })
-          .withFailureHandler(function(error) {
-            mostrarLoading(false);
-            mostrarToast('Error: ' + error.message, 'error');
-          })
-          .actualizarCliente(editando, datos);
-      } else {
-        google.script.run
-          .withSuccessHandler(function(result) {
-            mostrarLoading(false);
-            if (result.success) {
-              mostrarToast('Cliente creado: ' + result.cliente.nombre, 'success');
-              cerrarModal('modalCliente');
-              cargarDatosIniciales();
-            } else {
-              mostrarToast(result.error, 'error');
-            }
-          })
-          .withFailureHandler(function(error) {
-            mostrarLoading(false);
-            mostrarToast('Error: ' + error.message, 'error');
-          })
-          .crearCliente(datos);
-      }
+      const accion = editando ?
+        google.script.run.actualizarCliente(editando, datos) :
+        google.script.run.crearCliente(datos);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            mostrarToast(result.mensaje, 'success');
+            cerrarModal('modalCliente');
+            cargarDatosIniciales();
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        [editando ? 'actualizarCliente' : 'crearCliente'](editando || datos, editando ? datos : undefined);
     }
 
     function eliminarClienteConfirm(nombre) {
-      if (!confirm('¿Eliminar cliente ' + nombre + ' y todos sus movimientos?')) return;
+      const cliente = Estado.clientes.find(c => c.nombre === nombre);
+
+      let mensaje = '¿Eliminar cliente "' + nombre + '"?';
+      if (cliente && cliente.saldo > 0) {
+        mensaje += '\n\n⚠️ ATENCION: Este cliente tiene un saldo de ' + formatearMonto(cliente.saldo);
+      }
+
+      if (!confirm(mensaje)) return;
 
       mostrarLoading(true);
 
@@ -2203,24 +3121,60 @@
     // ============================================================================
     // CONFIGURACION
     // ============================================================================
-    function guardarApiKeyConfig() {
-      const apiKey = document.getElementById('inputApiKey').value;
+    function cargarConfiguracionInicial() {
+      const tema = localStorage.getItem('tema') || 'light';
+      setTema(tema);
 
+      const animaciones = localStorage.getItem('animaciones') !== 'false';
+      document.getElementById('toggleAnimaciones').checked = animaciones;
+      toggleAnimaciones(animaciones);
+    }
+
+    function setTema(tema) {
+      document.documentElement.setAttribute('data-theme', tema === 'dark' ? 'dark' : '');
+      document.getElementById('themeToggle').textContent = tema === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('tema', tema);
+
+      const btnClaro = document.getElementById('btnTemaClaro');
+      const btnOscuro = document.getElementById('btnTemaOscuro');
+      if (btnClaro && btnOscuro) {
+        btnClaro.className = 'btn ' + (tema === 'light' ? 'btn-primary' : 'btn-outline');
+        btnOscuro.className = 'btn ' + (tema === 'dark' ? 'btn-primary' : 'btn-outline');
+      }
+    }
+
+    function toggleAnimaciones(habilitado) {
+      localStorage.setItem('animaciones', habilitado ? 'true' : 'false');
+      let style = document.getElementById('no-animations-style');
+
+      if (!habilitado) {
+        if (!style) {
+          style = document.createElement('style');
+          style.id = 'no-animations-style';
+          style.textContent = '*, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; }';
+          document.head.appendChild(style);
+        }
+      } else if (style) {
+        style.remove();
+      }
+    }
+
+    function guardarApiKeyConfig() {
+      const apiKey = document.getElementById('inputApiKey').value.trim();
       if (!apiKey) {
         mostrarToast('Ingresa una API Key', 'error');
         return;
       }
 
       mostrarLoading(true);
-
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           if (result.success) {
-            mostrarToast(result.mensaje, 'success');
-            document.getElementById('inputApiKey').value = '';
+            mostrarToast('API Key guardada', 'success');
             document.getElementById('estadoApiKey').textContent = '✓ API Key configurada';
             document.getElementById('estadoApiKey').style.color = 'var(--sv-exito)';
+            document.getElementById('inputApiKey').value = '';
           } else {
             mostrarToast(result.error, 'error');
           }
@@ -2233,15 +3187,14 @@
     }
 
     function recalcularTodosSaldos() {
-      if (!confirm('¿Recalcular todos los saldos basandose en los movimientos?')) return;
+      if (!confirm('¿Recalcular todos los saldos? Esto puede tardar unos segundos.')) return;
 
       mostrarLoading(true);
-
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           if (result.success) {
-            mostrarToast(result.mensaje, 'success');
+            mostrarToast('Saldos recalculados: ' + result.clientesActualizados + ' clientes', 'success');
             cargarDatosIniciales();
           } else {
             mostrarToast(result.error, 'error');
@@ -2251,48 +3204,41 @@
           mostrarLoading(false);
           mostrarToast('Error: ' + error.message, 'error');
         })
-        .recalcularSaldos();
+        .recalcularTodosSaldos();
     }
 
-    function exportarDatos() {
-      mostrarToast('Exportacion no implementada aun', 'info');
+    function exportarDatosCSV() {
+      mostrarLoading(true);
+
+      // Generar CSV de clientes
+      let csv = 'Nombre,Telefono,Email,Saldo,Limite,Movimientos\n';
+      Estado.clientes.forEach(c => {
+        csv += `"${c.nombre}","${c.tel || ''}","${c.email || ''}",${c.saldo},${c.limite},${c.totalMovs}\n`;
+      });
+
+      // Descargar
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'clientes_sol_verde_' + new Date().toISOString().split('T')[0] + '.csv';
+      link.click();
+
+      mostrarLoading(false);
+      mostrarToast('Archivo CSV descargado', 'success');
     }
 
-    // ============================================================================
-    // UTILIDADES UI
-    // ============================================================================
-    function mostrarToast(mensaje, tipo = 'info') {
-      const container = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      toast.className = 'toast toast-' + tipo;
-      toast.textContent = mensaje;
-      container.appendChild(toast);
-
-      setTimeout(() => toast.remove(), 4000);
+    function limpiarCacheLocal() {
+      if (!confirm('¿Limpiar cache local?')) return;
+      localStorage.removeItem('proveedoresHistorial');
+      Estado.proveedoresHistorial = [];
+      mostrarToast('Cache limpiada', 'success');
     }
 
-    function mostrarLoading(mostrar) {
-      document.getElementById('loadingOverlay').classList.toggle('active', mostrar);
-    }
-
-    function abrirModal(id) {
-      document.getElementById(id).classList.add('active');
-    }
-
-    function cerrarModal(id) {
-      document.getElementById(id).classList.remove('active');
-    }
-
-    function formatearFecha(fecha) {
-      if (!fecha) return '-';
-      const d = new Date(fecha);
-      if (isNaN(d.getTime())) return fecha;
-      return d.toLocaleDateString('es-AR');
-    }
-
-    function formatearMonto(monto) {
-      if (typeof monto !== 'number') return '$0';
-      return '$' + monto.toLocaleString('es-AR');
+    function actualizarDatosSistema() {
+      const el1 = document.getElementById('configTotalClientes');
+      const el2 = document.getElementById('configTotalMovimientos');
+      if (el1) el1.textContent = Estado.clientes.length;
+      if (el2) el2.textContent = Estado.movimientos.length;
     }
   </script>
 </body>

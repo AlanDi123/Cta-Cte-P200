@@ -69,23 +69,14 @@ const CONFIG = {
 
   // Tipos de registro de caja
   TIPOS_CAJA: {
-    // Billetes
+    // Billetes (pesos argentinos actualizados)
+    BILLETE_20000: 'BILLETE_20000',
+    BILLETE_10000: 'BILLETE_10000',
+    BILLETE_2000: 'BILLETE_2000',
     BILLETE_1000: 'BILLETE_1000',
     BILLETE_500: 'BILLETE_500',
     BILLETE_200: 'BILLETE_200',
     BILLETE_100: 'BILLETE_100',
-    BILLETE_50: 'BILLETE_50',
-    BILLETE_20: 'BILLETE_20',
-    BILLETE_10: 'BILLETE_10',
-    // Monedas
-    MONEDA_500: 'MONEDA_500',
-    MONEDA_200: 'MONEDA_200',
-    MONEDA_100: 'MONEDA_100',
-    MONEDA_50: 'MONEDA_50',
-    MONEDA_25: 'MONEDA_25',
-    MONEDA_10: 'MONEDA_10',
-    MONEDA_5: 'MONEDA_5',
-    MONEDA_1: 'MONEDA_1',
     // Otros
     PROVEEDOR: 'PROVEEDOR',
     GASTO_EXTRA: 'GASTO_EXTRA',
@@ -135,25 +126,16 @@ const CONFIG = {
   }
 };
 
-// Denominaciones de billetes y monedas (pesos argentinos)
+// Denominaciones de billetes (pesos argentinos - solo billetes)
 const DENOMINACIONES = {
   BILLETES: [
+    { tipo: 'BILLETE_20000', valor: 20000, nombre: 'Billete $20.000' },
+    { tipo: 'BILLETE_10000', valor: 10000, nombre: 'Billete $10.000' },
+    { tipo: 'BILLETE_2000', valor: 2000, nombre: 'Billete $2.000' },
     { tipo: 'BILLETE_1000', valor: 1000, nombre: 'Billete $1.000' },
     { tipo: 'BILLETE_500', valor: 500, nombre: 'Billete $500' },
     { tipo: 'BILLETE_200', valor: 200, nombre: 'Billete $200' },
-    { tipo: 'BILLETE_100', valor: 100, nombre: 'Billete $100' },
-    { tipo: 'BILLETE_50', valor: 50, nombre: 'Billete $50' },
-    { tipo: 'BILLETE_20', valor: 20, nombre: 'Billete $20' },
-    { tipo: 'BILLETE_10', valor: 10, nombre: 'Billete $10' }
+    { tipo: 'BILLETE_100', valor: 100, nombre: 'Billete $100' }
   ],
-  MONEDAS: [
-    { tipo: 'MONEDA_500', valor: 500, nombre: 'Moneda $500' },
-    { tipo: 'MONEDA_200', valor: 200, nombre: 'Moneda $200' },
-    { tipo: 'MONEDA_100', valor: 100, nombre: 'Moneda $100' },
-    { tipo: 'MONEDA_50', valor: 50, nombre: 'Moneda $50' },
-    { tipo: 'MONEDA_25', valor: 25, nombre: 'Moneda $25' },
-    { tipo: 'MONEDA_10', valor: 10, nombre: 'Moneda $10' },
-    { tipo: 'MONEDA_5', valor: 5, nombre: 'Moneda $5' },
-    { tipo: 'MONEDA_1', valor: 1, nombre: 'Moneda $1' }
-  ]
+  MONEDAS: [] // Sin monedas segun requerimiento
 };

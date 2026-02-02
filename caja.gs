@@ -342,6 +342,7 @@ const CajaRepository = {
 
 /**
  * Genera datos para la Hoja de Ruta del dia
+ * Solo incluye proveedores y gastos del arqueo de caja (no cobranzas/fiados)
  * @param {string} fecha - Fecha en formato YYYY-MM-DD
  * @returns {Object} Datos de la hoja de ruta
  */
@@ -349,36 +350,53 @@ function generarHojaRuta(fecha) {
   const fechaObj = fecha ? new Date(fecha) : new Date();
   fechaObj.setHours(0, 0, 0, 0);
 
-  const fechaFin = new Date(fechaObj);
-  fechaFin.setHours(23, 59, 59, 999);
+  // Buscar sesion de caja del dia
+  const historial = CajaRepository.obtenerHistorial(100);
+  const sesionDelDia = historial.find(s => {
+    const fechaSesion = new Date(s.fecha);
+    fechaSesion.setHours(0, 0, 0, 0);
+    return fechaSesion.getTime() === fechaObj.getTime();
+  });
 
-  // Obtener movimientos del dia
-  const movimientos = MovimientosRepository.obtenerPorRango(fechaObj, fechaFin);
+  // Arrays para proveedores y gastos
+  let proveedores = [];
+  let gastos = [];
+  let totalProveedores = 0;
+  let totalGastos = 0;
 
-  // Separar cobranzas (HABER/PAGO) y fiados (DEBE)
-  const cobranzas = movimientos.filter(m => m.tipo === CONFIG.TIPOS_MOVIMIENTO.HABER);
-  const fiados = movimientos.filter(m => m.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE);
+  if (sesionDelDia) {
+    const sesionCompleta = CajaRepository.obtenerSesion(sesionDelDia.sesionId);
 
-  // Calcular totales
-  const totalCobranzas = cobranzas.reduce((sum, m) => sum + m.monto, 0);
-  const totalFiados = fiados.reduce((sum, m) => sum + m.monto, 0);
+    if (sesionCompleta && sesionCompleta.items) {
+      // Extraer proveedores
+      sesionCompleta.items.forEach(item => {
+        if (item.tipo === 'PROVEEDOR' && item.monto > 0) {
+          proveedores.push({
+            nombre: item.nombre || item.descripcion || 'Proveedor',
+            monto: item.monto
+          });
+          totalProveedores += item.monto;
+        }
+        // Extraer gastos
+        if (item.tipo === 'GASTO' && item.monto > 0) {
+          gastos.push({
+            descripcion: item.descripcion || item.nombre || 'Gasto',
+            monto: item.monto
+          });
+          totalGastos += item.monto;
+        }
+      });
+    }
+  }
 
   return {
     fecha: fechaObj.toISOString(),
     fechaFormateada: formatearFecha(fechaObj),
-    cobranzas: cobranzas.map(m => ({
-      cliente: m.cliente,
-      monto: m.monto,
-      obs: m.obs
-    })),
-    fiados: fiados.map(m => ({
-      cliente: m.cliente,
-      monto: m.monto,
-      obs: m.obs
-    })),
-    totalCobranzas: totalCobranzas,
-    totalFiados: totalFiados,
-    diferencia: totalCobranzas - totalFiados
+    proveedores: proveedores,
+    gastos: gastos,
+    totalProveedores: totalProveedores,
+    totalGastos: totalGastos,
+    totalSalidas: totalProveedores + totalGastos
   };
 }
 

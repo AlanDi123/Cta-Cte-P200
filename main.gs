@@ -318,6 +318,67 @@ function obtenerDeudores() {
   }
 }
 
+/**
+ * Obtiene saldos de deudores con movimientos del dia especificado
+ * @param {string} fecha - Fecha en formato YYYY-MM-DD (opcional, default hoy)
+ * @returns {Object} {deudores: [{nombre, saldo, pagosDia, fiadosDia}], totalAdeudado}
+ */
+function obtenerSaldosConMovimientosDia(fecha) {
+  try {
+    const fechaFiltro = fecha ? new Date(fecha) : new Date();
+    fechaFiltro.setHours(0, 0, 0, 0);
+    const fechaFin = new Date(fechaFiltro);
+    fechaFin.setHours(23, 59, 59, 999);
+
+    // Obtener todos los deudores
+    const deudores = ClientesRepository.obtenerDeudores();
+
+    // Obtener movimientos del dia
+    const movimientosDia = MovimientosRepository.obtenerPorRango(fechaFiltro, fechaFin);
+
+    // Agrupar movimientos por cliente
+    const movsPorCliente = {};
+    for (const mov of movimientosDia) {
+      if (!movsPorCliente[mov.cliente]) {
+        movsPorCliente[mov.cliente] = { pagos: 0, fiados: 0 };
+      }
+      if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) {
+        movsPorCliente[mov.cliente].pagos += mov.monto;
+      } else {
+        movsPorCliente[mov.cliente].fiados += mov.monto;
+      }
+    }
+
+    // Enriquecer deudores con movimientos del dia
+    const resultado = deudores.map(d => ({
+      nombre: d.nombre,
+      saldo: d.saldo,
+      pagosDia: movsPorCliente[d.nombre]?.pagos || 0,
+      fiadosDia: movsPorCliente[d.nombre]?.fiados || 0
+    }));
+
+    // Calcular totales
+    let totalPagos = 0;
+    let totalFiados = 0;
+    for (const cliente in movsPorCliente) {
+      totalPagos += movsPorCliente[cliente].pagos;
+      totalFiados += movsPorCliente[cliente].fiados;
+    }
+
+    return {
+      success: true,
+      fecha: fechaFiltro.toISOString(),
+      deudores: serializarParaWeb(resultado),
+      totalAdeudado: deudores.reduce((sum, c) => sum + c.saldo, 0),
+      totalPagosDia: totalPagos,
+      totalFiadosDia: totalFiados
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerSaldosConMovimientosDia: ' + error.message);
+    return { success: false, error: error.message, deudores: [] };
+  }
+}
+
 // ============================================================================
 // API PUBLICA - MOVIMIENTOS
 // ============================================================================
