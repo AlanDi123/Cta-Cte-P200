@@ -89,7 +89,7 @@ const MovimientosRepository = {
       // Registrar movimiento
       const hoja = this.getHoja();
       const nuevoID = this.generarNuevoID();
-      const fecha = movimientoData.fecha ? new Date(movimientoData.fecha) : new Date();
+      const fecha = movimientoData.fecha ? parsearFechaLocal(movimientoData.fecha) : new Date();
       const usuario = Session.getActiveUser().getEmail();
 
       const nuevaFila = [
@@ -247,8 +247,8 @@ const MovimientosRepository = {
 
     if (datos.length <= 1) return [];
 
-    const fechaDesde = new Date(desde);
-    const fechaHasta = new Date(hasta);
+    const fechaDesde = parsearFechaLocal(desde);
+    const fechaHasta = parsearFechaLocal(hasta);
     fechaDesde.setHours(0, 0, 0, 0);
     fechaHasta.setHours(23, 59, 59, 999);
 
@@ -256,12 +256,12 @@ const MovimientosRepository = {
 
     for (let i = 1; i < datos.length; i++) {
       const fila = datos[i];
-      const fechaMov = new Date(fila[CONFIG.COLS_MOVS.FECHA]);
+      const fechaMov = parsearFechaLocal(fila[CONFIG.COLS_MOVS.FECHA]);
 
       if (fechaMov >= fechaDesde && fechaMov <= fechaHasta) {
         movimientos.push({
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fila[CONFIG.COLS_MOVS.FECHA] instanceof Date ? fila[CONFIG.COLS_MOVS.FECHA].toISOString() : fila[CONFIG.COLS_MOVS.FECHA],
+          fecha: fila[CONFIG.COLS_MOVS.FECHA] instanceof Date ? formatearFechaLocal(fila[CONFIG.COLS_MOVS.FECHA]) : fila[CONFIG.COLS_MOVS.FECHA],
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],

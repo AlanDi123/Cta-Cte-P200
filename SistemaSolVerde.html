@@ -870,6 +870,47 @@
         background: #f5f5f5 !important;
         font-weight: bold;
       }
+
+      /* Ajustar para que entre en 1 página - Hoja de Ruta */
+      #module-hoja-ruta h3 {
+        font-size: 14pt !important;
+        margin-bottom: 0.5rem !important;
+      }
+
+      #module-hoja-ruta .table th,
+      #module-hoja-ruta .table td {
+        padding: 2px 4px !important;
+        font-size: 8pt !important;
+      }
+
+      #module-hoja-ruta .card {
+        margin-bottom: 0.25rem !important;
+        padding: 0.25rem !important;
+      }
+
+      #module-hoja-ruta h4 {
+        font-size: 10pt !important;
+        margin-bottom: 0.25rem !important;
+      }
+
+      /* Ajustar para que entre en 1 página - Impresión de Saldos */
+      #module-impresion-saldos h3 {
+        font-size: 14pt !important;
+        margin-bottom: 0.5rem !important;
+      }
+
+      #module-impresion-saldos .table th,
+      #module-impresion-saldos .table td {
+        padding: 2px 4px !important;
+        font-size: 8pt !important;
+      }
+
+      /* Escalar automáticamente si hay mucho contenido */
+      #module-hoja-ruta,
+      #module-impresion-saldos {
+        max-height: 100vh;
+        overflow: visible;
+      }
     }
 
     .print-logo {
@@ -916,6 +957,39 @@
 
     .form-group-autocomplete {
       position: relative;
+    }
+
+    /* Banco options */
+    .banco-option {
+      flex: 1;
+      min-width: 100px;
+      padding: 0.75rem;
+      border: 2px solid var(--sv-borde);
+      border-radius: var(--sv-radius);
+      background: var(--sv-superficie);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      transition: all var(--sv-transition);
+      color: var(--sv-texto);
+    }
+
+    .banco-option:hover {
+      border-color: var(--sv-primario);
+      background: var(--sv-superficie-elevada);
+    }
+
+    .banco-option.selected {
+      border-color: var(--sv-primario);
+      background: rgba(46, 125, 50, 0.1);
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.2);
+    }
+
+    .banco-option span:last-child {
+      font-size: 0.75rem;
+      font-weight: 500;
     }
 
     /* Tipo tabs */
@@ -1148,6 +1222,10 @@
         <div class="menu-item" data-module="facturacion">
           <span class="menu-icon">🧾</span>
           <span>Transferencias</span>
+        </div>
+        <div class="menu-item" data-module="listas-facturas">
+          <span class="menu-icon">📄</span>
+          <span>Listas Facturas</span>
         </div>
         <div class="menu-item" data-module="productos">
           <span class="menu-icon">📦</span>
@@ -1741,6 +1819,92 @@
         </div>
       </div>
 
+      <!-- MODULO: LISTAS DE FACTURAS -->
+      <div class="module-view" id="module-listas-facturas">
+        <h2 style="margin-bottom: 1rem;">Listas de Facturas Pendientes</h2>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1rem;">
+          <!-- Lista Facturas A -->
+          <div class="card">
+            <div class="card-title" style="color: var(--sv-primario);">📄 Facturas A (Resp. Inscriptos)</div>
+            <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 1rem;">
+              Clientes con CUIT que requieren Factura A
+            </p>
+            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Monto</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyFacturasA"></tbody>
+              </table>
+            </div>
+            <div style="margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid var(--sv-borde);">
+              <strong>Total: <span id="totalFacturasA">$0</span></strong>
+            </div>
+          </div>
+
+          <!-- Lista Consumidor Final -->
+          <div class="card">
+            <div class="card-title" style="color: var(--sv-texto-secundario);">🧾 Consumidor Final</div>
+            <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 1rem;">
+              Clientes sin CUIT o Consumidor Final
+            </p>
+            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Monto</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyFacturasCF"></tbody>
+              </table>
+            </div>
+            <div style="margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid var(--sv-borde);">
+              <strong>Total: <span id="totalFacturasCF">$0</span></strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección de Productos para Asignar -->
+        <div class="card" style="margin-top: 1rem;">
+          <div class="card-title">📦 Asignar Productos a Factura</div>
+          <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 1rem;">
+            Seleccione una transferencia arriba, luego asigne productos. El stock se descontara automaticamente.
+          </p>
+          <div id="asignacionProductos" style="display: none;">
+            <div style="background: var(--sv-superficie-elevada); padding: 1rem; border-radius: var(--sv-radius); margin-bottom: 1rem;">
+              <strong>Transferencia seleccionada:</strong>
+              <span id="transfSeleccionadaInfo"></span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+              <select class="form-input" id="selectProductoAsignar" style="flex: 2; min-width: 200px;">
+                <option value="">Seleccione producto...</option>
+              </select>
+              <input type="number" class="form-input" id="cantidadProductoAsignar" placeholder="Cant." min="1" value="1" style="width: 80px;">
+              <button class="btn btn-primary" onclick="asignarProducto()">+ Agregar</button>
+            </div>
+            <div id="productosAsignados"></div>
+            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+              <button class="btn btn-outline" onclick="cancelarAsignacion()">Cancelar</button>
+              <button class="btn btn-primary" onclick="guardarAsignacionYFacturar()">Guardar y Marcar Facturada</button>
+            </div>
+          </div>
+          <div id="sinTransferenciaSeleccionada">
+            <p style="text-align: center; color: var(--sv-texto-muted); padding: 2rem;">
+              Haga clic en "Asignar" en una transferencia para comenzar
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- MODULO: PRODUCTOS -->
       <div class="module-view" id="module-productos">
         <h2 style="margin-bottom: 1rem;">Gestion de Productos</h2>
@@ -1748,6 +1912,7 @@
         <div class="card" style="margin-bottom: 1rem;">
           <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
             <button class="btn btn-primary" onclick="abrirModalNuevoProducto()">+ Nuevo Producto</button>
+            <button class="btn btn-outline" onclick="abrirModalCargaMasiva()">📋 Carga Masiva</button>
           </div>
         </div>
 
@@ -1820,17 +1985,13 @@
 
         <div class="card" style="margin-top: 1rem;">
           <div class="card-title">⚙️ Configuracion de API</div>
-          <div class="form-group">
-            <label class="form-label">API Key de Claude</label>
-            <div style="display: flex; gap: 0.5rem;">
-              <input type="password" class="form-input" id="apiKeyClaudeFacturacion" placeholder="sk-ant-..." style="flex: 1;">
-              <button class="btn btn-outline" onclick="guardarApiKeyFacturacion()">Guardar</button>
-              <button class="btn btn-outline" onclick="probarConexionIA()">Probar</button>
-            </div>
-            <small style="color: var(--sv-texto-muted);">
-              <a href="https://console.anthropic.com" target="_blank" rel="noopener">Obtener API Key</a>
-            </small>
+          <div style="padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
+            <p style="margin: 0;">La API Key de Claude se configura en la seccion <strong>Configuracion</strong> del sistema.</p>
+            <p style="margin: 0.5rem 0 0 0; color: var(--sv-texto-muted);">
+              El escaneo de comprobantes usa la misma API Key que Visual Reasoning.
+            </p>
           </div>
+          <button class="btn btn-outline" style="margin-top: 0.5rem;" onclick="probarConexionIA()">Probar Conexion</button>
           <div id="estadoConexionIA" style="margin-top: 0.5rem;"></div>
         </div>
       </div>
@@ -1934,17 +2095,32 @@
           <label class="form-label">Fecha *</label>
           <input type="date" class="form-input" id="transfFecha" required>
         </div>
-        <div class="form-group">
+        <div class="form-group form-group-autocomplete">
           <label class="form-label">Cliente *</label>
-          <input type="text" class="form-input" id="transfCliente" placeholder="Nombre del cliente" required>
+          <input type="text" class="form-input" id="transfCliente" placeholder="Escriba para buscar cliente..." autocomplete="off" required>
+          <div class="suggestions-list" id="transfClienteSugerencias"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Monto *</label>
-          <input type="number" class="form-input" id="transfMonto" step="0.01" required>
+          <input type="number" class="form-input" id="transfMonto" step="0.01" min="0" required>
         </div>
         <div class="form-group">
           <label class="form-label">Banco</label>
-          <input type="text" class="form-input" id="transfBanco" placeholder="Banco origen">
+          <input type="hidden" id="transfBanco" value="">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button type="button" class="banco-option" data-banco="Santander" onclick="seleccionarBanco('Santander')">
+              <span style="font-size: 1.5rem;">🔴</span>
+              <span>Santander</span>
+            </button>
+            <button type="button" class="banco-option" data-banco="Mercado Pago" onclick="seleccionarBanco('Mercado Pago')">
+              <span style="font-size: 1.5rem;">💙</span>
+              <span>Mercado Pago</span>
+            </button>
+            <button type="button" class="banco-option" data-banco="Macro" onclick="seleccionarBanco('Macro')">
+              <span style="font-size: 1.5rem;">🟡</span>
+              <span>Macro</span>
+            </button>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Observaciones</label>
@@ -1982,6 +2158,31 @@
           <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar Producto</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal Carga Masiva de Productos -->
+  <div class="modal" id="modalCargaMasiva">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <div class="modal-title">Carga Masiva de Productos</div>
+        <button class="modal-close" onclick="cerrarModal('modalCargaMasiva')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Formato: Nombre, Precio (uno por linea)</label>
+        <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 0.5rem;">
+          Ejemplo:<br>
+          FERTILIZANTE NPK 15-15-15, 15000<br>
+          HERBICIDA GLIFOSATO, 8500<br>
+          SEMILLA MAIZ, 25000
+        </p>
+        <textarea class="form-textarea" id="textoCargaMasiva" rows="10" placeholder="Pegue aqui los productos..."></textarea>
+      </div>
+      <div id="previewCargaMasiva" style="margin-bottom: 1rem; max-height: 200px; overflow-y: auto;"></div>
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-outline" style="flex: 1;" onclick="previsualizarCargaMasiva()">Vista Previa</button>
+        <button class="btn btn-primary" style="flex: 1;" onclick="ejecutarCargaMasiva()">Guardar Todos</button>
+      </div>
     </div>
   </div>
 
@@ -2141,6 +2342,19 @@
       inputVisor.addEventListener('input', debounce(function() {
         buscarClienteAutocomplete(this.value, 'visorSugerencias', true);
       }, 200));
+
+      // Autocomplete transferencia cliente
+      const inputTransfCliente = document.getElementById('transfCliente');
+      if (inputTransfCliente) {
+        inputTransfCliente.addEventListener('input', debounce(function() {
+          buscarClienteAutocompleteTransf(this.value);
+        }, 200));
+        inputTransfCliente.addEventListener('focus', function() {
+          if (this.value.length >= 2) {
+            buscarClienteAutocompleteTransf(this.value);
+          }
+        });
+      }
 
       // Cerrar sugerencias al hacer clic fuera
       document.addEventListener('click', function(e) {
@@ -2374,7 +2588,8 @@
       if (modulo === 'impresion-saldos') cargarSaldosPendientes();
       if (modulo === 'hoja-ruta') cargarHojaRuta();
       if (modulo === 'historial-caja') cargarHistorialCaja();
-      if (modulo === 'facturacion' || modulo === 'productos' || modulo === 'escanear') cargarDatosFacturacion();
+      if (modulo === 'facturacion' || modulo === 'productos' || modulo === 'escanear' || modulo === 'listas-facturas') cargarDatosFacturacion();
+      if (modulo === 'listas-facturas') cargarListasFacturas();
     }
 
     // ============================================================================
@@ -2497,9 +2712,10 @@
 
     // Normalizar texto: quitar acentos, pipes, guiones, espacios múltiples
     function normalizarTexto(str) {
-      return str.toUpperCase()
+      if (!str) return '';
+      return String(str).toUpperCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Quitar acentos
-        .replace(/[|\\-]/g, ' ') // Reemplazar pipes y guiones por espacios
+        .replace(/[|_\-\/\\]/g, ' ') // Reemplazar pipes, guiones, barras, underscores
         .replace(/\s+/g, ' ') // Múltiples espacios a uno
         .trim();
     }
@@ -2519,16 +2735,23 @@
 
       // Normalizar término de búsqueda
       const terminoNorm = normalizarTexto(termino);
-      const palabras = terminoNorm.split(' ').filter(p => p.length >= 2);
+      const palabras = terminoNorm.split(' ').filter(p => p.length >= 1);
 
-      // Buscar coincidencia: nombre contiene término O alguna palabra coincide
+      // Buscar coincidencia
       const matches = Estado.clientes.filter(c => {
         const nombreNorm = normalizarTexto(c.nombre);
-        // Coincidencia directa
+        const palabrasNombre = nombreNorm.split(' ');
+
+        // Coincidencia directa del término completo
         if (nombreNorm.includes(terminoNorm)) return true;
-        // Coincidencia por cualquier palabra
-        return palabras.some(p => nombreNorm.includes(p));
-      }).slice(0, 8); // Aumentado a 8 resultados
+
+        // Coincidencia por cualquier palabra del término en cualquier palabra del nombre
+        return palabras.some(palabraBusqueda =>
+          palabrasNombre.some(palabraNombre =>
+            palabraNombre.startsWith(palabraBusqueda) || palabraNombre.includes(palabraBusqueda)
+          )
+        );
+      }).slice(0, 10); // Aumentado a 10 resultados
 
       if (matches.length === 0) {
         contenedor.style.display = 'none';
@@ -2554,6 +2777,57 @@
             contenedor.style.display = 'none';
             document.getElementById('movMonto').focus();
           }
+        });
+      });
+
+      contenedor.style.display = 'block';
+    }
+
+    // Autocompletado para modal de transferencia
+    function buscarClienteAutocompleteTransf(termino) {
+      const contenedor = document.getElementById('transfClienteSugerencias');
+
+      if (!termino || termino.length < 2) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      if (!Estado.clientes || Estado.clientes.length === 0) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      const terminoNorm = normalizarTexto(termino);
+      const palabras = terminoNorm.split(' ').filter(p => p.length >= 1);
+
+      const matches = Estado.clientes.filter(c => {
+        const nombreNorm = normalizarTexto(c.nombre);
+        const palabrasNombre = nombreNorm.split(' ');
+        if (nombreNorm.includes(terminoNorm)) return true;
+        return palabras.some(palabraBusqueda =>
+          palabrasNombre.some(palabraNombre =>
+            palabraNombre.startsWith(palabraBusqueda) || palabraNombre.includes(palabraBusqueda)
+          )
+        );
+      }).slice(0, 8);
+
+      if (matches.length === 0) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      contenedor.innerHTML = matches.map(c => `
+        <div class="suggestion-item" data-nombre="${escapeHtml(c.nombre)}">
+          <strong>${escapeHtml(c.nombre)}</strong>
+          <span style="color: var(--sv-texto-muted);">${c.cuit || 'Sin CUIT'}</span>
+        </div>
+      `).join('');
+
+      contenedor.querySelectorAll('.suggestion-item').forEach(item => {
+        item.addEventListener('click', function() {
+          document.getElementById('transfCliente').value = this.dataset.nombre;
+          contenedor.style.display = 'none';
+          document.getElementById('transfMonto').focus();
         });
       });
 
@@ -3275,9 +3549,9 @@
         </div>
       `;
 
-      if (sesion.detalles && sesion.detalles.length > 0) {
+      if (sesion.registros && sesion.registros.length > 0) {
         html += `<div class="card-title" style="margin-top: 1rem;">Detalles</div>`;
-        html += sesion.detalles.map(d => `
+        html += sesion.registros.map(d => `
           <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--sv-borde);">
             <span>${escapeHtml(d.tipo)}: ${escapeHtml(d.descripcion || '-')}</span>
             <strong>${formatearMonto(d.monto)}</strong>
@@ -3318,8 +3592,8 @@
       Estado.arqueo = {};
 
       // Cargar datos desde los detalles de la sesión
-      if (sesion.detalles && sesion.detalles.length > 0) {
-        sesion.detalles.forEach(d => {
+      if (sesion.registros && sesion.registros.length > 0) {
+        sesion.registros.forEach(d => {
           // Cargar billetes
           if (d.tipo && d.tipo.startsWith('BILLETE_')) {
             const valorBillete = obtenerValorBillete(d.tipo);
@@ -3345,7 +3619,7 @@
             }
           }
           // Cargar gastos
-          else if (d.tipo === 'GASTO') {
+          else if (d.tipo === 'GASTO_EXTRA') {
             agregarGasto();
             const items = document.querySelectorAll('#listaGastos > div');
             const ultimo = items[items.length - 1];
@@ -3374,7 +3648,7 @@
 
       // Cerrar modal y navegar al arqueo
       cerrarModal('modalDetalleSesion');
-      mostrarModulo('module-arqueo-efectivo');
+      navegarA('arqueo-efectivo');
       mostrarToast('Sesión cargada correctamente', 'success');
     }
 
@@ -3761,7 +4035,18 @@
       document.getElementById('transfMonto').value = '';
       document.getElementById('transfBanco').value = '';
       document.getElementById('transfObs').value = '';
+      document.getElementById('transfClienteSugerencias').style.display = 'none';
+      // Limpiar selección de banco
+      document.querySelectorAll('.banco-option').forEach(b => b.classList.remove('selected'));
       abrirModal('modalTransferencia');
+    }
+
+    // Seleccionar banco
+    function seleccionarBanco(banco) {
+      document.getElementById('transfBanco').value = banco;
+      document.querySelectorAll('.banco-option').forEach(b => {
+        b.classList.toggle('selected', b.dataset.banco === banco);
+      });
     }
 
     // Guardar transferencia
@@ -3922,6 +4207,276 @@
         .eliminarProducto(id);
     }
 
+    // Carga masiva de productos
+    function abrirModalCargaMasiva() {
+      document.getElementById('textoCargaMasiva').value = '';
+      document.getElementById('previewCargaMasiva').innerHTML = '';
+      abrirModal('modalCargaMasiva');
+    }
+
+    function previsualizarCargaMasiva() {
+      const texto = document.getElementById('textoCargaMasiva').value.trim();
+      if (!texto) {
+        mostrarToast('Pegue los productos primero', 'error');
+        return;
+      }
+
+      const lineas = texto.split('\n').filter(l => l.trim());
+      const productos = [];
+      const errores = [];
+
+      lineas.forEach((linea, idx) => {
+        const partes = linea.split(',').map(p => p.trim());
+        if (partes.length >= 2) {
+          const nombre = partes[0];
+          const precio = parseFloat(partes[1].replace(/[^\d.,]/g, '').replace(',', '.'));
+          if (nombre && !isNaN(precio) && precio > 0) {
+            productos.push({ nombre, precio, stock: 999999 });
+          } else {
+            errores.push(`Linea ${idx + 1}: formato invalido`);
+          }
+        } else {
+          errores.push(`Linea ${idx + 1}: faltan datos`);
+        }
+      });
+
+      let html = `<div style="padding: 0.5rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">`;
+      html += `<strong>${productos.length} productos validos</strong>`;
+      if (errores.length > 0) {
+        html += `<span style="color: var(--sv-peligro);"> (${errores.length} errores)</span>`;
+      }
+      html += `<div style="max-height: 150px; overflow-y: auto; margin-top: 0.5rem; font-size: 0.875rem;">`;
+      productos.forEach(p => {
+        html += `<div>${escapeHtml(p.nombre)} - ${formatearMonto(p.precio)}</div>`;
+      });
+      html += `</div></div>`;
+
+      document.getElementById('previewCargaMasiva').innerHTML = html;
+    }
+
+    function ejecutarCargaMasiva() {
+      const texto = document.getElementById('textoCargaMasiva').value.trim();
+      if (!texto) {
+        mostrarToast('Pegue los productos primero', 'error');
+        return;
+      }
+
+      const lineas = texto.split('\n').filter(l => l.trim());
+      const productos = [];
+
+      lineas.forEach(linea => {
+        const partes = linea.split(',').map(p => p.trim());
+        if (partes.length >= 2) {
+          const nombre = partes[0];
+          const precio = parseFloat(partes[1].replace(/[^\d.,]/g, '').replace(',', '.'));
+          if (nombre && !isNaN(precio) && precio > 0) {
+            productos.push({ nombre: nombre.toUpperCase(), precio, stock: 999999, activo: true });
+          }
+        }
+      });
+
+      if (productos.length === 0) {
+        mostrarToast('No hay productos validos para guardar', 'error');
+        return;
+      }
+
+      if (!confirm(`¿Guardar ${productos.length} productos?`)) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            cerrarModal('modalCargaMasiva');
+            cargarDatosFacturacion();
+            mostrarToast(`${result.agregados} productos agregados`, 'success');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .agregarProductosMasivo(productos);
+    }
+
+    // ============================================================================
+    // LISTAS DE FACTURAS
+    // ============================================================================
+    let transferenciaSeleccionada = null;
+    let productosParaAsignar = [];
+
+    function cargarListasFacturas() {
+      if (!Estado.transferencias || !Estado.productos) return;
+
+      // Filtrar transferencias pendientes por tipo
+      const pendientes = Estado.transferencias.filter(t => !t.facturada);
+      const facturasA = pendientes.filter(t => t.tipoFactura === 'A' || t.condicion === 'Responsable Inscripto');
+      const facturasCF = pendientes.filter(t => t.tipoFactura !== 'A' && t.condicion !== 'Responsable Inscripto');
+
+      // Renderizar lista Facturas A
+      document.getElementById('tbodyFacturasA').innerHTML = facturasA.length === 0 ?
+        '<tr><td colspan="4" class="empty-state">Sin transferencias pendientes</td></tr>' :
+        facturasA.map(t => `
+          <tr>
+            <td>${formatearFecha(t.fecha)}</td>
+            <td><strong>${escapeHtml(t.cliente)}</strong></td>
+            <td>${formatearMonto(t.monto)}</td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="seleccionarTransferencia(${t.id})">Asignar</button>
+            </td>
+          </tr>
+        `).join('');
+
+      // Renderizar lista Consumidor Final
+      document.getElementById('tbodyFacturasCF').innerHTML = facturasCF.length === 0 ?
+        '<tr><td colspan="4" class="empty-state">Sin transferencias pendientes</td></tr>' :
+        facturasCF.map(t => `
+          <tr>
+            <td>${formatearFecha(t.fecha)}</td>
+            <td><strong>${escapeHtml(t.cliente)}</strong></td>
+            <td>${formatearMonto(t.monto)}</td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="seleccionarTransferencia(${t.id})">Asignar</button>
+            </td>
+          </tr>
+        `).join('');
+
+      // Calcular totales
+      const totalA = facturasA.reduce((sum, t) => sum + t.monto, 0);
+      const totalCF = facturasCF.reduce((sum, t) => sum + t.monto, 0);
+      document.getElementById('totalFacturasA').textContent = formatearMonto(totalA);
+      document.getElementById('totalFacturasCF').textContent = formatearMonto(totalCF);
+
+      // Cargar productos en el select
+      const select = document.getElementById('selectProductoAsignar');
+      select.innerHTML = '<option value="">Seleccione producto...</option>' +
+        Estado.productos.filter(p => p.activo && p.stock > 0).map(p =>
+          `<option value="${p.id}" data-precio="${p.precio}" data-stock="${p.stock}">${escapeHtml(p.nombre)} - ${formatearMonto(p.precio)} (Stock: ${p.stock === 999999 ? '∞' : p.stock})</option>`
+        ).join('');
+    }
+
+    function seleccionarTransferencia(id) {
+      const transf = Estado.transferencias.find(t => t.id === id);
+      if (!transf) return;
+
+      transferenciaSeleccionada = transf;
+      productosParaAsignar = [];
+
+      document.getElementById('transfSeleccionadaInfo').innerHTML =
+        `<strong>${escapeHtml(transf.cliente)}</strong> - ${formatearMonto(transf.monto)} (${formatearFecha(transf.fecha)})`;
+
+      document.getElementById('asignacionProductos').style.display = 'block';
+      document.getElementById('sinTransferenciaSeleccionada').style.display = 'none';
+      document.getElementById('productosAsignados').innerHTML = '';
+    }
+
+    function asignarProducto() {
+      const select = document.getElementById('selectProductoAsignar');
+      const cantidad = parseInt(document.getElementById('cantidadProductoAsignar').value) || 1;
+
+      if (!select.value) {
+        mostrarToast('Seleccione un producto', 'error');
+        return;
+      }
+
+      const option = select.options[select.selectedIndex];
+      const producto = Estado.productos.find(p => p.id === parseInt(select.value));
+
+      if (!producto) return;
+
+      // Verificar stock disponible
+      const yaAsignado = productosParaAsignar.filter(p => p.id === producto.id).reduce((sum, p) => sum + p.cantidad, 0);
+      if (producto.stock !== 999999 && (yaAsignado + cantidad) > producto.stock) {
+        mostrarToast(`Stock insuficiente. Disponible: ${producto.stock - yaAsignado}`, 'error');
+        return;
+      }
+
+      productosParaAsignar.push({
+        id: producto.id,
+        nombre: producto.nombre,
+        precio: producto.precio,
+        cantidad: cantidad,
+        subtotal: producto.precio * cantidad
+      });
+
+      renderProductosAsignados();
+      document.getElementById('cantidadProductoAsignar').value = 1;
+    }
+
+    function renderProductosAsignados() {
+      const container = document.getElementById('productosAsignados');
+      if (productosParaAsignar.length === 0) {
+        container.innerHTML = '<p style="color: var(--sv-texto-muted);">Sin productos asignados</p>';
+        return;
+      }
+
+      const total = productosParaAsignar.reduce((sum, p) => sum + p.subtotal, 0);
+
+      container.innerHTML = `
+        <table class="table" style="font-size: 0.875rem;">
+          <thead>
+            <tr><th>Producto</th><th>Cant.</th><th>Subtotal</th><th></th></tr>
+          </thead>
+          <tbody>
+            ${productosParaAsignar.map((p, idx) => `
+              <tr>
+                <td>${escapeHtml(p.nombre)}</td>
+                <td>${p.cantidad}</td>
+                <td>${formatearMonto(p.subtotal)}</td>
+                <td><button class="btn btn-outline btn-sm" onclick="quitarProductoAsignado(${idx})" style="color: var(--sv-peligro);">✕</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr><td colspan="2"><strong>Total:</strong></td><td colspan="2"><strong>${formatearMonto(total)}</strong></td></tr>
+          </tfoot>
+        </table>
+      `;
+    }
+
+    function quitarProductoAsignado(idx) {
+      productosParaAsignar.splice(idx, 1);
+      renderProductosAsignados();
+    }
+
+    function cancelarAsignacion() {
+      transferenciaSeleccionada = null;
+      productosParaAsignar = [];
+      document.getElementById('asignacionProductos').style.display = 'none';
+      document.getElementById('sinTransferenciaSeleccionada').style.display = 'block';
+    }
+
+    function guardarAsignacionYFacturar() {
+      if (!transferenciaSeleccionada) {
+        mostrarToast('No hay transferencia seleccionada', 'error');
+        return;
+      }
+
+      if (productosParaAsignar.length === 0) {
+        if (!confirm('No hay productos asignados. ¿Marcar como facturada de todas formas?')) return;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            cancelarAsignacion();
+            cargarDatosFacturacion();
+            mostrarToast('Factura procesada y stock actualizado', 'success');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .procesarFacturaConStock(transferenciaSeleccionada.id, productosParaAsignar);
+    }
+
     // Generar resumen mensual
     function generarResumenMensual() {
       const mesActual = new Date().getMonth() + 1;
@@ -4076,26 +4631,7 @@
         .importarTransferenciasIA(transferencias);
     }
 
-    // Guardar API Key de Claude para facturación
-    function guardarApiKeyFacturacion() {
-      const key = document.getElementById('apiKeyClaudeFacturacion').value.trim();
-      if (!key) {
-        mostrarToast('Ingresa una API Key', 'error');
-        return;
-      }
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          if (result.success) {
-            mostrarToast('API Key guardada', 'success');
-          } else {
-            mostrarToast(result.error, 'error');
-          }
-        })
-        .guardarApiKeyFacturacion(key);
-    }
-
-    // Probar conexión con Claude
+    // Probar conexión con Claude (usa la API Key del sistema general)
     function probarConexionIA() {
       mostrarLoading(true);
       google.script.run

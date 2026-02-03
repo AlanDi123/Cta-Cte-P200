@@ -325,7 +325,7 @@ function obtenerDeudores() {
  */
 function obtenerSaldosConMovimientosDia(fecha) {
   try {
-    const fechaFiltro = fecha ? new Date(fecha) : new Date();
+    const fechaFiltro = fecha ? parsearFechaLocal(fecha) : new Date();
     fechaFiltro.setHours(0, 0, 0, 0);
     const fechaFin = new Date(fechaFiltro);
     fechaFin.setHours(23, 59, 59, 999);

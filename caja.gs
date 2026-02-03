@@ -56,7 +56,7 @@ const CajaRepository = {
 
       const hoja = this.getHoja();
       const sesionId = generarSesionId();
-      const fecha = datos.fecha ? new Date(datos.fecha) : new Date();
+      const fecha = datos.fecha ? parsearFechaLocal(datos.fecha) : new Date();
       const timestamp = new Date();
       const usuario = Session.getActiveUser().getEmail();
 
@@ -254,7 +254,7 @@ const CajaRepository = {
       if (!sesiones.has(sesionId)) {
         sesiones.set(sesionId, {
           sesionId: sesionId,
-          fecha: fila[CONFIG.COLS_CAJA.FECHA] instanceof Date ? fila[CONFIG.COLS_CAJA.FECHA].toISOString() : fila[CONFIG.COLS_CAJA.FECHA],
+          fecha: fila[CONFIG.COLS_CAJA.FECHA] instanceof Date ? formatearFechaLocal(fila[CONFIG.COLS_CAJA.FECHA]) : fila[CONFIG.COLS_CAJA.FECHA],
           usuario: fila[CONFIG.COLS_CAJA.USUARIO],
           registros: []
         });
@@ -270,7 +270,7 @@ const CajaRepository = {
 
     // Convertir a array y ordenar por fecha descendente
     const resultado = Array.from(sesiones.values());
-    resultado.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    resultado.sort((a, b) => parsearFechaLocal(b.fecha) - parsearFechaLocal(a.fecha));
 
     // Calcular totales para cada sesion
     for (const sesion of resultado) {
@@ -347,13 +347,13 @@ const CajaRepository = {
  * @returns {Object} Datos de la hoja de ruta
  */
 function generarHojaRuta(fecha) {
-  const fechaObj = fecha ? new Date(fecha) : new Date();
+  const fechaObj = fecha ? parsearFechaLocal(fecha) : new Date();
   fechaObj.setHours(0, 0, 0, 0);
 
   // Buscar sesion de caja del dia
   const historial = CajaRepository.obtenerHistorial(100);
   const sesionDelDia = historial.find(s => {
-    const fechaSesion = new Date(s.fecha);
+    const fechaSesion = parsearFechaLocal(s.fecha);
     fechaSesion.setHours(0, 0, 0, 0);
     return fechaSesion.getTime() === fechaObj.getTime();
   });
@@ -471,7 +471,7 @@ function generarResumenArqueo(sesionId) {
   return {
     sesionId: sesion.sesionId,
     fecha: sesion.fecha,
-    fechaFormateada: formatearFecha(new Date(sesion.fecha)),
+    fechaFormateada: formatearFecha(parsearFechaLocal(sesion.fecha)),
     usuario: sesion.usuario,
     efectivo: efectivo,
     proveedores: proveedores,

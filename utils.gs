@@ -266,6 +266,50 @@ function obtenerFechaHoy() {
   return `${anio}-${mes}-${dia}`;
 }
 
+/**
+ * Formatea una fecha a YYYY-MM-DD en zona horaria local (NO UTC)
+ * IMPORTANTE: Usar en lugar de toISOString().split('T')[0] para evitar desfase de días
+ * @param {Date|string} fecha - Fecha a formatear
+ * @returns {string} Fecha en formato YYYY-MM-DD
+ */
+function formatearFechaLocal(fecha) {
+  if (!fecha) return '';
+  const d = fecha instanceof Date ? fecha : parsearFechaLocal(fecha);
+  if (!d || isNaN(d.getTime())) return '';
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+}
+
+/**
+ * Parsea una fecha string YYYY-MM-DD como fecha LOCAL (no UTC)
+ * IMPORTANTE: new Date("2026-02-03") se interpreta como UTC, causando desfase
+ * Esta función parsea la fecha como medianoche hora local
+ * @param {string|Date} fecha - Fecha en formato YYYY-MM-DD o Date
+ * @returns {Date} Objeto Date en hora local
+ */
+function parsearFechaLocal(fecha) {
+  if (!fecha) return null;
+  if (fecha instanceof Date) return fecha;
+
+  // Si es ISO string completo con T, parsearlo de forma segura
+  if (typeof fecha === 'string' && fecha.includes('T')) {
+    const d = new Date(fecha);
+    // Crear nueva fecha con los componentes locales
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  }
+
+  // Para formato YYYY-MM-DD, parsear manualmente como local
+  if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+    return new Date(anio, mes - 1, dia, 0, 0, 0, 0);
+  }
+
+  // Fallback a Date constructor
+  return new Date(fecha);
+}
+
 // ============================================================================
 // UTILIDADES DE FORMATO
 // ============================================================================
