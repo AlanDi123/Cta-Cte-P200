@@ -1144,6 +1144,22 @@
       </div>
 
       <div class="menu-section">
+        <div class="menu-section-title">Facturacion</div>
+        <div class="menu-item" data-module="facturacion">
+          <span class="menu-icon">🧾</span>
+          <span>Transferencias</span>
+        </div>
+        <div class="menu-item" data-module="productos">
+          <span class="menu-icon">📦</span>
+          <span>Productos</span>
+        </div>
+        <div class="menu-item" data-module="escanear">
+          <span class="menu-icon">📸</span>
+          <span>Escanear IA</span>
+        </div>
+      </div>
+
+      <div class="menu-section">
         <div class="menu-section-title">Sistema</div>
         <div class="menu-item" data-module="configuracion">
           <span class="menu-icon">⚙️</span>
@@ -1690,6 +1706,135 @@
         </div>
       </div>
 
+      <!-- MODULO: FACTURACION - TRANSFERENCIAS -->
+      <div class="module-view" id="module-facturacion">
+        <h2 style="margin-bottom: 1rem;">Transferencias para Facturar</h2>
+
+        <div class="card" style="margin-bottom: 1rem;">
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+            <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
+              <label class="form-label">Filtrar por mes</label>
+              <input type="month" class="form-input" id="filtroMesTransf" onchange="cargarTransferencias()">
+            </div>
+            <button class="btn btn-primary" onclick="abrirModalNuevaTransferencia()">+ Nueva Transferencia</button>
+            <button class="btn btn-outline" onclick="generarResumenMensual()">📊 Generar Resumen</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="table table-responsive-cards">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>Monto</th>
+                  <th>Banco</th>
+                  <th>Tipo</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyTransferencias"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODULO: PRODUCTOS -->
+      <div class="module-view" id="module-productos">
+        <h2 style="margin-bottom: 1rem;">Gestion de Productos</h2>
+
+        <div class="card" style="margin-bottom: 1rem;">
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+            <button class="btn btn-primary" onclick="abrirModalNuevoProducto()">+ Nuevo Producto</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="table table-responsive-cards">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Precio</th>
+                  <th>Stock</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyProductos"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODULO: ESCANEAR IA -->
+      <div class="module-view" id="module-escanear">
+        <h2 style="margin-bottom: 1rem;">Escanear Comprobantes con IA</h2>
+
+        <div class="card" style="margin-bottom: 1rem;">
+          <div class="card-title">📸 Subir Imagen de Comprobante Bancario</div>
+          <p style="font-size: 0.875rem; color: var(--sv-texto-secundario); margin-bottom: 1rem;">
+            La IA analizara la imagen y extraera los datos de las transferencias automaticamente.
+            Los datos sensibles (CBU, cuentas) NO seran procesados.
+          </p>
+
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+            <input type="file" id="inputImagenComprobante" accept="image/*" class="form-input" style="flex: 1; min-width: 200px;">
+            <button class="btn btn-primary" onclick="procesarImagenIA()" id="btnProcesarIA">
+              🤖 Procesar con IA
+            </button>
+          </div>
+
+          <div id="previewImagen" style="margin-top: 1rem; display: none;">
+            <img id="imgPreview" style="max-width: 100%; max-height: 300px; border-radius: var(--sv-radius); border: 1px solid var(--sv-borde);">
+          </div>
+        </div>
+
+        <div class="card" id="resultadosIA" style="display: none;">
+          <div class="card-title">✅ Datos Detectados</div>
+          <p style="font-size: 0.875rem; color: var(--sv-texto-secundario); margin-bottom: 1rem;">
+            Revisa y edita los datos antes de importar. Fecha del documento: <strong id="fechaDocumentoIA">-</strong>
+          </p>
+
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Monto</th>
+                  <th>Banco</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbodyResultadosIA"></tbody>
+            </table>
+          </div>
+
+          <div style="margin-top: 1rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+            <button class="btn btn-outline" onclick="limpiarResultadosIA()">Cancelar</button>
+            <button class="btn btn-primary" onclick="importarTransferenciasIA()">📥 Importar Todas</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 1rem;">
+          <div class="card-title">⚙️ Configuracion de API</div>
+          <div class="form-group">
+            <label class="form-label">API Key de Claude</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="password" class="form-input" id="apiKeyClaudeFacturacion" placeholder="sk-ant-..." style="flex: 1;">
+              <button class="btn btn-outline" onclick="guardarApiKeyFacturacion()">Guardar</button>
+              <button class="btn btn-outline" onclick="probarConexionIA()">Probar</button>
+            </div>
+            <small style="color: var(--sv-texto-muted);">
+              <a href="https://console.anthropic.com" target="_blank" rel="noopener">Obtener API Key</a>
+            </small>
+          </div>
+          <div id="estadoConexionIA" style="margin-top: 0.5rem;"></div>
+        </div>
+      </div>
+
     </main>
   </div>
 
@@ -1775,6 +1920,69 @@
   <!-- Loading Overlay -->
   <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
+  </div>
+
+  <!-- Modal Nueva Transferencia -->
+  <div class="modal" id="modalTransferencia">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Nueva Transferencia</div>
+        <button class="modal-close" onclick="cerrarModal('modalTransferencia')">&times;</button>
+      </div>
+      <form id="formTransferencia" onsubmit="guardarTransferencia(event)">
+        <div class="form-group">
+          <label class="form-label">Fecha *</label>
+          <input type="date" class="form-input" id="transfFecha" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cliente *</label>
+          <input type="text" class="form-input" id="transfCliente" placeholder="Nombre del cliente" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monto *</label>
+          <input type="number" class="form-input" id="transfMonto" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Banco</label>
+          <input type="text" class="form-input" id="transfBanco" placeholder="Banco origen">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones</label>
+          <textarea class="form-textarea" id="transfObs" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar Transferencia</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Nuevo Producto -->
+  <div class="modal" id="modalProducto">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title" id="modalProductoTitulo">Nuevo Producto</div>
+        <button class="modal-close" onclick="cerrarModal('modalProducto')">&times;</button>
+      </div>
+      <form id="formProducto" onsubmit="guardarProducto(event)">
+        <input type="hidden" id="productoEditandoId">
+        <div class="form-group">
+          <label class="form-label">Nombre *</label>
+          <input type="text" class="form-input" id="productoNombre" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Precio *</label>
+          <input type="number" class="form-input" id="productoPrecio" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock (dejar vacio para ilimitado)</label>
+          <input type="number" class="form-input" id="productoStock">
+        </div>
+        <div class="form-group">
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar Producto</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script>
@@ -2166,6 +2374,7 @@
       if (modulo === 'impresion-saldos') cargarSaldosPendientes();
       if (modulo === 'hoja-ruta') cargarHojaRuta();
       if (modulo === 'historial-caja') cargarHistorialCaja();
+      if (modulo === 'facturacion' || modulo === 'productos' || modulo === 'escanear') cargarDatosFacturacion();
     }
 
     // ============================================================================
@@ -3456,6 +3665,454 @@
       const el2 = document.getElementById('configTotalMovimientos');
       if (el1) el1.textContent = Estado.clientes.length;
       if (el2) el2.textContent = Estado.movimientos.length;
+    }
+
+    // ============================================================================
+    // MODULO DE FACTURACION
+    // ============================================================================
+
+    // Estado del módulo de facturación
+    const EstadoFacturacion = {
+      transferencias: [],
+      productos: [],
+      resultadosIA: []
+    };
+
+    // Cargar datos de facturación
+    function cargarDatosFacturacion() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            EstadoFacturacion.transferencias = result.transferencias || [];
+            EstadoFacturacion.productos = result.productos || [];
+            renderTransferencias();
+            renderProductos();
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarToast('Error cargando facturación: ' + error.message, 'error');
+        })
+        .obtenerDatosFacturacion();
+    }
+
+    // Cargar transferencias con filtro de mes
+    function cargarTransferencias() {
+      cargarDatosFacturacion();
+    }
+
+    // Renderizar tabla de transferencias
+    function renderTransferencias() {
+      const tbody = document.getElementById('tbodyTransferencias');
+      if (!tbody) return;
+
+      if (EstadoFacturacion.transferencias.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay transferencias</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = EstadoFacturacion.transferencias.map(t => `
+        <tr>
+          <td data-label="Fecha">${formatearFecha(t.fecha)}</td>
+          <td data-label="Cliente"><strong>${escapeHtml(t.cliente)}</strong></td>
+          <td data-label="Monto" style="font-weight: bold;">${formatearMonto(t.monto)}</td>
+          <td data-label="Banco">${escapeHtml(t.banco) || '-'}</td>
+          <td data-label="Tipo"><span class="tag ${t.tipoFactura === 'A' ? 'tag-haber' : 'tag-debe'}">${escapeHtml(t.tipoFactura)}</span></td>
+          <td data-label="Estado">${t.facturada ? '<span style="color: var(--sv-exito);">✓ Facturada</span>' : '<span style="color: var(--sv-advertencia);">Pendiente</span>'}</td>
+          <td data-label="Acciones">
+            <div class="btn-group">
+              ${!t.facturada ? `<button class="btn btn-outline btn-sm" onclick="marcarFacturada(${t.id})">✓</button>` : ''}
+              <button class="btn btn-outline btn-sm" onclick="eliminarTransferencia(${t.id})" style="color: var(--sv-peligro);">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Renderizar tabla de productos
+    function renderProductos() {
+      const tbody = document.getElementById('tbodyProductos');
+      if (!tbody) return;
+
+      if (EstadoFacturacion.productos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay productos</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = EstadoFacturacion.productos.map(p => `
+        <tr>
+          <td data-label="Producto"><strong>${escapeHtml(p.nombre)}</strong></td>
+          <td data-label="Precio">${formatearMonto(p.precio)}</td>
+          <td data-label="Stock">${p.stock === 999999 ? '∞' : p.stock}</td>
+          <td data-label="Estado">${p.activo ? '<span style="color: var(--sv-exito);">Activo</span>' : '<span style="color: var(--sv-texto-muted);">Inactivo</span>'}</td>
+          <td data-label="Acciones">
+            <div class="btn-group">
+              <button class="btn btn-outline btn-sm" onclick="editarProducto(${p.id})">✏️</button>
+              <button class="btn btn-outline btn-sm" onclick="eliminarProductoConfirm(${p.id})" style="color: var(--sv-peligro);">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Modal nueva transferencia
+    function abrirModalNuevaTransferencia() {
+      document.getElementById('transfFecha').value = obtenerFechaLocal();
+      document.getElementById('transfCliente').value = '';
+      document.getElementById('transfMonto').value = '';
+      document.getElementById('transfBanco').value = '';
+      document.getElementById('transfObs').value = '';
+      abrirModal('modalTransferencia');
+    }
+
+    // Guardar transferencia
+    function guardarTransferencia(e) {
+      e.preventDefault();
+      const datos = {
+        fecha: document.getElementById('transfFecha').value,
+        cliente: document.getElementById('transfCliente').value.trim(),
+        monto: parseFloat(document.getElementById('transfMonto').value) || 0,
+        banco: document.getElementById('transfBanco').value.trim(),
+        obs: document.getElementById('transfObs').value.trim()
+      };
+
+      if (!datos.cliente || datos.monto <= 0) {
+        mostrarToast('Complete los campos obligatorios', 'error');
+        return;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            cerrarModal('modalTransferencia');
+            cargarDatosFacturacion();
+            mostrarToast('Transferencia guardada', 'success');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .agregarTransferencia(datos);
+    }
+
+    // Marcar transferencia como facturada
+    function marcarFacturada(id) {
+      if (!confirm('¿Marcar esta transferencia como facturada?')) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            cargarDatosFacturacion();
+            mostrarToast('Transferencia marcada como facturada', 'success');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .marcarTransferenciaFacturada(id);
+    }
+
+    // Eliminar transferencia
+    function eliminarTransferencia(id) {
+      if (!confirm('¿Eliminar esta transferencia?')) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            cargarDatosFacturacion();
+            mostrarToast('Transferencia eliminada', 'success');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .eliminarTransferencia(id);
+    }
+
+    // Modal nuevo producto
+    function abrirModalNuevoProducto() {
+      document.getElementById('modalProductoTitulo').textContent = 'Nuevo Producto';
+      document.getElementById('productoEditandoId').value = '';
+      document.getElementById('productoNombre').value = '';
+      document.getElementById('productoPrecio').value = '';
+      document.getElementById('productoStock').value = '';
+      abrirModal('modalProducto');
+    }
+
+    // Editar producto
+    function editarProducto(id) {
+      const producto = EstadoFacturacion.productos.find(p => p.id === id);
+      if (!producto) return;
+
+      document.getElementById('modalProductoTitulo').textContent = 'Editar Producto';
+      document.getElementById('productoEditandoId').value = id;
+      document.getElementById('productoNombre').value = producto.nombre;
+      document.getElementById('productoPrecio').value = producto.precio;
+      document.getElementById('productoStock').value = producto.stock === 999999 ? '' : producto.stock;
+      abrirModal('modalProducto');
+    }
+
+    // Guardar producto
+    function guardarProducto(e) {
+      e.preventDefault();
+      const editandoId = document.getElementById('productoEditandoId').value;
+      const datos = {
+        nombre: document.getElementById('productoNombre').value.trim(),
+        precio: parseFloat(document.getElementById('productoPrecio').value) || 0,
+        stock: document.getElementById('productoStock').value ? parseInt(document.getElementById('productoStock').value) : 999999
+      };
+
+      if (!datos.nombre || datos.precio <= 0) {
+        mostrarToast('Complete nombre y precio', 'error');
+        return;
+      }
+
+      mostrarLoading(true);
+      const accion = editandoId ?
+        google.script.run.actualizarProducto(parseInt(editandoId), datos) :
+        google.script.run.agregarProducto(datos);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            cerrarModal('modalProducto');
+            cargarDatosFacturacion();
+            mostrarToast('Producto guardado', 'success');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        [editandoId ? 'actualizarProducto' : 'agregarProducto'](editandoId ? parseInt(editandoId) : datos, editandoId ? datos : undefined);
+    }
+
+    // Eliminar producto
+    function eliminarProductoConfirm(id) {
+      if (!confirm('¿Eliminar este producto?')) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            cargarDatosFacturacion();
+            mostrarToast('Producto eliminado', 'success');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .eliminarProducto(id);
+    }
+
+    // Generar resumen mensual
+    function generarResumenMensual() {
+      const mesActual = new Date().getMonth() + 1;
+      const anioActual = new Date().getFullYear();
+
+      if (!confirm(`¿Generar resumen de facturas para ${mesActual}/${anioActual}?\n\nSe crearan hojas separadas para Facturas A y Consumidores Finales.`)) {
+        return;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            mostrarToast(result.mensaje, 'success');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .generarResumenFacturacion(mesActual, anioActual);
+    }
+
+    // ============================================================================
+    // ESCANEAR CON IA
+    // ============================================================================
+
+    // Preview de imagen
+    document.addEventListener('DOMContentLoaded', function() {
+      const inputImagen = document.getElementById('inputImagenComprobante');
+      if (inputImagen) {
+        inputImagen.addEventListener('change', function() {
+          const file = this.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              document.getElementById('imgPreview').src = e.target.result;
+              document.getElementById('previewImagen').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+      }
+    });
+
+    // Procesar imagen con IA
+    function procesarImagenIA() {
+      const input = document.getElementById('inputImagenComprobante');
+      if (!input.files || !input.files[0]) {
+        mostrarToast('Selecciona una imagen primero', 'error');
+        return;
+      }
+
+      const file = input.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const base64 = e.target.result.split(',')[1];
+
+        mostrarLoading(true);
+        document.getElementById('btnProcesarIA').disabled = true;
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            mostrarLoading(false);
+            document.getElementById('btnProcesarIA').disabled = false;
+
+            if (result.success) {
+              EstadoFacturacion.resultadosIA = result.items || [];
+              document.getElementById('fechaDocumentoIA').textContent = result.fecha || '-';
+              renderResultadosIA();
+              document.getElementById('resultadosIA').style.display = 'block';
+              mostrarToast('Imagen procesada: ' + result.items.length + ' transferencias detectadas', 'success');
+            } else {
+              mostrarToast('Error IA: ' + result.error, 'error');
+            }
+          })
+          .withFailureHandler(function(error) {
+            mostrarLoading(false);
+            document.getElementById('btnProcesarIA').disabled = false;
+            mostrarToast('Error: ' + error.message, 'error');
+          })
+          .procesarImagenComprobante(base64);
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    // Renderizar resultados de IA
+    function renderResultadosIA() {
+      const tbody = document.getElementById('tbodyResultadosIA');
+      if (!tbody) return;
+
+      tbody.innerHTML = EstadoFacturacion.resultadosIA.map((item, idx) => `
+        <tr>
+          <td><input type="text" class="form-input" value="${escapeHtml(item.nombre)}" onchange="EstadoFacturacion.resultadosIA[${idx}].nombre = this.value"></td>
+          <td><input type="number" class="form-input" value="${item.monto}" step="0.01" onchange="EstadoFacturacion.resultadosIA[${idx}].monto = parseFloat(this.value)"></td>
+          <td><input type="text" class="form-input" value="${escapeHtml(item.banco || '')}" onchange="EstadoFacturacion.resultadosIA[${idx}].banco = this.value"></td>
+          <td><button class="btn btn-outline btn-sm" onclick="eliminarResultadoIA(${idx})" style="color: var(--sv-peligro);">✕</button></td>
+        </tr>
+      `).join('');
+    }
+
+    // Eliminar resultado de IA
+    function eliminarResultadoIA(idx) {
+      EstadoFacturacion.resultadosIA.splice(idx, 1);
+      renderResultadosIA();
+    }
+
+    // Limpiar resultados de IA
+    function limpiarResultadosIA() {
+      EstadoFacturacion.resultadosIA = [];
+      document.getElementById('resultadosIA').style.display = 'none';
+      document.getElementById('inputImagenComprobante').value = '';
+      document.getElementById('previewImagen').style.display = 'none';
+    }
+
+    // Importar transferencias desde IA
+    function importarTransferenciasIA() {
+      if (EstadoFacturacion.resultadosIA.length === 0) {
+        mostrarToast('No hay datos para importar', 'error');
+        return;
+      }
+
+      const fecha = document.getElementById('fechaDocumentoIA').textContent;
+      const transferencias = EstadoFacturacion.resultadosIA.map(item => ({
+        fecha: fecha !== '-' ? fecha : obtenerFechaLocal(),
+        cliente: item.nombre,
+        monto: item.monto,
+        banco: item.banco || ''
+      }));
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            limpiarResultadosIA();
+            cargarDatosFacturacion();
+            mostrarToast(result.cantidad + ' transferencias importadas', 'success');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .importarTransferenciasIA(transferencias);
+    }
+
+    // Guardar API Key de Claude para facturación
+    function guardarApiKeyFacturacion() {
+      const key = document.getElementById('apiKeyClaudeFacturacion').value.trim();
+      if (!key) {
+        mostrarToast('Ingresa una API Key', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            mostrarToast('API Key guardada', 'success');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .guardarApiKeyFacturacion(key);
+    }
+
+    // Probar conexión con Claude
+    function probarConexionIA() {
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          const estado = document.getElementById('estadoConexionIA');
+          if (result.success) {
+            estado.innerHTML = '<span style="color: var(--sv-exito);">✓ ' + result.mensaje + '</span>';
+          } else {
+            estado.innerHTML = '<span style="color: var(--sv-peligro);">✕ ' + result.error + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          document.getElementById('estadoConexionIA').innerHTML = '<span style="color: var(--sv-peligro);">✕ Error: ' + error.message + '</span>';
+        })
+        .probarConexionClaude();
     }
   </script>
 </body>
