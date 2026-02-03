@@ -105,9 +105,10 @@ function inicializarSistema() {
  */
 function obtenerDatosParaHTML() {
   try {
-    const clientes = ClientesRepository.obtenerTodos(0, CONFIG.PAGINATION.DEFAULT_PAGE_SIZE);
-    const movimientos = MovimientosRepository.obtenerRecientes(50);
-    const totalClientes = ClientesRepository.contarTotal();
+    // Cargar TODOS los clientes (sin límite de paginación) para que el autocomplete funcione
+    const clientes = ClientesRepository.obtenerTodos(0, 0); // 0 = sin límite
+    const movimientos = MovimientosRepository.obtenerRecientes(100);
+    const totalClientes = clientes.length;
 
     return {
       success: true,
@@ -325,7 +326,7 @@ function obtenerDeudores() {
  */
 function obtenerSaldosConMovimientosDia(fecha) {
   try {
-    const fechaFiltro = fecha ? new Date(fecha) : new Date();
+    const fechaFiltro = fecha ? parsearFechaLocal(fecha) : new Date();
     fechaFiltro.setHours(0, 0, 0, 0);
     const fechaFin = new Date(fechaFiltro);
     fechaFin.setHours(23, 59, 59, 999);
@@ -349,13 +350,13 @@ function obtenerSaldosConMovimientosDia(fecha) {
       }
     }
 
-    // Enriquecer deudores con movimientos del dia
+    // Enriquecer deudores con movimientos del dia y ordenar alfabeticamente
     const resultado = deudores.map(d => ({
       nombre: d.nombre,
       saldo: d.saldo,
       pagosDia: movsPorCliente[d.nombre]?.pagos || 0,
       fiadosDia: movsPorCliente[d.nombre]?.fiados || 0
-    }));
+    })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
     // Calcular totales
     let totalPagos = 0;
@@ -456,16 +457,17 @@ function eliminarMovimiento(id) {
  * Recalcula todos los saldos
  * @returns {Object} Resultado
  */
-function recalcularSaldos() {
+function recalcularTodosSaldos() {
   try {
     const resultado = MovimientosRepository.recalcularTodosSaldos();
     return {
       success: true,
       clientesActualizados: resultado.clientesActualizados,
-      mensaje: resultado.clientesActualizados + ' clientes actualizados'
+      omitidosSinMovimientos: resultado.omitidosSinMovimientos,
+      mensaje: resultado.clientesActualizados + ' clientes actualizados, ' + resultado.omitidosSinMovimientos + ' sin movimientos (saldo preservado)'
     };
   } catch (error) {
-    Logger.log('Error en recalcularSaldos: ' + error.message);
+    Logger.log('Error en recalcularTodosSaldos: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -509,6 +511,28 @@ function guardarApiKey(apiKey) {
     return {
       success: false,
       error: error.message
+    };
+  }
+}
+
+/**
+ * Obtiene todos los clientes para exportación (sin límite)
+ * @returns {Object} Lista de todos los clientes
+ */
+function obtenerTodosClientesParaExportar() {
+  try {
+    const clientes = ClientesRepository.obtenerTodos(0, 0); // Sin límite
+    return {
+      success: true,
+      clientes: serializarParaWeb(clientes),
+      total: clientes.length
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerTodosClientesParaExportar: ' + error.message);
+    return {
+      success: false,
+      error: error.message,
+      clientes: []
     };
   }
 }

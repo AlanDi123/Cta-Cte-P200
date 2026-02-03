@@ -89,7 +89,7 @@ const TransferenciasRepository = {
     return datos.map(fila => ({
       id: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID],
       fecha: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA] instanceof Date ?
-        fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA].toISOString().split('T')[0] : fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA],
+        formatearFechaLocal(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA]) : fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA],
       cliente: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CLIENTE],
       monto: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.MONTO] || 0,
       banco: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.BANCO] || '',
@@ -114,7 +114,7 @@ const TransferenciasRepository = {
   obtenerPorMes: function(mes, anio) {
     return this.obtenerTodas(500).filter(t => {
       if (!t.fecha) return false;
-      const fecha = new Date(t.fecha);
+      const fecha = parsearFechaLocal(t.fecha);
       return fecha.getMonth() + 1 === mes && fecha.getFullYear() === anio;
     });
   },
@@ -140,7 +140,7 @@ const TransferenciasRepository = {
 
     const nuevaFila = [
       id,
-      datos.fecha ? new Date(datos.fecha) : new Date(),
+      datos.fecha ? parsearFechaLocal(datos.fecha) : new Date(),
       (datos.cliente || '').toUpperCase(),
       datos.monto || 0,
       datos.banco || '',
@@ -319,6 +319,37 @@ const ProductosRepository = {
       }
     }
     return false;
+  },
+
+  /**
+   * Descuenta stock de un producto
+   * @param {number} id - ID del producto
+   * @param {number} cantidad - Cantidad a descontar
+   * @returns {boolean} True si se pudo descontar
+   */
+  descontarStock: function(id, cantidad) {
+    const hoja = this.getHoja();
+    const dataRange = hoja.getDataRange().getValues();
+
+    for (let i = 1; i < dataRange.length; i++) {
+      if (dataRange[i][CONFIG_FACTURACION.COLS_PRODUCTOS.ID] === id) {
+        const stockActual = dataRange[i][CONFIG_FACTURACION.COLS_PRODUCTOS.STOCK];
+
+        // Si es stock ilimitado, no descontar
+        if (stockActual === 999999) return true;
+
+        // Verificar si hay suficiente stock
+        if (stockActual < cantidad) {
+          throw new Error(`Stock insuficiente para producto ID ${id}. Disponible: ${stockActual}, Solicitado: ${cantidad}`);
+        }
+
+        // Descontar stock
+        const nuevoStock = stockActual - cantidad;
+        hoja.getRange(i + 1, CONFIG_FACTURACION.COLS_PRODUCTOS.STOCK + 1).setValue(nuevoStock);
+        return true;
+      }
+    }
+    return false;
   }
 };
 
@@ -333,13 +364,12 @@ function obtenerDatosFacturacion() {
   try {
     const transferencias = TransferenciasRepository.obtenerTodas();
     const productos = ProductosRepository.obtenerTodos();
-    const apiKey = PropertiesService.getUserProperties().getProperty('CLAUDE_API_KEY') || '';
 
     return {
       success: true,
       transferencias: transferencias,
       productos: productos,
-      apiKeyConfigured: !!apiKey
+      apiKeyConfigured: ClaudeService.tieneApiKey()
     };
   } catch (error) {
     Logger.log('Error en obtenerDatosFacturacion: ' + error.message);
@@ -414,12 +444,54 @@ function eliminarProducto(id) {
 }
 
 /**
- * Guarda la API Key de Claude
+ * Agrega productos de forma masiva
+ * @param {Array} productos - Array de {nombre, precio, stock, activo}
  */
-function guardarApiKeyFacturacion(key) {
+function agregarProductosMasivo(productos) {
   try {
-    PropertiesService.getUserProperties().setProperty('CLAUDE_API_KEY', key.trim());
-    return { success: true };
+    if (!productos || !Array.isArray(productos) || productos.length === 0) {
+      return { success: false, error: 'No hay productos para agregar' };
+    }
+
+    let agregados = 0;
+    for (const producto of productos) {
+      if (producto.nombre && producto.precio > 0) {
+        ProductosRepository.agregar({
+          nombre: producto.nombre,
+          precio: producto.precio,
+          stock: producto.stock || 999999,
+          activo: producto.activo !== false
+        });
+        agregados++;
+      }
+    }
+
+    return { success: true, agregados: agregados };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Procesa una factura: descuenta stock de productos y marca como facturada
+ * @param {number} transferenciaid - ID de la transferencia
+ * @param {Array} productosAsignados - Array de {id, cantidad}
+ */
+function procesarFacturaConStock(transferenciaId, productosAsignados) {
+  try {
+    // Primero descontar stock de todos los productos
+    if (productosAsignados && productosAsignados.length > 0) {
+      for (const prod of productosAsignados) {
+        if (prod.id && prod.cantidad > 0) {
+          ProductosRepository.descontarStock(prod.id, prod.cantidad);
+        }
+      }
+    }
+
+    // Luego marcar la transferencia como facturada
+    TransferenciasRepository.marcarFacturada(transferenciaId);
+
+    return { success: true, mensaje: 'Factura procesada correctamente' };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -431,11 +503,12 @@ function guardarApiKeyFacturacion(key) {
 
 /**
  * Procesa imagen de comprobante bancario con Claude
+ * Usa la misma API Key del sistema general (configurada en Configuración)
  */
 function procesarImagenComprobante(base64Image) {
-  const apiKey = PropertiesService.getUserProperties().getProperty('CLAUDE_API_KEY');
+  const apiKey = ClaudeService.getApiKey();
   if (!apiKey) {
-    return { success: false, error: 'API Key de Claude no configurada' };
+    return { success: false, error: 'API Key de Claude no configurada. Ve a Configuración del sistema para agregarla.' };
   }
 
   const systemPrompt = `Eres un experto forense en análisis de documentos bancarios argentinos.
@@ -734,12 +807,12 @@ function seleccionarProductosParaMonto(montoObjetivo, productos) {
 }
 
 /**
- * Prueba conexión con Claude
+ * Prueba conexión con Claude (usa la API Key del sistema general)
  */
 function probarConexionClaude() {
-  const apiKey = PropertiesService.getUserProperties().getProperty('CLAUDE_API_KEY');
+  const apiKey = ClaudeService.getApiKey();
   if (!apiKey) {
-    return { success: false, error: 'API Key no configurada' };
+    return { success: false, error: 'API Key no configurada. Ve a Configuración del sistema.' };
   }
 
   try {
