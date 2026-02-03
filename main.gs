@@ -105,9 +105,10 @@ function inicializarSistema() {
  */
 function obtenerDatosParaHTML() {
   try {
-    const clientes = ClientesRepository.obtenerTodos(0, CONFIG.PAGINATION.DEFAULT_PAGE_SIZE);
-    const movimientos = MovimientosRepository.obtenerRecientes(50);
-    const totalClientes = ClientesRepository.contarTotal();
+    // Cargar TODOS los clientes (sin límite de paginación) para que el autocomplete funcione
+    const clientes = ClientesRepository.obtenerTodos(0, 0); // 0 = sin límite
+    const movimientos = MovimientosRepository.obtenerRecientes(100);
+    const totalClientes = clientes.length;
 
     return {
       success: true,
@@ -456,7 +457,7 @@ function eliminarMovimiento(id) {
  * Recalcula todos los saldos
  * @returns {Object} Resultado
  */
-function recalcularSaldos() {
+function recalcularTodosSaldos() {
   try {
     const resultado = MovimientosRepository.recalcularTodosSaldos();
     return {
@@ -465,7 +466,7 @@ function recalcularSaldos() {
       mensaje: resultado.clientesActualizados + ' clientes actualizados'
     };
   } catch (error) {
-    Logger.log('Error en recalcularSaldos: ' + error.message);
+    Logger.log('Error en recalcularTodosSaldos: ' + error.message);
     return {
       success: false,
       error: error.message
@@ -509,6 +510,28 @@ function guardarApiKey(apiKey) {
     return {
       success: false,
       error: error.message
+    };
+  }
+}
+
+/**
+ * Obtiene todos los clientes para exportación (sin límite)
+ * @returns {Object} Lista de todos los clientes
+ */
+function obtenerTodosClientesParaExportar() {
+  try {
+    const clientes = ClientesRepository.obtenerTodos(0, 0); // Sin límite
+    return {
+      success: true,
+      clientes: serializarParaWeb(clientes),
+      total: clientes.length
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerTodosClientesParaExportar: ' + error.message);
+    return {
+      success: false,
+      error: error.message,
+      clientes: []
     };
   }
 }

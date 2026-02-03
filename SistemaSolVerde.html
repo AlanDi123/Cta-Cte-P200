@@ -2257,25 +2257,77 @@
       setupNavegacionTeclado();
     });
 
-    function cargarDatosIniciales() {
-      google.script.run
-        .withSuccessHandler(function(data) {
-          if (data.success) {
+    function cargarDatosIniciales(forzarRecarga = false) {
+      // Intentar cargar datos del cache primero para inicio rápido
+      const cacheKey = 'sv_datos_cache';
+      const cacheTimeKey = 'sv_datos_cache_time';
+      const cacheMaxAge = 5 * 60 * 1000; // 5 minutos
+
+      // Si hay cache válido y no se fuerza recarga, mostrar datos cacheados primero
+      if (!forzarRecarga) {
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          const cacheTime = parseInt(localStorage.getItem(cacheTimeKey) || '0');
+          const ahora = Date.now();
+
+          if (cached && (ahora - cacheTime) < cacheMaxAge) {
+            const data = JSON.parse(cached);
             Estado.clientes = data.clientes || [];
             Estado.movimientos = data.movimientos || [];
             renderMovimientos();
             renderClientesGestion();
             actualizarDatosSistema();
+            document.getElementById('splashScreen').classList.add('hidden');
+            document.getElementById('appContainer').classList.add('visible');
+
+            // Recargar en segundo plano para datos frescos
+            cargarDatosDesdeServidor(true);
+            return;
+          }
+        } catch (e) {
+          console.warn('Error leyendo cache:', e);
+        }
+      }
+
+      // Cargar desde servidor
+      cargarDatosDesdeServidor(false);
+    }
+
+    function cargarDatosDesdeServidor(enSegundoPlano) {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (data.success) {
+            Estado.clientes = data.clientes || [];
+            Estado.movimientos = data.movimientos || [];
+
+            // Guardar en cache
+            try {
+              localStorage.setItem('sv_datos_cache', JSON.stringify({
+                clientes: Estado.clientes,
+                movimientos: Estado.movimientos
+              }));
+              localStorage.setItem('sv_datos_cache_time', Date.now().toString());
+            } catch (e) {
+              console.warn('Error guardando cache:', e);
+            }
+
+            renderMovimientos();
+            renderClientesGestion();
+            actualizarDatosSistema();
           }
 
-          document.getElementById('splashScreen').classList.add('hidden');
-          document.getElementById('appContainer').classList.add('visible');
+          if (!enSegundoPlano) {
+            document.getElementById('splashScreen').classList.add('hidden');
+            document.getElementById('appContainer').classList.add('visible');
+          }
         })
         .withFailureHandler(function(error) {
           console.error('Error:', error);
-          mostrarToast('Error cargando datos', 'error');
-          document.getElementById('splashScreen').classList.add('hidden');
-          document.getElementById('appContainer').classList.add('visible');
+          if (!enSegundoPlano) {
+            mostrarToast('Error cargando datos', 'error');
+            document.getElementById('splashScreen').classList.add('hidden');
+            document.getElementById('appContainer').classList.add('visible');
+          }
         })
         .obtenerDatosParaHTML();
 
@@ -3910,28 +3962,46 @@
     function exportarDatosCSV() {
       mostrarLoading(true);
 
-      // Generar CSV de clientes
-      let csv = 'Nombre,Telefono,Email,Saldo,Limite,Movimientos\n';
-      Estado.clientes.forEach(c => {
-        csv += `"${c.nombre}","${c.tel || ''}","${c.email || ''}",${c.saldo},${c.limite},${c.totalMovs}\n`;
-      });
+      // Obtener todos los clientes del servidor para asegurar exportación completa
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            const clientes = result.clientes || Estado.clientes;
 
-      // Descargar
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'clientes_sol_verde_' + obtenerFechaLocal() + '.csv';
-      link.click();
+            // Generar CSV de clientes
+            let csv = 'Nombre,Telefono,Email,Saldo,Limite,Movimientos,CUIT,CondicionFiscal\n';
+            clientes.forEach(c => {
+              csv += `"${(c.nombre || '').replace(/"/g, '""')}","${c.tel || ''}","${c.email || ''}",${c.saldo || 0},${c.limite || 0},${c.totalMovs || 0},"${c.cuit || ''}","${c.condicionFiscal || ''}"\n`;
+            });
 
-      mostrarLoading(false);
-      mostrarToast('Archivo CSV descargado', 'success');
+            // Descargar
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'clientes_sol_verde_' + obtenerFechaLocal() + '.csv';
+            link.click();
+
+            mostrarToast(`${clientes.length} clientes exportados a CSV`, 'success');
+          } else {
+            mostrarToast('Error al exportar: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .obtenerTodosClientesParaExportar();
     }
 
     function limpiarCacheLocal() {
-      if (!confirm('¿Limpiar cache local?')) return;
+      if (!confirm('¿Limpiar cache local y recargar datos?')) return;
       localStorage.removeItem('proveedoresHistorial');
+      localStorage.removeItem('sv_datos_cache');
+      localStorage.removeItem('sv_datos_cache_time');
       Estado.proveedoresHistorial = [];
-      mostrarToast('Cache limpiada', 'success');
+      mostrarToast('Cache limpiada. Recargando datos...', 'success');
+      cargarDatosIniciales(true); // Forzar recarga desde servidor
     }
 
     function actualizarDatosSistema() {
