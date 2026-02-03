@@ -18,8 +18,8 @@ const ClientesRepository = {
     // Crear hoja si no existe
     if (!hoja) {
       hoja = ss.insertSheet(CONFIG.HOJAS.CLIENTES);
-      hoja.appendRow(['NOMBRE', 'TEL', 'EMAIL', 'LIMITE', 'SALDO', 'TOTAL_MOVS', 'ALTA', 'ULTIMO_MOV', 'OBS']);
-      hoja.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
+      hoja.appendRow(['NOMBRE', 'TEL', 'EMAIL', 'LIMITE', 'SALDO', 'TOTAL_MOVS', 'ALTA', 'ULTIMO_MOV', 'OBS', 'CUIT', 'CONDICION_FISCAL']);
+      hoja.getRange(1, 1, 1, 11).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
       hoja.setFrozenRows(1);
     }
 
@@ -43,7 +43,7 @@ const ClientesRepository = {
 
     if (numRows <= 0) return [];
 
-    const datos = hoja.getRange(startRow, 1, numRows, 9).getValues();
+    const datos = hoja.getRange(startRow, 1, numRows, 11).getValues();
     const clientes = [];
 
     for (const fila of datos) {
@@ -58,7 +58,9 @@ const ClientesRepository = {
         totalMovs: fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS] || 0,
         alta: fila[CONFIG.COLS_CLIENTES.ALTA] instanceof Date ? fila[CONFIG.COLS_CLIENTES.ALTA].toISOString() : '',
         ultimoMov: fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV] instanceof Date ? fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV].toISOString() : '',
-        obs: fila[CONFIG.COLS_CLIENTES.OBS] || ''
+        obs: fila[CONFIG.COLS_CLIENTES.OBS] || '',
+        cuit: fila[CONFIG.COLS_CLIENTES.CUIT] || '',
+        condicionFiscal: fila[CONFIG.COLS_CLIENTES.CONDICION_FISCAL] || (fila[CONFIG.COLS_CLIENTES.CUIT] ? 'Responsable Inscripto' : 'Consumidor Final')
       });
     }
 
@@ -90,6 +92,8 @@ const ClientesRepository = {
           alta: fila[CONFIG.COLS_CLIENTES.ALTA] instanceof Date ? fila[CONFIG.COLS_CLIENTES.ALTA].toISOString() : '',
           ultimoMov: fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV] instanceof Date ? fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV].toISOString() : '',
           obs: fila[CONFIG.COLS_CLIENTES.OBS] || '',
+          cuit: fila[CONFIG.COLS_CLIENTES.CUIT] || '',
+          condicionFiscal: fila[CONFIG.COLS_CLIENTES.CONDICION_FISCAL] || (fila[CONFIG.COLS_CLIENTES.CUIT] ? 'Responsable Inscripto' : 'Consumidor Final'),
           fila: i + 1
         };
       }
@@ -145,6 +149,9 @@ const ClientesRepository = {
     const hoja = this.getHoja();
     const fechaAlta = new Date();
 
+    const cuit = clienteData.cuit || '';
+    const condicionFiscal = clienteData.condicionFiscal || (cuit ? 'Responsable Inscripto' : 'Consumidor Final');
+
     const nuevaFila = [
       nombreNorm,
       clienteData.tel || '',
@@ -154,7 +161,9 @@ const ClientesRepository = {
       0,
       fechaAlta,
       '',
-      clienteData.obs || ''
+      clienteData.obs || '',
+      cuit,
+      condicionFiscal
     ];
 
     hoja.appendRow(nuevaFila);
@@ -168,7 +177,9 @@ const ClientesRepository = {
       totalMovs: 0,
       alta: fechaAlta.toISOString(),
       ultimoMov: '',
-      obs: clienteData.obs || ''
+      obs: clienteData.obs || '',
+      cuit: cuit,
+      condicionFiscal: condicionFiscal
     };
   },
 
@@ -199,6 +210,15 @@ const ClientesRepository = {
     }
     if (datos.obs !== undefined) {
       hoja.getRange(fila, CONFIG.COLS_CLIENTES.OBS + 1).setValue(datos.obs);
+    }
+    if (datos.cuit !== undefined) {
+      hoja.getRange(fila, CONFIG.COLS_CLIENTES.CUIT + 1).setValue(datos.cuit);
+      // Actualizar condición fiscal según CUIT
+      const condicion = datos.condicionFiscal || (datos.cuit ? 'Responsable Inscripto' : 'Consumidor Final');
+      hoja.getRange(fila, CONFIG.COLS_CLIENTES.CONDICION_FISCAL + 1).setValue(condicion);
+    }
+    if (datos.condicionFiscal !== undefined) {
+      hoja.getRange(fila, CONFIG.COLS_CLIENTES.CONDICION_FISCAL + 1).setValue(datos.condicionFiscal);
     }
 
     return this.buscarPorNombre(nombre);

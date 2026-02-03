@@ -1,0 +1,774 @@
+/**
+ * ============================================================================
+ * MODULO DE FACTURACION - SISTEMA SOL & VERDE
+ * ============================================================================
+ * Sistema independiente para gestión de transferencias y facturación
+ * Comparte clientes con el módulo de Cuenta Corriente
+ * ============================================================================
+ */
+
+// Configuración del módulo de facturación
+const CONFIG_FACTURACION = {
+  HOJAS: {
+    TRANSFERENCIAS: 'Transferencias',
+    PRODUCTOS: 'Productos'
+  },
+  COLS_TRANSFERENCIAS: {
+    ID: 0,
+    FECHA: 1,
+    CLIENTE: 2,
+    MONTO: 3,
+    BANCO: 4,
+    CONDICION: 5,
+    TIPO_FACTURA: 6,
+    FACTURADA: 7,
+    FECHA_FACTURA: 8,
+    OBS: 9
+  },
+  COLS_PRODUCTOS: {
+    ID: 0,
+    NOMBRE: 1,
+    PRECIO: 2,
+    STOCK: 3,
+    ACTIVO: 4
+  },
+  IVA: 0.105,
+  CLAUDE: {
+    API_URL: 'https://api.anthropic.com/v1/messages',
+    MODEL: 'claude-sonnet-4-5',
+    MAX_TOKENS: 4000,
+    TEMPERATURE: 0.0
+  }
+};
+
+// ============================================================================
+// REPOSITORIO DE TRANSFERENCIAS
+// ============================================================================
+
+const TransferenciasRepository = {
+  /**
+   * Obtiene o crea la hoja de transferencias
+   */
+  getHoja: function() {
+    const ss = getSpreadsheet();
+    let hoja = ss.getSheetByName(CONFIG_FACTURACION.HOJAS.TRANSFERENCIAS);
+
+    if (!hoja) {
+      hoja = ss.insertSheet(CONFIG_FACTURACION.HOJAS.TRANSFERENCIAS);
+      hoja.appendRow(['ID', 'FECHA', 'CLIENTE', 'MONTO', 'BANCO', 'CONDICION', 'TIPO_FACTURA', 'FACTURADA', 'FECHA_FACTURA', 'OBS']);
+      hoja.getRange(1, 1, 1, 10).setFontWeight('bold').setBackground('#FF6F00').setFontColor('#FFFFFF');
+      hoja.setFrozenRows(1);
+    }
+
+    return hoja;
+  },
+
+  /**
+   * Obtiene el siguiente ID disponible
+   */
+  getSiguienteId: function() {
+    const hoja = this.getHoja();
+    const lastRow = hoja.getLastRow();
+    if (lastRow <= 1) return 1;
+    const ids = hoja.getRange(2, 1, lastRow - 1, 1).getValues().flat().filter(id => id);
+    return ids.length > 0 ? Math.max(...ids) + 1 : 1;
+  },
+
+  /**
+   * Obtiene todas las transferencias
+   */
+  obtenerTodas: function(limite = 100) {
+    const hoja = this.getHoja();
+    const lastRow = hoja.getLastRow();
+
+    if (lastRow <= 1) return [];
+
+    const numRows = Math.min(limite, lastRow - 1);
+    const datos = hoja.getRange(2, 1, numRows, 10).getValues();
+
+    return datos.map(fila => ({
+      id: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID],
+      fecha: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA] instanceof Date ?
+        fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA].toISOString().split('T')[0] : fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA],
+      cliente: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CLIENTE],
+      monto: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.MONTO] || 0,
+      banco: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.BANCO] || '',
+      condicion: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CONDICION] || 'Consumidor Final',
+      tipoFactura: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.TIPO_FACTURA] || '',
+      facturada: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FACTURADA] === true || fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FACTURADA] === 'SI',
+      fechaFactura: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA_FACTURA] || '',
+      obs: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.OBS] || ''
+    })).filter(t => t.id);
+  },
+
+  /**
+   * Obtiene transferencias pendientes de facturar
+   */
+  obtenerPendientes: function() {
+    return this.obtenerTodas().filter(t => !t.facturada);
+  },
+
+  /**
+   * Obtiene transferencias por mes
+   */
+  obtenerPorMes: function(mes, anio) {
+    return this.obtenerTodas(500).filter(t => {
+      if (!t.fecha) return false;
+      const fecha = new Date(t.fecha);
+      return fecha.getMonth() + 1 === mes && fecha.getFullYear() === anio;
+    });
+  },
+
+  /**
+   * Agrega una nueva transferencia
+   */
+  agregar: function(datos) {
+    const hoja = this.getHoja();
+    const id = this.getSiguienteId();
+
+    // Determinar condición fiscal del cliente
+    let condicion = datos.condicion || 'Consumidor Final';
+    if (datos.cliente) {
+      const cliente = ClientesRepository.buscarPorNombre(datos.cliente);
+      if (cliente) {
+        condicion = cliente.condicionFiscal || (cliente.cuit ? 'Responsable Inscripto' : 'Consumidor Final');
+      }
+    }
+
+    // Determinar tipo de factura según condición
+    const tipoFactura = condicion === 'Responsable Inscripto' ? 'A' : 'CONSUMIDOR FINAL';
+
+    const nuevaFila = [
+      id,
+      datos.fecha ? new Date(datos.fecha) : new Date(),
+      (datos.cliente || '').toUpperCase(),
+      datos.monto || 0,
+      datos.banco || '',
+      condicion,
+      tipoFactura,
+      false,
+      '',
+      datos.obs || ''
+    ];
+
+    hoja.appendRow(nuevaFila);
+
+    return {
+      id: id,
+      fecha: datos.fecha,
+      cliente: datos.cliente,
+      monto: datos.monto,
+      banco: datos.banco,
+      condicion: condicion,
+      tipoFactura: tipoFactura,
+      facturada: false
+    };
+  },
+
+  /**
+   * Agrega múltiples transferencias (para importación desde IA)
+   */
+  agregarMultiples: function(transferencias) {
+    const resultados = [];
+    for (const t of transferencias) {
+      resultados.push(this.agregar(t));
+    }
+    return resultados;
+  },
+
+  /**
+   * Marca una transferencia como facturada
+   */
+  marcarFacturada: function(id) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    for (let i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID] === id) {
+        hoja.getRange(i + 1, CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FACTURADA + 1).setValue('SI');
+        hoja.getRange(i + 1, CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA_FACTURA + 1).setValue(new Date());
+        return true;
+      }
+    }
+    return false;
+  },
+
+  /**
+   * Elimina una transferencia
+   */
+  eliminar: function(id) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    for (let i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID] === id) {
+        hoja.deleteRow(i + 1);
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+// ============================================================================
+// REPOSITORIO DE PRODUCTOS
+// ============================================================================
+
+const ProductosRepository = {
+  /**
+   * Obtiene o crea la hoja de productos
+   */
+  getHoja: function() {
+    const ss = getSpreadsheet();
+    let hoja = ss.getSheetByName(CONFIG_FACTURACION.HOJAS.PRODUCTOS);
+
+    if (!hoja) {
+      hoja = ss.insertSheet(CONFIG_FACTURACION.HOJAS.PRODUCTOS);
+      hoja.appendRow(['ID', 'NOMBRE', 'PRECIO', 'STOCK', 'ACTIVO']);
+      hoja.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#2E7D32').setFontColor('#FFFFFF');
+      hoja.setFrozenRows(1);
+    }
+
+    return hoja;
+  },
+
+  /**
+   * Obtiene todos los productos
+   */
+  obtenerTodos: function() {
+    const hoja = this.getHoja();
+    const lastRow = hoja.getLastRow();
+
+    if (lastRow <= 1) return [];
+
+    const datos = hoja.getRange(2, 1, lastRow - 1, 5).getValues();
+
+    return datos.map(fila => ({
+      id: fila[CONFIG_FACTURACION.COLS_PRODUCTOS.ID],
+      nombre: fila[CONFIG_FACTURACION.COLS_PRODUCTOS.NOMBRE],
+      precio: fila[CONFIG_FACTURACION.COLS_PRODUCTOS.PRECIO] || 0,
+      stock: fila[CONFIG_FACTURACION.COLS_PRODUCTOS.STOCK],
+      activo: fila[CONFIG_FACTURACION.COLS_PRODUCTOS.ACTIVO] !== false
+    })).filter(p => p.nombre);
+  },
+
+  /**
+   * Obtiene productos activos
+   */
+  obtenerActivos: function() {
+    return this.obtenerTodos().filter(p => p.activo && p.precio > 0);
+  },
+
+  /**
+   * Agrega un producto
+   */
+  agregar: function(datos) {
+    const hoja = this.getHoja();
+    const lastRow = hoja.getLastRow();
+    const id = lastRow;
+
+    hoja.appendRow([
+      id,
+      datos.nombre || '',
+      datos.precio || 0,
+      datos.stock !== undefined ? datos.stock : 999999,
+      true
+    ]);
+
+    return { id, ...datos, activo: true };
+  },
+
+  /**
+   * Actualiza un producto
+   */
+  actualizar: function(id, datos) {
+    const hoja = this.getHoja();
+    const dataRange = hoja.getDataRange().getValues();
+
+    for (let i = 1; i < dataRange.length; i++) {
+      if (dataRange[i][CONFIG_FACTURACION.COLS_PRODUCTOS.ID] === id) {
+        if (datos.nombre !== undefined) {
+          hoja.getRange(i + 1, CONFIG_FACTURACION.COLS_PRODUCTOS.NOMBRE + 1).setValue(datos.nombre);
+        }
+        if (datos.precio !== undefined) {
+          hoja.getRange(i + 1, CONFIG_FACTURACION.COLS_PRODUCTOS.PRECIO + 1).setValue(datos.precio);
+        }
+        if (datos.stock !== undefined) {
+          hoja.getRange(i + 1, CONFIG_FACTURACION.COLS_PRODUCTOS.STOCK + 1).setValue(datos.stock);
+        }
+        if (datos.activo !== undefined) {
+          hoja.getRange(i + 1, CONFIG_FACTURACION.COLS_PRODUCTOS.ACTIVO + 1).setValue(datos.activo);
+        }
+        return true;
+      }
+    }
+    return false;
+  },
+
+  /**
+   * Elimina un producto
+   */
+  eliminar: function(id) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    for (let i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG_FACTURACION.COLS_PRODUCTOS.ID] === id) {
+        hoja.deleteRow(i + 1);
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+// ============================================================================
+// FUNCIONES API PARA FRONTEND
+// ============================================================================
+
+/**
+ * Obtiene datos iniciales del módulo de facturación
+ */
+function obtenerDatosFacturacion() {
+  try {
+    const transferencias = TransferenciasRepository.obtenerTodas();
+    const productos = ProductosRepository.obtenerTodos();
+    const apiKey = PropertiesService.getUserProperties().getProperty('CLAUDE_API_KEY') || '';
+
+    return {
+      success: true,
+      transferencias: transferencias,
+      productos: productos,
+      apiKeyConfigured: !!apiKey
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerDatosFacturacion: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Agrega una transferencia manual
+ */
+function agregarTransferencia(datos) {
+  try {
+    const result = TransferenciasRepository.agregar(datos);
+    return { success: true, transferencia: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Elimina una transferencia
+ */
+function eliminarTransferencia(id) {
+  try {
+    TransferenciasRepository.eliminar(id);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Marca transferencia como facturada
+ */
+function marcarTransferenciaFacturada(id) {
+  try {
+    TransferenciasRepository.marcarFacturada(id);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * CRUD de productos
+ */
+function agregarProducto(datos) {
+  try {
+    const result = ProductosRepository.agregar(datos);
+    return { success: true, producto: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+function actualizarProducto(id, datos) {
+  try {
+    ProductosRepository.actualizar(id, datos);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+function eliminarProducto(id) {
+  try {
+    ProductosRepository.eliminar(id);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Guarda la API Key de Claude
+ */
+function guardarApiKeyFacturacion(key) {
+  try {
+    PropertiesService.getUserProperties().setProperty('CLAUDE_API_KEY', key.trim());
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ============================================================================
+// PROCESAMIENTO DE IMAGENES CON CLAUDE
+// ============================================================================
+
+/**
+ * Procesa imagen de comprobante bancario con Claude
+ */
+function procesarImagenComprobante(base64Image) {
+  const apiKey = PropertiesService.getUserProperties().getProperty('CLAUDE_API_KEY');
+  if (!apiKey) {
+    return { success: false, error: 'API Key de Claude no configurada' };
+  }
+
+  const systemPrompt = `Eres un experto forense en análisis de documentos bancarios argentinos.
+Tu tarea es extraer datos financieros con máxima precisión, ignorando cualquier ruido visual como sombras, borrones, tachaduras o textos irrelevantes.
+Prioriza siempre el texto manuscrito sobre el impreso cuando haya correcciones.
+Usa el contexto de las columnas para interpretar datos borrosos.
+IMPORTANTE: Protege la privacidad - NO incluyas números de cuenta, CBU, alias o datos sensibles.`;
+
+  const userPrompt = `Analiza esta imagen de un documento bancario argentino.
+
+**REGLAS:**
+- Tachaduras: Si un texto está tachado, IGNÓRALO.
+- Correcciones manuscritas: El texto manuscrito tiene prioridad sobre el impreso.
+- Formato argentino: Montos usan punto para miles y coma para decimales (1.500,00).
+- Fecha: Busca en encabezado. Formatos: '15/01/24', '15 Ene 2024'. Convierte a YYYY-MM-DD.
+
+**EXTRACCIÓN:**
+- Nombres: Normaliza a mayúsculas. Limpia prefijos como "Transf", "Pago a".
+- Montos: Solo números del importe de transferencia.
+- Bancos: Galicia, Santander, BBVA, Nación, Provincia, Macro, MP (MercadoPago), etc.
+
+**SEGURIDAD:**
+- NO incluyas números de cuenta, CBU, alias ni datos sensibles.
+- Solo extrae: fecha, nombre del titular, monto, banco origen.
+
+**SALIDA JSON:**
+{
+  "fecha_documento": "YYYY-MM-DD",
+  "items": [
+    { "nombre": "NOMBRE COMPLETO", "monto": 12500.50, "banco": "Galicia" }
+  ]
+}`;
+
+  const messages = [
+    {
+      role: "user",
+      content: [
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Image } },
+        { type: "text", text: userPrompt }
+      ]
+    }
+  ];
+
+  try {
+    const payload = {
+      model: CONFIG_FACTURACION.CLAUDE.MODEL,
+      max_tokens: CONFIG_FACTURACION.CLAUDE.MAX_TOKENS,
+      temperature: CONFIG_FACTURACION.CLAUDE.TEMPERATURE,
+      system: systemPrompt,
+      messages: messages
+    };
+
+    const options = {
+      method: 'post',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(CONFIG_FACTURACION.CLAUDE.API_URL, options);
+    const code = response.getResponseCode();
+    const text = response.getContentText();
+
+    if (code !== 200) {
+      let errorMsg = `Error ${code}`;
+      try {
+        errorMsg += `: ${JSON.parse(text).error.message}`;
+      } catch (e) {
+        errorMsg += `: ${text.substring(0, 100)}`;
+      }
+      return { success: false, error: errorMsg };
+    }
+
+    const json = JSON.parse(text);
+    const responseText = json.content[0].text;
+
+    // Extraer JSON de la respuesta
+    const match = responseText.match(/\{[\s\S]*\}/);
+    if (!match) {
+      return { success: false, error: 'La respuesta de Claude no contiene JSON válido' };
+    }
+
+    const datos = JSON.parse(match[0]);
+
+    return {
+      success: true,
+      fecha: datos.fecha_documento,
+      items: datos.items || [],
+      tokensUsados: json.usage ? json.usage.input_tokens + json.usage.output_tokens : 0
+    };
+
+  } catch (error) {
+    Logger.log('Error en procesarImagenComprobante: ' + error.message);
+    return { success: false, error: 'Error procesando imagen: ' + error.message };
+  }
+}
+
+/**
+ * Importa transferencias detectadas por IA
+ */
+function importarTransferenciasIA(transferencias) {
+  try {
+    const resultados = TransferenciasRepository.agregarMultiples(transferencias);
+    return {
+      success: true,
+      cantidad: resultados.length,
+      transferencias: resultados
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ============================================================================
+// GENERADOR DE RESUMEN MENSUAL
+// ============================================================================
+
+/**
+ * Genera resumen mensual de facturación
+ */
+function generarResumenFacturacion(mes, anio) {
+  try {
+    const ss = getSpreadsheet();
+    const transferencias = TransferenciasRepository.obtenerPorMes(mes, anio);
+    const productos = ProductosRepository.obtenerActivos();
+
+    if (transferencias.length === 0) {
+      return { success: false, error: 'No hay transferencias para el mes seleccionado' };
+    }
+
+    // Separar por tipo
+    const facturasA = transferencias.filter(t => t.tipoFactura === 'A');
+    const consumidoresFinales = transferencias.filter(t => t.tipoFactura === 'CONSUMIDOR FINAL');
+
+    const nombreMes = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][mes - 1];
+
+    // Crear hoja de Facturas A si hay
+    if (facturasA.length > 0) {
+      crearHojaFacturasA(ss, `Facturas A - ${nombreMes} ${anio}`, facturasA, productos);
+    }
+
+    // Crear hoja de Consumidores Finales si hay
+    if (consumidoresFinales.length > 0) {
+      crearHojaConsumidoresFinales(ss, `Consumidores Finales - ${nombreMes} ${anio}`, consumidoresFinales);
+    }
+
+    return {
+      success: true,
+      mensaje: `Resumen generado: ${facturasA.length} Facturas A, ${consumidoresFinales.length} Consumidores Finales`,
+      facturasA: facturasA.length,
+      consumidoresFinales: consumidoresFinales.length
+    };
+
+  } catch (error) {
+    Logger.log('Error en generarResumenFacturacion: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Crea hoja de Facturas A con productos distribuidos
+ */
+function crearHojaFacturasA(ss, nombreHoja, transferencias, productos) {
+  // Eliminar hoja si existe
+  let hoja = ss.getSheetByName(nombreHoja);
+  if (hoja) ss.deleteSheet(hoja);
+
+  hoja = ss.insertSheet(nombreHoja);
+
+  // Encabezado
+  hoja.getRange(1, 1).setValue('FACTURAS A - ' + new Date().toLocaleDateString('es-AR'));
+  hoja.getRange(1, 1).setFontSize(16).setFontWeight('bold');
+  hoja.getRange(1, 1, 1, 8).merge().setBackground('#2E7D32').setFontColor('white');
+
+  // Info
+  hoja.getRange(3, 1).setValue('Total transferencias:');
+  hoja.getRange(3, 2).setValue(transferencias.length);
+  hoja.getRange(4, 1).setValue('Monto total:');
+  hoja.getRange(4, 2).setValue(transferencias.reduce((sum, t) => sum + t.monto, 0)).setNumberFormat('$#,##0.00');
+
+  // Headers tabla
+  const headers = ['Fecha', 'Cliente', 'Banco', 'Monto Transf.', 'Productos', 'Subtotal', 'IVA 10.5%', 'Total'];
+  hoja.getRange(6, 1, 1, 8).setValues([headers]);
+  hoja.getRange(6, 1, 1, 8).setFontWeight('bold').setBackground('#1976D2').setFontColor('white');
+
+  // Datos
+  let fila = 7;
+  for (const t of transferencias) {
+    const productosSeleccionados = seleccionarProductosParaMonto(t.monto, productos);
+    const subtotal = productosSeleccionados.reduce((sum, p) => sum + p.precio, 0);
+    const iva = subtotal * CONFIG_FACTURACION.IVA;
+    const total = subtotal + iva;
+
+    hoja.getRange(fila, 1, 1, 8).setValues([[
+      t.fecha,
+      t.cliente,
+      t.banco,
+      t.monto,
+      productosSeleccionados.map(p => p.nombre).join('; '),
+      subtotal,
+      iva,
+      total
+    ]]);
+
+    hoja.getRange(fila, 4, 1, 5).setNumberFormat('$#,##0.00');
+    fila++;
+  }
+
+  // Totales
+  hoja.getRange(fila + 1, 1).setValue('TOTALES');
+  hoja.getRange(fila + 1, 4).setFormula(`=SUM(D7:D${fila})`);
+  hoja.getRange(fila + 1, 6).setFormula(`=SUM(F7:F${fila})`);
+  hoja.getRange(fila + 1, 7).setFormula(`=SUM(G7:G${fila})`);
+  hoja.getRange(fila + 1, 8).setFormula(`=SUM(H7:H${fila})`);
+  hoja.getRange(fila + 1, 1, 1, 8).setFontWeight('bold').setBackground('#FFF3E0');
+
+  hoja.autoResizeColumns(1, 8);
+}
+
+/**
+ * Crea hoja de Consumidores Finales
+ */
+function crearHojaConsumidoresFinales(ss, nombreHoja, transferencias) {
+  let hoja = ss.getSheetByName(nombreHoja);
+  if (hoja) ss.deleteSheet(hoja);
+
+  hoja = ss.insertSheet(nombreHoja);
+
+  // Encabezado
+  hoja.getRange(1, 1).setValue('CONSUMIDORES FINALES - ' + new Date().toLocaleDateString('es-AR'));
+  hoja.getRange(1, 1).setFontSize(16).setFontWeight('bold');
+  hoja.getRange(1, 1, 1, 3).merge().setBackground('#2E7D32').setFontColor('white');
+
+  // Info
+  hoja.getRange(3, 1).setValue('Total transferencias:');
+  hoja.getRange(3, 2).setValue(transferencias.length);
+  hoja.getRange(4, 1).setValue('Monto total:');
+  hoja.getRange(4, 2).setValue(transferencias.reduce((sum, t) => sum + t.monto, 0)).setNumberFormat('$#,##0.00');
+
+  // Headers
+  hoja.getRange(6, 1, 1, 3).setValues([['Fecha', 'Cliente', 'Importe']]);
+  hoja.getRange(6, 1, 1, 3).setFontWeight('bold').setBackground('#1976D2').setFontColor('white');
+
+  // Datos
+  let fila = 7;
+  for (const t of transferencias) {
+    hoja.getRange(fila, 1, 1, 3).setValues([[t.fecha, t.cliente, t.monto]]);
+    hoja.getRange(fila, 3).setNumberFormat('$#,##0.00');
+    fila++;
+  }
+
+  // Total
+  hoja.getRange(fila + 1, 1, 1, 2).setValues([['TOTAL', '']]);
+  hoja.getRange(fila + 1, 1, 1, 2).merge();
+  hoja.getRange(fila + 1, 3).setFormula(`=SUM(C7:C${fila})`);
+  hoja.getRange(fila + 1, 1, 1, 3).setFontWeight('bold').setBackground('#FFF3E0');
+
+  hoja.autoResizeColumns(1, 3);
+}
+
+/**
+ * Selecciona productos para cubrir un monto (algoritmo simple)
+ */
+function seleccionarProductosParaMonto(montoObjetivo, productos) {
+  if (!productos || productos.length === 0) return [];
+
+  const baseAmount = montoObjetivo / (1 + CONFIG_FACTURACION.IVA);
+  const seleccionados = [];
+  let sumaActual = 0;
+
+  // Ordenar productos por precio descendente
+  const productosOrdenados = [...productos].sort((a, b) => b.precio - a.precio);
+
+  for (const p of productosOrdenados) {
+    if (sumaActual + p.precio <= baseAmount * 1.05) {
+      seleccionados.push(p);
+      sumaActual += p.precio;
+      if (sumaActual >= baseAmount) break;
+    }
+  }
+
+  // Si no llegamos al monto, agregar el más pequeño
+  if (sumaActual < baseAmount && productosOrdenados.length > 0) {
+    const masBarato = productosOrdenados[productosOrdenados.length - 1];
+    if (!seleccionados.find(s => s.id === masBarato.id)) {
+      seleccionados.push(masBarato);
+    }
+  }
+
+  return seleccionados;
+}
+
+/**
+ * Prueba conexión con Claude
+ */
+function probarConexionClaude() {
+  const apiKey = PropertiesService.getUserProperties().getProperty('CLAUDE_API_KEY');
+  if (!apiKey) {
+    return { success: false, error: 'API Key no configurada' };
+  }
+
+  try {
+    const payload = {
+      model: CONFIG_FACTURACION.CLAUDE.MODEL,
+      max_tokens: 10,
+      messages: [{ role: "user", content: "Ping" }]
+    };
+
+    const options = {
+      method: 'post',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(CONFIG_FACTURACION.CLAUDE.API_URL, options);
+    const code = response.getResponseCode();
+
+    if (code === 200) {
+      return { success: true, mensaje: 'Conexión exitosa con Claude Sonnet 4.5' };
+    } else {
+      return { success: false, error: `Error ${code}: ${response.getContentText().substring(0, 100)}` };
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}

@@ -32,7 +32,9 @@ const CONFIG = {
     TOTAL_MOVS: 5,  // F: Number (contador)
     ALTA: 6,        // G: Date
     ULTIMO_MOV: 7,  // H: Date
-    OBS: 8          // I: String
+    OBS: 8,         // I: String
+    CUIT: 9,        // J: String (XX-XXXXXXXX-X)
+    CONDICION_FISCAL: 10  // K: String (Consumidor Final / Responsable Inscripto)
   },
 
   // Indices de columnas para MOVIMIENTOS (0-based)
