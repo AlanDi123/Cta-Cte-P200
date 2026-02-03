@@ -404,9 +404,18 @@ const MovimientosRepository = {
   recalcularTodosSaldos: function() {
     const clientes = ClientesRepository.obtenerTodos();
     let actualizados = 0;
+    let omitidos = 0;
 
     for (const cliente of clientes) {
       const movimientos = this.obtenerPorCliente(cliente.nombre);
+
+      // PROTECCION: si el cliente no tiene movimientos registrados en el sistema,
+      // NO tocar su saldo. El saldo actual en la base de datos es el correcto
+      // y solo puede ser modificado por movimientos o ediciones del usuario.
+      if (movimientos.length === 0) {
+        omitidos++;
+        continue;
+      }
 
       let saldoCalculado = 0;
       for (const mov of movimientos) {
@@ -427,7 +436,7 @@ const MovimientosRepository = {
       }
     }
 
-    return { clientesActualizados: actualizados };
+    return { clientesActualizados: actualizados, omitidosSinMovimientos: omitidos };
   },
 
   /**

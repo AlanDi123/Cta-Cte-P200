@@ -350,13 +350,13 @@ function obtenerSaldosConMovimientosDia(fecha) {
       }
     }
 
-    // Enriquecer deudores con movimientos del dia
+    // Enriquecer deudores con movimientos del dia y ordenar alfabeticamente
     const resultado = deudores.map(d => ({
       nombre: d.nombre,
       saldo: d.saldo,
       pagosDia: movsPorCliente[d.nombre]?.pagos || 0,
       fiadosDia: movsPorCliente[d.nombre]?.fiados || 0
-    }));
+    })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
     // Calcular totales
     let totalPagos = 0;
@@ -463,7 +463,8 @@ function recalcularTodosSaldos() {
     return {
       success: true,
       clientesActualizados: resultado.clientesActualizados,
-      mensaje: resultado.clientesActualizados + ' clientes actualizados'
+      omitidosSinMovimientos: resultado.omitidosSinMovimientos,
+      mensaje: resultado.clientesActualizados + ' clientes actualizados, ' + resultado.omitidosSinMovimientos + ' sin movimientos (saldo preservado)'
     };
   } catch (error) {
     Logger.log('Error en recalcularTodosSaldos: ' + error.message);

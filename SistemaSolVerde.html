@@ -3939,14 +3939,14 @@
     }
 
     function recalcularTodosSaldos() {
-      if (!confirm('¿Recalcular todos los saldos? Esto puede tardar unos segundos.')) return;
+      if (!confirm('¿Recalcular saldos?\n\nSolo se recalculan clientes CON movimientos registrados.\nClientes sin movimientos conservan su saldo actual.')) return;
 
       mostrarLoading(true);
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           if (result.success) {
-            mostrarToast('Saldos recalculados: ' + result.clientesActualizados + ' clientes', 'success');
+            mostrarToast(result.mensaje, 'success');
             cargarDatosIniciales();
           } else {
             mostrarToast(result.error, 'error');
