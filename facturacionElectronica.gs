@@ -14,7 +14,13 @@
  * 2. Ir a Configuración del sistema > sección "Facturación Electrónica ARCA"
  * 3. Pegar el Access Token, configurar CUIT y Punto de Venta
  * 4. Probar conexión en modo desarrollo (dev)
- * 5. Una vez verificado, cambiar a modo producción (prod)
+ *    → Sin certificado: usa CUIT de test (20409378472) - solo para probar
+ *    → Con certificado: usa tu CUIT real
+ * 5. Generar certificado: ingresar CUIT y clave fiscal de ARCA
+ *    → El sistema genera el certificado automáticamente via Afip SDK
+ *    → El certificado se guarda en ScriptProperties
+ * 6. Una vez verificado con certificado propio, cambiar a modo producción (prod)
+ *    → Repetir generación de certificado en modo prod
  *
  * TIPOS DE COMPROBANTE (CbteTipo):
  *   1  = Factura A           (para clientes RI)
@@ -117,7 +123,9 @@ const AfipService = {
       accessToken: props.getProperty('AFIP_ACCESS_TOKEN') || '',
       environment: props.getProperty('AFIP_ENVIRONMENT') || 'dev',
       puntoVenta: parseInt(props.getProperty('AFIP_PUNTO_VENTA') || '11'),
-      cuit: props.getProperty('AFIP_CUIT') || CONFIG_AFIP.EMISOR.CUIT
+      cuit: props.getProperty('AFIP_CUIT') || CONFIG_AFIP.EMISOR.CUIT,
+      cert: props.getProperty('AFIP_CERT') || '',
+      key: props.getProperty('AFIP_KEY') || ''
     };
   },
 
@@ -130,6 +138,8 @@ const AfipService = {
     if (config.environment !== undefined) props.setProperty('AFIP_ENVIRONMENT', config.environment);
     if (config.puntoVenta !== undefined) props.setProperty('AFIP_PUNTO_VENTA', String(config.puntoVenta));
     if (config.cuit !== undefined) props.setProperty('AFIP_CUIT', config.cuit);
+    if (config.cert !== undefined) props.setProperty('AFIP_CERT', config.cert);
+    if (config.key !== undefined) props.setProperty('AFIP_KEY', config.key);
   },
 
   /**
@@ -140,6 +150,14 @@ const AfipService = {
     return config.accessToken && config.accessToken.length > 10;
   },
 
+  /**
+   * Verifica si tiene certificado configurado
+   */
+  tieneCertificado: function() {
+    const config = this.getConfig();
+    return config.cert && config.cert.length > 50 && config.key && config.key.length > 50;
+  },
+
   // --------------------------------------------------------------------------
   // LLAMADAS A LA API
   // --------------------------------------------------------------------------
@@ -147,27 +165,39 @@ const AfipService = {
   /**
    * Realiza una llamada HTTP a Afip SDK
    * @param {string} endpoint - Ruta relativa (ej: '/auth', '/requests')
-   * @param {Object} payload - Cuerpo del request
+   * @param {Object} payload - Cuerpo del request (null para GET)
+   * @param {string} method - 'post' o 'get' (default: 'post')
    * @returns {Object} Respuesta parseada
    */
-  _fetch: function(endpoint, payload) {
+  _fetch: function(endpoint, payload, method) {
     const config = this.getConfig();
 
     if (!config.accessToken) {
       throw new Error('Access Token de Afip SDK no configurado. Ve a Configuración > Facturación ARCA.');
     }
 
-    const url = CONFIG_AFIP.API_URL + endpoint;
+    // URL base: para /automations usamos la raíz, para el resto usamos /afip
+    var url;
+    if (endpoint.indexOf('/automations') === 0) {
+      url = 'https://app.afipsdk.com/api/v1' + endpoint;
+    } else {
+      url = CONFIG_AFIP.API_URL + endpoint;
+    }
+
+    var httpMethod = method || 'post';
 
     const options = {
-      method: 'post',
+      method: httpMethod,
       contentType: 'application/json',
       headers: {
         'Authorization': 'Bearer ' + config.accessToken
       },
-      payload: JSON.stringify(payload),
       muteHttpExceptions: true
     };
+
+    if (payload && httpMethod === 'post') {
+      options.payload = JSON.stringify(payload);
+    }
 
     const response = UrlFetchApp.fetch(url, options);
     const code = response.getResponseCode();
@@ -181,9 +211,9 @@ const AfipService = {
       let errorMsg = 'Error ' + code;
       try {
         const errorData = JSON.parse(text);
-        errorMsg += ': ' + (errorData.message || errorData.error || text.substring(0, 200));
+        errorMsg += ': ' + (errorData.message || errorData.error || JSON.stringify(errorData.data_errors) || text.substring(0, 300));
       } catch (e) {
-        errorMsg += ': ' + text.substring(0, 200);
+        errorMsg += ': ' + text.substring(0, 300);
       }
       throw new Error(errorMsg);
     }
@@ -197,16 +227,52 @@ const AfipService = {
 
   /**
    * Paso 1: Obtener Token y Sign de autenticación ARCA
+   *
+   * IMPORTANTE: Afip SDK requiere certificado y clave privada para autenticarse.
+   * - En modo DEV con CUIT de test (20409378472): NO necesita cert/key
+   * - En modo DEV o PROD con CUIT propio: NECESITA cert/key
+   *
+   * Para generar el certificado, usar generarCertificadoAfip() desde Configuración.
+   *
+   * @param {string} wsid - Web Service ID ('wsfe' para facturación, 'ws_sr_padron_a5' para padrón)
    * @returns {Object} {token, sign}
    */
-  autenticar: function() {
+  autenticar: function(wsid) {
     const config = this.getConfig();
+    var ws = wsid || 'wsfe';
+
+    // CUIT de test de Afip SDK (no requiere certificado en dev)
+    var CUIT_TEST = '20409378472';
+
+    // Determinar qué CUIT usar para auth
+    var cuitAuth = config.cuit;
+
+    // Si es modo dev y no tiene certificado, usar CUIT de test
+    if (config.environment === 'dev' && !this.tieneCertificado()) {
+      cuitAuth = CUIT_TEST;
+      Logger.log('Modo dev sin certificado: usando CUIT de test ' + CUIT_TEST);
+    }
+
+    // Si es modo prod o dev con CUIT propio, verificar certificado
+    if (cuitAuth !== CUIT_TEST && !this.tieneCertificado()) {
+      throw new Error(
+        'Se requiere certificado para usar CUIT propio. ' +
+        'Ve a Configuración > Facturación ARCA > "Generar Certificado" para crear uno. ' +
+        'O si estás en modo desarrollo, podés probar sin certificado (usará CUIT de test).'
+      );
+    }
 
     const payload = {
       environment: config.environment,
-      tax_id: config.cuit,
-      wsid: 'wsfe'
+      tax_id: cuitAuth,
+      wsid: ws
     };
+
+    // Agregar cert y key si están disponibles
+    if (config.cert && config.key) {
+      payload.cert = config.cert;
+      payload.key = config.key;
+    }
 
     const result = this._fetch('/auth', payload);
 
@@ -216,7 +282,8 @@ const AfipService = {
 
     return {
       token: result.token,
-      sign: result.sign
+      sign: result.sign,
+      cuitAuth: cuitAuth  // Devolver el CUIT usado para auth
     };
   },
 
@@ -227,7 +294,7 @@ const AfipService = {
    */
   ultimoComprobante: function(cbteTipo) {
     const config = this.getConfig();
-    const auth = this.autenticar();
+    const auth = this.autenticar('wsfe');
 
     const payload = {
       environment: config.environment,
@@ -237,12 +304,16 @@ const AfipService = {
         Auth: {
           Token: auth.token,
           Sign: auth.sign,
-          Cuit: config.cuit
+          Cuit: auth.cuitAuth
         },
         PtoVta: config.puntoVenta,
         CbteTipo: cbteTipo
       }
     };
+
+    // Incluir cert y key si están disponibles
+    if (config.cert) payload.cert = config.cert;
+    if (config.key) payload.key = config.key;
 
     const result = this._fetch('/requests', payload);
 
@@ -264,7 +335,7 @@ const AfipService = {
    */
   emitirComprobante: function(datosFactura) {
     const config = this.getConfig();
-    const auth = this.autenticar();
+    const auth = this.autenticar('wsfe');
 
     // Obtener próximo número
     const ultimoNro = this.ultimoComprobante(datosFactura.cbteTipo);
@@ -354,7 +425,7 @@ const AfipService = {
         Auth: {
           Token: auth.token,
           Sign: auth.sign,
-          Cuit: config.cuit
+          Cuit: auth.cuitAuth
         },
         FeCAEReq: {
           FeCabReq: {
@@ -368,6 +439,10 @@ const AfipService = {
         }
       }
     };
+
+    // Incluir cert y key si están disponibles
+    if (config.cert) payload.cert = config.cert;
+    if (config.key) payload.key = config.key;
 
     const result = this._fetch('/requests', payload);
 
@@ -425,7 +500,7 @@ const AfipService = {
       throw new Error('CUIT inválido: debe tener 11 dígitos. Recibido: ' + cuit);
     }
 
-    const auth = this.autenticar();
+    const auth = this.autenticar('ws_sr_padron_a5');
 
     const payload = {
       environment: config.environment,
@@ -434,10 +509,14 @@ const AfipService = {
       params: {
         token: auth.token,
         sign: auth.sign,
-        cuitRepresentada: config.cuit,
+        cuitRepresentada: auth.cuitAuth,
         idPersona: cuitLimpio
       }
     };
+
+    // Incluir cert y key si están disponibles
+    if (config.cert) payload.cert = config.cert;
+    if (config.key) payload.key = config.key;
 
     try {
       const result = this._fetch('/requests', payload);
@@ -883,6 +962,102 @@ function formatCUIT(cuit) {
 // ============================================================================
 
 /**
+ * Genera un certificado para Afip SDK via automations API.
+ * Requiere usuario y contraseña de ARCA (clave fiscal).
+ *
+ * El proceso tarda 10-60 segundos:
+ * 1. Crea una automatización en Afip SDK
+ * 2. La automatización ingresa a ARCA y genera el certificado
+ * 3. Devuelve cert + key que se guardan en ScriptProperties
+ *
+ * @param {Object} datos - {username, password, alias, environment}
+ * @returns {Object} {success, mensaje}
+ */
+function generarCertificadoAfip(datos) {
+  try {
+    if (!datos.username || !datos.password) {
+      throw new Error('Se requiere usuario (CUIT) y contraseña de ARCA (clave fiscal)');
+    }
+
+    var config = AfipService.getConfig();
+    var env = datos.environment || config.environment || 'dev';
+    var automationType = env === 'prod' ? 'create-cert-prod' : 'create-cert-dev';
+    var alias = datos.alias || 'solyverde';
+
+    // Paso 1: Crear la automatización
+    var createPayload = {
+      automation: automationType,
+      params: {
+        cuit: config.cuit || CONFIG_AFIP.EMISOR.CUIT,
+        username: String(datos.username).replace(/[-\s]/g, ''),
+        password: datos.password,
+        alias: alias
+      }
+    };
+
+    var createResult = AfipService._fetch('/automations', createPayload);
+
+    if (!createResult.id) {
+      throw new Error('No se pudo iniciar la generación del certificado. Respuesta: ' + JSON.stringify(createResult).substring(0, 200));
+    }
+
+    var automationId = createResult.id;
+    Logger.log('Automatización creada: ' + automationId + ' (tipo: ' + automationType + ')');
+
+    // Paso 2: Esperar resultado (polling cada 5 seg, máximo 120 seg)
+    var maxIntentos = 24;
+    var resultado = null;
+
+    for (var i = 0; i < maxIntentos; i++) {
+      Utilities.sleep(5000); // 5 segundos
+
+      var pollResult = AfipService._fetch('/automations/' + automationId, null, 'get');
+
+      if (pollResult.status === 'complete' || pollResult.status === 'completed') {
+        resultado = pollResult;
+        break;
+      }
+
+      if (pollResult.status === 'error' || pollResult.status === 'failed') {
+        throw new Error('Error generando certificado: ' + (pollResult.error || pollResult.message || JSON.stringify(pollResult.data || {}).substring(0, 200)));
+      }
+
+      Logger.log('Esperando certificado... intento ' + (i + 1) + '/' + maxIntentos + ' (estado: ' + pollResult.status + ')');
+    }
+
+    if (!resultado) {
+      throw new Error('Tiempo de espera agotado. El certificado puede estar generándose aún. Intentá de nuevo en unos minutos.');
+    }
+
+    // Paso 3: Extraer cert y key
+    var certData = resultado.data || resultado;
+    var cert = certData.cert || '';
+    var key = certData.key || '';
+
+    if (!cert || !key) {
+      throw new Error('La respuesta no incluyó certificado o clave. Respuesta: ' + JSON.stringify(certData).substring(0, 300));
+    }
+
+    // Paso 4: Guardar en ScriptProperties
+    AfipService.setConfig({
+      cert: cert,
+      key: key
+    });
+
+    Logger.log('Certificado generado y guardado exitosamente (' + env + ')');
+
+    return {
+      success: true,
+      mensaje: 'Certificado ' + env.toUpperCase() + ' generado y guardado exitosamente. Ya podés emitir comprobantes con tu CUIT.',
+      certPreview: cert.substring(0, 60) + '...'
+    };
+  } catch (error) {
+    Logger.log('Error generando certificado: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Guarda configuración de Afip SDK
  */
 function guardarConfigAfip(config) {
@@ -903,10 +1078,12 @@ function obtenerConfigAfip() {
     return {
       success: true,
       configurado: AfipService.estaConfigurado(),
+      tieneCert: AfipService.tieneCertificado(),
       environment: config.environment,
       puntoVenta: config.puntoVenta,
       cuit: config.cuit,
-      tokenPreview: config.accessToken ? ('...' + config.accessToken.slice(-6)) : ''
+      tokenPreview: config.accessToken ? ('...' + config.accessToken.slice(-6)) : '',
+      certPreview: config.cert ? ('Certificado: ...' + config.cert.slice(-20)) : ''
     };
   } catch (error) {
     return { success: false, error: error.message };
@@ -919,17 +1096,20 @@ function obtenerConfigAfip() {
 function probarConexionAfip() {
   try {
     // Intentar autenticar
-    var auth = AfipService.autenticar();
+    var auth = AfipService.autenticar('wsfe');
 
     if (auth.token && auth.sign) {
       // Intentar consultar último comprobante como test
       var config = AfipService.getConfig();
       var ultimo = AfipService.ultimoComprobante(CONFIG_AFIP.CBTE_TIPOS.FACTURA_B);
+      var cuitUsado = auth.cuitAuth;
+      var nota = cuitUsado === '20409378472' ? ' (CUIT de test - sin certificado propio)' : ' (CUIT propio con certificado)';
       return {
         success: true,
-        mensaje: 'Conexión exitosa con ARCA (' + config.environment + '). Último comprobante B: ' + ultimo,
+        mensaje: 'Conexion exitosa con ARCA (' + config.environment + '). CUIT: ' + cuitUsado + nota + '. Ultimo comprobante B: ' + ultimo,
         environment: config.environment,
-        ultimoB: ultimo
+        ultimoB: ultimo,
+        cuitAuth: cuitUsado
       };
     }
 
