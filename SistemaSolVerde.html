@@ -1235,6 +1235,14 @@
           <span class="menu-icon">📸</span>
           <span>Escanear IA</span>
         </div>
+        <div class="menu-item" data-module="facturacion-arca">
+          <span class="menu-icon">📋</span>
+          <span>Factura ARCA</span>
+        </div>
+        <div class="menu-item" data-module="historial-facturas">
+          <span class="menu-icon">📑</span>
+          <span>Historial ARCA</span>
+        </div>
       </div>
 
       <div class="menu-section">
@@ -1710,6 +1718,160 @@
         </div>
       </div>
 
+      <!-- MODULO: FACTURACION ELECTRONICA ARCA -->
+      <div class="module-view" id="module-facturacion-arca">
+        <h2 style="margin-bottom: 1rem;">Emitir Comprobante Electronico ARCA</h2>
+
+        <div class="grid grid-2">
+          <!-- FORMULARIO EMISION -->
+          <div>
+            <div class="card">
+              <div class="card-title">1. Tipo de Comprobante</div>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-outline" id="btnCbteTipoFA" onclick="seleccionarCbteTipo(1)" style="flex:1; min-width: 120px;">Factura A</button>
+                <button class="btn btn-outline" id="btnCbteTipoFB" onclick="seleccionarCbteTipo(6)" style="flex:1; min-width: 120px;">Factura B</button>
+              </div>
+              <input type="hidden" id="arcaCbteTipo" value="">
+            </div>
+
+            <div class="card">
+              <div class="card-title">2. Cliente</div>
+              <div class="form-group form-group-autocomplete">
+                <label class="form-label">Buscar cliente</label>
+                <input type="text" class="form-input" id="arcaCliente" placeholder="Nombre del cliente..." autocomplete="off">
+                <div class="suggestions-list" id="arcaClienteSugerencias"></div>
+              </div>
+              <div id="arcaClienteInfo" style="display:none; margin-top: 0.75rem; padding: 0.75rem; background: var(--sv-fondo-card); border: 1px solid var(--sv-borde); border-radius: 8px;">
+                <p><strong>Razon Social:</strong> <span id="arcaClienteRS">-</span></p>
+                <p><strong>CUIT:</strong> <span id="arcaClienteCUIT">-</span></p>
+                <p><strong>Condicion IVA:</strong> <span id="arcaClienteIVA">-</span></p>
+              </div>
+              <button class="btn btn-outline" onclick="consultarCuitDesdeArca()" style="margin-top: 0.5rem; font-size: 0.75rem;" id="btnConsultarCuit">
+                Consultar CUIT en ARCA
+              </button>
+              <div id="arcaCuitResultado" style="margin-top: 0.5rem; font-size: 0.8rem;"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">3. Detalle de Productos</div>
+              <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem;">
+                <div class="form-group" style="margin:0; flex:2;">
+                  <label class="form-label">Producto</label>
+                  <select class="form-input" id="arcaProducto">
+                    <option value="">Seleccionar...</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0; flex:1;">
+                  <label class="form-label">Cant.</label>
+                  <input type="number" class="form-input" id="arcaCantidad" value="1" min="1">
+                </div>
+                <div class="form-group" style="margin:0; flex:1;">
+                  <label class="form-label">P.Unit s/IVA</label>
+                  <input type="number" class="form-input" id="arcaPrecioUnit" step="0.01" min="0">
+                </div>
+                <button class="btn btn-primary" onclick="agregarItemFactura()" style="height: 40px;">+</button>
+              </div>
+              <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Cant.</th>
+                      <th>Descripcion</th>
+                      <th style="text-align:right">P.Unit</th>
+                      <th style="text-align:right">Subtotal</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="arcaItemsTbody"></tbody>
+                </table>
+              </div>
+              <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.5rem;">
+                Tambien podes escribir un producto manual en el selector
+              </p>
+            </div>
+          </div>
+
+          <!-- PREVIEW Y EMISION -->
+          <div>
+            <div class="card" style="border: 2px solid var(--sv-primario);">
+              <div class="card-title">Vista Previa del Comprobante</div>
+
+              <div style="background: var(--sv-fondo); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <span style="font-size: 1.1rem; font-weight: bold;" id="arcaPreviewTipo">-</span>
+                  <span style="font-size: 0.8rem; color: var(--sv-texto-muted);" id="arcaPreviewFecha"></span>
+                </div>
+
+                <p style="margin: 0.25rem 0;"><strong>Cliente:</strong> <span id="arcaPreviewCliente">-</span></p>
+                <p style="margin: 0.25rem 0;"><strong>CUIT:</strong> <span id="arcaPreviewCuit">-</span></p>
+
+                <hr style="border-color: var(--sv-borde); margin: 0.75rem 0;">
+
+                <div style="display: flex; justify-content: space-between;">
+                  <span>Neto Gravado:</span>
+                  <strong id="arcaPreviewNeto">$0.00</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>IVA 10.5%:</span>
+                  <strong id="arcaPreviewIva">$0.00</strong>
+                </div>
+                <hr style="border-color: var(--sv-borde); margin: 0.5rem 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 1.2rem;">
+                  <span><strong>TOTAL:</strong></span>
+                  <strong id="arcaPreviewTotal" style="color: var(--sv-primario);">$0.00</strong>
+                </div>
+              </div>
+
+              <button class="btn btn-primary" onclick="emitirFacturaArca()" style="width: 100%; padding: 0.75rem; font-size: 1rem;" id="btnEmitirArca">
+                Emitir Comprobante en ARCA
+              </button>
+              <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.5rem; text-align: center;">
+                El comprobante se emitira en ARCA y se generara el PDF automaticamente
+              </p>
+            </div>
+
+            <!-- RESULTADO -->
+            <div class="card" id="arcaResultado" style="display: none;">
+              <div class="card-title" style="color: var(--sv-exito);">Comprobante Emitido</div>
+              <div id="arcaResultadoContenido"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODULO: HISTORIAL FACTURAS ARCA -->
+      <div class="module-view" id="module-historial-facturas">
+        <h2 style="margin-bottom: 1rem;">Historial de Comprobantes ARCA</h2>
+
+        <div class="card" style="margin-bottom: 1rem;">
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+            <button class="btn btn-primary" onclick="cargarHistorialFacturas()">Actualizar</button>
+            <button class="btn btn-outline" onclick="navegarA('facturacion-arca')">+ Nuevo Comprobante</button>
+            <span style="font-size: 0.85rem; color: var(--sv-texto-muted);" id="historialFacturasCount"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="table table-responsive-cards">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Numero</th>
+                  <th>Cliente</th>
+                  <th style="text-align:right">Total</th>
+                  <th>CAE</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyHistorialFacturas"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- MODULO: CONFIGURACION -->
       <div class="module-view" id="module-configuracion">
         <h2 style="margin-bottom: 1rem;">Configuracion</h2>
@@ -1751,6 +1913,44 @@
           </div>
 
           <div>
+            <div class="card">
+              <div class="card-title">📋 Facturacion ARCA</div>
+              <p style="margin-bottom: 0.75rem; color: var(--sv-texto-secundario); font-size: 0.8rem;">
+                Configuracion de Afip SDK para facturacion electronica.
+                <a href="https://app.afipsdk.com" target="_blank" rel="noopener" style="color: var(--sv-primario);">Obtener Access Token</a>
+              </p>
+
+              <div class="form-group">
+                <label class="form-label">Access Token</label>
+                <input type="password" class="form-input" id="inputAfipToken" placeholder="Tu access token de Afip SDK">
+              </div>
+              <div class="form-group">
+                <label class="form-label">CUIT Emisor</label>
+                <input type="text" class="form-input" id="inputAfipCuit" placeholder="20149543407" value="20149543407">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Punto de Venta</label>
+                <input type="number" class="form-input" id="inputAfipPtoVta" placeholder="11" value="11" min="1" max="99999">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Entorno</label>
+                <div class="btn-group">
+                  <button class="btn btn-outline" id="btnAfipDev" onclick="setAfipEnv('dev')">Dev (Pruebas)</button>
+                  <button class="btn btn-outline" id="btnAfipProd" onclick="setAfipEnv('prod')">Produccion</button>
+                </div>
+                <input type="hidden" id="inputAfipEnv" value="dev">
+              </div>
+              <button class="btn btn-primary" onclick="guardarConfigAfipFront()" style="width: 100%;">Guardar Config ARCA</button>
+              <button class="btn btn-outline" onclick="probarConexionAfipFront()" style="width: 100%; margin-top: 0.5rem;">Probar Conexion</button>
+              <p id="estadoAfip" style="margin-top: 0.5rem; font-size: 0.8rem;"></p>
+
+              <hr style="margin: 1rem 0; border-color: var(--sv-borde);">
+              <button class="btn btn-outline" onclick="actualizarCondFiscalesFront()" style="width: 100%; font-size: 0.8rem;">
+                Actualizar condicion fiscal de clientes desde ARCA
+              </button>
+              <p id="estadoCondFiscales" style="margin-top: 0.5rem; font-size: 0.75rem;"></p>
+            </div>
+
             <div class="card">
               <div class="card-title">🛠️ Herramientas</div>
 
@@ -2642,6 +2842,9 @@
       if (modulo === 'historial-caja') cargarHistorialCaja();
       if (modulo === 'facturacion' || modulo === 'productos' || modulo === 'escanear' || modulo === 'listas-facturas') cargarDatosFacturacion();
       if (modulo === 'listas-facturas') cargarListasFacturas();
+      if (modulo === 'facturacion-arca') inicializarModuloArca();
+      if (modulo === 'historial-facturas') cargarHistorialFacturas();
+      if (modulo === 'configuracion') cargarConfigAfip();
     }
 
     // ============================================================================
@@ -4378,10 +4581,10 @@
     let productosParaAsignar = [];
 
     function cargarListasFacturas() {
-      if (!Estado.transferencias || !Estado.productos) return;
+      if (!EstadoFacturacion.transferencias || !EstadoFacturacion.productos) return;
 
       // Filtrar transferencias pendientes por tipo
-      const pendientes = Estado.transferencias.filter(t => !t.facturada);
+      const pendientes = EstadoFacturacion.transferencias.filter(t => !t.facturada);
       const facturasA = pendientes.filter(t => t.tipoFactura === 'A' || t.condicion === 'Responsable Inscripto');
       const facturasCF = pendientes.filter(t => t.tipoFactura !== 'A' && t.condicion !== 'Responsable Inscripto');
 
@@ -4422,13 +4625,13 @@
       // Cargar productos en el select
       const select = document.getElementById('selectProductoAsignar');
       select.innerHTML = '<option value="">Seleccione producto...</option>' +
-        Estado.productos.filter(p => p.activo && p.stock > 0).map(p =>
+        EstadoFacturacion.productos.filter(p => p.activo && p.stock > 0).map(p =>
           `<option value="${p.id}" data-precio="${p.precio}" data-stock="${p.stock}">${escapeHtml(p.nombre)} - ${formatearMonto(p.precio)} (Stock: ${p.stock === 999999 ? '∞' : p.stock})</option>`
         ).join('');
     }
 
     function seleccionarTransferencia(id) {
-      const transf = Estado.transferencias.find(t => t.id === id);
+      const transf = EstadoFacturacion.transferencias.find(t => t.id === id);
       if (!transf) return;
 
       transferenciaSeleccionada = transf;
@@ -4452,7 +4655,7 @@
       }
 
       const option = select.options[select.selectedIndex];
-      const producto = Estado.productos.find(p => p.id === parseInt(select.value));
+      const producto = EstadoFacturacion.productos.find(p => p.id === parseInt(select.value));
 
       if (!producto) return;
 
@@ -4699,6 +4902,560 @@
           mostrarToast('Error: ' + error.message, 'error');
         })
         .importarTransferenciasIA(transferencias);
+    }
+
+    // ============================================================================
+    // FACTURACION ELECTRONICA ARCA
+    // ============================================================================
+
+    var arcaItems = [];
+    var arcaClienteSeleccionado = null;
+
+    function inicializarModuloArca() {
+      arcaItems = [];
+      arcaClienteSeleccionado = null;
+      document.getElementById('arcaCbteTipo').value = '';
+      document.getElementById('arcaCliente').value = '';
+      document.getElementById('arcaClienteInfo').style.display = 'none';
+      document.getElementById('arcaResultado').style.display = 'none';
+      document.getElementById('arcaCuitResultado').innerHTML = '';
+      renderArcaItems();
+      actualizarArcaPreview();
+
+      // Resetear botones tipo
+      document.getElementById('btnCbteTipoFA').className = 'btn btn-outline';
+      document.getElementById('btnCbteTipoFB').className = 'btn btn-outline';
+
+      // Cargar productos si no estan cargados aun
+      if (!EstadoFacturacion.productos || EstadoFacturacion.productos.length === 0) {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              EstadoFacturacion.productos = result.productos || [];
+            }
+            cargarProductosEnSelector();
+          })
+          .withFailureHandler(function() {
+            cargarProductosEnSelector();
+          })
+          .obtenerDatosFacturacion();
+      } else {
+        cargarProductosEnSelector();
+      }
+
+      // Poner fecha
+      document.getElementById('arcaPreviewFecha').textContent = new Date().toLocaleDateString('es-AR');
+
+      // Setup autocomplete para cliente ARCA
+      var inputArcaCliente = document.getElementById('arcaCliente');
+      inputArcaCliente.removeEventListener('input', arcaClienteInputHandler);
+      inputArcaCliente.addEventListener('input', debounce(arcaClienteInputHandler, 200));
+    }
+
+    function arcaClienteInputHandler() {
+      buscarClienteAutocompleteArca(document.getElementById('arcaCliente').value);
+    }
+
+    function buscarClienteAutocompleteArca(valor) {
+      var contenedor = document.getElementById('arcaClienteSugerencias');
+      if (!valor || valor.length < 1) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      var resultados = Estado.clientes.filter(function(c) {
+        return c.nombre.toUpperCase().includes(valor.toUpperCase());
+      }).slice(0, 10);
+
+      if (resultados.length === 0) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      contenedor.innerHTML = resultados.map(function(c) {
+        var condTag = c.cuit ? '<span style="color:var(--sv-primario);font-size:0.7rem;"> [RI]</span>' : '<span style="color:var(--sv-texto-muted);font-size:0.7rem;"> [CF]</span>';
+        return '<div class="suggestion-item" onclick="seleccionarClienteArca(\'' + escapeHtml(c.nombre).replace(/'/g, "\\'") + '\')">' +
+          escapeHtml(c.nombre) + condTag + '</div>';
+      }).join('');
+      contenedor.style.display = 'block';
+    }
+
+    function seleccionarClienteArca(nombre) {
+      document.getElementById('arcaCliente').value = nombre;
+      document.getElementById('arcaClienteSugerencias').style.display = 'none';
+
+      var cliente = Estado.clientes.find(function(c) { return c.nombre === nombre; });
+      arcaClienteSeleccionado = cliente || null;
+
+      if (cliente) {
+        document.getElementById('arcaClienteInfo').style.display = 'block';
+        document.getElementById('arcaClienteRS').textContent = cliente.nombre;
+        document.getElementById('arcaClienteCUIT').textContent = cliente.cuit || 'Sin CUIT';
+        document.getElementById('arcaClienteIVA').textContent = cliente.condicionFiscal || 'Consumidor Final';
+
+        // Auto-seleccionar tipo de comprobante
+        if (cliente.cuit && (cliente.condicionFiscal === 'Responsable Inscripto' || cliente.condicionFiscal === 'RI')) {
+          seleccionarCbteTipo(1); // Factura A
+        } else {
+          seleccionarCbteTipo(6); // Factura B
+        }
+      } else {
+        document.getElementById('arcaClienteInfo').style.display = 'none';
+      }
+
+      actualizarArcaPreview();
+    }
+
+    function seleccionarCbteTipo(tipo) {
+      document.getElementById('arcaCbteTipo').value = tipo;
+      document.getElementById('btnCbteTipoFA').className = 'btn ' + (tipo === 1 ? 'btn-primary' : 'btn-outline');
+      document.getElementById('btnCbteTipoFB').className = 'btn ' + (tipo === 6 ? 'btn-primary' : 'btn-outline');
+      actualizarArcaPreview();
+    }
+
+    function cargarProductosEnSelector() {
+      var select = document.getElementById('arcaProducto');
+      select.innerHTML = '<option value="">Seleccionar...</option>';
+
+      // Usar productos del estado de facturacion si están cargados
+      if (EstadoFacturacion.productos && EstadoFacturacion.productos.length > 0) {
+        EstadoFacturacion.productos.filter(function(p) { return p.activo && p.precio > 0; }).forEach(function(p) {
+          var opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.nombre + ' - $' + p.precio.toLocaleString('es-AR');
+          opt.dataset.precio = p.precio;
+          opt.dataset.nombre = p.nombre;
+          select.appendChild(opt);
+        });
+      }
+
+      // Opcion manual
+      var optManual = document.createElement('option');
+      optManual.value = 'manual';
+      optManual.textContent = '-- Ingresar manualmente --';
+      select.appendChild(optManual);
+
+      // Al cambiar producto, actualizar precio
+      select.onchange = function() {
+        var selOpt = select.options[select.selectedIndex];
+        if (selOpt && selOpt.dataset.precio) {
+          document.getElementById('arcaPrecioUnit').value = selOpt.dataset.precio;
+        }
+      };
+    }
+
+    function agregarItemFactura() {
+      var select = document.getElementById('arcaProducto');
+      var cantidad = parseInt(document.getElementById('arcaCantidad').value) || 1;
+      var precioUnit = parseFloat(document.getElementById('arcaPrecioUnit').value) || 0;
+      var selOpt = select.options[select.selectedIndex];
+
+      if (precioUnit <= 0) {
+        mostrarToast('Ingresa un precio unitario valido', 'error');
+        return;
+      }
+
+      var descripcion = '';
+      if (selOpt && selOpt.dataset.nombre) {
+        descripcion = selOpt.dataset.nombre;
+      } else if (selOpt && selOpt.value === 'manual') {
+        descripcion = prompt('Nombre del producto:');
+        if (!descripcion) return;
+      } else {
+        descripcion = selOpt ? selOpt.textContent.split(' - ')[0] : 'Producto';
+      }
+
+      arcaItems.push({
+        cantidad: cantidad,
+        descripcion: descripcion,
+        precioUnit: precioUnit,
+        subtotal: cantidad * precioUnit
+      });
+
+      // Reset
+      document.getElementById('arcaCantidad').value = 1;
+      document.getElementById('arcaPrecioUnit').value = '';
+      select.selectedIndex = 0;
+
+      renderArcaItems();
+      actualizarArcaPreview();
+    }
+
+    function eliminarItemFactura(index) {
+      arcaItems.splice(index, 1);
+      renderArcaItems();
+      actualizarArcaPreview();
+    }
+
+    function renderArcaItems() {
+      var tbody = document.getElementById('arcaItemsTbody');
+      if (arcaItems.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--sv-texto-muted);">Sin productos agregados</td></tr>';
+        return;
+      }
+      tbody.innerHTML = arcaItems.map(function(item, i) {
+        return '<tr>' +
+          '<td>' + item.cantidad + '</td>' +
+          '<td>' + escapeHtml(item.descripcion) + '</td>' +
+          '<td style="text-align:right">$' + item.precioUnit.toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
+          '<td style="text-align:right">$' + item.subtotal.toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
+          '<td><button class="btn btn-outline" style="padding:2px 8px;font-size:0.7rem;" onclick="eliminarItemFactura(' + i + ')">X</button></td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    function actualizarArcaPreview() {
+      var tipo = parseInt(document.getElementById('arcaCbteTipo').value) || 0;
+      var tipoTexto = '';
+      switch (tipo) {
+        case 1: tipoTexto = 'FACTURA A'; break;
+        case 6: tipoTexto = 'FACTURA B'; break;
+        default: tipoTexto = 'Seleccionar tipo...';
+      }
+      document.getElementById('arcaPreviewTipo').textContent = tipoTexto;
+      document.getElementById('arcaPreviewCliente').textContent = arcaClienteSeleccionado ? arcaClienteSeleccionado.nombre : '-';
+      document.getElementById('arcaPreviewCuit').textContent = arcaClienteSeleccionado && arcaClienteSeleccionado.cuit ? arcaClienteSeleccionado.cuit : 'S/D';
+
+      var neto = arcaItems.reduce(function(sum, item) { return sum + item.subtotal; }, 0);
+      var iva = Math.round(neto * 0.105 * 100) / 100;
+      var total = Math.round((neto + iva) * 100) / 100;
+
+      document.getElementById('arcaPreviewNeto').textContent = '$' + neto.toLocaleString('es-AR', {minimumFractionDigits:2});
+      document.getElementById('arcaPreviewIva').textContent = '$' + iva.toLocaleString('es-AR', {minimumFractionDigits:2});
+      document.getElementById('arcaPreviewTotal').textContent = '$' + total.toLocaleString('es-AR', {minimumFractionDigits:2});
+    }
+
+    function consultarCuitDesdeArca() {
+      if (!arcaClienteSeleccionado || !arcaClienteSeleccionado.cuit) {
+        mostrarToast('El cliente no tiene CUIT cargado', 'error');
+        return;
+      }
+
+      var resultado = document.getElementById('arcaCuitResultado');
+      resultado.innerHTML = '<span style="color:var(--sv-info);">Consultando ARCA...</span>';
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (data.encontrado) {
+            resultado.innerHTML = '<span style="color:var(--sv-exito);">ARCA: ' + escapeHtml(data.razonSocial) + ' - ' + data.condicionTexto + '</span>';
+            // Actualizar info en pantalla
+            document.getElementById('arcaClienteIVA').textContent = data.condicionTexto;
+            if (arcaClienteSeleccionado) {
+              arcaClienteSeleccionado.condicionFiscal = data.condicionTexto;
+            }
+            // Auto-ajustar tipo de comprobante
+            if (data.condicionIVA === 'RI') {
+              seleccionarCbteTipo(1);
+            } else {
+              seleccionarCbteTipo(6);
+            }
+          } else {
+            resultado.innerHTML = '<span style="color:var(--sv-advertencia);">' + (data.error || 'CUIT no encontrado en padron') + '</span>';
+          }
+        })
+        .withFailureHandler(function(err) {
+          resultado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + err.message + '</span>';
+        })
+        .consultarCUITArca(arcaClienteSeleccionado.cuit);
+    }
+
+    function emitirFacturaArca() {
+      var cbteTipo = parseInt(document.getElementById('arcaCbteTipo').value);
+      if (!cbteTipo) {
+        mostrarToast('Selecciona un tipo de comprobante (Factura A o B)', 'error');
+        return;
+      }
+
+      if (!arcaClienteSeleccionado) {
+        mostrarToast('Selecciona un cliente', 'error');
+        return;
+      }
+
+      if (arcaItems.length === 0) {
+        mostrarToast('Agrega al menos un producto', 'error');
+        return;
+      }
+
+      var neto = arcaItems.reduce(function(sum, item) { return sum + item.subtotal; }, 0);
+      if (neto <= 0) {
+        mostrarToast('El importe neto debe ser mayor a 0', 'error');
+        return;
+      }
+
+      // Validar CUIT para Factura A
+      if (cbteTipo === 1 && !arcaClienteSeleccionado.cuit) {
+        mostrarToast('Factura A requiere que el cliente tenga CUIT. Usa Factura B para Consumidor Final.', 'error');
+        return;
+      }
+
+      var iva = Math.round(neto * 0.105 * 100) / 100;
+      var total = Math.round((neto + iva) * 100) / 100;
+
+      var confirmar = confirm(
+        'Emitir comprobante en ARCA?\n\n' +
+        'Tipo: ' + (cbteTipo === 1 ? 'FACTURA A' : 'FACTURA B') + '\n' +
+        'Cliente: ' + arcaClienteSeleccionado.nombre + '\n' +
+        'Neto: $' + neto.toFixed(2) + '\n' +
+        'IVA 10.5%: $' + iva.toFixed(2) + '\n' +
+        'Total: $' + total.toFixed(2) + '\n\n' +
+        'ATENCION: Esta accion NO se puede deshacer. El comprobante quedara registrado en ARCA.'
+      );
+
+      if (!confirmar) return;
+
+      // Determinar condición del cliente
+      var condicion = 'CF';
+      var condicionTexto = 'Consumidor Final';
+      if (arcaClienteSeleccionado.condicionFiscal) {
+        if (arcaClienteSeleccionado.condicionFiscal.includes('Responsable') || arcaClienteSeleccionado.condicionFiscal === 'RI') {
+          condicion = 'RI';
+          condicionTexto = 'Responsable Inscripto';
+        } else if (arcaClienteSeleccionado.condicionFiscal.includes('Monotributo') || arcaClienteSeleccionado.condicionFiscal === 'M') {
+          condicion = 'M';
+          condicionTexto = 'Monotributo';
+        }
+      }
+
+      mostrarLoading(true);
+      document.getElementById('btnEmitirArca').disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          document.getElementById('btnEmitirArca').disabled = false;
+
+          if (result.success) {
+            mostrarToast(result.mensaje, 'success');
+
+            // Mostrar resultado
+            var resDiv = document.getElementById('arcaResultado');
+            resDiv.style.display = 'block';
+            document.getElementById('arcaResultadoContenido').innerHTML =
+              '<div class="alert" style="background:var(--sv-exito);color:white;padding:1rem;border-radius:8px;">' +
+              '<p><strong>CAE:</strong> ' + result.cae + '</p>' +
+              '<p><strong>Numero:</strong> ' + String(result.ptoVta).padStart(5,'0') + '-' + String(result.cbteNro).padStart(8,'0') + '</p>' +
+              '<p><strong>Total:</strong> $' + result.total.toFixed(2) + '</p>' +
+              (result.pdfUrl ? '<p style="margin-top:0.5rem;"><a href="' + result.pdfUrl + '" target="_blank" style="color:white;text-decoration:underline;">Ver PDF del comprobante</a></p>' : '') +
+              '</div>' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;">' +
+              '<button class="btn btn-primary" onclick="inicializarModuloArca()">Nuevo Comprobante</button>' +
+              '<button class="btn btn-outline" onclick="navegarA(\'historial-facturas\')">Ver Historial</button>' +
+              '</div>';
+
+            // Scroll al resultado
+            resDiv.scrollIntoView({ behavior: 'smooth' });
+          } else {
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          document.getElementById('btnEmitirArca').disabled = false;
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .emitirFacturaElectronica({
+          cbteTipo: cbteTipo,
+          clienteNombre: arcaClienteSeleccionado.nombre,
+          clienteCuit: arcaClienteSeleccionado.cuit || '',
+          clienteCondicion: condicion,
+          clienteCondicionTexto: condicionTexto,
+          importeNeto: neto,
+          detalle: arcaItems
+        });
+    }
+
+    // ============================================================================
+    // HISTORIAL FACTURAS ARCA
+    // ============================================================================
+
+    function cargarHistorialFacturas() {
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            renderHistorialFacturas(result.facturas || []);
+          } else {
+            mostrarToast('Error cargando historial: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .obtenerHistorialFacturas();
+    }
+
+    function renderHistorialFacturas(facturas) {
+      document.getElementById('historialFacturasCount').textContent = facturas.length + ' comprobantes';
+      var tbody = document.getElementById('tbodyHistorialFacturas');
+
+      if (facturas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--sv-texto-muted);padding:2rem;">No hay comprobantes emitidos aun</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = facturas.map(function(f) {
+        var estadoColor = f.estado === 'EMITIDA' ? 'var(--sv-exito)' : (f.estado === 'ANULADA' ? 'var(--sv-peligro)' : 'var(--sv-advertencia)');
+        var pv = String(f.ptoVta || 0).padStart(5, '0');
+        var nro = String(f.cbteNro || 0).padStart(8, '0');
+        var pdfLink = f.pdfUrl ? '<a href="' + f.pdfUrl + '" target="_blank" style="color:var(--sv-primario);">PDF</a>' : '';
+        var ncBtn = (f.estado === 'EMITIDA' && (f.cbteTipo === 1 || f.cbteTipo === 6))
+          ? '<button class="btn btn-outline" style="padding:2px 6px;font-size:0.7rem;" onclick="emitirNCDesdeHistorial(' + f.id + ')">NC</button>'
+          : '';
+
+        return '<tr>' +
+          '<td>' + escapeHtml(f.fecha || '') + '</td>' +
+          '<td>' + escapeHtml(f.cbteTipoNombre || '') + '</td>' +
+          '<td>' + pv + '-' + nro + '</td>' +
+          '<td>' + escapeHtml(f.clienteNombre || '') + '</td>' +
+          '<td style="text-align:right">$' + (f.total || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
+          '<td style="font-size:0.75rem;">' + escapeHtml(String(f.cae || '-')) + '</td>' +
+          '<td><span style="color:' + estadoColor + ';font-weight:bold;">' + (f.estado || '-') + '</span></td>' +
+          '<td>' + pdfLink + ' ' + ncBtn + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    function emitirNCDesdeHistorial(facturaId) {
+      if (!confirm('Emitir Nota de Credito para anular esta factura?\n\nEsta accion NO se puede deshacer y quedara registrada en ARCA.')) {
+        return;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            mostrarToast('Nota de Credito emitida - CAE: ' + result.cae, 'success');
+            cargarHistorialFacturas(); // Recargar
+          } else {
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .emitirNotaCredito(facturaId);
+    }
+
+    // ============================================================================
+    // CONFIGURACION AFIP SDK
+    // ============================================================================
+
+    function cargarConfigAfip() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            document.getElementById('inputAfipCuit').value = result.cuit || '20149543407';
+            document.getElementById('inputAfipPtoVta').value = result.puntoVenta || 11;
+            document.getElementById('inputAfipEnv').value = result.environment || 'dev';
+            setAfipEnv(result.environment || 'dev');
+
+            var estado = document.getElementById('estadoAfip');
+            if (result.configurado) {
+              estado.innerHTML = '<span style="color:var(--sv-exito);">Configurado (token: ' + result.tokenPreview + ')</span>';
+            } else {
+              estado.innerHTML = '<span style="color:var(--sv-advertencia);">No configurado - ingresa tu Access Token</span>';
+            }
+          }
+        })
+        .withFailureHandler(function() {})
+        .obtenerConfigAfip();
+    }
+
+    function setAfipEnv(env) {
+      document.getElementById('inputAfipEnv').value = env;
+      document.getElementById('btnAfipDev').className = 'btn ' + (env === 'dev' ? 'btn-primary' : 'btn-outline');
+      document.getElementById('btnAfipProd').className = 'btn ' + (env === 'prod' ? 'btn-primary' : 'btn-outline');
+    }
+
+    function guardarConfigAfipFront() {
+      var token = document.getElementById('inputAfipToken').value.trim();
+      var cuit = document.getElementById('inputAfipCuit').value.trim();
+      var ptoVta = parseInt(document.getElementById('inputAfipPtoVta').value) || 11;
+      var env = document.getElementById('inputAfipEnv').value || 'dev';
+
+      if (!token) {
+        // Si no ingresó token nuevo, solo guardar los otros campos
+      }
+
+      var config = {
+        environment: env,
+        puntoVenta: ptoVta,
+        cuit: cuit
+      };
+
+      if (token) {
+        config.accessToken = token;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            mostrarToast('Configuracion ARCA guardada', 'success');
+            document.getElementById('inputAfipToken').value = '';
+            cargarConfigAfip();
+          } else {
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarConfigAfip(config);
+    }
+
+    function probarConexionAfipFront() {
+      var estado = document.getElementById('estadoAfip');
+      estado.innerHTML = '<span style="color:var(--sv-info);">Probando conexion...</span>';
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            estado.innerHTML = '<span style="color:var(--sv-exito);">' + result.mensaje + '</span>';
+            mostrarToast('Conexion ARCA exitosa', 'success');
+          } else {
+            estado.innerHTML = '<span style="color:var(--sv-peligro);">' + result.error + '</span>';
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + error.message + '</span>';
+        })
+        .probarConexionAfip();
+    }
+
+    function actualizarCondFiscalesFront() {
+      if (!confirm('Consultar ARCA para actualizar la condicion fiscal de todos los clientes con CUIT?\n\nEsto puede tardar unos segundos.')) return;
+
+      var estado = document.getElementById('estadoCondFiscales');
+      estado.innerHTML = '<span style="color:var(--sv-info);">Consultando ARCA...</span>';
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            estado.innerHTML = '<span style="color:var(--sv-exito);">' + result.mensaje + '</span>';
+            mostrarToast(result.mensaje, 'success');
+            cargarDatosIniciales(true);
+          } else {
+            estado.innerHTML = '<span style="color:var(--sv-peligro);">' + result.error + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + error.message + '</span>';
+        })
+        .actualizarCondicionesFiscalesDesdeArca();
     }
 
     // Probar conexión con Claude (usa la API Key del sistema general)
