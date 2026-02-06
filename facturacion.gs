@@ -77,14 +77,13 @@ const TransferenciasRepository = {
   /**
    * Obtiene todas las transferencias
    */
-  obtenerTodas: function(limite = 100) {
+  obtenerTodas: function() {
     const hoja = this.getHoja();
     const lastRow = hoja.getLastRow();
 
     if (lastRow <= 1) return [];
 
-    const numRows = Math.min(limite, lastRow - 1);
-    const datos = hoja.getRange(2, 1, numRows, 10).getValues();
+    const datos = hoja.getRange(2, 1, lastRow - 1, 10).getValues();
 
     return datos.map(fila => ({
       id: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID],
@@ -112,7 +111,7 @@ const TransferenciasRepository = {
    * Obtiene transferencias por mes
    */
   obtenerPorMes: function(mes, anio) {
-    return this.obtenerTodas(500).filter(t => {
+    return this.obtenerTodas().filter(t => {
       if (!t.fecha) return false;
       const fecha = parsearFechaLocal(t.fecha);
       return fecha.getMonth() + 1 === mes && fecha.getFullYear() === anio;

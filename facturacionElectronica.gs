@@ -694,15 +694,13 @@ const FacturasRepository = {
   /**
    * Obtiene facturas emitidas (últimas N)
    */
-  obtenerTodas: function(limite) {
-    var lim = limite || 100;
+  obtenerTodas: function() {
     const hoja = this.getHoja();
     const lastRow = hoja.getLastRow();
 
     if (lastRow <= 1) return [];
 
-    const numRows = Math.min(lim, lastRow - 1);
-    const datos = hoja.getRange(2, 1, numRows, 20).getValues();
+    const datos = hoja.getRange(2, 1, lastRow - 1, 20).getValues();
 
     return datos.map(function(fila) {
       return {
@@ -1512,7 +1510,7 @@ function emitirFacturaElectronica(datos) {
 function emitirNotaCredito(facturaOriginalId) {
   try {
     // Buscar factura original
-    var facturas = FacturasRepository.obtenerTodas(500);
+    var facturas = FacturasRepository.obtenerTodas();
     var original = null;
     for (var i = 0; i < facturas.length; i++) {
       if (facturas[i].id === facturaOriginalId) {
@@ -1621,7 +1619,7 @@ function actualizarCondicionesFiscalesDesdeArca() {
  */
 function obtenerHistorialFacturas() {
   try {
-    var facturas = FacturasRepository.obtenerTodas(200);
+    var facturas = FacturasRepository.obtenerTodas();
     return { success: true, facturas: facturas };
   } catch (error) {
     return { success: false, error: error.message, facturas: [] };
