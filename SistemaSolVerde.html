@@ -140,6 +140,7 @@
       color: white;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       padding: 0 1rem;
       gap: 0.75rem;
       z-index: 100;
@@ -150,8 +151,15 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      flex: 1;
-      min-width: 0;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .header-logo:hover {
+      opacity: 0.85;
     }
 
     .header-logo-img {
@@ -785,38 +793,61 @@
         display: none !important;
       }
 
+      .print-only {
+        display: block !important;
+      }
+
       body {
         background: white !important;
         color: black !important;
-        font-size: 10pt;
+        font-size: 8pt;
+        line-height: 1.2;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
 
-      /* Cards */
+      /* Cards compactas */
       .card {
         background: white !important;
         color: black !important;
         border: 1px solid #ddd !important;
         box-shadow: none !important;
-        padding: 0.5rem !important;
-        margin: 0 !important;
+        padding: 0.25rem 0.5rem !important;
+        margin: 0 0 0.25rem 0 !important;
         animation: none !important;
+        page-break-inside: avoid;
       }
 
-      /* Tablas generales */
+      /* Headings compactos */
+      h2, h3, h4 {
+        margin-top: 0.25rem !important;
+        margin-bottom: 0.25rem !important;
+      }
+
+      h2 { font-size: 12pt !important; }
+      h3 { font-size: 11pt !important; }
+      h4 { font-size: 10pt !important; }
+
+      /* Tablas generales compactas */
       .table, .table-print {
         width: 100%;
-        font-size: 9pt;
+        font-size: 7.5pt;
         background: white !important;
+        border-collapse: collapse;
       }
 
       .table th, .table td, .table-print th, .table-print td {
-        padding: 4px 8px;
+        padding: 2px 4px;
         border: 1px solid #ddd !important;
         background: white !important;
         color: black !important;
+        line-height: 1.1;
       }
+
+      /* Control de saltos de página */
+      .page-break-avoid { page-break-inside: avoid; }
+      .page-break-before { page-break-before: always; }
+      .page-break-after { page-break-after: always; }
 
       .table th, .table-print th {
         background: #f0f0f0 !important;
@@ -873,43 +904,55 @@
 
       /* Ajustar para que entre en 1 página - Hoja de Ruta */
       #module-hoja-ruta h3 {
-        font-size: 14pt !important;
-        margin-bottom: 0.5rem !important;
+        font-size: 11pt !important;
+        margin-bottom: 0.25rem !important;
       }
 
       #module-hoja-ruta .table th,
       #module-hoja-ruta .table td {
-        padding: 2px 4px !important;
-        font-size: 8pt !important;
+        padding: 1px 3px !important;
+        font-size: 7pt !important;
       }
 
       #module-hoja-ruta .card {
-        margin-bottom: 0.25rem !important;
-        padding: 0.25rem !important;
+        margin-bottom: 0.15rem !important;
+        padding: 0.15rem 0.25rem !important;
       }
 
       #module-hoja-ruta h4 {
-        font-size: 10pt !important;
-        margin-bottom: 0.25rem !important;
+        font-size: 9pt !important;
+        margin-bottom: 0.15rem !important;
       }
 
       /* Ajustar para que entre en 1 página - Impresión de Saldos */
       #module-impresion-saldos h3 {
-        font-size: 14pt !important;
-        margin-bottom: 0.5rem !important;
+        font-size: 11pt !important;
+        margin-bottom: 0.25rem !important;
       }
 
       #module-impresion-saldos .table th,
       #module-impresion-saldos .table td {
-        padding: 2px 4px !important;
-        font-size: 8pt !important;
+        padding: 1px 3px !important;
+        font-size: 7pt !important;
       }
 
-      /* Escalar automáticamente si hay mucho contenido */
+      #module-impresion-saldos .card {
+        margin-bottom: 0.15rem !important;
+        padding: 0.15rem 0.25rem !important;
+      }
+
+      /* Forzar todo en una página */
       #module-hoja-ruta,
       #module-impresion-saldos {
-        max-height: 100vh;
+        max-height: none;
         overflow: visible;
+      }
+
+      /* Ocultar totales en impresión hoja de ruta */
+      .hoja-ruta-total,
+      .hoja-ruta-grand-total,
+      .hoja-ruta-excluded {
+        display: none !important;
       }
     }
 
@@ -1153,7 +1196,7 @@
     <!-- Header -->
     <header class="app-header no-print">
       <button class="header-btn" id="menuToggle" title="Menu" aria-label="Abrir menu">☰</button>
-      <div class="header-logo">
+      <div class="header-logo" onclick="navegarA('dashboard')" title="Ir al inicio">
         <img src="https://i.imgur.com/tStvmV1.png" alt="Sol & Verde" class="header-logo-img">
         <span class="header-logo-text">Sol & Verde</span>
       </div>
@@ -1319,6 +1362,7 @@
                   <th>Monto</th>
                   <th>Saldo</th>
                   <th>Obs</th>
+                  <th class="no-print">Acciones</th>
                 </tr>
               </thead>
               <tbody id="tbodyMovimientos"></tbody>
@@ -1555,10 +1599,36 @@
               <div style="font-size: 0.875rem; opacity: 0.9;">Neto del dia</div>
               <div style="font-size: 2rem; font-weight: bold;" id="netoArqueo">$0</div>
             </div>
-            <button class="btn" style="background: white; color: var(--sv-primario);" onclick="guardarArqueo()">
-              💾 Guardar Cierre
-            </button>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button class="btn" style="background: white; color: var(--sv-primario);" onclick="imprimirResumenArqueo()">
+                🖨️ Imprimir Resumen
+              </button>
+              <button class="btn" style="background: white; color: var(--sv-primario);" onclick="guardarArqueo()">
+                💾 Guardar Cierre
+              </button>
+            </div>
           </div>
+        </div>
+
+        <!-- Resumen de Arqueo para Impresión (oculto en pantalla, visible al imprimir) -->
+        <div id="resumenArqueoImpresion" class="print-only" style="display: none;">
+          <div style="text-align: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0;">Resumen de Caja</h3>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem;" id="resumenArqueoFecha"></p>
+          </div>
+          <table class="table" style="margin-bottom: 1rem;">
+            <tbody id="resumenArqueoDetalle"></tbody>
+            <tfoot>
+              <tr style="background: var(--sv-superficie-elevada); font-weight: bold;">
+                <td>Neto del Día</td>
+                <td id="resumenArqueoNeto" style="text-align: right;"></td>
+              </tr>
+              <tr id="resumenArqueoDiferencia" style="font-weight: bold;">
+                <td>Diferencia vs Esperado</td>
+                <td id="resumenArqueoDif" style="text-align: right;"></td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
 
@@ -1571,61 +1641,53 @@
             <p style="margin: 0 0 0.75rem 0; color: var(--sv-texto-secundario); font-size: 0.875rem;">
               Los datos se cargan en vivo desde el Arqueo de Caja actual. Primero carga los proveedores y gastos en el modulo de Caja.
             </p>
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
               <input type="date" class="form-input" id="fechaHojaRuta" style="flex: 1; min-width: 150px;">
               <button class="btn btn-outline" onclick="cargarHojaRuta()">🔄 Actualizar</button>
               <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+            </div>
+            <div style="margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.875rem;">
+              <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+                <input type="checkbox" id="chkProveedoresHR" checked onchange="toggleSeccionHojaRuta('proveedores')">
+                <span>Proveedores</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+                <input type="checkbox" id="chkGastosHR" checked onchange="toggleSeccionHojaRuta('gastos')">
+                <span>Gastos Extras</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+                <input type="checkbox" id="chkLiqPendientesHR" checked onchange="toggleSeccionHojaRuta('liqPendientes')">
+                <span>Liq. Pendientes</span>
+              </label>
             </div>
           </div>
 
           <h3 style="text-align: center; margin-bottom: 1rem;">Hoja de Ruta - <span id="fechaHojaRutaTitulo"></span></h3>
 
-          <!-- Proveedores -->
-          <div style="margin-bottom: 1.5rem;">
+          <!-- 1. Proveedores -->
+          <div id="seccionHojaProveedores" style="margin-bottom: 1rem;" class="page-break-avoid">
             <h4 style="color: var(--sv-primario); margin-bottom: 0.5rem;">Proveedores</h4>
             <div class="table-container">
               <table class="table">
                 <thead>
                   <tr>
                     <th>Proveedor</th>
-                    <th>Importe</th>
+                    <th style="text-align: right;">Importe</th>
                   </tr>
                 </thead>
                 <tbody id="hojaRutaProveedores"></tbody>
-                <tfoot>
+                <tfoot class="hoja-ruta-total">
                   <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
                     <td>Total Proveedores</td>
-                    <td id="totalHojaProveedores">$0</td>
+                    <td id="totalHojaProveedores" style="text-align: right;">$0</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           </div>
 
-          <!-- Gastos Extras -->
-          <div style="margin-bottom: 1.5rem;">
-            <h4 style="color: var(--sv-peligro); margin-bottom: 0.5rem;">Gastos Extras</h4>
-            <div class="table-container">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Descripcion</th>
-                    <th>Importe</th>
-                  </tr>
-                </thead>
-                <tbody id="hojaRutaGastos"></tbody>
-                <tfoot>
-                  <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
-                    <td>Total Gastos</td>
-                    <td id="totalHojaGastos">$0</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-
-          <!-- Liquidaciones Pendientes -->
-          <div class="no-print" style="margin-bottom: 1.5rem; padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
+          <!-- 2. Liquidaciones Pendientes (input - no imprime) -->
+          <div class="no-print" style="margin-bottom: 1rem; padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
             <h4 style="color: var(--sv-advertencia); margin-bottom: 0.75rem;">Liquidaciones Pendientes (anteriores)</h4>
             <p style="font-size: 0.875rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;">
               Agrega liquidaciones de dias anteriores que no se enviaron y se incluyen hoy.
@@ -1638,30 +1700,52 @@
             </div>
           </div>
 
-          <!-- Liquidaciones Pendientes para impresion -->
-          <div id="hojaRutaLiqPendientesSection" style="margin-bottom: 1.5rem; display: none;">
+          <!-- 2b. Liquidaciones Pendientes para impresion -->
+          <div id="hojaRutaLiqPendientesSection" style="margin-bottom: 1rem; display: none;" class="page-break-avoid">
             <h4 style="color: var(--sv-advertencia); margin-bottom: 0.5rem;">Liquidaciones Pendientes</h4>
             <div class="table-container">
               <table class="table">
                 <thead>
                   <tr>
                     <th>Descripcion</th>
-                    <th>Importe</th>
+                    <th style="text-align: right;">Importe</th>
                   </tr>
                 </thead>
                 <tbody id="hojaRutaLiqPendientes"></tbody>
-                <tfoot>
+                <tfoot class="hoja-ruta-total">
                   <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
                     <td>Total Liq. Pendientes</td>
-                    <td id="totalHojaLiqPendientes">$0</td>
+                    <td id="totalHojaLiqPendientes" style="text-align: right;">$0</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           </div>
 
-          <!-- Total General -->
-          <div style="margin-top: 1rem; padding: 1rem; background: var(--sv-primario); color: white; border-radius: var(--sv-radius); text-align: center;">
+          <!-- 3. Gastos Extras -->
+          <div id="seccionHojaGastos" style="margin-bottom: 1rem;" class="page-break-avoid">
+            <h4 style="color: var(--sv-peligro); margin-bottom: 0.5rem;">Gastos Extras</h4>
+            <div class="table-container">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Descripcion</th>
+                    <th style="text-align: right;">Importe</th>
+                  </tr>
+                </thead>
+                <tbody id="hojaRutaGastos"></tbody>
+                <tfoot class="hoja-ruta-total">
+                  <tr style="font-weight: bold; background: var(--sv-superficie-elevada);">
+                    <td>Total Gastos</td>
+                    <td id="totalHojaGastos" style="text-align: right;">$0</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Total General (oculto en impresion) -->
+          <div class="hoja-ruta-grand-total" style="margin-top: 1rem; padding: 1rem; background: var(--sv-primario); color: white; border-radius: var(--sv-radius); text-align: center;">
             <span style="font-size: 1.125rem;">Total Salidas del Dia: </span>
             <span style="font-size: 1.5rem; font-weight: bold;" id="totalSalidasHojaRuta">$0</span>
           </div>
@@ -2227,6 +2311,39 @@
   </div>
 
   <!-- Modal Cliente -->
+  <!-- Modal: Editar Movimiento -->
+  <div class="modal" id="modalEditarMovimiento">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Editar Movimiento</div>
+        <button class="modal-close" onclick="cerrarModal('modalEditarMovimiento')">&times;</button>
+      </div>
+      <form onsubmit="guardarMovimientoEditado(event)">
+        <div class="form-group">
+          <label class="form-label">ID</label>
+          <div id="editMovId" style="font-weight: bold;"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cliente</label>
+          <div id="editMovCliente" style="font-weight: bold;"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <div id="editMovTipo" style="font-weight: bold;"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monto *</label>
+          <input type="number" class="form-input" id="editMovMonto" min="1" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones</label>
+          <input type="text" class="form-input" id="editMovObs">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar Cambios</button>
+      </form>
+    </div>
+  </div>
+
   <div class="modal" id="modalCliente">
     <div class="modal-content">
       <div class="modal-header">
@@ -2314,7 +2431,7 @@
   <div class="modal" id="modalTransferencia">
     <div class="modal-content">
       <div class="modal-header">
-        <div class="modal-title">Nueva Transferencia</div>
+        <div class="modal-title" id="modalTransferenciaTitulo">Nueva Transferencia</div>
         <button class="modal-close" onclick="cerrarModal('modalTransferencia')">&times;</button>
       </div>
       <form id="formTransferencia" onsubmit="guardarTransferencia(event)">
@@ -2482,6 +2599,13 @@
       cargarDatosIniciales();
       setupEventos();
       setupNavegacionTeclado();
+
+      // Precargar datos de facturación en background cuando el navegador esté idle
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(precargarDatosFacturacion, { timeout: 3000 });
+      } else {
+        setTimeout(precargarDatosFacturacion, 2000);
+      }
     });
 
     function cargarDatosIniciales(forzarRecarga = false) {
@@ -2972,7 +3096,7 @@
       const tbody = document.getElementById('tbodyMovimientos');
 
       if (!Estado.movimientos || Estado.movimientos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No hay movimientos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay movimientos</td></tr>';
         return;
       }
 
@@ -2984,8 +3108,98 @@
           <td data-label="Monto">${formatearMonto(m.monto)}</td>
           <td data-label="Saldo">${formatearMonto(m.saldoPost)}</td>
           <td data-label="Obs">${escapeHtml(m.obs) || '-'}</td>
+          <td data-label="Acciones" class="no-print">
+            <div class="btn-group">
+              <button class="btn btn-outline btn-sm" onclick="abrirEditarMovimiento(${m.id})">✏️</button>
+              <button class="btn btn-outline btn-sm" onclick="confirmarEliminarMovimiento(${m.id})" style="color: var(--sv-peligro);">🗑️</button>
+            </div>
+          </td>
         </tr>
       `).join('');
+    }
+
+    // Variable para edición de movimiento
+    let movimientoEditandoId = null;
+
+    // Abrir modal para editar movimiento
+    function abrirEditarMovimiento(id) {
+      const movimiento = Estado.movimientos.find(m => m.id === id);
+      if (!movimiento) {
+        mostrarToast('Movimiento no encontrado', 'error');
+        return;
+      }
+
+      movimientoEditandoId = id;
+      document.getElementById('editMovId').textContent = id;
+      document.getElementById('editMovCliente').textContent = movimiento.cliente;
+      document.getElementById('editMovTipo').textContent = movimiento.tipo === 'DEBE' ? 'FIADO' : 'PAGO';
+      document.getElementById('editMovMonto').value = movimiento.monto;
+      document.getElementById('editMovObs').value = movimiento.obs || '';
+
+      abrirModal('modalEditarMovimiento');
+    }
+
+    // Guardar movimiento editado
+    function guardarMovimientoEditado(e) {
+      e.preventDefault();
+
+      const datos = {
+        monto: parseFloat(document.getElementById('editMovMonto').value) || 0,
+        obs: document.getElementById('editMovObs').value.trim()
+      };
+
+      if (datos.monto <= 0) {
+        mostrarToast('El monto debe ser mayor a 0', 'error');
+        return;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            cerrarModal('modalEditarMovimiento');
+            cargarDatosIniciales(true);
+            mostrarToast('Movimiento actualizado', 'success');
+          } else {
+            mostrarToast(result.error || 'Error al actualizar', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .editarMovimiento(movimientoEditandoId, datos);
+    }
+
+    // Confirmar y eliminar movimiento
+    function confirmarEliminarMovimiento(id) {
+      const movimiento = Estado.movimientos.find(m => m.id === id);
+      if (!movimiento) {
+        mostrarToast('Movimiento no encontrado', 'error');
+        return;
+      }
+
+      const confirmMsg = `¿Eliminar este movimiento?\n\nCliente: ${movimiento.cliente}\nTipo: ${movimiento.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}\nMonto: ${formatearMonto(movimiento.monto)}\n\nEsto recalculará el saldo del cliente.`;
+
+      if (!confirm(confirmMsg)) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            cargarDatosIniciales(true);
+            mostrarToast('Movimiento eliminado y saldo recalculado', 'success');
+          } else {
+            mostrarToast(result.error || 'Error al eliminar', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .eliminarMovimiento(id);
     }
 
     // ============================================================================
@@ -3603,6 +3817,91 @@
       document.getElementById('netoArqueo').textContent = formatearMonto(neto);
     }
 
+    // Generar e imprimir resumen de arqueo
+    function imprimirResumenArqueo() {
+      const efectivoText = document.getElementById('totalEfectivo').textContent;
+      const efectivo = parseInt(efectivoText.replace(/\D/g, '')) || 0;
+
+      let totalProveedores = 0;
+      const proveedoresList = [];
+      document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
+        const desc = item.querySelector('.prov-desc');
+        const monto = item.querySelector('.prov-monto');
+        const m = parseFloat(monto ? monto.value : 0) || 0;
+        if (m > 0) {
+          totalProveedores += m;
+          proveedoresList.push({ nombre: desc ? desc.value : 'Sin descripción', monto: m });
+        }
+      });
+
+      let totalGastos = 0;
+      const gastosList = [];
+      document.querySelectorAll('#listaGastos > div').forEach(item => {
+        const desc = item.querySelector('.gasto-desc');
+        const monto = item.querySelector('.gasto-monto');
+        const m = parseFloat(monto ? monto.value : 0) || 0;
+        if (m > 0) {
+          totalGastos += m;
+          gastosList.push({ nombre: desc ? desc.value : 'Sin descripción', monto: m });
+        }
+      });
+
+      let totalIngresos = 0;
+      const ingresosList = [];
+      document.querySelectorAll('#listaIngresos > div').forEach(item => {
+        const desc = item.querySelector('.ingreso-desc');
+        const monto = item.querySelector('.ingreso-monto');
+        const m = parseFloat(monto ? monto.value : 0) || 0;
+        if (m > 0) {
+          totalIngresos += m;
+          ingresosList.push({ nombre: desc ? desc.value : 'Sin descripción', monto: m });
+        }
+      });
+
+      const neto = efectivo - totalProveedores - totalGastos + totalIngresos;
+
+      // Generar el detalle HTML
+      let html = '';
+      html += `<tr><td style="font-weight: bold;">Efectivo Contado</td><td style="text-align: right; color: var(--sv-primario);">${formatearMonto(efectivo)}</td></tr>`;
+
+      if (proveedoresList.length > 0) {
+        html += `<tr><td colspan="2" style="font-weight: bold; padding-top: 0.5rem;">(-) Proveedores</td></tr>`;
+        proveedoresList.forEach(p => {
+          html += `<tr><td style="padding-left: 1rem;">${escapeHtml(p.nombre)}</td><td style="text-align: right; color: var(--sv-peligro);">-${formatearMonto(p.monto)}</td></tr>`;
+        });
+      }
+
+      if (gastosList.length > 0) {
+        html += `<tr><td colspan="2" style="font-weight: bold; padding-top: 0.5rem;">(-) Gastos Extras</td></tr>`;
+        gastosList.forEach(g => {
+          html += `<tr><td style="padding-left: 1rem;">${escapeHtml(g.nombre)}</td><td style="text-align: right; color: var(--sv-peligro);">-${formatearMonto(g.monto)}</td></tr>`;
+        });
+      }
+
+      if (ingresosList.length > 0) {
+        html += `<tr><td colspan="2" style="font-weight: bold; padding-top: 0.5rem;">(+) Ingresos Adicionales</td></tr>`;
+        ingresosList.forEach(i => {
+          html += `<tr><td style="padding-left: 1rem;">${escapeHtml(i.nombre)}</td><td style="text-align: right; color: var(--sv-exito);">+${formatearMonto(i.monto)}</td></tr>`;
+        });
+      }
+
+      document.getElementById('resumenArqueoDetalle').innerHTML = html;
+      document.getElementById('resumenArqueoFecha').textContent = formatearFecha(obtenerFechaLocal());
+      document.getElementById('resumenArqueoNeto').textContent = formatearMonto(neto);
+      document.getElementById('resumenArqueoNeto').style.color = neto >= 0 ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+
+      // Mostrar el resumen de impresión
+      document.getElementById('resumenArqueoImpresion').style.display = 'block';
+
+      // Imprimir
+      window.print();
+
+      // Ocultar después de imprimir
+      setTimeout(() => {
+        document.getElementById('resumenArqueoImpresion').style.display = 'none';
+      }, 1000);
+    }
+
     function guardarArqueo() {
       const proveedores = [];
       document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
@@ -3680,6 +3979,32 @@
 
     // Array para almacenar liquidaciones pendientes agregadas manualmente
     let liquidacionesPendientes = [];
+
+    // Toggle visibilidad de secciones en hoja de ruta para impresión
+    function toggleSeccionHojaRuta(seccion) {
+      const secciones = {
+        'proveedores': 'seccionHojaProveedores',
+        'gastos': 'seccionHojaGastos',
+        'liqPendientes': 'hojaRutaLiqPendientesSection'
+      };
+
+      const checkboxes = {
+        'proveedores': 'chkProveedoresHR',
+        'gastos': 'chkGastosHR',
+        'liqPendientes': 'chkLiqPendientesHR'
+      };
+
+      const seccionEl = document.getElementById(secciones[seccion]);
+      const checkbox = document.getElementById(checkboxes[seccion]);
+
+      if (seccionEl) {
+        if (checkbox && !checkbox.checked) {
+          seccionEl.classList.add('hoja-ruta-excluded');
+        } else {
+          seccionEl.classList.remove('hoja-ruta-excluded');
+        }
+      }
+    }
 
     function cargarHojaRuta() {
       const fecha = document.getElementById('fechaHojaRuta').value;
@@ -4033,7 +4358,11 @@
         return;
       }
 
-      tbody.innerHTML = Estado.clientes.map(c => `
+      // Ordenar alfabéticamente
+      const clientesOrdenados = [...Estado.clientes].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre, 'es'));
+
+      tbody.innerHTML = clientesOrdenados.map(c => `
         <tr>
           <td data-label="Nombre"><strong>${escapeHtml(c.nombre)}</strong></td>
           <td data-label="Telefono">${escapeHtml(c.tel) || '-'}</td>
@@ -4053,9 +4382,11 @@
       const filtro = document.getElementById('filtroClientes').value.toUpperCase();
       const tbody = document.getElementById('gestionClientesTbody');
 
-      const clientesFiltrados = filtro ?
+      // Filtrar y ordenar alfabéticamente
+      const clientesFiltrados = (filtro ?
         Estado.clientes.filter(c => c.nombre.toUpperCase().includes(filtro)) :
-        Estado.clientes;
+        Estado.clientes
+      ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
       if (clientesFiltrados.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No se encontraron clientes</td></tr>';
@@ -4323,22 +4654,59 @@
     const EstadoFacturacion = {
       transferencias: [],
       productos: [],
-      resultadosIA: []
+      resultadosIA: [],
+      cargado: false,
+      cargando: false
     };
 
     // Cargar datos de facturación
-    function cargarDatosFacturacion() {
+    function cargarDatosFacturacion(forzar = false) {
+      // Si ya está cargado y no se fuerza, solo renderizar
+      if (EstadoFacturacion.cargado && !forzar) {
+        renderTransferencias();
+        renderProductos();
+        return;
+      }
+
+      // Si ya está cargando, evitar duplicados
+      if (EstadoFacturacion.cargando) return;
+
+      EstadoFacturacion.cargando = true;
+
       google.script.run
         .withSuccessHandler(function(result) {
+          EstadoFacturacion.cargando = false;
           if (result.success) {
             EstadoFacturacion.transferencias = result.transferencias || [];
             EstadoFacturacion.productos = result.productos || [];
+            EstadoFacturacion.cargado = true;
             renderTransferencias();
             renderProductos();
           }
         })
         .withFailureHandler(function(error) {
+          EstadoFacturacion.cargando = false;
           mostrarToast('Error cargando facturación: ' + error.message, 'error');
+        })
+        .obtenerDatosFacturacion();
+    }
+
+    // Precargar datos de facturación en background (cuando el navegador esté idle)
+    function precargarDatosFacturacion() {
+      if (EstadoFacturacion.cargado || EstadoFacturacion.cargando) return;
+
+      EstadoFacturacion.cargando = true;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          EstadoFacturacion.cargando = false;
+          if (result.success) {
+            EstadoFacturacion.transferencias = result.transferencias || [];
+            EstadoFacturacion.productos = result.productos || [];
+            EstadoFacturacion.cargado = true;
+          }
+        })
+        .withFailureHandler(function(error) {
+          EstadoFacturacion.cargando = false;
         })
         .obtenerDatosFacturacion();
     }
@@ -4368,6 +4736,7 @@
           <td data-label="Estado">${t.facturada ? '<span style="color: var(--sv-exito);">✓ Facturada</span>' : '<span style="color: var(--sv-advertencia);">Pendiente</span>'}</td>
           <td data-label="Acciones">
             <div class="btn-group">
+              ${!t.facturada ? `<button class="btn btn-outline btn-sm" onclick="editarTransferencia(${t.id})">✏️</button>` : ''}
               ${!t.facturada ? `<button class="btn btn-outline btn-sm" onclick="marcarFacturada(${t.id})">✓</button>` : ''}
               <button class="btn btn-outline btn-sm" onclick="eliminarTransferencia(${t.id})" style="color: var(--sv-peligro);">🗑️</button>
             </div>
@@ -4402,8 +4771,13 @@
       `).join('');
     }
 
+    // Variable para saber si estamos editando
+    let transfEditandoId = null;
+
     // Modal nueva transferencia
     function abrirModalNuevaTransferencia() {
+      transfEditandoId = null;
+      document.getElementById('modalTransferenciaTitulo').textContent = 'Nueva Transferencia';
       document.getElementById('transfFecha').value = obtenerFechaLocal();
       document.getElementById('transfCliente').value = '';
       document.getElementById('transfMonto').value = '';
@@ -4415,6 +4789,31 @@
       abrirModal('modalTransferencia');
     }
 
+    // Editar transferencia existente
+    function editarTransferencia(id) {
+      const transferencia = EstadoFacturacion.transferencias.find(t => t.id === id);
+      if (!transferencia) {
+        mostrarToast('Transferencia no encontrada', 'error');
+        return;
+      }
+
+      transfEditandoId = id;
+      document.getElementById('modalTransferenciaTitulo').textContent = 'Editar Transferencia';
+      document.getElementById('transfFecha').value = transferencia.fecha || obtenerFechaLocal();
+      document.getElementById('transfCliente').value = transferencia.cliente || '';
+      document.getElementById('transfMonto').value = transferencia.monto || '';
+      document.getElementById('transfBanco').value = transferencia.banco || '';
+      document.getElementById('transfObs').value = transferencia.obs || '';
+      document.getElementById('transfClienteSugerencias').style.display = 'none';
+
+      // Seleccionar banco
+      document.querySelectorAll('.banco-option').forEach(b => {
+        b.classList.toggle('selected', b.dataset.banco === transferencia.banco);
+      });
+
+      abrirModal('modalTransferencia');
+    }
+
     // Seleccionar banco
     function seleccionarBanco(banco) {
       document.getElementById('transfBanco').value = banco;
@@ -4423,7 +4822,7 @@
       });
     }
 
-    // Guardar transferencia
+    // Guardar transferencia (nueva o edición)
     function guardarTransferencia(e) {
       e.preventDefault();
       const datos = {
@@ -4440,22 +4839,46 @@
       }
 
       mostrarLoading(true);
-      google.script.run
-        .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          if (result.success) {
-            cerrarModal('modalTransferencia');
-            cargarDatosFacturacion();
-            mostrarToast('Transferencia guardada', 'success');
-          } else {
-            mostrarToast(result.error, 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .agregarTransferencia(datos);
+
+      // Determinar si es edición o nueva
+      if (transfEditandoId) {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            mostrarLoading(false);
+            if (result.success) {
+              cerrarModal('modalTransferencia');
+              EstadoFacturacion.cargado = false;
+              cargarDatosFacturacion(true);
+              mostrarToast('Transferencia actualizada', 'success');
+              transfEditandoId = null;
+            } else {
+              mostrarToast(result.error, 'error');
+            }
+          })
+          .withFailureHandler(function(error) {
+            mostrarLoading(false);
+            mostrarToast('Error: ' + error.message, 'error');
+          })
+          .actualizarTransferencia(transfEditandoId, datos);
+      } else {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            mostrarLoading(false);
+            if (result.success) {
+              cerrarModal('modalTransferencia');
+              EstadoFacturacion.cargado = false;
+              cargarDatosFacturacion(true);
+              mostrarToast('Transferencia guardada', 'success');
+            } else {
+              mostrarToast(result.error, 'error');
+            }
+          })
+          .withFailureHandler(function(error) {
+            mostrarLoading(false);
+            mostrarToast('Error: ' + error.message, 'error');
+          })
+          .agregarTransferencia(datos);
+      }
     }
 
     // Marcar transferencia como facturada
