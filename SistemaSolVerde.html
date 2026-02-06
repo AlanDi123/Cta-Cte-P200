@@ -2909,8 +2909,20 @@
 
     function formatearFecha(fecha) {
       if (!fecha) return '-';
+      // Si es string YYYY-MM-DD o ISO, parsear sin desfase de timezone
+      if (typeof fecha === 'string') {
+        // Extraer YYYY-MM-DD del inicio (funciona con "2026-02-06" y "2026-02-06T...")
+        var partes = fecha.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (partes) {
+          return partes[3] + '/' + partes[2] + '/' + partes[1];
+        }
+      }
       const d = new Date(fecha);
-      return d.toLocaleDateString('es-AR');
+      if (isNaN(d.getTime())) return '-';
+      var dd = String(d.getDate()).padStart(2, '0');
+      var mm = String(d.getMonth() + 1).padStart(2, '0');
+      var yyyy = d.getFullYear();
+      return dd + '/' + mm + '/' + yyyy;
     }
 
     function debounce(func, wait) {
@@ -5912,7 +5924,7 @@
       }
 
       // Poner fecha
-      document.getElementById('arcaPreviewFecha').textContent = new Date().toLocaleDateString('es-AR');
+      document.getElementById('arcaPreviewFecha').textContent = formatearFecha(obtenerFechaLocal());
 
       // Setup autocomplete para cliente ARCA
       var inputArcaCliente = document.getElementById('arcaCliente');
@@ -6841,8 +6853,7 @@
         }
         resumenHtml += '<div class="alq-resumen-item" style="border-top: 2px solid #6A1B9A; padding-top: 0.4rem;"><span class="alq-resumen-label"><strong>Monto efectivo</strong></span><span class="alq-resumen-valor" style="color:#6A1B9A; font-size: 1rem;">$' + formatearMonto(config.montoEfectivo) + '</span></div>';
         if (config.ultimoPago) {
-          var fechaUP = new Date(config.ultimoPago);
-          resumenHtml += '<div class="alq-resumen-item"><span class="alq-resumen-label">Ultimo pago</span><span class="alq-resumen-valor">' + fechaUP.toLocaleDateString('es-AR') + '</span></div>';
+          resumenHtml += '<div class="alq-resumen-item"><span class="alq-resumen-label">Ultimo pago</span><span class="alq-resumen-valor">' + formatearFecha(config.ultimoPago) + '</span></div>';
         }
       }
       document.getElementById('alqResumen').innerHTML = resumenHtml || '<p style="color: var(--sv-texto-secundario);">Sin datos</p>';
@@ -6875,7 +6886,7 @@
       if (movs.length > 0) {
         for (var k = 0; k < Math.min(movs.length, 10); k++) {
           var mov = movs[k];
-          var fechaMov = mov.fecha ? new Date(mov.fecha).toLocaleDateString('es-AR') : '';
+          var fechaMov = mov.fecha ? formatearFecha(mov.fecha) : '';
           var tipoLabel = mov.tipo === 'FACTURA_MENSUAL' ? 'Factura' : (mov.tipo === 'AJUSTE' ? 'Ajuste' : 'Pago S' + mov.semana);
           movsHtml += '<div class="alq-mov-item">' +
             '<span>' + fechaMov + ' - ' + escapeHtml(tipoLabel) + '</span>' +
