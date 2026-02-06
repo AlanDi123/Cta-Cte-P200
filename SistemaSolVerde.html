@@ -1181,6 +1181,189 @@
       background: rgba(0, 172, 193, 0.1);
       border: 1px solid var(--sv-info);
     }
+
+    /* ============================================================================
+       ALQUILERES DE PUESTOS
+       ============================================================================ */
+    .alq-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .alq-tab {
+      padding: 0.6rem 1.2rem;
+      border: 2px solid var(--sv-borde);
+      border-radius: 8px;
+      background: var(--sv-fondo);
+      color: var(--sv-texto);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .alq-tab:hover { border-color: #6A1B9A; }
+    .alq-tab.active {
+      background: #6A1B9A;
+      color: #fff;
+      border-color: #6A1B9A;
+    }
+    .alq-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 1rem;
+    }
+    @media (max-width: 900px) {
+      .alq-layout { grid-template-columns: 1fr; }
+    }
+    .alq-calendario {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+    @media (max-width: 768px) {
+      .alq-calendario { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 500px) {
+      .alq-calendario { grid-template-columns: 1fr; }
+    }
+    .alq-mes {
+      background: var(--sv-tarjeta);
+      border: 1px solid var(--sv-borde);
+      border-radius: 8px;
+      padding: 0.6rem;
+    }
+    .alq-mes-titulo {
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-bottom: 0.4rem;
+      text-align: center;
+      color: #6A1B9A;
+    }
+    .alq-semanas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .alq-semana {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s;
+      position: relative;
+    }
+    .alq-semana:hover { transform: scale(1.2); z-index: 2; }
+    .alq-semana.pagado { background: #4CAF50; color: #fff; }
+    .alq-semana.impago { background: #C62828; color: #fff; }
+    .alq-semana.parcial { background: #FBC02D; color: #333; }
+    .alq-semana.futuro { background: var(--sv-fondo); color: var(--sv-texto-secundario); border: 1px dashed var(--sv-borde); }
+    .alq-semana.actual { box-shadow: 0 0 0 2px #6A1B9A; }
+
+    .alq-leyenda {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+    }
+    .alq-leyenda-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .alq-leyenda-color {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+    }
+
+    .alq-panel { display: flex; flex-direction: column; gap: 0.75rem; }
+    .alq-panel .card { margin-bottom: 0; }
+
+    .alq-resumen-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid var(--sv-borde);
+      font-size: 0.85rem;
+    }
+    .alq-resumen-item:last-child { border-bottom: none; }
+    .alq-resumen-label { color: var(--sv-texto-secundario); }
+    .alq-resumen-valor { font-weight: 700; }
+
+    .alq-acciones { display: flex; flex-direction: column; gap: 0.5rem; }
+    .alq-acciones .btn { width: 100%; justify-content: center; }
+
+    .alq-movs-lista {
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+    }
+    .alq-mov-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid var(--sv-borde);
+    }
+    .alq-mov-item:last-child { border-bottom: none; }
+
+    .alq-impago-badge {
+      display: inline-block;
+      background: #C62828;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .alq-anio-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .alq-anio-nav button {
+      background: var(--sv-fondo);
+      border: 1px solid var(--sv-borde);
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      color: var(--sv-texto);
+    }
+    .alq-anio-nav span { font-weight: 700; font-size: 1.1rem; }
+
+    /* Modal alquileres */
+    .alq-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1100;
+      align-items: center;
+      justify-content: center;
+    }
+    .alq-modal-overlay.active { display: flex; }
+    .alq-modal {
+      background: var(--sv-tarjeta);
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 90%;
+      max-width: 450px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .alq-modal h3 { margin: 0 0 1rem; color: #6A1B9A; }
+    .alq-modal .form-group { margin-bottom: 0.75rem; }
+    .alq-modal-btns {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      justify-content: flex-end;
+    }
   </style>
 </head>
 <body>
@@ -1285,6 +1468,14 @@
         <div class="menu-item" data-module="historial-facturas">
           <span class="menu-icon">📑</span>
           <span>Historial ARCA</span>
+        </div>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-section-title">Alquileres</div>
+        <div class="menu-item" data-module="alquileres">
+          <span class="menu-icon">🏪</span>
+          <span>Alquiler de Puestos</span>
         </div>
       </div>
 
@@ -1952,6 +2143,172 @@
               </thead>
               <tbody id="tbodyHistorialFacturas"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODULO: ALQUILERES DE PUESTOS -->
+      <div class="module-view" id="module-alquileres">
+        <h2 style="margin-bottom: 1rem;">Alquiler de Puestos</h2>
+
+        <!-- Tabs de inquilinos -->
+        <div class="alq-tabs" id="alqTabs"></div>
+
+        <!-- Navegacion de anio y leyenda -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <div class="alq-anio-nav">
+            <button onclick="cambiarAnioAlq(-1)" title="Anio anterior">&lt;</button>
+            <span id="alqAnioActual"></span>
+            <button onclick="cambiarAnioAlq(1)" title="Anio siguiente">&gt;</button>
+          </div>
+          <div class="alq-leyenda">
+            <div class="alq-leyenda-item"><div class="alq-leyenda-color" style="background:#4CAF50;"></div> Pagado</div>
+            <div class="alq-leyenda-item"><div class="alq-leyenda-color" style="background:#FBC02D;"></div> Parcial</div>
+            <div class="alq-leyenda-item"><div class="alq-leyenda-color" style="background:#C62828;"></div> Impago</div>
+            <div class="alq-leyenda-item"><div class="alq-leyenda-color" style="background:var(--sv-fondo); border:1px dashed var(--sv-borde);"></div> Futuro</div>
+          </div>
+        </div>
+
+        <!-- Layout: calendario + panel -->
+        <div class="alq-layout">
+          <!-- Calendario -->
+          <div>
+            <div class="alq-calendario" id="alqCalendario">
+              <div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--sv-texto-secundario);">
+                Selecciona un inquilino para ver el calendario
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel derecho -->
+          <div class="alq-panel" id="alqPanel">
+            <!-- Resumen inquilino -->
+            <div class="card">
+              <div class="card-title">Resumen</div>
+              <div id="alqResumen">
+                <p style="color: var(--sv-texto-secundario); font-size: 0.85rem;">Selecciona un inquilino</p>
+              </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="card">
+              <div class="card-title">Acciones</div>
+              <div class="alq-acciones" id="alqAcciones">
+                <button class="btn btn-primary" onclick="mostrarModalPagoAlq()" disabled id="btnPagoSemanal">Registrar Pago Semanal</button>
+                <button class="btn btn-secondary" onclick="mostrarModalFacturaAlq()" disabled id="btnFacturaMensual">Registrar Factura Mensual</button>
+                <button class="btn" onclick="mostrarModalConfigAlq()" disabled id="btnConfigAlq" style="background: #6A1B9A; color: #fff;">Ajustes / Configuracion</button>
+              </div>
+            </div>
+
+            <!-- Semanas impagas -->
+            <div class="card">
+              <div class="card-title">Semanas Pendientes</div>
+              <div id="alqImpagas">
+                <p style="color: var(--sv-texto-secundario); font-size: 0.85rem;">Sin datos</p>
+              </div>
+            </div>
+
+            <!-- Movimientos recientes -->
+            <div class="card">
+              <div class="card-title">Movimientos Recientes</div>
+              <div class="alq-movs-lista" id="alqMovimientos">
+                <p style="color: var(--sv-texto-secundario); font-size: 0.85rem;">Sin movimientos</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Pago Semanal Alquiler -->
+      <div class="alq-modal-overlay" id="modalPagoAlq">
+        <div class="alq-modal">
+          <h3>Registrar Pago Semanal</h3>
+          <div class="form-group">
+            <label class="form-label">Inquilino</label>
+            <input type="text" class="form-input" id="alqPagoInquilino" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Semana a pagar</label>
+            <select class="form-input" id="alqPagoSemana"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monto ($)</label>
+            <input type="number" class="form-input" id="alqPagoMonto" min="0" step="1000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Observaciones</label>
+            <input type="text" class="form-input" id="alqPagoObs" placeholder="Opcional">
+          </div>
+          <div class="alq-modal-btns">
+            <button class="btn" onclick="cerrarModalAlq('modalPagoAlq')">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarPagoSemanalAlq()">Guardar Pago</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Factura Mensual Alquiler -->
+      <div class="alq-modal-overlay" id="modalFacturaAlq">
+        <div class="alq-modal">
+          <h3>Registrar Factura Mensual</h3>
+          <div class="form-group">
+            <label class="form-label">Inquilino</label>
+            <input type="text" class="form-input" id="alqFacturaInquilino" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mes</label>
+            <select class="form-input" id="alqFacturaMes">
+              <option value="1">Enero</option><option value="2">Febrero</option>
+              <option value="3">Marzo</option><option value="4">Abril</option>
+              <option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option>
+              <option value="9">Septiembre</option><option value="10">Octubre</option>
+              <option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monto de la Factura ($)</label>
+            <input type="number" class="form-input" id="alqFacturaMonto" min="0" step="1000">
+          </div>
+          <div class="form-group" id="alqFacturaPreview" style="background: var(--sv-fondo); padding: 0.5rem; border-radius: 6px; font-size: 0.85rem;"></div>
+          <div class="form-group">
+            <label class="form-label">Observaciones</label>
+            <input type="text" class="form-input" id="alqFacturaObs" placeholder="Opcional">
+          </div>
+          <div class="alq-modal-btns">
+            <button class="btn" onclick="cerrarModalAlq('modalFacturaAlq')">Cancelar</button>
+            <button class="btn btn-secondary" onclick="guardarFacturaMensualAlq()">Registrar Factura</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Configuracion Alquiler -->
+      <div class="alq-modal-overlay" id="modalConfigAlq">
+        <div class="alq-modal">
+          <h3>Configuracion de Alquiler</h3>
+          <div class="form-group">
+            <label class="form-label">Inquilino</label>
+            <input type="text" class="form-input" id="alqConfigInquilino" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monto Semanal Base ($)</label>
+            <input type="number" class="form-input" id="alqConfigMonto" min="0" step="1000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ajuste Obra (+ suma al alquiler)</label>
+            <input type="number" class="form-input" id="alqConfigObra" min="0" step="1000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ajuste Mercaderia (- descuenta del alquiler)</label>
+            <input type="number" class="form-input" id="alqConfigMercaderia" min="0" step="1000">
+          </div>
+          <div class="form-group" id="alqConfigPreview" style="background: var(--sv-fondo); padding: 0.5rem; border-radius: 6px; font-size: 0.85rem;"></div>
+          <div class="form-group">
+            <label class="form-label">Observaciones</label>
+            <input type="text" class="form-input" id="alqConfigObs" placeholder="Opcional">
+          </div>
+          <div class="alq-modal-btns">
+            <button class="btn" onclick="cerrarModalAlq('modalConfigAlq')">Cancelar</button>
+            <button class="btn" onclick="guardarConfigAlq()" style="background: #6A1B9A; color: #fff;">Guardar Config</button>
           </div>
         </div>
       </div>
@@ -2652,7 +3009,7 @@
     function cargarDatosDesdeServidor(enSegundoPlano) {
       google.script.run
         .withSuccessHandler(function(data) {
-          if (data.success) {
+          if (data && data.success) {
             Estado.clientes = data.clientes || [];
             Estado.movimientos = data.movimientos || [];
 
@@ -2670,6 +3027,8 @@
             renderMovimientos();
             renderClientesGestion();
             actualizarDatosSistema();
+          } else if (!data) {
+            console.warn('cargarDatosDesdeServidor: respuesta null del servidor');
           }
 
           if (!enSegundoPlano) {
@@ -2689,13 +3048,16 @@
 
       google.script.run
         .withSuccessHandler(function(config) {
-          Estado.configuracion = config;
-          renderDenominaciones();
+          if (config) {
+            Estado.configuracion = config;
+            renderDenominaciones();
+          }
         })
         .obtenerConfiguracion();
 
       google.script.run
         .withSuccessHandler(function(result) {
+          if (!result) return;
           const el = document.getElementById('estadoApiKey');
           el.textContent = result.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
           el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
@@ -3001,6 +3363,7 @@
       if (modulo === 'facturacion-arca') inicializarModuloArca();
       if (modulo === 'historial-facturas') cargarHistorialFacturas();
       if (modulo === 'configuracion') cargarConfigAfip();
+      if (modulo === 'alquileres') cargarModuloAlquileres();
     }
 
     // ============================================================================
@@ -3029,16 +3392,54 @@
         return;
       }
 
-      // Validar si es pago mayor a deuda
-      if (Estado.tipoMovimiento === 'HABER') {
-        const cliente = Estado.clientes.find(c => c.nombre.toUpperCase() === clienteNombre.toUpperCase());
-        if (cliente && monto > cliente.saldo) {
-          mostrarModalConfirmarPago(cliente, monto);
+      // Verificar si el cliente existe en la lista
+      const clienteExiste = Estado.clientes.find(c => c.nombre.toUpperCase() === clienteNombre.toUpperCase());
+
+      if (!clienteExiste) {
+        // Cliente no encontrado - preguntar si quiere crearlo
+        if (confirm(
+          'El cliente "' + clienteNombre + '" no existe.\n\n' +
+          '¿Deseas crear un cliente nuevo con ese nombre?\n\n' +
+          'Si: se creara el cliente y se registrara el movimiento.\n' +
+          'No: podes corregir el nombre.'
+        )) {
+          // Crear cliente primero, luego guardar movimiento
+          mostrarLoading(true);
+          google.script.run
+            .withSuccessHandler(function(result) {
+              if (result && result.success) {
+                Estado.clientes.push(result.cliente);
+                mostrarToast('Cliente "' + clienteNombre + '" creado', 'success');
+                // Ahora guardar el movimiento
+                _ejecutarGuardadoMovimiento();
+              } else {
+                mostrarLoading(false);
+                mostrarToast('Error creando cliente: ' + (result ? result.error : 'Sin respuesta'), 'error');
+              }
+            })
+            .withFailureHandler(function(error) {
+              mostrarLoading(false);
+              mostrarToast('Error: ' + error.message, 'error');
+            })
+            .crearCliente({ nombre: clienteNombre });
+          return;
+        } else {
+          // Usuario cancelo - enfocar el campo para que corrija
+          document.getElementById('movCliente').focus();
+          document.getElementById('movCliente').select();
           return;
         }
       }
 
-      ejecutarGuardarMovimiento();
+      // Validar si es pago mayor a deuda
+      if (Estado.tipoMovimiento === 'HABER') {
+        if (clienteExiste && monto > clienteExiste.saldo) {
+          mostrarModalConfirmarPago(clienteExiste, monto);
+          return;
+        }
+      }
+
+      _ejecutarGuardadoMovimiento();
     }
 
     function mostrarModalConfirmarPago(cliente, monto) {
@@ -3059,6 +3460,10 @@
     }
 
     function ejecutarGuardarMovimiento() {
+      _ejecutarGuardadoMovimiento();
+    }
+
+    function _ejecutarGuardadoMovimiento() {
       const datos = {
         fecha: document.getElementById('movFecha').value,
         cliente: document.getElementById('movCliente').value.trim(),
@@ -3067,31 +3472,64 @@
         obs: document.getElementById('movObs').value
       };
 
-      mostrarLoading(true);
+      // Limpiar formulario INMEDIATAMENTE para velocidad de carga
+      var montoGuardado = datos.monto;
+      var clienteGuardado = datos.cliente;
+      var tipoGuardado = datos.tipo;
+      document.getElementById('movCliente').value = '';
+      document.getElementById('movMonto').value = '';
+      document.getElementById('movObs').value = '';
+      document.getElementById('movCliente').focus();
 
+      // Mostrar movimiento provisional en la lista (optimistic UI)
+      var movProvisional = {
+        id: -Date.now(), // ID temporal negativo
+        fecha: datos.fecha || new Date().toISOString(),
+        cliente: clienteGuardado.toUpperCase(),
+        tipo: tipoGuardado,
+        monto: montoGuardado,
+        saldoPost: 0, // Se actualiza cuando responde el server
+        obs: datos.obs || '',
+        _provisional: true
+      };
+      Estado.movimientos.unshift(movProvisional);
+      renderMovimientos();
+
+      // Notificar que se esta guardando
+      mostrarToast('Guardando ' + (tipoGuardado === 'DEBE' ? 'fiado' : 'pago') + ' de ' + formatearMonto(montoGuardado) + '...', 'info');
+
+      // Guardar en segundo plano
       google.script.run
         .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          if (result.success) {
-            mostrarToast(result.mensaje, 'success');
-            Estado.movimientos.unshift(result.movimiento);
-            renderMovimientos();
+          // Reemplazar movimiento provisional con el real
+          var idxProv = Estado.movimientos.findIndex(function(m) { return m.id === movProvisional.id; });
+
+          if (result && result.success) {
+            if (idxProv >= 0) {
+              Estado.movimientos[idxProv] = result.movimiento;
+            } else {
+              Estado.movimientos.unshift(result.movimiento);
+            }
 
             if (result.cliente) {
-              const idx = Estado.clientes.findIndex(c => c.nombre === result.cliente.nombre);
+              var idx = Estado.clientes.findIndex(function(c) { return c.nombre === result.cliente.nombre; });
               if (idx >= 0) Estado.clientes[idx] = result.cliente;
             }
 
-            document.getElementById('movCliente').value = '';
-            document.getElementById('movMonto').value = '';
-            document.getElementById('movObs').value = '';
-            document.getElementById('movCliente').focus();
+            renderMovimientos();
+            mostrarToast(result.mensaje, 'success');
           } else {
-            mostrarToast(result.error, 'error');
+            // Error - quitar provisional
+            if (idxProv >= 0) Estado.movimientos.splice(idxProv, 1);
+            renderMovimientos();
+            mostrarToast('Error: ' + (result ? result.error : 'Sin respuesta del servidor'), 'error');
           }
         })
         .withFailureHandler(function(error) {
-          mostrarLoading(false);
+          // Error de red - quitar provisional
+          var idxProv = Estado.movimientos.findIndex(function(m) { return m.id === movProvisional.id; });
+          if (idxProv >= 0) Estado.movimientos.splice(idxProv, 1);
+          renderMovimientos();
           mostrarToast('Error: ' + error.message, 'error');
         })
         .guardarMovimiento(datos);
@@ -6242,6 +6680,460 @@
         })
         .probarConexionClaude();
     }
+
+    // ============================================================================
+    // ALQUILERES DE PUESTOS
+    // ============================================================================
+
+    var alqEstado = {
+      inquilinoActual: null,
+      anioActual: new Date().getFullYear(),
+      inquilinos: [],
+      calendario: null,
+      configInq: null,
+      semanasImpagas: [],
+      movimientos: []
+    };
+
+    function cargarModuloAlquileres() {
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (!result || !result.success) {
+            mostrarToast('Error cargando alquileres: ' + (result ? result.error : 'sin respuesta'), 'error');
+            return;
+          }
+          alqEstado.inquilinos = result.inquilinos || [];
+
+          // Render tabs
+          renderAlqTabs();
+
+          // Seleccionar primer inquilino si no hay uno seleccionado
+          if (!alqEstado.inquilinoActual && alqEstado.inquilinos.length > 0) {
+            seleccionarInquilinoAlq(alqEstado.inquilinos[0].inquilino);
+          } else if (alqEstado.inquilinoActual) {
+            cargarCalendarioAlq(alqEstado.inquilinoActual, alqEstado.anioActual);
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .obtenerDatosAlquileres();
+    }
+
+    function renderAlqTabs() {
+      var container = document.getElementById('alqTabs');
+      container.innerHTML = alqEstado.inquilinos.map(function(inq) {
+        var activo = alqEstado.inquilinoActual === inq.inquilino ? ' active' : '';
+        return '<div class="alq-tab' + activo + '" onclick="seleccionarInquilinoAlq(\'' + escapeHtml(inq.inquilino).replace(/'/g, "\\'") + '\')">' +
+          escapeHtml(inq.inquilino) + '</div>';
+      }).join('');
+    }
+
+    function seleccionarInquilinoAlq(nombre) {
+      alqEstado.inquilinoActual = nombre;
+      renderAlqTabs();
+      document.getElementById('alqAnioActual').textContent = alqEstado.anioActual;
+
+      // Habilitar botones
+      document.getElementById('btnPagoSemanal').disabled = false;
+      document.getElementById('btnFacturaMensual').disabled = false;
+      document.getElementById('btnConfigAlq').disabled = false;
+
+      cargarCalendarioAlq(nombre, alqEstado.anioActual);
+    }
+
+    function cambiarAnioAlq(delta) {
+      alqEstado.anioActual += delta;
+      document.getElementById('alqAnioActual').textContent = alqEstado.anioActual;
+      if (alqEstado.inquilinoActual) {
+        cargarCalendarioAlq(alqEstado.inquilinoActual, alqEstado.anioActual);
+      }
+    }
+
+    function cargarCalendarioAlq(inquilino, anio) {
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (!result || !result.success) {
+            mostrarToast('Error: ' + (result ? result.error : 'sin respuesta'), 'error');
+            return;
+          }
+          alqEstado.calendario = result.calendario;
+          alqEstado.configInq = result.config;
+          alqEstado.semanasImpagas = result.semanasImpagas || [];
+          alqEstado.movimientos = result.movimientos || [];
+
+          renderCalendarioAlq();
+          renderPanelAlq();
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .obtenerCalendarioAlquiler(inquilino, anio);
+    }
+
+    function renderCalendarioAlq() {
+      var cal = alqEstado.calendario;
+      if (!cal || !cal.meses) return;
+
+      var hoy = new Date();
+      var infoHoy = obtenerInfoSemanaLocal(hoy);
+      var container = document.getElementById('alqCalendario');
+      var html = '';
+
+      for (var m = 0; m < cal.meses.length; m++) {
+        var mes = cal.meses[m];
+        html += '<div class="alq-mes">';
+        html += '<div class="alq-mes-titulo">' + escapeHtml(mes.nombre) + '</div>';
+        html += '<div class="alq-semanas">';
+
+        for (var s = 0; s < mes.semanas.length; s++) {
+          var sem = mes.semanas[s];
+          var clases = 'alq-semana ' + sem.estado;
+          if (cal.anio === infoHoy.anio && sem.semana === infoHoy.semana) {
+            clases += ' actual';
+          }
+
+          var tooltip = 'Sem ' + sem.semana + ': ';
+          if (sem.estado === 'pagado') tooltip += 'PAGADO $' + formatearMonto(sem.montoPagado);
+          else if (sem.estado === 'parcial') tooltip += 'PARCIAL $' + formatearMonto(sem.montoPagado) + ' / $' + formatearMonto(sem.montoEsperado);
+          else if (sem.estado === 'impago') tooltip += 'IMPAGO';
+          else tooltip += 'FUTURO';
+
+          html += '<div class="' + clases + '" title="' + escapeHtml(tooltip) + '" onclick="clickSemanaAlq(' + sem.semana + ', \'' + sem.estado + '\')">' +
+            sem.semana + '</div>';
+        }
+
+        html += '</div></div>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    function obtenerInfoSemanaLocal(fecha) {
+      var d = new Date(fecha);
+      var temp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      temp.setUTCDate(temp.getUTCDate() + 4 - (temp.getUTCDay() || 7));
+      var yearStart = new Date(Date.UTC(temp.getUTCFullYear(), 0, 1));
+      var weekNo = Math.ceil((((temp - yearStart) / 86400000) + 1) / 7);
+      return { semana: weekNo, anio: temp.getUTCFullYear() };
+    }
+
+    function renderPanelAlq() {
+      var config = alqEstado.configInq;
+      var impagas = alqEstado.semanasImpagas;
+      var movs = alqEstado.movimientos;
+
+      // Resumen
+      var resumenHtml = '';
+      if (config) {
+        resumenHtml += '<div class="alq-resumen-item"><span class="alq-resumen-label">Monto base semanal</span><span class="alq-resumen-valor">$' + formatearMonto(config.montoSemanal) + '</span></div>';
+        if (config.ajusteObra > 0) {
+          resumenHtml += '<div class="alq-resumen-item"><span class="alq-resumen-label">+ Ajuste obra</span><span class="alq-resumen-valor" style="color:#C62828;">+$' + formatearMonto(config.ajusteObra) + '</span></div>';
+        }
+        if (config.ajusteMercaderia > 0) {
+          resumenHtml += '<div class="alq-resumen-item"><span class="alq-resumen-label">- Ajuste mercaderia</span><span class="alq-resumen-valor" style="color:#4CAF50;">-$' + formatearMonto(config.ajusteMercaderia) + '</span></div>';
+        }
+        resumenHtml += '<div class="alq-resumen-item" style="border-top: 2px solid #6A1B9A; padding-top: 0.4rem;"><span class="alq-resumen-label"><strong>Monto efectivo</strong></span><span class="alq-resumen-valor" style="color:#6A1B9A; font-size: 1rem;">$' + formatearMonto(config.montoEfectivo) + '</span></div>';
+        if (config.ultimoPago) {
+          var fechaUP = new Date(config.ultimoPago);
+          resumenHtml += '<div class="alq-resumen-item"><span class="alq-resumen-label">Ultimo pago</span><span class="alq-resumen-valor">' + fechaUP.toLocaleDateString('es-AR') + '</span></div>';
+        }
+      }
+      document.getElementById('alqResumen').innerHTML = resumenHtml || '<p style="color: var(--sv-texto-secundario);">Sin datos</p>';
+
+      // Semanas impagas
+      var impagasHtml = '';
+      if (impagas.length > 0) {
+        impagasHtml += '<div style="margin-bottom: 0.3rem;"><span class="alq-impago-badge">' + impagas.length + ' semana' + (impagas.length > 1 ? 's' : '') + ' pendiente' + (impagas.length > 1 ? 's' : '') + '</span></div>';
+        var totalDeuda = 0;
+        for (var i = 0; i < Math.min(impagas.length, 8); i++) {
+          var sem = impagas[i];
+          var deuda = sem.montoEsperado - sem.montoPagado;
+          totalDeuda += deuda;
+          impagasHtml += '<div class="alq-resumen-item"><span class="alq-resumen-label">Sem ' + sem.semana + '</span><span class="alq-resumen-valor" style="color: #C62828;">$' + formatearMonto(deuda) + '</span></div>';
+        }
+        if (impagas.length > 8) {
+          impagasHtml += '<div style="font-size: 0.8rem; color: var(--sv-texto-secundario);">... y ' + (impagas.length - 8) + ' mas</div>';
+          for (var j = 8; j < impagas.length; j++) {
+            totalDeuda += impagas[j].montoEsperado - impagas[j].montoPagado;
+          }
+        }
+        impagasHtml += '<div class="alq-resumen-item" style="border-top: 2px solid #C62828; padding-top: 0.3rem; margin-top: 0.3rem;"><span class="alq-resumen-label"><strong>Total deuda</strong></span><span class="alq-resumen-valor" style="color:#C62828;">$' + formatearMonto(totalDeuda) + '</span></div>';
+      } else {
+        impagasHtml = '<p style="color: #4CAF50; font-size: 0.85rem; font-weight: 600;">Al dia - sin semanas pendientes</p>';
+      }
+      document.getElementById('alqImpagas').innerHTML = impagasHtml;
+
+      // Movimientos recientes
+      var movsHtml = '';
+      if (movs.length > 0) {
+        for (var k = 0; k < Math.min(movs.length, 10); k++) {
+          var mov = movs[k];
+          var fechaMov = mov.fecha ? new Date(mov.fecha).toLocaleDateString('es-AR') : '';
+          var tipoLabel = mov.tipo === 'FACTURA_MENSUAL' ? 'Factura' : (mov.tipo === 'AJUSTE' ? 'Ajuste' : 'Pago S' + mov.semana);
+          movsHtml += '<div class="alq-mov-item">' +
+            '<span>' + fechaMov + ' - ' + escapeHtml(tipoLabel) + '</span>' +
+            '<span style="font-weight: 600;">$' + formatearMonto(mov.monto) + '</span>' +
+            '</div>';
+        }
+      } else {
+        movsHtml = '<p style="color: var(--sv-texto-secundario); font-size: 0.85rem;">Sin movimientos</p>';
+      }
+      document.getElementById('alqMovimientos').innerHTML = movsHtml;
+    }
+
+    function clickSemanaAlq(semana, estado) {
+      if (estado === 'futuro') return;
+      if (estado === 'impago' || estado === 'parcial') {
+        mostrarModalPagoAlq(semana);
+      } else {
+        // Semana pagada: mostrar info
+        var cal = alqEstado.calendario;
+        var info = null;
+        for (var m = 0; m < cal.meses.length; m++) {
+          for (var s = 0; s < cal.meses[m].semanas.length; s++) {
+            if (cal.meses[m].semanas[s].semana === semana) {
+              info = cal.meses[m].semanas[s];
+              break;
+            }
+          }
+          if (info) break;
+        }
+        if (info) {
+          mostrarToast('Semana ' + semana + ': PAGADO $' + formatearMonto(info.montoPagado), 'success');
+        }
+      }
+    }
+
+    // --- Modales ---
+
+    function mostrarModalPagoAlq(semanaPreseleccionada) {
+      if (!alqEstado.inquilinoActual) return;
+      document.getElementById('alqPagoInquilino').value = alqEstado.inquilinoActual;
+
+      // Poblar select de semanas con las impagas
+      var select = document.getElementById('alqPagoSemana');
+      select.innerHTML = '';
+      var impagas = alqEstado.semanasImpagas;
+
+      // Agregar semana actual si no esta en impagas
+      var infoHoy = obtenerInfoSemanaLocal(new Date());
+      if (alqEstado.anioActual === infoHoy.anio) {
+        var yaExiste = impagas.some(function(s) { return s.semana === infoHoy.semana; });
+        if (!yaExiste) {
+          var opt = document.createElement('option');
+          opt.value = infoHoy.semana;
+          opt.textContent = 'Semana ' + infoHoy.semana + ' (actual)';
+          select.appendChild(opt);
+        }
+      }
+
+      for (var i = 0; i < impagas.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = impagas[i].semana;
+        var deuda = impagas[i].montoEsperado - impagas[i].montoPagado;
+        opt.textContent = 'Semana ' + impagas[i].semana + ' - debe $' + formatearMonto(deuda);
+        select.appendChild(opt);
+      }
+
+      if (semanaPreseleccionada) {
+        select.value = semanaPreseleccionada;
+      }
+
+      // Monto por defecto
+      var config = alqEstado.configInq;
+      document.getElementById('alqPagoMonto').value = config ? config.montoEfectivo : 400000;
+      document.getElementById('alqPagoObs').value = '';
+
+      document.getElementById('modalPagoAlq').classList.add('active');
+    }
+
+    function mostrarModalFacturaAlq() {
+      if (!alqEstado.inquilinoActual) return;
+      document.getElementById('alqFacturaInquilino').value = alqEstado.inquilinoActual;
+
+      // Mes actual
+      var mesActual = new Date().getMonth() + 1;
+      document.getElementById('alqFacturaMes').value = mesActual;
+      document.getElementById('alqFacturaMonto').value = '';
+      document.getElementById('alqFacturaObs').value = '';
+      actualizarPreviewFacturaAlq();
+
+      document.getElementById('modalFacturaAlq').classList.add('active');
+    }
+
+    function actualizarPreviewFacturaAlq() {
+      var monto = parseFloat(document.getElementById('alqFacturaMonto').value) || 0;
+      var config = alqEstado.configInq;
+      var montoSemanal = config ? config.montoEfectivo : 400000;
+      var semanasCubiertas = montoSemanal > 0 ? Math.floor(monto / montoSemanal) : 0;
+      var sobrante = montoSemanal > 0 ? monto % montoSemanal : 0;
+
+      var preview = document.getElementById('alqFacturaPreview');
+      if (monto > 0) {
+        preview.innerHTML = 'La factura de <strong>$' + formatearMonto(monto) + '</strong> cubre <strong>' + semanasCubiertas + ' semana' + (semanasCubiertas !== 1 ? 's' : '') + '</strong>' +
+          (sobrante > 0 ? ' (sobrante: $' + formatearMonto(sobrante) + ')' : '');
+      } else {
+        preview.innerHTML = 'Ingresa el monto para ver cuantas semanas cubre';
+      }
+    }
+
+    function mostrarModalConfigAlq() {
+      if (!alqEstado.inquilinoActual) return;
+      var config = alqEstado.configInq;
+      document.getElementById('alqConfigInquilino').value = alqEstado.inquilinoActual;
+      document.getElementById('alqConfigMonto').value = config ? config.montoSemanal : 400000;
+      document.getElementById('alqConfigObra').value = config ? config.ajusteObra : 0;
+      document.getElementById('alqConfigMercaderia').value = config ? config.ajusteMercaderia : 0;
+      document.getElementById('alqConfigObs').value = config ? config.obs : '';
+      actualizarPreviewConfigAlq();
+
+      document.getElementById('modalConfigAlq').classList.add('active');
+    }
+
+    function actualizarPreviewConfigAlq() {
+      var base = parseFloat(document.getElementById('alqConfigMonto').value) || 0;
+      var obra = parseFloat(document.getElementById('alqConfigObra').value) || 0;
+      var merc = parseFloat(document.getElementById('alqConfigMercaderia').value) || 0;
+      var efectivo = base + obra - merc;
+
+      document.getElementById('alqConfigPreview').innerHTML =
+        'Monto efectivo semanal: <strong>$' + formatearMonto(efectivo) + '</strong>' +
+        (obra > 0 ? ' (incluye obra +$' + formatearMonto(obra) + ')' : '') +
+        (merc > 0 ? ' (descuenta mercaderia -$' + formatearMonto(merc) + ')' : '');
+    }
+
+    function cerrarModalAlq(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+
+    // --- Guardar ---
+
+    function guardarPagoSemanalAlq() {
+      var inquilino = alqEstado.inquilinoActual;
+      var semana = parseInt(document.getElementById('alqPagoSemana').value);
+      var monto = parseFloat(document.getElementById('alqPagoMonto').value);
+      var obs = document.getElementById('alqPagoObs').value;
+
+      if (!semana || !monto || monto <= 0) {
+        mostrarToast('Completa semana y monto', 'warning');
+        return;
+      }
+
+      cerrarModalAlq('modalPagoAlq');
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result && result.success) {
+            mostrarToast(result.mensaje || 'Pago registrado', 'success');
+            cargarCalendarioAlq(inquilino, alqEstado.anioActual);
+          } else {
+            mostrarToast('Error: ' + (result ? result.error : 'sin respuesta'), 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarPagoAlquiler({
+          inquilino: inquilino,
+          tipo: 'PAGO_SEMANAL',
+          monto: monto,
+          semana: semana,
+          anio: alqEstado.anioActual,
+          obs: obs
+        });
+    }
+
+    function guardarFacturaMensualAlq() {
+      var inquilino = alqEstado.inquilinoActual;
+      var mes = parseInt(document.getElementById('alqFacturaMes').value);
+      var monto = parseFloat(document.getElementById('alqFacturaMonto').value);
+      var obs = document.getElementById('alqFacturaObs').value;
+
+      if (!monto || monto <= 0) {
+        mostrarToast('Ingresa el monto de la factura', 'warning');
+        return;
+      }
+
+      cerrarModalAlq('modalFacturaAlq');
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result && result.success) {
+            mostrarToast(result.mensaje || 'Factura registrada', 'success');
+            cargarCalendarioAlq(inquilino, alqEstado.anioActual);
+          } else {
+            mostrarToast('Error: ' + (result ? result.error : 'sin respuesta'), 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarPagoAlquiler({
+          inquilino: inquilino,
+          tipo: 'FACTURA_MENSUAL',
+          monto: monto,
+          mes: mes,
+          anio: alqEstado.anioActual,
+          obs: obs
+        });
+    }
+
+    function guardarConfigAlq() {
+      var inquilino = alqEstado.inquilinoActual;
+      var montoSemanal = parseFloat(document.getElementById('alqConfigMonto').value) || 0;
+      var ajusteObra = parseFloat(document.getElementById('alqConfigObra').value) || 0;
+      var ajusteMercaderia = parseFloat(document.getElementById('alqConfigMercaderia').value) || 0;
+      var obs = document.getElementById('alqConfigObs').value;
+
+      cerrarModalAlq('modalConfigAlq');
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result && result.success) {
+            mostrarToast(result.mensaje || 'Configuracion actualizada', 'success');
+            cargarCalendarioAlq(inquilino, alqEstado.anioActual);
+          } else {
+            mostrarToast('Error: ' + (result ? result.error : 'sin respuesta'), 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .actualizarConfigAlquiler(inquilino, {
+          montoSemanal: montoSemanal,
+          ajusteObra: ajusteObra,
+          ajusteMercaderia: ajusteMercaderia,
+          obs: obs
+        });
+    }
+
+    // Event listener para preview de factura
+    document.addEventListener('DOMContentLoaded', function() {
+      var montoInput = document.getElementById('alqFacturaMonto');
+      if (montoInput) montoInput.addEventListener('input', actualizarPreviewFacturaAlq);
+
+      var configInputs = ['alqConfigMonto', 'alqConfigObra', 'alqConfigMercaderia'];
+      configInputs.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('input', actualizarPreviewConfigAlq);
+      });
+    });
   </script>
 </body>
 </html>

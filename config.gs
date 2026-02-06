@@ -19,7 +19,9 @@ const CONFIG = {
     CLIENTES: 'CLIENTES',
     MOVIMIENTOS: 'MOVIMIENTOS',
     CAJA_ARQUEOS: 'CAJA_ARQUEOS',
-    CONFIGURACION: 'CONFIGURACION'
+    CONFIGURACION: 'CONFIGURACION',
+    ALQUILERES: 'ALQUILERES',
+    ALQUILERES_CONFIG: 'ALQUILERES_CONFIG'
   },
 
   // Indices de columnas para CLIENTES (0-based)
@@ -86,6 +88,42 @@ const CONFIG = {
     COBRANZA: 'COBRANZA',
     FIADO_DIA: 'FIADO_DIA'
   },
+
+  // Indices de columnas para ALQUILERES (0-based)
+  COLS_ALQUILERES: {
+    ID: 0,              // A: Number autoincremental
+    FECHA: 1,           // B: Date
+    INQUILINO: 2,       // C: String UPPERCASE
+    TIPO: 3,            // D: PAGO_SEMANAL, FACTURA_MENSUAL, AJUSTE
+    MONTO: 4,           // E: Number
+    SEMANA: 5,          // F: Number (1-53)
+    ANIO: 6,            // G: Number (2026...)
+    MES: 7,             // H: Number (1-12)
+    SEMANAS_CUBIERTAS: 8, // I: String "1,2,3"
+    OBS: 9,             // J: String
+    TIMESTAMP: 10       // K: DateTime
+  },
+
+  // Indices de columnas para ALQUILERES_CONFIG (0-based)
+  COLS_ALQ_CONFIG: {
+    INQUILINO: 0,       // A: String UPPERCASE
+    MONTO_SEMANAL: 1,   // B: Number
+    AJUSTE_OBRA: 2,     // C: Number (+ suma al alquiler)
+    AJUSTE_MERCADERIA: 3, // D: Number (- resta al alquiler)
+    SALDO: 4,           // E: Number
+    ULTIMO_PAGO: 5,     // F: Date
+    OBS: 6              // G: String
+  },
+
+  // Tipos de movimiento de alquiler
+  TIPOS_ALQUILER: {
+    PAGO_SEMANAL: 'PAGO_SEMANAL',
+    FACTURA_MENSUAL: 'FACTURA_MENSUAL',
+    AJUSTE: 'AJUSTE'
+  },
+
+  // Inquilinos iniciales
+  INQUILINOS: ['ORTIZ JESUS', 'FLORES FLORIBEL'],
 
   // Configuracion de busqueda fuzzy
   FUZZY: {
