@@ -3612,7 +3612,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cerrarModal('modalEditarMovimiento');
             cargarDatosIniciales(true);
             mostrarToast('Movimiento actualizado', 'success');
@@ -3643,7 +3643,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cargarDatosIniciales(true);
             mostrarToast('Movimiento eliminado y saldo recalculado', 'success');
           } else {
@@ -3795,7 +3795,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             const c = result.cliente;
             document.getElementById('visorSaldo').textContent = formatearMonto(c.saldo);
             document.getElementById('visorMovs').textContent = c.totalMovs;
@@ -3834,7 +3834,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             document.getElementById('statClientes').textContent = result.totalClientes;
             document.getElementById('statDeudores').textContent = result.totalDeudores;
             document.getElementById('statTotalDeuda').textContent = formatearMonto(result.totalAdeudado);
@@ -3866,7 +3866,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             if (result.deudores.length === 0) {
               document.getElementById('tbodySaldos').innerHTML = '<tr><td colspan="4" class="empty-state">No hay deudores</td></tr>';
             } else {
@@ -3917,7 +3917,7 @@
         google.script.run
           .withSuccessHandler(function(result) {
             mostrarLoading(false);
-            if (result.success) {
+            if (result && result.success) {
               Estado.vrImagenToken = result.token;
               mostrarToast('Imagen cargada. Toca Analizar para continuar.', 'success');
             } else {
@@ -3945,7 +3945,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             Estado.vrMovimientos = [
               ...result.movimientosValidos.map(m => ({ ...m, valido: true })),
               ...result.movimientosConSugerencias.map(m => ({ ...m, valido: false }))
@@ -4097,7 +4097,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast(result.mensaje, 'success');
             document.getElementById('vrPreview').style.display = 'none';
             document.getElementById('vrResultados').style.display = 'none';
@@ -4410,7 +4410,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast('Arqueo guardado - Sesion: ' + result.sesionId, 'success');
             document.querySelectorAll('.denom-input').forEach(i => i.value = 0);
             document.getElementById('listaProveedores').innerHTML = '';
@@ -4620,7 +4620,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             if (result.sesiones.length === 0) {
               document.getElementById('historialCajaTbody').innerHTML = '<tr><td colspan="6" class="empty-state">Sin registros</td></tr>';
               return;
@@ -4912,7 +4912,7 @@
       var runner = google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast(result.mensaje, 'success');
             cerrarModal('modalCliente');
             cargarDatosIniciales();
@@ -4947,7 +4947,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast(result.mensaje, 'success');
             cargarDatosIniciales();
           } else {
@@ -5013,7 +5013,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast('API Key guardada', 'success');
             document.getElementById('estadoApiKey').textContent = '✓ API Key configurada';
             document.getElementById('estadoApiKey').style.color = 'var(--sv-exito)';
@@ -5036,7 +5036,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast(result.mensaje, 'success');
             cargarDatosIniciales();
           } else {
@@ -5057,7 +5057,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             const clientes = result.clientes || Estado.clientes;
 
             // Generar CSV de clientes
@@ -5124,25 +5124,33 @@
         return;
       }
 
-      // Si ya está cargando, evitar duplicados
-      if (EstadoFacturacion.cargando) return;
+      // Si ya está cargando, no duplicar la llamada pero marcar que hay que renderizar al terminar
+      if (EstadoFacturacion.cargando) {
+        EstadoFacturacion.renderPendiente = true;
+        return;
+      }
 
       EstadoFacturacion.cargando = true;
+      mostrarLoading(true);
 
       google.script.run
         .withSuccessHandler(function(result) {
           EstadoFacturacion.cargando = false;
-          if (result.success) {
+          mostrarLoading(false);
+          if (result && result.success) {
             EstadoFacturacion.transferencias = result.transferencias || [];
             EstadoFacturacion.productos = result.productos || [];
             EstadoFacturacion.cargado = true;
             renderTransferencias();
             renderProductos();
+          } else {
+            mostrarToast('Error cargando facturacion: ' + (result ? result.error : 'sin respuesta'), 'error');
           }
         })
         .withFailureHandler(function(error) {
           EstadoFacturacion.cargando = false;
-          mostrarToast('Error cargando facturación: ' + error.message, 'error');
+          mostrarLoading(false);
+          mostrarToast('Error cargando facturacion: ' + error.message, 'error');
         })
         .obtenerDatosFacturacion();
     }
@@ -5155,14 +5163,25 @@
       google.script.run
         .withSuccessHandler(function(result) {
           EstadoFacturacion.cargando = false;
-          if (result.success) {
+          if (result && result.success) {
             EstadoFacturacion.transferencias = result.transferencias || [];
             EstadoFacturacion.productos = result.productos || [];
             EstadoFacturacion.cargado = true;
+            // Si el usuario ya entro al modulo mientras se precargaba, renderizar ahora
+            if (EstadoFacturacion.renderPendiente) {
+              EstadoFacturacion.renderPendiente = false;
+              renderTransferencias();
+              renderProductos();
+            }
           }
         })
         .withFailureHandler(function(error) {
           EstadoFacturacion.cargando = false;
+          // Si habia render pendiente, reintentar la carga completa
+          if (EstadoFacturacion.renderPendiente) {
+            EstadoFacturacion.renderPendiente = false;
+            cargarDatosFacturacion(true);
+          }
         })
         .obtenerDatosFacturacion();
     }
@@ -5301,7 +5320,7 @@
         google.script.run
           .withSuccessHandler(function(result) {
             mostrarLoading(false);
-            if (result.success) {
+            if (result && result.success) {
               cerrarModal('modalTransferencia');
               EstadoFacturacion.cargado = false;
               cargarDatosFacturacion(true);
@@ -5320,7 +5339,7 @@
         google.script.run
           .withSuccessHandler(function(result) {
             mostrarLoading(false);
-            if (result.success) {
+            if (result && result.success) {
               cerrarModal('modalTransferencia');
               EstadoFacturacion.cargado = false;
               cargarDatosFacturacion(true);
@@ -5345,7 +5364,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cargarDatosFacturacion();
             mostrarToast('Transferencia marcada como facturada', 'success');
           } else {
@@ -5367,7 +5386,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cargarDatosFacturacion();
             mostrarToast('Transferencia eliminada', 'success');
           }
@@ -5425,7 +5444,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cerrarModal('modalProducto');
             cargarDatosFacturacion();
             mostrarToast('Producto guardado', 'success');
@@ -5448,7 +5467,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cargarDatosFacturacion();
             mostrarToast('Producto eliminado', 'success');
           }
@@ -5539,7 +5558,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cerrarModal('modalCargaMasiva');
             cargarDatosFacturacion();
             mostrarToast(`${result.agregados} productos agregados`, 'success');
@@ -5715,7 +5734,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cancelarAsignacion();
             cargarDatosFacturacion();
             mostrarToast('Factura procesada y stock actualizado', 'success');
@@ -5743,7 +5762,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast(result.mensaje, 'success');
           } else {
             mostrarToast(result.error, 'error');
@@ -5800,7 +5819,7 @@
             mostrarLoading(false);
             document.getElementById('btnProcesarIA').disabled = false;
 
-            if (result.success) {
+            if (result && result.success) {
               EstadoFacturacion.resultadosIA = result.items || [];
               document.getElementById('fechaDocumentoIA').textContent = result.fecha || '-';
               renderResultadosIA();
@@ -5869,7 +5888,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             limpiarResultadosIA();
             cargarDatosFacturacion();
             mostrarToast(result.cantidad + ' transferencias importadas', 'success');
@@ -5910,7 +5929,7 @@
       if (!EstadoFacturacion.productos || EstadoFacturacion.productos.length === 0) {
         google.script.run
           .withSuccessHandler(function(result) {
-            if (result.success) {
+            if (result && result.success) {
               EstadoFacturacion.productos = result.productos || [];
             }
             cargarProductosEnSelector();
@@ -6230,7 +6249,7 @@
           mostrarLoading(false);
           document.getElementById('btnEmitirArca').disabled = false;
 
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast(result.mensaje, 'success');
 
             // Mostrar resultado
@@ -6279,7 +6298,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             renderHistorialFacturas(result.facturas || []);
           } else {
             mostrarToast('Error cargando historial: ' + result.error, 'error');
@@ -6332,7 +6351,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast('Nota de Credito emitida - CAE: ' + result.cae, 'success');
             cargarHistorialFacturas(); // Recargar
           } else {
@@ -6353,7 +6372,7 @@
     function cargarConfigAfip() {
       google.script.run
         .withSuccessHandler(function(result) {
-          if (result.success) {
+          if (result && result.success) {
             document.getElementById('inputAfipCuit').value = result.cuit || '20149543407';
             document.getElementById('inputAfipPtoVta').value = result.puntoVenta || 11;
             document.getElementById('inputAfipEnv').value = result.environment || 'dev';
@@ -6414,7 +6433,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             mostrarToast('Configuracion ARCA guardada', 'success');
             document.getElementById('inputAfipToken').value = '';
             cargarConfigAfip();
@@ -6437,7 +6456,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             estado.innerHTML = '<span style="color:var(--sv-exito);">' + result.mensaje + '</span>';
             mostrarToast('Conexion ARCA exitosa', 'success');
           } else {
@@ -6462,7 +6481,7 @@
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             estado.innerHTML = '<span style="color:var(--sv-exito);">' + result.mensaje + '</span>';
             mostrarToast(result.mensaje, 'success');
             cargarDatosIniciales(true);
@@ -6510,7 +6529,7 @@
           btn.textContent = 'Generar Certificado';
           document.getElementById('inputArcaPassword').value = '';
 
-          if (result.success) {
+          if (result && result.success) {
             estadoCert.innerHTML = '<span style="color:var(--sv-exito);">' + result.mensaje + '</span>';
             mostrarToast(result.mensaje, 'success');
             // Mostrar estado de WS si hubo error en autorización
@@ -6573,7 +6592,7 @@
           btn.textContent = 'Autorizar Web Services';
           document.getElementById('inputArcaPassword').value = '';
 
-          if (result.success) {
+          if (result && result.success) {
             var msg = result.mensaje;
             if (result.errores && result.errores.length > 0) {
               msg += ' (advertencias: ' + result.errores.join('; ') + ')';
@@ -6680,7 +6699,7 @@
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           const estado = document.getElementById('estadoConexionIA');
-          if (result.success) {
+          if (result && result.success) {
             estado.innerHTML = '<span style="color: var(--sv-exito);">✓ ' + result.mensaje + '</span>';
           } else {
             estado.innerHTML = '<span style="color: var(--sv-peligro);">✕ ' + result.error + '</span>';
