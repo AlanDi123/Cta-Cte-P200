@@ -347,17 +347,35 @@ const AfipService = {
       String(hoy.getMonth() + 1).padStart(2, '0') +
       String(hoy.getDate()).padStart(2, '0');
 
-    // Calcular importes
-    const neto = datosFactura.importeNeto;
-    const iva = Math.round(neto * CONFIG_AFIP.IVA.MULTIPLICADOR * 100) / 100;
-    const total = Math.round((neto + iva) * 100) / 100;
+    // Determinar si es comprobante tipo A o B
+    var esCompA = (datosFactura.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_A ||
+                   datosFactura.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.NOTA_CREDITO_A);
+
+    // Calcular importes según tipo de comprobante:
+    // Factura A: importeNeto es el NETO sin IVA → se agrega 10.5%
+    // Factura B: importeNeto YA INCLUYE IVA → hay que desgranar neto e IVA
+    var neto, iva, total;
+
+    if (esCompA) {
+      // Factura A: el importe ingresado es NETO (sin IVA)
+      neto = datosFactura.importeNeto;
+      iva = Math.round(neto * CONFIG_AFIP.IVA.MULTIPLICADOR * 100) / 100;
+      total = Math.round((neto + iva) * 100) / 100;
+    } else {
+      // Factura B: el importe ingresado YA INCLUYE IVA
+      // Desgranar: neto = total / 1.105, iva = total - neto
+      total = datosFactura.importeNeto;
+      neto = Math.round(total / (1 + CONFIG_AFIP.IVA.MULTIPLICADOR) * 100) / 100;
+      iva = Math.round((total - neto) * 100) / 100;
+      // Ajustar total para que cuadre exactamente
+      total = Math.round((neto + iva) * 100) / 100;
+    }
 
     // Determinar DocTipo según tipo de comprobante
     let docTipo = CONFIG_AFIP.DOC_TIPOS.CONSUMIDOR_FINAL;
     let docNro = 0;
 
-    if (datosFactura.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_A ||
-        datosFactura.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.NOTA_CREDITO_A) {
+    if (esCompA) {
       // Factura A: requiere CUIT del receptor
       docTipo = CONFIG_AFIP.DOC_TIPOS.CUIT;
       docNro = datosFactura.clienteCuit;
@@ -371,6 +389,10 @@ const AfipService = {
         docNro = datosFactura.clienteCuit;
       }
     }
+
+    // Mapear condición fiscal del cliente a CondicionIVAReceptorId (RG 5616/2024)
+    var condIvaMap = { 'RI': 1, 'EX': 4, 'CF': 5, 'M': 6 };
+    var condIvaReceptorId = condIvaMap[datosFactura.clienteCondicion] || 5; // Default: Consumidor Final
 
     // Construir detalle de IVA
     var ivaArray = [{
@@ -393,6 +415,7 @@ const AfipService = {
       ImpOpEx: 0,             // Exento
       ImpIVA: iva,
       ImpTrib: 0,             // Tributos
+      CondicionIVAReceptorId: condIvaReceptorId, // Obligatorio por RG 5616/2024
       MonId: CONFIG_AFIP.MONEDA.ID,
       MonCotiz: CONFIG_AFIP.MONEDA.COTIZACION,
       Iva: {
@@ -1356,6 +1379,7 @@ function emitirFacturaElectronica(datos) {
     var resultado = AfipService.emitirComprobante({
       cbteTipo: datos.cbteTipo,
       clienteCuit: cuitLimpio,
+      clienteCondicion: datos.clienteCondicion || 'CF',
       importeNeto: datos.importeNeto,
       cbteAsocTipo: datos.cbteAsocTipo || null,
       cbteAsocNro: datos.cbteAsocNro || null,

@@ -5641,9 +5641,23 @@
       document.getElementById('arcaPreviewCliente').textContent = arcaClienteSeleccionado ? arcaClienteSeleccionado.nombre : '-';
       document.getElementById('arcaPreviewCuit').textContent = arcaClienteSeleccionado && arcaClienteSeleccionado.cuit ? arcaClienteSeleccionado.cuit : 'S/D';
 
-      var neto = arcaItems.reduce(function(sum, item) { return sum + item.subtotal; }, 0);
-      var iva = Math.round(neto * 0.105 * 100) / 100;
-      var total = Math.round((neto + iva) * 100) / 100;
+      var importeItems = arcaItems.reduce(function(sum, item) { return sum + item.subtotal; }, 0);
+      var tipo = parseInt(document.getElementById('arcaCbteTipo').value) || 0;
+      var esCompA = (tipo === 1 || tipo === 3); // Factura A o NC A
+
+      // Factura A: items son NETO, se agrega IVA arriba
+      // Factura B: items YA INCLUYEN IVA, se desgrana para mostrar
+      var neto, iva, total;
+      if (esCompA) {
+        neto = importeItems;
+        iva = Math.round(neto * 0.105 * 100) / 100;
+        total = Math.round((neto + iva) * 100) / 100;
+      } else {
+        total = importeItems;
+        neto = Math.round(total / 1.105 * 100) / 100;
+        iva = Math.round((total - neto) * 100) / 100;
+        total = Math.round((neto + iva) * 100) / 100;
+      }
 
       document.getElementById('arcaPreviewNeto').textContent = '$' + neto.toLocaleString('es-AR', {minimumFractionDigits:2});
       document.getElementById('arcaPreviewIva').textContent = '$' + iva.toLocaleString('es-AR', {minimumFractionDigits:2});
@@ -5701,9 +5715,9 @@
         return;
       }
 
-      var neto = arcaItems.reduce(function(sum, item) { return sum + item.subtotal; }, 0);
-      if (neto <= 0) {
-        mostrarToast('El importe neto debe ser mayor a 0', 'error');
+      var importeItems = arcaItems.reduce(function(sum, item) { return sum + item.subtotal; }, 0);
+      if (importeItems <= 0) {
+        mostrarToast('El importe debe ser mayor a 0', 'error');
         return;
       }
 
@@ -5713,15 +5727,27 @@
         return;
       }
 
-      var iva = Math.round(neto * 0.105 * 100) / 100;
-      var total = Math.round((neto + iva) * 100) / 100;
+      var esCompA = (cbteTipo === 1 || cbteTipo === 3);
+      var neto, iva, total;
+
+      if (esCompA) {
+        // Factura A: precio unitario es NETO, se agrega IVA
+        neto = importeItems;
+        iva = Math.round(neto * 0.105 * 100) / 100;
+        total = Math.round((neto + iva) * 100) / 100;
+      } else {
+        // Factura B: precio unitario YA INCLUYE IVA, se desgrana
+        total = importeItems;
+        neto = Math.round(total / 1.105 * 100) / 100;
+        iva = Math.round((total - neto) * 100) / 100;
+        total = Math.round((neto + iva) * 100) / 100;
+      }
 
       var confirmar = confirm(
         'Emitir comprobante en ARCA?\n\n' +
         'Tipo: ' + (cbteTipo === 1 ? 'FACTURA A' : 'FACTURA B') + '\n' +
         'Cliente: ' + arcaClienteSeleccionado.nombre + '\n' +
-        'Neto: $' + neto.toFixed(2) + '\n' +
-        'IVA 10.5%: $' + iva.toFixed(2) + '\n' +
+        (esCompA ? 'Neto: $' + neto.toFixed(2) + '\nIVA 10.5%: $' + iva.toFixed(2) + '\n' : 'Importe (IVA incluido): $' + total.toFixed(2) + '\n(Neto: $' + neto.toFixed(2) + ' + IVA: $' + iva.toFixed(2) + ')\n') +
         'Total: $' + total.toFixed(2) + '\n\n' +
         'ATENCION: Esta accion NO se puede deshacer. El comprobante quedara registrado en ARCA.'
       );
@@ -5784,7 +5810,7 @@
           clienteCuit: arcaClienteSeleccionado.cuit || '',
           clienteCondicion: condicion,
           clienteCondicionTexto: condicionTexto,
-          importeNeto: neto,
+          importeNeto: importeItems, // Factura A: neto sin IVA; Factura B: total con IVA incluido
           detalle: arcaItems
         });
     }
