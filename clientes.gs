@@ -23,13 +23,20 @@ const ClientesRepository = {
       hoja.setFrozenRows(1);
     } else {
       // Migrar hojas existentes que no tengan las columnas CUIT y CONDICION_FISCAL
+      // Paso 1: Asegurar que la hoja FISICAMENTE tenga al menos 11 columnas
+      var maxCols = hoja.getMaxColumns();
+      if (maxCols < 11) {
+        hoja.insertColumnsAfter(maxCols, 11 - maxCols);
+        Logger.log('CLIENTES: insertadas ' + (11 - maxCols) + ' columnas fisicas (de ' + maxCols + ' a 11)');
+      }
+      // Paso 2: Asegurar que los headers existan
       var lastCol = hoja.getLastColumn();
       if (lastCol < 11) {
         var headers = ['NOMBRE', 'TEL', 'EMAIL', 'LIMITE', 'SALDO', 'TOTAL_MOVS', 'ALTA', 'ULTIMO_MOV', 'OBS', 'CUIT', 'CONDICION_FISCAL'];
         for (var col = lastCol + 1; col <= 11; col++) {
           hoja.getRange(1, col).setValue(headers[col - 1]).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
         }
-        Logger.log('CLIENTES: migradas columnas faltantes (de ' + lastCol + ' a 11)');
+        Logger.log('CLIENTES: migrados headers faltantes (de ' + lastCol + ' a 11)');
       }
     }
 
@@ -211,9 +218,27 @@ const ClientesRepository = {
       throw new Error('Cliente no encontrado: ' + nombre);
     }
 
-    const hoja = this.getHoja();
+    const hoja = this.getHoja(); // getHoja() ensures 11 columns exist
+
+    // Verificación defensiva: asegurar que la hoja tenga suficientes columnas
+    var maxCols = hoja.getMaxColumns();
+    if (maxCols < 11) {
+      hoja.insertColumnsAfter(maxCols, 11 - maxCols);
+      Logger.log('actualizar: expandida hoja de ' + maxCols + ' a 11 columnas');
+    }
+
     const fila = cliente.fila;
     let nombreFinal = nombre;
+
+    // Helper para escribir en una celda con validación
+    function setVal(row, colIndex, value) {
+      var col = colIndex + 1; // 0-based a 1-based
+      if (col < 1 || col > 11) {
+        Logger.log('ERROR: intento de escribir en columna invalida ' + col + ' (index ' + colIndex + ')');
+        return;
+      }
+      hoja.getRange(row, col).setValue(value);
+    }
 
     // Cambiar nombre si es diferente
     if (datos.nombre !== undefined) {
@@ -227,8 +252,7 @@ const ClientesRepository = {
           throw new Error('Ya existe un cliente con el nombre: ' + nuevoNombreNorm);
         }
 
-        // Actualizar nombre en la hoja de clientes
-        hoja.getRange(fila, CONFIG.COLS_CLIENTES.NOMBRE + 1).setValue(nuevoNombreNorm);
+        setVal(fila, CONFIG.COLS_CLIENTES.NOMBRE, nuevoNombreNorm);
 
         // Actualizar nombre en todos los movimientos
         MovimientosRepository.actualizarNombreCliente(nombre, nuevoNombreNorm);
@@ -239,25 +263,25 @@ const ClientesRepository = {
 
     // Actualizar campos permitidos
     if (datos.tel !== undefined) {
-      hoja.getRange(fila, CONFIG.COLS_CLIENTES.TEL + 1).setValue(datos.tel);
+      setVal(fila, CONFIG.COLS_CLIENTES.TEL, datos.tel);
     }
     if (datos.email !== undefined) {
-      hoja.getRange(fila, CONFIG.COLS_CLIENTES.EMAIL + 1).setValue(datos.email);
+      setVal(fila, CONFIG.COLS_CLIENTES.EMAIL, datos.email);
     }
     if (datos.limite !== undefined) {
-      hoja.getRange(fila, CONFIG.COLS_CLIENTES.LIMITE + 1).setValue(datos.limite);
+      setVal(fila, CONFIG.COLS_CLIENTES.LIMITE, datos.limite);
     }
     if (datos.obs !== undefined) {
-      hoja.getRange(fila, CONFIG.COLS_CLIENTES.OBS + 1).setValue(datos.obs);
+      setVal(fila, CONFIG.COLS_CLIENTES.OBS, datos.obs);
     }
     if (datos.cuit !== undefined) {
-      hoja.getRange(fila, CONFIG.COLS_CLIENTES.CUIT + 1).setValue(datos.cuit);
+      setVal(fila, CONFIG.COLS_CLIENTES.CUIT, datos.cuit);
       // Actualizar condición fiscal según CUIT
       const condicion = datos.condicionFiscal || (datos.cuit ? 'Responsable Inscripto' : 'Consumidor Final');
-      hoja.getRange(fila, CONFIG.COLS_CLIENTES.CONDICION_FISCAL + 1).setValue(condicion);
+      setVal(fila, CONFIG.COLS_CLIENTES.CONDICION_FISCAL, condicion);
     }
     if (datos.condicionFiscal !== undefined) {
-      hoja.getRange(fila, CONFIG.COLS_CLIENTES.CONDICION_FISCAL + 1).setValue(datos.condicionFiscal);
+      setVal(fila, CONFIG.COLS_CLIENTES.CONDICION_FISCAL, datos.condicionFiscal);
     }
 
     return this.buscarPorNombre(nombreFinal);
@@ -299,16 +323,16 @@ const ClientesRepository = {
       throw new Error('Cliente no encontrado: ' + nombre);
     }
 
-    const hoja = this.getHoja();
+    const hoja = this.getHoja(); // Ensures 11 columns exist
     const fila = cliente.fila;
 
-    // Actualizar saldo
+    // Actualizar saldo (col E = index 4 + 1 = 5)
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldo);
 
-    // Incrementar contador de movimientos
+    // Incrementar contador de movimientos (col F = index 5 + 1 = 6)
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.TOTAL_MOVS + 1).setValue(cliente.totalMovs + 1);
 
-    // Actualizar fecha ultimo movimiento
+    // Actualizar fecha ultimo movimiento (col H = index 7 + 1 = 8)
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(fechaMovimiento);
   },
 

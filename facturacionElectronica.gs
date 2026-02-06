@@ -1328,6 +1328,67 @@ function obtenerConfigAfip() {
 }
 
 /**
+ * Verifica el estado real del certificado y web services en ARCA.
+ * Intenta autenticar con wsfe y ws_sr_padron_a5 para confirmar si funcionan.
+ * @returns {Object} Estado detallado de cert y web services
+ */
+function verificarEstadoServiciosAfip() {
+  try {
+    var config = AfipService.getConfig();
+
+    if (!config.accessToken) {
+      return { success: false, error: 'Access Token no configurado' };
+    }
+
+    var resultado = {
+      success: true,
+      tieneCert: AfipService.tieneCertificado(),
+      environment: config.environment,
+      cuit: config.cuit,
+      servicios: {}
+    };
+
+    // Verificar wsfe (facturación electrónica)
+    try {
+      var authWsfe = AfipService.autenticar('wsfe');
+      if (authWsfe.token && authWsfe.sign) {
+        var ultimo = AfipService.ultimoComprobante(CONFIG_AFIP.CBTE_TIPOS.FACTURA_B);
+        resultado.servicios.wsfe = {
+          activo: true,
+          mensaje: 'Autorizado (ultimo comp. B: ' + ultimo + ')',
+          cuitAuth: authWsfe.cuitAuth
+        };
+      } else {
+        resultado.servicios.wsfe = { activo: false, mensaje: 'Sin token/sign' };
+      }
+    } catch (e) {
+      resultado.servicios.wsfe = { activo: false, mensaje: e.message };
+    }
+
+    // Verificar ws_sr_padron_a5 (consulta padrón)
+    try {
+      var authPadron = AfipService.autenticar('ws_sr_padron_a5');
+      if (authPadron.token && authPadron.sign) {
+        resultado.servicios.ws_sr_padron_a5 = {
+          activo: true,
+          mensaje: 'Autorizado',
+          cuitAuth: authPadron.cuitAuth
+        };
+      } else {
+        resultado.servicios.ws_sr_padron_a5 = { activo: false, mensaje: 'Sin token/sign' };
+      }
+    } catch (e) {
+      resultado.servicios.ws_sr_padron_a5 = { activo: false, mensaje: e.message };
+    }
+
+    return resultado;
+  } catch (error) {
+    Logger.log('Error verificando servicios AFIP: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Prueba conexión con ARCA via Afip SDK
  */
 function probarConexionAfip() {

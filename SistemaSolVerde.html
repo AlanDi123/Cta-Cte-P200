@@ -2053,6 +2053,11 @@
                   Tarda 30-120 seg. La clave fiscal no se guarda, solo se usa una vez.
                 </p>
                 <p id="estadoWS" style="font-size: 0.75rem; margin-top: 0.3rem;"></p>
+                <hr style="margin: 0.5rem 0; border-color: var(--sv-borde);">
+                <button class="btn btn-outline" onclick="verificarEstadoServiciosFront()" style="width: 100%; font-size: 0.8rem;" id="btnVerificarWS">
+                  Verificar Estado (Cert + Web Services)
+                </button>
+                <div id="estadoVerificacion" style="font-size: 0.75rem; margin-top: 0.5rem;"></div>
               </div>
 
               <hr style="margin: 1rem 0; border-color: var(--sv-borde);">
@@ -5920,6 +5925,9 @@
                 estadoCert.innerHTML = '<span style="color:var(--sv-advertencia);">Sin certificado - modo dev usara CUIT de test</span>';
               }
             }
+
+            // Auto-verificar estado de web services al cargar config
+            verificarEstadoServiciosFront();
           }
         })
         .withFailureHandler(function() {})
@@ -6152,6 +6160,67 @@
           environment: env,
           alias: 'solyverde'
         });
+    }
+
+    function verificarEstadoServiciosFront() {
+      var div = document.getElementById('estadoVerificacion');
+      var btn = document.getElementById('btnVerificarWS');
+      div.innerHTML = '<span style="color:var(--sv-info);">Verificando estado de certificado y web services...</span>';
+      btn.disabled = true;
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          btn.disabled = false;
+
+          if (!result.success) {
+            div.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + result.error + '</span>';
+            return;
+          }
+
+          var html = '<div style="background:var(--sv-fondo);padding:0.5rem;border-radius:6px;margin-top:0.25rem;">';
+          html += '<p><strong>Entorno:</strong> ' + (result.environment || 'dev').toUpperCase() + '</p>';
+          html += '<p><strong>CUIT:</strong> ' + (result.cuit || 'No configurado') + '</p>';
+          html += '<p><strong>Certificado:</strong> ' + (result.tieneCert
+            ? '<span style="color:var(--sv-exito);">Instalado</span>'
+            : '<span style="color:var(--sv-advertencia);">No instalado</span>') + '</p>';
+
+          var servicios = result.servicios || {};
+          var wsfeOk = servicios.wsfe && servicios.wsfe.activo;
+          var padronOk = servicios.ws_sr_padron_a5 && servicios.ws_sr_padron_a5.activo;
+
+          html += '<p><strong>wsfe (facturacion):</strong> ' + (wsfeOk
+            ? '<span style="color:var(--sv-exito);">' + servicios.wsfe.mensaje + ' (CUIT: ' + servicios.wsfe.cuitAuth + ')</span>'
+            : '<span style="color:var(--sv-peligro);">No autorizado - ' + (servicios.wsfe ? servicios.wsfe.mensaje : 'sin respuesta') + '</span>') + '</p>';
+
+          html += '<p><strong>ws_sr_padron_a5 (padron):</strong> ' + (padronOk
+            ? '<span style="color:var(--sv-exito);">' + servicios.ws_sr_padron_a5.mensaje + '</span>'
+            : '<span style="color:var(--sv-peligro);">No autorizado - ' + (servicios.ws_sr_padron_a5 ? servicios.ws_sr_padron_a5.mensaje : 'sin respuesta') + '</span>') + '</p>';
+
+          if (wsfeOk && padronOk) {
+            html += '<p style="margin-top:0.5rem;color:var(--sv-exito);font-weight:bold;">Todo operativo - podes emitir comprobantes</p>';
+          } else if (wsfeOk) {
+            html += '<p style="margin-top:0.5rem;color:var(--sv-advertencia);">Facturacion OK pero padron no disponible</p>';
+          } else {
+            html += '<p style="margin-top:0.5rem;color:var(--sv-peligro);">Web services no autorizados - usa el boton "Autorizar Web Services"</p>';
+          }
+
+          html += '</div>';
+          div.innerHTML = html;
+
+          // Actualizar estado del certificado
+          var estadoCert = document.getElementById('estadoCert');
+          if (estadoCert && result.tieneCert) {
+            estadoCert.innerHTML = '<span style="color:var(--sv-exito);">Certificado instalado</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          btn.disabled = false;
+          div.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + error.message + '</span>';
+        })
+        .verificarEstadoServiciosAfip();
     }
 
     // Probar conexión con Claude (usa la API Key del sistema general)
