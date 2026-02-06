@@ -80,75 +80,54 @@ const ClaudeService = {
       Logger.log('No se pudo obtener lista de clientes para VR: ' + e.message);
     }
 
-    // Construir el prompt
-    const prompt = `Analiza esta imagen de un libro contable de cuenta corriente.
-
-La imagen muestra una hoja con dos columnas:
-- COBRANZAS (izquierda): Son PAGOS de clientes - tipo "HABER" - disminuyen el saldo del cliente
-- FIADO (derecha): Son FIADOS a clientes - tipo "DEBE" - aumentan el saldo del cliente
-
-IMPORTANTE:
-- Extrae TODOS los nombres y montos que puedas leer
-- Los nombres pueden estar escritos a mano, intenta leerlos lo mejor posible
-- Los montos son numeros, pueden tener puntos como separadores de miles
-- Ignora totales o sumas parciales
-- La fecha para todos los movimientos es: ${fechaHoy}
-${listaClientes}
-
-Responde UNICAMENTE con un JSON valido con esta estructura exacta:
-    // Construir el prompt optimizado para español/Argentina
-    const prompt = `Analiza esta imagen de un libro contable argentino de cuenta corriente.
-
-CONTEXTO:
-- Libro contable escrito a mano en español (Argentina)
-- Los nombres son APELLIDOS y/o NOMBRES en español
-- Acentos pueden estar omitidos en la escritura a mano
-- Apellidos argentinos comunes: GONZALEZ, RODRIGUEZ, MARTINEZ, LOPEZ, GARCIA, FERNANDEZ, PEREZ, SANCHEZ, ROMERO, DIAZ, GUTIERREZ, FLORES, TORRES, ALVAREZ, RUIZ, RAMIREZ, MORALES, JIMENEZ, ORTIZ, CASTRO
-- Nombres comunes: JUAN, JOSE, MARIA, CARLOS, LUIS, ANA, JORGE, PEDRO, MIGUEL, FERNANDO, ROBERTO, DANIEL, RICARDO, ANDRES, PABLO, ANTONIO, SERGIO, MARCELO, OSCAR, EDUARDO
-- Particulas frecuentes: DE, DEL, LA, LOS, DE LA, DE LOS
-
-FORMATO DE MONTOS:
-- PUNTO como separador de miles (15.000 = quince mil pesos)
-- COMA como separador decimal (raro en libros contables de efectivo)
-- Ejemplos: 5.000, 12.500, 150.000, 45.000
-
-COLUMNAS DEL LIBRO:
-- COBRANZAS (izquierda): Son PAGOS de clientes - tipo "HABER" - el cliente nos paga
-- FIADO (derecha): Son FIADOS a clientes - tipo "DEBE" - le damos mercaderia a cuenta
-
-INSTRUCCIONES:
-1. Lee cada nombre con cuidado, caracter por caracter
-2. Normaliza acentos: MARTÍNEZ -> MARTINEZ, GARCÍA -> GARCIA
-3. Convierte todo a MAYUSCULAS SIN ACENTOS
-4. Los montos siempre deben ser numeros enteros positivos
-5. Ignora lineas de totales, subtotales o sumas
-6. Fecha para todos: ${fechaHoy}
-
-ERRORES COMUNES DE OCR A CORREGIR:
-- 0 (cero) vs O (letra)
-- 1 (uno) vs I (i mayuscula) vs L (ele)
-- 5 vs S
-- 8 vs B
-- 2 vs Z
-
-Responde SOLO con JSON valido (sin markdown ni explicaciones):
-{
-  "movimientos": [
-    {
-      "cliente": "APELLIDO NOMBRE",
-      "tipo": "DEBE",
-      "monto": 15000,
-      "obs": "Fiado"
-    },
-    {
-      "cliente": "APELLIDO",
-      "tipo": "HABER",
-      "monto": 5000,
-      "obs": "Cobranza"
-    }
-  ],
-  "observaciones": "notas sobre nombres dificiles de leer"
-}`;
+    // Construir el prompt optimizado para espanol/Argentina
+    const prompt = 'Analiza esta imagen de un libro contable argentino de cuenta corriente.\n\n' +
+      'CONTEXTO:\n' +
+      '- Libro contable escrito a mano en espanol (Argentina)\n' +
+      '- Los nombres son APELLIDOS y/o NOMBRES en espanol\n' +
+      '- Acentos pueden estar omitidos en la escritura a mano\n' +
+      '- Apellidos argentinos comunes: GONZALEZ, RODRIGUEZ, MARTINEZ, LOPEZ, GARCIA, FERNANDEZ, PEREZ, SANCHEZ, ROMERO, DIAZ, GUTIERREZ, FLORES, TORRES, ALVAREZ, RUIZ, RAMIREZ, MORALES, JIMENEZ, ORTIZ, CASTRO\n' +
+      '- Nombres comunes: JUAN, JOSE, MARIA, CARLOS, LUIS, ANA, JORGE, PEDRO, MIGUEL, FERNANDO, ROBERTO, DANIEL, RICARDO, ANDRES, PABLO, ANTONIO, SERGIO, MARCELO, OSCAR, EDUARDO\n' +
+      '- Particulas frecuentes: DE, DEL, LA, LOS, DE LA, DE LOS\n\n' +
+      'FORMATO DE MONTOS:\n' +
+      '- PUNTO como separador de miles (15.000 = quince mil pesos)\n' +
+      '- COMA como separador decimal (raro en libros contables de efectivo)\n' +
+      '- Ejemplos: 5.000, 12.500, 150.000, 45.000\n\n' +
+      'COLUMNAS DEL LIBRO:\n' +
+      '- COBRANZAS (izquierda): Son PAGOS de clientes - tipo "HABER" - el cliente nos paga\n' +
+      '- FIADO (derecha): Son FIADOS a clientes - tipo "DEBE" - le damos mercaderia a cuenta\n\n' +
+      'INSTRUCCIONES:\n' +
+      '1. Lee cada nombre con cuidado, caracter por caracter\n' +
+      '2. Normaliza acentos: MARTINEZ -> MARTINEZ, GARCIA -> GARCIA\n' +
+      '3. Convierte todo a MAYUSCULAS SIN ACENTOS\n' +
+      '4. Los montos siempre deben ser numeros enteros positivos\n' +
+      '5. Ignora lineas de totales, subtotales o sumas\n' +
+      '6. Fecha para todos: ' + fechaHoy + '\n\n' +
+      'ERRORES COMUNES DE OCR A CORREGIR:\n' +
+      '- 0 (cero) vs O (letra)\n' +
+      '- 1 (uno) vs I (i mayuscula) vs L (ele)\n' +
+      '- 5 vs S\n' +
+      '- 8 vs B\n' +
+      '- 2 vs Z\n' +
+      listaClientes + '\n\n' +
+      'Responde SOLO con JSON valido (sin markdown ni explicaciones):\n' +
+      '{\n' +
+      '  "movimientos": [\n' +
+      '    {\n' +
+      '      "cliente": "APELLIDO NOMBRE",\n' +
+      '      "tipo": "DEBE",\n' +
+      '      "monto": 15000,\n' +
+      '      "obs": "Fiado"\n' +
+      '    },\n' +
+      '    {\n' +
+      '      "cliente": "APELLIDO",\n' +
+      '      "tipo": "HABER",\n' +
+      '      "monto": 5000,\n' +
+      '      "obs": "Cobranza"\n' +
+      '    }\n' +
+      '  ],\n' +
+      '  "observaciones": "notas sobre nombres dificiles de leer"\n' +
+      '}';
 
     // Construir payload para Claude API
     const payload = {
