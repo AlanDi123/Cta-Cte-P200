@@ -1945,6 +1945,33 @@
               <p id="estadoAfip" style="margin-top: 0.5rem; font-size: 0.8rem;"></p>
 
               <hr style="margin: 1rem 0; border-color: var(--sv-borde);">
+              <div style="background: var(--sv-fondo); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--sv-borde);">
+                <p style="font-weight: bold; margin-bottom: 0.5rem; font-size: 0.85rem;">Certificado Digital (obligatorio para CUIT propio)</p>
+                <p style="font-size: 0.75rem; color: var(--sv-texto-secundario); margin-bottom: 0.5rem;">
+                  Sin certificado, el modo desarrollo usa CUIT de test (20409378472). Para usar tu CUIT real necesitas generar un certificado con tu clave fiscal de ARCA.
+                </p>
+                <p id="estadoCert" style="font-size: 0.8rem; margin-bottom: 0.5rem;"></p>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                  <label class="form-label" style="font-size: 0.8rem;">Usuario ARCA (CUIT sin guiones)</label>
+                  <input type="text" class="form-input" id="inputArcaUsername" placeholder="20149543407" style="font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                  <label class="form-label" style="font-size: 0.8rem;">Clave Fiscal ARCA</label>
+                  <input type="password" class="form-input" id="inputArcaPassword" placeholder="Tu clave fiscal" style="font-size: 0.85rem;">
+                </div>
+                <button class="btn btn-outline" onclick="generarCertificadoFront()" style="width: 100%; font-size: 0.8rem;" id="btnGenerarCert">
+                  Generar Certificado
+                </button>
+                <button class="btn btn-outline" onclick="autorizarWebServicesFront()" style="width: 100%; font-size: 0.8rem; margin-top: 0.3rem;" id="btnAutorizarWS">
+                  Autorizar Web Services
+                </button>
+                <p style="font-size: 0.7rem; color: var(--sv-texto-muted); margin-top: 0.3rem;">
+                  Tarda 30-120 seg. La clave fiscal no se guarda, solo se usa una vez.
+                </p>
+                <p id="estadoWS" style="font-size: 0.75rem; margin-top: 0.3rem;"></p>
+              </div>
+
+              <hr style="margin: 1rem 0; border-color: var(--sv-borde);">
               <button class="btn btn-outline" onclick="actualizarCondFiscalesFront()" style="width: 100%; font-size: 0.8rem;">
                 Actualizar condicion fiscal de clientes desde ARCA
               </button>
@@ -5359,6 +5386,16 @@
             } else {
               estado.innerHTML = '<span style="color:var(--sv-advertencia);">No configurado - ingresa tu Access Token</span>';
             }
+
+            // Mostrar estado del certificado
+            var estadoCert = document.getElementById('estadoCert');
+            if (estadoCert) {
+              if (result.tieneCert) {
+                estadoCert.innerHTML = '<span style="color:var(--sv-exito);">Certificado instalado (' + result.certPreview + ')</span>';
+              } else {
+                estadoCert.innerHTML = '<span style="color:var(--sv-advertencia);">Sin certificado - modo dev usara CUIT de test</span>';
+              }
+            }
           }
         })
         .withFailureHandler(function() {})
@@ -5456,6 +5493,126 @@
           estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + error.message + '</span>';
         })
         .actualizarCondicionesFiscalesDesdeArca();
+    }
+
+    function generarCertificadoFront() {
+      var username = document.getElementById('inputArcaUsername').value.trim();
+      var password = document.getElementById('inputArcaPassword').value.trim();
+
+      if (!username || !password) {
+        mostrarToast('Ingresa tu CUIT (usuario) y clave fiscal de ARCA', 'error');
+        return;
+      }
+
+      if (!confirm(
+        'Generar certificado digital?\n\n' +
+        'Se usara tu clave fiscal de ARCA para generar el certificado automaticamente.\n' +
+        'La clave NO se guarda, solo se usa una vez.\n' +
+        'Este proceso tarda entre 10 y 60 segundos.\n\n' +
+        'Continuar?'
+      )) return;
+
+      var env = document.getElementById('inputAfipEnv').value || 'dev';
+      var estadoCert = document.getElementById('estadoCert');
+      var btn = document.getElementById('btnGenerarCert');
+
+      estadoCert.innerHTML = '<span style="color:var(--sv-info);">Generando certificado ' + env.toUpperCase() + '... (puede tardar hasta 60 seg)</span>';
+      btn.disabled = true;
+      btn.textContent = 'Generando...';
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          btn.disabled = false;
+          btn.textContent = 'Generar Certificado';
+          document.getElementById('inputArcaPassword').value = '';
+
+          if (result.success) {
+            estadoCert.innerHTML = '<span style="color:var(--sv-exito);">' + result.mensaje + '</span>';
+            mostrarToast(result.mensaje, 'success');
+            // Mostrar estado de WS si hubo error en autorización
+            var estadoWS = document.getElementById('estadoWS');
+            if (result.authError && estadoWS) {
+              estadoWS.innerHTML = '<span style="color:var(--sv-advertencia);">WS: ' + result.authError + ' - Usa "Autorizar Web Services"</span>';
+            } else if (result.wsAutorizados && estadoWS) {
+              estadoWS.innerHTML = '<span style="color:var(--sv-exito);">WS autorizados: ' + result.wsAutorizados.join(', ') + '</span>';
+            }
+          } else {
+            estadoCert.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + result.error + '</span>';
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          btn.disabled = false;
+          btn.textContent = 'Generar Certificado';
+          document.getElementById('inputArcaPassword').value = '';
+          estadoCert.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + error.message + '</span>';
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .generarCertificadoAfip({
+          username: username,
+          password: password,
+          environment: env,
+          alias: 'solyverde'
+        });
+    }
+
+    function autorizarWebServicesFront() {
+      var username = document.getElementById('inputArcaUsername').value.trim();
+      var password = document.getElementById('inputArcaPassword').value.trim();
+
+      if (!username || !password) {
+        mostrarToast('Ingresa tu CUIT (usuario) y clave fiscal de ARCA', 'error');
+        return;
+      }
+
+      if (!confirm(
+        'Autorizar web services wsfe y ws_sr_padron_a5?\n\n' +
+        'Esto es necesario después de generar un certificado nuevo.\n' +
+        'El proceso tarda entre 30 y 120 segundos.\n\n' +
+        'Continuar?'
+      )) return;
+
+      var env = document.getElementById('inputAfipEnv').value || 'dev';
+      var estadoWS = document.getElementById('estadoWS');
+      var btn = document.getElementById('btnAutorizarWS');
+
+      estadoWS.innerHTML = '<span style="color:var(--sv-info);">Autorizando web services ' + env.toUpperCase() + '... (puede tardar hasta 2 min)</span>';
+      btn.disabled = true;
+      btn.textContent = 'Autorizando...';
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          btn.disabled = false;
+          btn.textContent = 'Autorizar Web Services';
+          document.getElementById('inputArcaPassword').value = '';
+
+          if (result.success) {
+            estadoWS.innerHTML = '<span style="color:var(--sv-exito);">' + result.mensaje + '</span>';
+            mostrarToast(result.mensaje, 'success');
+          } else {
+            estadoWS.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + result.error + '</span>';
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          btn.disabled = false;
+          btn.textContent = 'Autorizar Web Services';
+          document.getElementById('inputArcaPassword').value = '';
+          estadoWS.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + error.message + '</span>';
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .autorizarWebServicesAfip({
+          username: username,
+          password: password,
+          environment: env,
+          alias: 'solyverde'
+        });
     }
 
     // Probar conexión con Claude (usa la API Key del sistema general)
