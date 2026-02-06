@@ -440,6 +440,113 @@ const MovimientosRepository = {
   },
 
   /**
+   * Calcula el saldo de un cliente al final de una fecha específica (histórico)
+   * Suma todos los movimientos hasta e incluyendo esa fecha
+   * @param {string} nombreCliente - Nombre del cliente
+   * @param {Date|string} fecha - Fecha hasta la cual calcular
+   * @returns {number} Saldo calculado
+   */
+  calcularSaldoAlFecha: function(nombreCliente, fecha) {
+    const nombreNorm = normalizarString(nombreCliente);
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return 0;
+
+    const fechaLimite = parsearFechaLocal(fecha);
+    fechaLimite.setHours(23, 59, 59, 999);
+
+    let saldo = 0;
+
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+      const clienteFila = normalizarString(fila[CONFIG.COLS_MOVS.CLIENTE]);
+
+      if (clienteFila !== nombreNorm) continue;
+
+      const fechaMov = parsearFechaLocal(fila[CONFIG.COLS_MOVS.FECHA]);
+      if (fechaMov > fechaLimite) continue;
+
+      const monto = fila[CONFIG.COLS_MOVS.MONTO] || 0;
+      const tipo = fila[CONFIG.COLS_MOVS.TIPO];
+
+      if (tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+        saldo += monto;
+      } else {
+        saldo -= monto;
+      }
+    }
+
+    return saldo;
+  },
+
+  /**
+   * Calcula los saldos históricos de todos los clientes al final de una fecha
+   * @param {Date|string} fecha - Fecha hasta la cual calcular
+   * @returns {Object} {nombreCliente: saldo}
+   */
+  calcularSaldosHistoricos: function(fecha) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    if (datos.length <= 1) return {};
+
+    const fechaLimite = parsearFechaLocal(fecha);
+    fechaLimite.setHours(23, 59, 59, 999);
+
+    const saldos = {};
+
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+      const cliente = fila[CONFIG.COLS_MOVS.CLIENTE];
+      if (!cliente) continue;
+
+      const fechaMov = parsearFechaLocal(fila[CONFIG.COLS_MOVS.FECHA]);
+      if (fechaMov > fechaLimite) continue;
+
+      if (!saldos[cliente]) saldos[cliente] = 0;
+
+      const monto = fila[CONFIG.COLS_MOVS.MONTO] || 0;
+      const tipo = fila[CONFIG.COLS_MOVS.TIPO];
+
+      if (tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+        saldos[cliente] += monto;
+      } else {
+        saldos[cliente] -= monto;
+      }
+    }
+
+    return saldos;
+  },
+
+  /**
+   * Actualiza el nombre del cliente en todos sus movimientos
+   * @param {string} nombreAnterior - Nombre actual del cliente
+   * @param {string} nombreNuevo - Nuevo nombre del cliente
+   * @returns {number} Cantidad de movimientos actualizados
+   */
+  actualizarNombreCliente: function(nombreAnterior, nombreNuevo) {
+    const nombreAntNorm = normalizarString(nombreAnterior);
+    const nombreNuevoNorm = normalizarString(nombreNuevo);
+
+    if (nombreAntNorm === nombreNuevoNorm) return 0;
+
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+    let actualizados = 0;
+
+    for (let i = 1; i < datos.length; i++) {
+      const clienteFila = normalizarString(datos[i][CONFIG.COLS_MOVS.CLIENTE]);
+      if (clienteFila === nombreAntNorm) {
+        hoja.getRange(i + 1, CONFIG.COLS_MOVS.CLIENTE + 1).setValue(nombreNuevoNorm);
+        actualizados++;
+      }
+    }
+
+    return actualizados;
+  },
+
+  /**
    * Obtiene estadisticas de movimientos
    * @returns {Object} Estadisticas
    */

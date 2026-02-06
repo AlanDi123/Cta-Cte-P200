@@ -331,8 +331,10 @@ function obtenerSaldosConMovimientosDia(fecha) {
     const fechaFin = new Date(fechaFiltro);
     fechaFin.setHours(23, 59, 59, 999);
 
-    // Obtener todos los deudores
-    const deudores = ClientesRepository.obtenerDeudores();
+    // Verificar si es fecha de hoy
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const esHoy = fechaFiltro.getTime() === hoy.getTime();
 
     // Obtener movimientos del dia
     const movimientosDia = MovimientosRepository.obtenerPorRango(fechaFiltro, fechaFin);
@@ -350,15 +352,44 @@ function obtenerSaldosConMovimientosDia(fecha) {
       }
     }
 
-    // Enriquecer deudores con movimientos del dia y ordenar alfabeticamente
-    const resultado = deudores.map(d => ({
-      nombre: d.nombre,
-      saldo: d.saldo,
-      pagosDia: movsPorCliente[d.nombre]?.pagos || 0,
-      fiadosDia: movsPorCliente[d.nombre]?.fiados || 0
-    })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    let resultado;
+    let totalAdeudado = 0;
 
-    // Calcular totales
+    if (esHoy) {
+      // Si es hoy, usar saldos actuales (rápido)
+      const deudores = ClientesRepository.obtenerDeudores();
+      resultado = deudores.map(d => ({
+        nombre: d.nombre,
+        saldo: d.saldo,
+        pagosDia: movsPorCliente[d.nombre]?.pagos || 0,
+        fiadosDia: movsPorCliente[d.nombre]?.fiados || 0
+      }));
+      totalAdeudado = deudores.reduce((sum, c) => sum + c.saldo, 0);
+    } else {
+      // Si es fecha pasada, calcular saldos históricos
+      const saldosHistoricos = MovimientosRepository.calcularSaldosHistoricos(fechaFin);
+      const clientes = ClientesRepository.obtenerTodos();
+
+      resultado = [];
+      for (const cliente of clientes) {
+        const saldoHistorico = saldosHistoricos[cliente.nombre] || 0;
+        // Solo incluir si tenía saldo positivo en esa fecha
+        if (saldoHistorico > 0) {
+          resultado.push({
+            nombre: cliente.nombre,
+            saldo: saldoHistorico,
+            pagosDia: movsPorCliente[cliente.nombre]?.pagos || 0,
+            fiadosDia: movsPorCliente[cliente.nombre]?.fiados || 0
+          });
+          totalAdeudado += saldoHistorico;
+        }
+      }
+    }
+
+    // Ordenar alfabéticamente
+    resultado.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+    // Calcular totales del día
     let totalPagos = 0;
     let totalFiados = 0;
     for (const cliente in movsPorCliente) {
@@ -369,8 +400,9 @@ function obtenerSaldosConMovimientosDia(fecha) {
     return {
       success: true,
       fecha: fechaFiltro.toISOString(),
+      esHistorico: !esHoy,
       deudores: serializarParaWeb(resultado),
-      totalAdeudado: deudores.reduce((sum, c) => sum + c.saldo, 0),
+      totalAdeudado: totalAdeudado,
       totalPagosDia: totalPagos,
       totalFiadosDia: totalFiados
     };

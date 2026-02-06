@@ -194,6 +194,66 @@ const TransferenciasRepository = {
   },
 
   /**
+   * Actualiza una transferencia existente
+   */
+  actualizar: function(id, datos) {
+    const hoja = this.getHoja();
+    const filas = hoja.getDataRange().getValues();
+
+    for (let i = 1; i < filas.length; i++) {
+      if (filas[i][CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID] === id) {
+        const fila = i + 1;
+
+        if (datos.fecha !== undefined) {
+          hoja.getRange(fila, CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA + 1).setValue(parsearFechaLocal(datos.fecha));
+        }
+        if (datos.cliente !== undefined) {
+          hoja.getRange(fila, CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CLIENTE + 1).setValue((datos.cliente || '').toUpperCase());
+        }
+        if (datos.monto !== undefined) {
+          hoja.getRange(fila, CONFIG_FACTURACION.COLS_TRANSFERENCIAS.MONTO + 1).setValue(datos.monto);
+        }
+        if (datos.banco !== undefined) {
+          hoja.getRange(fila, CONFIG_FACTURACION.COLS_TRANSFERENCIAS.BANCO + 1).setValue(datos.banco);
+        }
+        if (datos.obs !== undefined) {
+          hoja.getRange(fila, CONFIG_FACTURACION.COLS_TRANSFERENCIAS.OBS + 1).setValue(datos.obs);
+        }
+
+        return { id: id, actualizado: true };
+      }
+    }
+    throw new Error('Transferencia no encontrada: ' + id);
+  },
+
+  /**
+   * Busca una transferencia por ID
+   */
+  buscarPorId: function(id) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    for (let i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID] === id) {
+        const fila = datos[i];
+        return {
+          id: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID],
+          fecha: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA] instanceof Date ?
+            formatearFechaLocal(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA]) : fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA],
+          cliente: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CLIENTE],
+          monto: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.MONTO] || 0,
+          banco: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.BANCO] || '',
+          condicion: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CONDICION] || 'Consumidor Final',
+          tipoFactura: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.TIPO_FACTURA] || '',
+          facturada: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FACTURADA] === true || fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FACTURADA] === 'SI',
+          obs: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.OBS] || ''
+        };
+      }
+    }
+    return null;
+  },
+
+  /**
    * Elimina una transferencia
    */
   eliminar: function(id) {
@@ -396,6 +456,30 @@ function eliminarTransferencia(id) {
   try {
     TransferenciasRepository.eliminar(id);
     return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Actualiza una transferencia existente
+ */
+function actualizarTransferencia(id, datos) {
+  try {
+    TransferenciasRepository.actualizar(id, datos);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Obtiene una transferencia por ID
+ */
+function obtenerTransferencia(id) {
+  try {
+    const transferencia = TransferenciasRepository.buscarPorId(id);
+    return { success: true, transferencia: transferencia };
   } catch (error) {
     return { success: false, error: error.message };
   }
