@@ -1046,15 +1046,240 @@ function generarCertificadoAfip(datos) {
 
     Logger.log('Certificado generado y guardado exitosamente (' + env + ')');
 
+    // Paso 5: Autorizar web services automáticamente
+    Logger.log('Autorizando web services wsfe y ws_sr_padron_a5...');
+    var authResult = autorizarWebServicesAfip({
+      username: datos.username,
+      password: datos.password,
+      alias: alias,
+      environment: env
+    });
+
+    if (!authResult.success) {
+      // El certificado se generó pero falló la autorización
+      return {
+        success: true,
+        mensaje: 'Certificado ' + env.toUpperCase() + ' generado. ATENCION: Fallo la autorizacion de web services: ' + authResult.error + '. Usa el boton "Autorizar Web Services" para intentar de nuevo.',
+        certPreview: cert.substring(0, 60) + '...',
+        authError: authResult.error
+      };
+    }
+
     return {
       success: true,
-      mensaje: 'Certificado ' + env.toUpperCase() + ' generado y guardado exitosamente. Ya podés emitir comprobantes con tu CUIT.',
-      certPreview: cert.substring(0, 60) + '...'
+      mensaje: 'Certificado ' + env.toUpperCase() + ' generado y web services autorizados. Ya podés emitir comprobantes con tu CUIT.',
+      certPreview: cert.substring(0, 60) + '...',
+      wsAutorizados: authResult.autorizados
     };
   } catch (error) {
     Logger.log('Error generando certificado: ' + error.message);
     return { success: false, error: error.message };
   }
+}
+
+/**
+ * Autoriza los web services necesarios (wsfe y ws_sr_padron_a5) en ARCA
+ * via el endpoint ws-auths de Afip SDK.
+ *
+ * Este paso es OBLIGATORIO después de generar un certificado.
+ * Sin autorización, el web service devuelve error "coe.notAuthorized".
+ *
+ * @param {Object} datos - {username, password, alias, environment}
+ * @returns {Object} {success, mensaje, autorizados}
+ */
+function autorizarWebServicesAfip(datos) {
+  try {
+    if (!datos.username || !datos.password) {
+      throw new Error('Se requiere usuario (CUIT) y contraseña de ARCA');
+    }
+
+    var config = AfipService.getConfig();
+    var env = datos.environment || config.environment || 'dev';
+    var alias = datos.alias || 'solyverde';
+    var cuit = config.cuit || CONFIG_AFIP.EMISOR.CUIT;
+
+    // Web services a autorizar
+    var webServices = ['wsfe', 'ws_sr_padron_a5'];
+    var autorizados = [];
+    var errores = [];
+
+    for (var i = 0; i < webServices.length; i++) {
+      var wsid = webServices[i];
+      Logger.log('Autorizando web service: ' + wsid);
+
+      try {
+        var resultado = _autorizarUnWebService({
+          environment: env,
+          tax_id: cuit,
+          username: String(datos.username).replace(/[-\s]/g, ''),
+          password: datos.password,
+          wsid: wsid,
+          alias: alias
+        });
+
+        if (resultado.success) {
+          autorizados.push(wsid);
+          Logger.log('Web service ' + wsid + ' autorizado exitosamente');
+        } else {
+          errores.push(wsid + ': ' + resultado.error);
+          Logger.log('Error autorizando ' + wsid + ': ' + resultado.error);
+        }
+      } catch (e) {
+        errores.push(wsid + ': ' + e.message);
+        Logger.log('Excepcion autorizando ' + wsid + ': ' + e.message);
+      }
+
+      // Pausa entre autorizaciones
+      if (i < webServices.length - 1) {
+        Utilities.sleep(2000);
+      }
+    }
+
+    if (autorizados.length === 0) {
+      return {
+        success: false,
+        error: 'No se pudo autorizar ningun web service. Errores: ' + errores.join('; ')
+      };
+    }
+
+    return {
+      success: true,
+      mensaje: 'Web services autorizados: ' + autorizados.join(', '),
+      autorizados: autorizados,
+      errores: errores.length > 0 ? errores : null
+    };
+  } catch (error) {
+    Logger.log('Error en autorizarWebServicesAfip: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Autoriza un único web service via el endpoint ws-auths
+ * @private
+ */
+function _autorizarUnWebService(params) {
+  var config = AfipService.getConfig();
+
+  if (!config.accessToken) {
+    throw new Error('Access Token no configurado');
+  }
+
+  var url = 'https://app.afipsdk.com/api/v1/afip/ws-auths';
+
+  var payload = {
+    environment: params.environment,
+    tax_id: params.tax_id,
+    username: params.username,
+    password: params.password,
+    wsid: params.wsid,
+    alias: params.alias
+  };
+
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'Authorization': 'Bearer ' + config.accessToken
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  // Primera llamada para iniciar el proceso
+  var response = UrlFetchApp.fetch(url, options);
+  var code = response.getResponseCode();
+  var text = response.getContentText();
+
+  if (code !== 200) {
+    // Verificar si es un error conocido o si necesita polling
+    try {
+      var errorData = JSON.parse(text);
+      if (errorData.status === 'in_process' || errorData.id) {
+        // Necesita polling
+        return _pollAutorizacion(url, payload, config.accessToken);
+      }
+      throw new Error(errorData.message || errorData.error || JSON.stringify(errorData.data_errors || errorData));
+    } catch (e) {
+      if (e.message.indexOf('in_process') >= 0 || e.message.indexOf('id') >= 0) {
+        return _pollAutorizacion(url, payload, config.accessToken);
+      }
+      throw new Error('Error ' + code + ': ' + text.substring(0, 200));
+    }
+  }
+
+  var result = JSON.parse(text);
+
+  // Si devuelve status in_process, hacer polling
+  if (result.status === 'in_process' || (result.id && !result.status)) {
+    return _pollAutorizacion(url, payload, config.accessToken, result.id);
+  }
+
+  // Si ya está completo
+  if (result.status === 'complete' || result.status === 'completed' || result.success) {
+    return { success: true };
+  }
+
+  // Si hay error
+  if (result.status === 'error' || result.status === 'failed') {
+    return { success: false, error: result.error || result.message || 'Error desconocido' };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Polling para esperar que la autorización se complete
+ * @private
+ */
+function _pollAutorizacion(url, payload, accessToken, jobId) {
+  var maxIntentos = 24; // 120 segundos max
+
+  for (var i = 0; i < maxIntentos; i++) {
+    Utilities.sleep(5000);
+
+    // Agregar long_job_id si tenemos uno
+    var pollPayload = Object.assign({}, payload);
+    if (jobId) {
+      pollPayload.long_job_id = jobId;
+    }
+
+    var options = {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        'Authorization': 'Bearer ' + accessToken
+      },
+      payload: JSON.stringify(pollPayload),
+      muteHttpExceptions: true
+    };
+
+    var response = UrlFetchApp.fetch(url, options);
+    var text = response.getContentText();
+
+    try {
+      var result = JSON.parse(text);
+
+      if (result.status === 'complete' || result.status === 'completed' || result.success) {
+        return { success: true };
+      }
+
+      if (result.status === 'error' || result.status === 'failed') {
+        return { success: false, error: result.error || result.message || 'Autorización fallida' };
+      }
+
+      // Guardar job id para siguiente intento
+      if (result.id) {
+        jobId = result.id;
+      }
+
+      Logger.log('Polling autorizacion... intento ' + (i + 1) + '/' + maxIntentos + ' (estado: ' + result.status + ')');
+    } catch (e) {
+      Logger.log('Error parseando respuesta polling: ' + e.message);
+    }
+  }
+
+  return { success: false, error: 'Tiempo de espera agotado para autorización' };
 }
 
 /**
