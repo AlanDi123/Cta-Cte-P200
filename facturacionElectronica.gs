@@ -1261,37 +1261,72 @@ function _autorizarUnWebService(params) {
 
 /**
  * Polling para esperar que la autorización se complete
+ * Usa GET /automations/{id} (mismo patron que generarCertificadoAfip)
  * @private
  */
 function _pollAutorizacion(url, payload, accessToken, jobId) {
   var maxIntentos = 18; // 18 x 7s = 126 segundos max
-  var intervaloMs = 7000; // 7 segundos entre intentos (evitar rate limiting)
+  var intervaloMs = 7000; // 7 segundos entre intentos
 
+  // Si no tenemos jobId, reintentar POST una vez para obtenerlo
+  if (!jobId) {
+    Logger.log('Polling ws-auth: sin jobId, reintentando POST para obtenerlo...');
+    Utilities.sleep(3000);
+    try {
+      var retryOpts = {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { 'Authorization': 'Bearer ' + accessToken },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      };
+      var retryResp = UrlFetchApp.fetch(url, retryOpts);
+      var retryResult = JSON.parse(retryResp.getContentText());
+
+      if (retryResult.status === 'complete' || retryResult.status === 'completed' || retryResult.success === true) {
+        return { success: true };
+      }
+      if (retryResult.id) {
+        jobId = retryResult.id;
+        Logger.log('Obtenido jobId: ' + jobId);
+      }
+    } catch (e) {
+      Logger.log('Error obteniendo jobId: ' + e.message);
+    }
+  }
+
+  // Polling via GET /automations/{id} (patron consistente con certificados)
   for (var i = 0; i < maxIntentos; i++) {
     Utilities.sleep(intervaloMs);
 
-    // Agregar long_job_id si tenemos uno
-    var pollPayload = Object.assign({}, payload);
-    if (jobId) {
-      pollPayload.long_job_id = jobId;
-    }
-
-    var options = {
-      method: 'post',
-      contentType: 'application/json',
-      headers: {
-        'Authorization': 'Bearer ' + accessToken
-      },
-      payload: JSON.stringify(pollPayload),
-      muteHttpExceptions: true
-    };
-
     try {
-      var response = UrlFetchApp.fetch(url, options);
+      var pollUrl, pollOptions;
+
+      if (jobId) {
+        // Usar endpoint de automations con GET (patron correcto de AfipSDK)
+        pollUrl = 'https://app.afipsdk.com/api/v1/automations/' + jobId;
+        pollOptions = {
+          method: 'get',
+          headers: { 'Authorization': 'Bearer ' + accessToken },
+          muteHttpExceptions: true
+        };
+      } else {
+        // Fallback: re-POST al endpoint original con long_job_id
+        pollUrl = url;
+        var pollPayload = Object.assign({}, payload);
+        pollOptions = {
+          method: 'post',
+          contentType: 'application/json',
+          headers: { 'Authorization': 'Bearer ' + accessToken },
+          payload: JSON.stringify(pollPayload),
+          muteHttpExceptions: true
+        };
+      }
+
+      var response = UrlFetchApp.fetch(pollUrl, pollOptions);
       var responseCode = response.getResponseCode();
       var text = response.getContentText();
 
-      // Reintentar silenciosamente en errores de servidor
       if (responseCode >= 500 && responseCode <= 504) {
         Logger.log('Polling: error transitorio ' + responseCode + ', reintentando...');
         continue;
@@ -1305,18 +1340,18 @@ function _pollAutorizacion(url, payload, accessToken, jobId) {
       }
 
       if (result.status === 'error' || result.status === 'failed') {
-        return { success: false, error: result.error || result.message || 'Autorización fallida' };
+        return { success: false, error: result.error || result.message || 'Autorizacion fallida' };
       }
 
-      // Guardar job id para siguiente intento
+      // Capturar jobId si aparece en la respuesta
       if (result.id && !jobId) {
         jobId = result.id;
+        Logger.log('JobId obtenido en polling: ' + jobId);
       }
 
       Logger.log('Polling autorizacion... intento ' + (i + 1) + '/' + maxIntentos + ' (estado: ' + (result.status || 'desconocido') + ', job: ' + (jobId || 'sin id') + ')');
     } catch (e) {
       Logger.log('Error en polling intento ' + (i + 1) + ': ' + e.message);
-      // Continuar intentando a menos que sea el último intento
     }
   }
 

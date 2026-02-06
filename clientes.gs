@@ -89,7 +89,11 @@ const ClientesRepository = {
     if (!nombreNorm) return null;
 
     const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
+    const lastRow = hoja.getLastRow();
+    if (lastRow <= 1) return null;
+    // Usar rango explícito en vez de getDataRange() para evitar error de columnas
+    const numCols = Math.max(hoja.getLastColumn(), 11);
+    const datos = hoja.getRange(1, 1, lastRow, numCols).getValues();
 
     for (let i = 1; i < datos.length; i++) {
       if (normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]) === nombreNorm) {
