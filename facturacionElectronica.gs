@@ -1094,9 +1094,19 @@ function autorizarWebServicesAfip(datos) {
     }
 
     var config = AfipService.getConfig();
+
+    if (!config.accessToken) {
+      throw new Error('Access Token de Afip SDK no configurado. Ve a Configuración > Facturación ARCA y pegá tu Access Token.');
+    }
+
     var env = datos.environment || config.environment || 'dev';
     var alias = datos.alias || 'solyverde';
     var cuit = config.cuit || CONFIG_AFIP.EMISOR.CUIT;
+
+    // Verificar que hay certificado (requerido para autorizar web services con CUIT propio)
+    if (!AfipService.tieneCertificado() && env === 'prod') {
+      throw new Error('Se requiere certificado para autorizar web services en modo producción. Generá un certificado primero.');
+    }
 
     // Web services a autorizar
     var webServices = ['wsfe', 'ws_sr_padron_a5'];
@@ -1186,45 +1196,66 @@ function _autorizarUnWebService(params) {
     muteHttpExceptions: true
   };
 
-  // Primera llamada para iniciar el proceso
-  var response = UrlFetchApp.fetch(url, options);
-  var code = response.getResponseCode();
-  var text = response.getContentText();
+  // Retry logic para errores transitorios de red (500/502/503/504)
+  var maxRetries = 3;
+  var response = null;
+  var code = 0;
+  var text = '';
 
-  if (code !== 200) {
-    // Verificar si es un error conocido o si necesita polling
+  for (var retry = 0; retry <= maxRetries; retry++) {
     try {
-      var errorData = JSON.parse(text);
-      if (errorData.status === 'in_process' || errorData.id) {
-        // Necesita polling
-        return _pollAutorizacion(url, payload, config.accessToken);
+      response = UrlFetchApp.fetch(url, options);
+      code = response.getResponseCode();
+      text = response.getContentText();
+
+      // Solo reintentar en errores de servidor transitorios
+      if (code >= 500 && code <= 504 && retry < maxRetries) {
+        Logger.log('Error transitorio ' + code + ' autorizando ' + params.wsid + ', reintentando en ' + ((retry + 1) * 3) + 's...');
+        Utilities.sleep((retry + 1) * 3000);
+        continue;
       }
-      throw new Error(errorData.message || errorData.error || JSON.stringify(errorData.data_errors || errorData));
-    } catch (e) {
-      if (e.message.indexOf('in_process') >= 0 || e.message.indexOf('id') >= 0) {
-        return _pollAutorizacion(url, payload, config.accessToken);
+      break; // Salir del loop si no es error transitorio
+    } catch (fetchError) {
+      if (retry < maxRetries) {
+        Logger.log('Error de red autorizando ' + params.wsid + ': ' + fetchError.message + ', reintentando...');
+        Utilities.sleep((retry + 1) * 3000);
+        continue;
       }
-      throw new Error('Error ' + code + ': ' + text.substring(0, 200));
+      throw new Error('Error de red persistente: ' + fetchError.message);
     }
   }
 
-  var result = JSON.parse(text);
+  // Intentar parsear la respuesta JSON (independientemente del status code)
+  var result = null;
+  try {
+    result = JSON.parse(text);
+  } catch (parseError) {
+    // Si no es JSON válido, reportar error con status code
+    throw new Error('Error ' + code + ' (respuesta no JSON): ' + text.substring(0, 200));
+  }
 
-  // Si devuelve status in_process, hacer polling
-  if (result.status === 'in_process' || (result.id && !result.status)) {
-    return _pollAutorizacion(url, payload, config.accessToken, result.id);
+  // Verificar si necesita polling (puede venir con código 200 o no-200)
+  if (result.status === 'in_process' || result.status === 'in_progress' || (result.id && result.status !== 'error' && result.status !== 'failed')) {
+    Logger.log('Autorizacion de ' + params.wsid + ' en proceso, iniciando polling (id: ' + (result.id || 'sin id') + ')');
+    return _pollAutorizacion(url, payload, config.accessToken, result.id || null);
   }
 
   // Si ya está completo
-  if (result.status === 'complete' || result.status === 'completed' || result.success) {
+  if (result.status === 'complete' || result.status === 'completed' || result.success === true) {
     return { success: true };
   }
 
-  // Si hay error
-  if (result.status === 'error' || result.status === 'failed') {
-    return { success: false, error: result.error || result.message || 'Error desconocido' };
+  // Si hay error explícito
+  if (result.status === 'error' || result.status === 'failed' || result.success === false) {
+    return { success: false, error: result.error || result.message || JSON.stringify(result.data_errors || result).substring(0, 200) };
   }
 
+  // Para HTTP errors sin status reconocido
+  if (code !== 200) {
+    return { success: false, error: 'Error HTTP ' + code + ': ' + (result.message || result.error || JSON.stringify(result).substring(0, 200)) };
+  }
+
+  // Respuesta 200 sin status reconocido - asumir éxito
   return { success: true };
 }
 
@@ -1233,10 +1264,11 @@ function _autorizarUnWebService(params) {
  * @private
  */
 function _pollAutorizacion(url, payload, accessToken, jobId) {
-  var maxIntentos = 24; // 120 segundos max
+  var maxIntentos = 18; // 18 x 7s = 126 segundos max
+  var intervaloMs = 7000; // 7 segundos entre intentos (evitar rate limiting)
 
   for (var i = 0; i < maxIntentos; i++) {
-    Utilities.sleep(5000);
+    Utilities.sleep(intervaloMs);
 
     // Agregar long_job_id si tenemos uno
     var pollPayload = Object.assign({}, payload);
@@ -1254,13 +1286,21 @@ function _pollAutorizacion(url, payload, accessToken, jobId) {
       muteHttpExceptions: true
     };
 
-    var response = UrlFetchApp.fetch(url, options);
-    var text = response.getContentText();
-
     try {
+      var response = UrlFetchApp.fetch(url, options);
+      var responseCode = response.getResponseCode();
+      var text = response.getContentText();
+
+      // Reintentar silenciosamente en errores de servidor
+      if (responseCode >= 500 && responseCode <= 504) {
+        Logger.log('Polling: error transitorio ' + responseCode + ', reintentando...');
+        continue;
+      }
+
       var result = JSON.parse(text);
 
-      if (result.status === 'complete' || result.status === 'completed' || result.success) {
+      if (result.status === 'complete' || result.status === 'completed' || result.success === true) {
+        Logger.log('Autorizacion completada en intento ' + (i + 1));
         return { success: true };
       }
 
@@ -1269,17 +1309,18 @@ function _pollAutorizacion(url, payload, accessToken, jobId) {
       }
 
       // Guardar job id para siguiente intento
-      if (result.id) {
+      if (result.id && !jobId) {
         jobId = result.id;
       }
 
-      Logger.log('Polling autorizacion... intento ' + (i + 1) + '/' + maxIntentos + ' (estado: ' + result.status + ')');
+      Logger.log('Polling autorizacion... intento ' + (i + 1) + '/' + maxIntentos + ' (estado: ' + (result.status || 'desconocido') + ', job: ' + (jobId || 'sin id') + ')');
     } catch (e) {
-      Logger.log('Error parseando respuesta polling: ' + e.message);
+      Logger.log('Error en polling intento ' + (i + 1) + ': ' + e.message);
+      // Continuar intentando a menos que sea el último intento
     }
   }
 
-  return { success: false, error: 'Tiempo de espera agotado para autorización' };
+  return { success: false, error: 'Tiempo de espera agotado (2 min). El proceso puede seguir en segundo plano. Intenta "Probar Conexion" en unos minutos.' };
 }
 
 /**

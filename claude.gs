@@ -65,6 +65,21 @@ const ClaudeService = {
 
     const fechaHoy = fecha || obtenerFechaHoy();
 
+    // Obtener lista de clientes conocidos para mejorar reconocimiento de nombres
+    let listaClientes = '';
+    try {
+      const clientes = ClientesRepository.obtenerTodos(0, 0);
+      if (clientes.length > 0) {
+        const nombres = clientes.map(function(c) { return c.nombre; }).slice(0, 200);
+        listaClientes = '\n\nLISTA DE CLIENTES CONOCIDOS (usa estos nombres exactos cuando reconozcas alguno):\n' +
+          nombres.join(', ') +
+          '\n\nIMPORTANTE: Si un nombre escrito a mano se parece a uno de los clientes conocidos, ' +
+          'usa el nombre EXACTO del cliente conocido. Prioriza siempre la coincidencia con esta lista.';
+      }
+    } catch (e) {
+      Logger.log('No se pudo obtener lista de clientes para VR: ' + e.message);
+    }
+
     // Construir el prompt
     const prompt = `Analiza esta imagen de un libro contable de cuenta corriente.
 
@@ -78,6 +93,7 @@ IMPORTANTE:
 - Los montos son numeros, pueden tener puntos como separadores de miles
 - Ignora totales o sumas parciales
 - La fecha para todos los movimientos es: ${fechaHoy}
+${listaClientes}
 
 Responde UNICAMENTE con un JSON valido con esta estructura exacta:
 {

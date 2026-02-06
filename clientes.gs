@@ -21,6 +21,16 @@ const ClientesRepository = {
       hoja.appendRow(['NOMBRE', 'TEL', 'EMAIL', 'LIMITE', 'SALDO', 'TOTAL_MOVS', 'ALTA', 'ULTIMO_MOV', 'OBS', 'CUIT', 'CONDICION_FISCAL']);
       hoja.getRange(1, 1, 1, 11).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
       hoja.setFrozenRows(1);
+    } else {
+      // Migrar hojas existentes que no tengan las columnas CUIT y CONDICION_FISCAL
+      var lastCol = hoja.getLastColumn();
+      if (lastCol < 11) {
+        var headers = ['NOMBRE', 'TEL', 'EMAIL', 'LIMITE', 'SALDO', 'TOTAL_MOVS', 'ALTA', 'ULTIMO_MOV', 'OBS', 'CUIT', 'CONDICION_FISCAL'];
+        for (var col = lastCol + 1; col <= 11; col++) {
+          hoja.getRange(1, col).setValue(headers[col - 1]).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
+        }
+        Logger.log('CLIENTES: migradas columnas faltantes (de ' + lastCol + ' a 11)');
+      }
     }
 
     return hoja;
@@ -33,7 +43,7 @@ const ClientesRepository = {
    * @returns {Array<Object>} Array de clientes
    */
   obtenerTodos: function(offset = 0, limit = 0) {
-    const hoja = this.getHoja();
+    const hoja = this.getHoja(); // getHoja() triggers column migration if needed
     const lastRow = hoja.getLastRow();
 
     if (lastRow <= 1) return [];
@@ -43,7 +53,9 @@ const ClientesRepository = {
 
     if (numRows <= 0) return [];
 
-    const datos = hoja.getRange(startRow, 1, numRows, 11).getValues();
+    // Use actual column count, minimum 11 (getHoja already ensures migration)
+    const numCols = Math.max(hoja.getLastColumn(), 11);
+    const datos = hoja.getRange(startRow, 1, numRows, numCols).getValues();
     const clientes = [];
 
     for (const fila of datos) {

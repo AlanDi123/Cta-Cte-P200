@@ -3305,18 +3305,26 @@
       tbody.innerHTML = Estado.vrMovimientos.map((m, i) => `
         <tr>
           <td>
-            ${m.valido ? escapeHtml(m.cliente) : `
-              <select class="form-input" onchange="seleccionarClienteVR(${i}, this.value)" style="padding: 0.5rem;">
-                <option value="">${escapeHtml(m.clienteOriginal)} (no encontrado)</option>
-                ${(m.sugerencias || []).map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
-              </select>
+            ${m.valido ? `
+              <span style="color:var(--sv-exito);font-weight:600;">${escapeHtml(m.cliente)}</span>
+            ` : `
+              <div style="position:relative;">
+                <input type="text" class="form-input" id="vrClienteInput_${i}"
+                  value="${escapeHtml(m.clienteOriginal || m.cliente || '')}"
+                  oninput="buscarClienteAutocompleteVR(${i}, this.value)"
+                  onblur="setTimeout(function(){ cerrarSugerenciasVR(${i}); }, 200)"
+                  placeholder="Buscar cliente..."
+                  autocomplete="off"
+                  style="padding: 0.5rem; font-size: 0.85rem;">
+                <div class="suggestions-list" id="vrSugerencias_${i}" style="display:none;"></div>
+              </div>
             `}
           </td>
           <td><span class="tag tag-${m.tipo.toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
           <td>
             <input type="number" class="form-input" value="${m.monto}" onchange="actualizarMontoVR(${i}, this.value)" style="width: 100px; padding: 0.5rem;" inputmode="numeric">
           </td>
-          <td>${m.valido ? '✓' : (m.sugerencias && m.sugerencias.length ? '⚠️' : '✗')}</td>
+          <td>${m.valido ? '✓' : (m.sugerencias && m.sugerencias.length ? '?' : '✗')}</td>
           <td>
             <button class="btn btn-outline btn-sm" onclick="eliminarMovVR(${i})">✗</button>
           </td>
@@ -3324,10 +3332,76 @@
       `).join('');
     }
 
+    function buscarClienteAutocompleteVR(index, termino) {
+      var contenedor = document.getElementById('vrSugerencias_' + index);
+      if (!contenedor) return;
+
+      if (!termino || termino.length < 1) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      if (!Estado.clientes || Estado.clientes.length === 0) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      var terminoNorm = normalizarTexto(termino);
+      var palabras = terminoNorm.split(' ').filter(function(p) { return p.length >= 1; });
+
+      var matches = Estado.clientes.filter(function(c) {
+        var nombreNorm = normalizarTexto(c.nombre);
+        var palabrasNombre = nombreNorm.split(' ');
+
+        if (nombreNorm.includes(terminoNorm)) return true;
+
+        return palabras.some(function(palabraBusqueda) {
+          return palabrasNombre.some(function(palabraNombre) {
+            return palabraNombre.startsWith(palabraBusqueda) || palabraNombre.includes(palabraBusqueda);
+          });
+        });
+      }).slice(0, 8);
+
+      if (matches.length === 0) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      contenedor.innerHTML = matches.map(function(c) {
+        return '<div class="suggestion-item" onmousedown="seleccionarClienteVR(' + index + ', \'' + escapeHtml(c.nombre).replace(/'/g, "\\'") + '\')">' +
+          '<strong>' + escapeHtml(c.nombre) + '</strong>' +
+          '<span style="color: var(--sv-texto-muted); font-size: 0.75rem; margin-left: 0.5rem;">' + formatearMonto(c.saldo) + '</span>' +
+          '</div>';
+      }).join('');
+
+      contenedor.style.display = 'block';
+    }
+
+    function cerrarSugerenciasVR(index) {
+      var contenedor = document.getElementById('vrSugerencias_' + index);
+      if (contenedor) contenedor.style.display = 'none';
+
+      // Validar el texto ingresado manualmente contra la lista de clientes
+      var input = document.getElementById('vrClienteInput_' + index);
+      if (input && input.value.trim()) {
+        var textoIngresado = normalizarTexto(input.value.trim());
+        var match = Estado.clientes.find(function(c) {
+          return normalizarTexto(c.nombre) === textoIngresado;
+        });
+        if (match) {
+          Estado.vrMovimientos[index].cliente = match.nombre;
+          Estado.vrMovimientos[index].valido = true;
+          renderMovimientosVR();
+        }
+      }
+    }
+
     function seleccionarClienteVR(index, cliente) {
       if (cliente) {
         Estado.vrMovimientos[index].cliente = cliente;
         Estado.vrMovimientos[index].valido = true;
+        // Cerrar todas las sugerencias VR abiertas
+        document.querySelectorAll('[id^="vrSugerencias_"]').forEach(function(el) { el.style.display = 'none'; });
         renderMovimientosVR();
       }
     }
@@ -5592,11 +5666,26 @@
           document.getElementById('inputArcaPassword').value = '';
 
           if (result.success) {
-            estadoWS.innerHTML = '<span style="color:var(--sv-exito);">' + result.mensaje + '</span>';
-            mostrarToast(result.mensaje, 'success');
+            var msg = result.mensaje;
+            if (result.errores && result.errores.length > 0) {
+              msg += ' (advertencias: ' + result.errores.join('; ') + ')';
+            }
+            estadoWS.innerHTML = '<span style="color:var(--sv-exito);">' + msg + '</span>';
+            mostrarToast(msg, 'success');
           } else {
-            estadoWS.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + result.error + '</span>';
-            mostrarToast('Error: ' + result.error, 'error');
+            var errorMsg = result.error || 'Error desconocido';
+            var ayuda = '';
+            if (errorMsg.indexOf('Token') >= 0 || errorMsg.indexOf('401') >= 0 || errorMsg.indexOf('403') >= 0) {
+              ayuda = ' Verifica tu Access Token en app.afipsdk.com';
+            } else if (errorMsg.indexOf('certificado') >= 0 || errorMsg.indexOf('cert') >= 0) {
+              ayuda = ' Genera un certificado primero.';
+            } else if (errorMsg.indexOf('clave') >= 0 || errorMsg.indexOf('password') >= 0) {
+              ayuda = ' Verifica tu clave fiscal de ARCA.';
+            } else if (errorMsg.indexOf('Tiempo') >= 0 || errorMsg.indexOf('timeout') >= 0) {
+              ayuda = ' Intenta de nuevo. Si persiste, verifica tu conexion.';
+            }
+            estadoWS.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + errorMsg + ayuda + '</span>';
+            mostrarToast('Error: ' + errorMsg + ayuda, 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5604,8 +5693,8 @@
           btn.disabled = false;
           btn.textContent = 'Autorizar Web Services';
           document.getElementById('inputArcaPassword').value = '';
-          estadoWS.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + error.message + '</span>';
-          mostrarToast('Error: ' + error.message, 'error');
+          estadoWS.innerHTML = '<span style="color:var(--sv-peligro);">Error de conexion: ' + error.message + '</span>';
+          mostrarToast('Error de conexion: ' + error.message, 'error');
         })
         .autorizarWebServicesAfip({
           username: username,
