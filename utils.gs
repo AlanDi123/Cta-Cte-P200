@@ -12,12 +12,24 @@
 
 /**
  * Normaliza un string para comparacion
+ * Convierte a mayusculas, quita acentos y espacios extras
  * @param {string} str - String a normalizar
- * @returns {string} String normalizado (mayusculas, sin espacios extras)
+ * @returns {string} String normalizado (mayusculas, sin acentos, sin espacios extras)
  */
 function normalizarString(str) {
   if (!str) return '';
-  return String(str).toUpperCase().trim().replace(/\s+/g, ' ');
+  return String(str)
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    // Normalizar acentos y caracteres especiales
+    .replace(/[ÁÀÂÃ]/g, 'A')
+    .replace(/[ÉÈÊË]/g, 'E')
+    .replace(/[ÍÌÎÏ]/g, 'I')
+    .replace(/[ÓÒÔÕ]/g, 'O')
+    .replace(/[ÚÙÛÜ]/g, 'U')
+    .replace(/Ñ/g, 'N')
+    .replace(/Ç/g, 'C');
 }
 
 /**

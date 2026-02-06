@@ -197,6 +197,29 @@ const ClientesRepository = {
 
     const hoja = this.getHoja();
     const fila = cliente.fila;
+    let nombreFinal = nombre;
+
+    // Cambiar nombre si es diferente
+    if (datos.nombre !== undefined) {
+      const nuevoNombreNorm = normalizarString(datos.nombre);
+      const nombreActualNorm = normalizarString(nombre);
+
+      if (nuevoNombreNorm !== nombreActualNorm) {
+        // Verificar que el nuevo nombre no exista
+        const clienteExistente = this.buscarPorNombre(nuevoNombreNorm);
+        if (clienteExistente) {
+          throw new Error('Ya existe un cliente con el nombre: ' + nuevoNombreNorm);
+        }
+
+        // Actualizar nombre en la hoja de clientes
+        hoja.getRange(fila, CONFIG.COLS_CLIENTES.NOMBRE + 1).setValue(nuevoNombreNorm);
+
+        // Actualizar nombre en todos los movimientos
+        MovimientosRepository.actualizarNombreCliente(nombre, nuevoNombreNorm);
+
+        nombreFinal = nuevoNombreNorm;
+      }
+    }
 
     // Actualizar campos permitidos
     if (datos.tel !== undefined) {
@@ -221,7 +244,7 @@ const ClientesRepository = {
       hoja.getRange(fila, CONFIG.COLS_CLIENTES.CONDICION_FISCAL + 1).setValue(datos.condicionFiscal);
     }
 
-    return this.buscarPorNombre(nombre);
+    return this.buscarPorNombre(nombreFinal);
   },
 
   /**
