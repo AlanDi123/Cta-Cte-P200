@@ -3065,14 +3065,22 @@
             renderDenominaciones();
           }
         })
+        .withFailureHandler(function(error) {
+          console.warn('Error cargando configuracion:', error);
+        })
         .obtenerConfiguracion();
 
       google.script.run
         .withSuccessHandler(function(result) {
           if (!result) return;
           const el = document.getElementById('estadoApiKey');
-          el.textContent = result.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
-          el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+          if (el) {
+            el.textContent = result.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
+            el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.warn('Error verificando API key:', error);
         })
         .verificarApiKey();
     }
@@ -3815,7 +3823,7 @@
 
             document.getElementById('visorResultado').style.display = 'block';
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -3958,7 +3966,7 @@
               mostrarToast(result.observaciones, 'warning');
             }
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -4104,7 +4112,7 @@
             Estado.vrMovimientos = [];
             cargarDatosIniciales();
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error al guardar movimientos', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -4418,7 +4426,7 @@
             document.getElementById('listaIngresos').innerHTML = '';
             calcularTotalEfectivo();
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -4917,7 +4925,7 @@
             cerrarModal('modalCliente');
             cargarDatosIniciales();
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -4951,7 +4959,7 @@
             mostrarToast(result.mensaje, 'success');
             cargarDatosIniciales();
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5019,7 +5027,7 @@
             document.getElementById('estadoApiKey').style.color = 'var(--sv-exito)';
             document.getElementById('inputApiKey').value = '';
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5040,7 +5048,7 @@
             mostrarToast(result.mensaje, 'success');
             cargarDatosIniciales();
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5327,7 +5335,7 @@
               mostrarToast('Transferencia actualizada', 'success');
               transfEditandoId = null;
             } else {
-              mostrarToast(result.error, 'error');
+              mostrarToast((result && result.error) || 'Error desconocido', 'error');
             }
           })
           .withFailureHandler(function(error) {
@@ -5345,7 +5353,7 @@
               cargarDatosFacturacion(true);
               mostrarToast('Transferencia guardada', 'success');
             } else {
-              mostrarToast(result.error, 'error');
+              mostrarToast((result && result.error) || 'Error desconocido', 'error');
             }
           })
           .withFailureHandler(function(error) {
@@ -5368,7 +5376,7 @@
             cargarDatosFacturacion();
             mostrarToast('Transferencia marcada como facturada', 'success');
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5449,7 +5457,7 @@
             cargarDatosFacturacion();
             mostrarToast('Producto guardado', 'success');
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5563,7 +5571,7 @@
             cargarDatosFacturacion();
             mostrarToast(`${result.agregados} productos agregados`, 'success');
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5739,7 +5747,7 @@
             cargarDatosFacturacion();
             mostrarToast('Factura procesada y stock actualizado', 'success');
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5765,7 +5773,7 @@
           if (result && result.success) {
             mostrarToast(result.mensaje, 'success');
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5893,7 +5901,7 @@
             cargarDatosFacturacion();
             mostrarToast(result.cantidad + ' transferencias importadas', 'success');
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'Error desconocido', 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -5927,14 +5935,18 @@
 
       // Cargar productos si no estan cargados aun
       if (!EstadoFacturacion.productos || EstadoFacturacion.productos.length === 0) {
+        mostrarLoading(true);
         google.script.run
           .withSuccessHandler(function(result) {
+            mostrarLoading(false);
             if (result && result.success) {
               EstadoFacturacion.productos = result.productos || [];
             }
             cargarProductosEnSelector();
           })
-          .withFailureHandler(function() {
+          .withFailureHandler(function(error) {
+            mostrarLoading(false);
+            mostrarToast('Error cargando productos: ' + (error ? error.message : ''), 'error');
             cargarProductosEnSelector();
           })
           .obtenerDatosFacturacion();
@@ -6370,8 +6382,10 @@
     // ============================================================================
 
     function cargarConfigAfip() {
+      mostrarLoading(true);
       google.script.run
         .withSuccessHandler(function(result) {
+          mostrarLoading(false);
           if (result && result.success) {
             document.getElementById('inputAfipCuit').value = result.cuit || '20149543407';
             document.getElementById('inputAfipPtoVta').value = result.puntoVenta || 11;
@@ -6379,10 +6393,12 @@
             setAfipEnv(result.environment || 'dev');
 
             var estado = document.getElementById('estadoAfip');
-            if (result.configurado) {
-              estado.innerHTML = '<span style="color:var(--sv-exito);">Configurado (token: ' + result.tokenPreview + ')</span>';
-            } else {
-              estado.innerHTML = '<span style="color:var(--sv-advertencia);">No configurado - ingresa tu Access Token</span>';
+            if (estado) {
+              if (result.configurado) {
+                estado.innerHTML = '<span style="color:var(--sv-exito);">Configurado (token: ' + result.tokenPreview + ')</span>';
+              } else {
+                estado.innerHTML = '<span style="color:var(--sv-advertencia);">No configurado - ingresa tu Access Token</span>';
+              }
             }
 
             // Mostrar estado del certificado
@@ -6399,7 +6415,10 @@
             verificarEstadoServiciosFront();
           }
         })
-        .withFailureHandler(function() {})
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error cargando configuracion ARCA: ' + (error ? error.message : ''), 'error');
+        })
         .obtenerConfigAfip();
     }
 
