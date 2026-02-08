@@ -1485,6 +1485,8 @@ function emitirFacturaElectronica(datos) {
       FacturasRepository.actualizarPdfUrl(facturaId, pdfUrl);
     }
 
+    var nombresTipo = {1: 'Factura A', 6: 'Factura B', 3: 'Nota de Credito A', 8: 'Nota de Credito B'};
+
     return {
       success: true,
       facturaId: facturaId,
@@ -1492,6 +1494,8 @@ function emitirFacturaElectronica(datos) {
       caeVto: resultado.caeVto,
       cbteNro: resultado.cbteNro,
       ptoVta: resultado.ptoVta,
+      cbteTipo: resultado.cbteTipo,
+      cbteTipoNombre: nombresTipo[resultado.cbteTipo] || ('Comprobante ' + resultado.cbteTipo),
       neto: resultado.neto,
       iva: resultado.iva,
       total: resultado.total,

@@ -772,7 +772,7 @@
     @media print {
       @page {
         size: A4 portrait;
-        margin: 1cm;
+        margin: 12mm 10mm;
       }
 
       /* Forzar colores claros incluso en modo oscuro */
@@ -783,65 +783,63 @@
         --sv-texto: black !important;
         --sv-texto-secundario: #333 !important;
         --sv-texto-muted: #666 !important;
-        --sv-borde: #ddd !important;
+        --sv-borde: #ccc !important;
         --sv-primario: #2E7D32 !important;
         --sv-peligro: #C62828 !important;
         --sv-exito: #2E7D32 !important;
       }
 
-      .no-print {
-        display: none !important;
-      }
-
-      .print-only {
-        display: block !important;
-      }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
 
       body {
         background: white !important;
         color: black !important;
-        font-size: 8pt;
-        line-height: 1.2;
+        font-size: 12pt;
+        line-height: 1.35;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
 
-      /* Cards compactas */
+      /* Cards */
       .card {
         background: white !important;
         color: black !important;
-        border: 1px solid #ddd !important;
+        border: 1px solid #ccc !important;
         box-shadow: none !important;
-        padding: 0.25rem 0.5rem !important;
-        margin: 0 0 0.25rem 0 !important;
+        padding: 0.5rem 0.75rem !important;
+        margin: 0 0 0.5rem 0 !important;
         animation: none !important;
         page-break-inside: avoid;
       }
 
-      /* Headings compactos */
-      h2, h3, h4 {
-        margin-top: 0.25rem !important;
-        margin-bottom: 0.25rem !important;
-      }
+      h2 { font-size: 16pt !important; margin: 0 0 0.4rem 0 !important; }
+      h3 { font-size: 14pt !important; margin: 0 0 0.3rem 0 !important; }
+      h4 { font-size: 12pt !important; margin: 0 0 0.2rem 0 !important; }
 
-      h2 { font-size: 12pt !important; }
-      h3 { font-size: 11pt !important; }
-      h4 { font-size: 10pt !important; }
-
-      /* Tablas generales compactas */
+      /* ---- TABLAS LEGIBLES ---- */
       .table, .table-print {
         width: 100%;
-        font-size: 7.5pt;
+        font-size: 11pt;
         background: white !important;
         border-collapse: collapse;
       }
 
       .table th, .table td, .table-print th, .table-print td {
-        padding: 2px 4px;
-        border: 1px solid #ddd !important;
+        padding: 4px 8px;
+        border: 1px solid #bbb !important;
         background: white !important;
         color: black !important;
-        line-height: 1.1;
+        line-height: 1.3;
+      }
+
+      .table th, .table-print th {
+        background: #e8e8e8 !important;
+        color: black !important;
+        font-weight: bold;
+        font-size: 11pt;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
 
       /* Control de saltos de página */
@@ -849,20 +847,7 @@
       .page-break-before { page-break-before: always; }
       .page-break-after { page-break-after: always; }
 
-      .table th, .table-print th {
-        background: #f0f0f0 !important;
-        color: black !important;
-        font-weight: bold;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-
-      /* Textos y elementos con colores */
-      h1, h2, h3, h4, h5, h6, p, span, strong, div, td, th {
-        color: black !important;
-      }
-
-      /* Colores específicos para montos */
+      /* Colores especificos para montos */
       [style*="color: var(--sv-peligro)"],
       [style*="color: var(--sv-exito)"] {
         -webkit-print-color-adjust: exact;
@@ -871,8 +856,8 @@
 
       .print-logo {
         display: block !important;
-        width: 60px;
-        margin: 0 auto 10px;
+        width: 70px;
+        margin: 0 auto 8px;
       }
 
       .main-content {
@@ -881,78 +866,137 @@
         background: white !important;
       }
 
-      /* Ocultar sidebar y header al imprimir */
+      /* Ocultar sidebar, header, botones */
       .sidebar, .app-header, .nav-item, .btn, button {
         display: none !important;
       }
 
       /* Mostrar solo el módulo activo */
-      .module-view {
-        display: none !important;
-      }
-
+      .module-view { display: none !important; }
       .module-view.active {
         display: block !important;
         background: white !important;
       }
+      /* Al imprimir factura, ocultar modulo y mostrar factura */
+      body.imprimiendo-factura .module-view.active { display: none !important; }
+      body.imprimiendo-factura #facturaImpresion {
+        display: block !important;
+        background: white !important;
+      }
 
-      /* Asegurar que los totales se vean */
       tfoot tr {
-        background: #f5f5f5 !important;
+        background: #f0f0f0 !important;
         font-weight: bold;
       }
 
-      /* Ajustar para que entre en 1 página - Hoja de Ruta */
-      #module-hoja-ruta h3 {
-        font-size: 11pt !important;
-        margin-bottom: 0.25rem !important;
+      /* ============================================================
+         SALDOS PENDIENTES - A4 legible
+         ============================================================ */
+      #module-impresion-saldos .card {
+        padding: 0.4rem 0.6rem !important;
       }
-
-      #module-hoja-ruta .table th,
-      #module-hoja-ruta .table td {
-        padding: 1px 3px !important;
-        font-size: 7pt !important;
-      }
-
-      #module-hoja-ruta .card {
-        margin-bottom: 0.15rem !important;
-        padding: 0.15rem 0.25rem !important;
-      }
-
-      #module-hoja-ruta h4 {
-        font-size: 9pt !important;
-        margin-bottom: 0.15rem !important;
-      }
-
-      /* Ajustar para que entre en 1 página - Impresión de Saldos */
-      #module-impresion-saldos h3 {
-        font-size: 11pt !important;
-        margin-bottom: 0.25rem !important;
-      }
-
       #module-impresion-saldos .table th,
       #module-impresion-saldos .table td {
-        padding: 1px 3px !important;
-        font-size: 7pt !important;
+        padding: 3px 6px !important;
+        font-size: 11pt !important;
       }
 
-      #module-impresion-saldos .card {
-        margin-bottom: 0.15rem !important;
-        padding: 0.15rem 0.25rem !important;
+      /* ============================================================
+         HOJA DE RUTA - A4 legible
+         ============================================================ */
+      #module-hoja-ruta .card {
+        padding: 0.3rem 0.5rem !important;
+        margin-bottom: 0.3rem !important;
       }
-
-      /* Forzar todo en una página */
-      #module-hoja-ruta,
-      #module-impresion-saldos {
-        max-height: none;
-        overflow: visible;
+      #module-hoja-ruta .table th,
+      #module-hoja-ruta .table td {
+        padding: 2px 5px !important;
+        font-size: 10pt !important;
       }
-
-      /* Ocultar totales en impresión hoja de ruta */
+      #module-hoja-ruta h4 { font-size: 11pt !important; }
       .hoja-ruta-total,
       .hoja-ruta-grand-total,
       .hoja-ruta-excluded {
         display: none !important;
+      }
+
+      /* ============================================================
+         ARQUEO DE CAJA - Solo imprimir resumen, NO los formularios
+         ============================================================ */
+      #module-arqueo-efectivo.imprimiendo-resumen > .card {
+        display: none !important;
+      }
+      #module-arqueo-efectivo.imprimiendo-resumen > #resumenArqueoImpresion {
+        display: block !important;
+      }
+      #resumenArqueoImpresion {
+        font-size: 13pt;
+      }
+      #resumenArqueoImpresion h3 {
+        font-size: 18pt !important;
+      }
+      #resumenArqueoImpresion .table td {
+        padding: 6px 10px !important;
+        font-size: 13pt !important;
+      }
+      #resumenArqueoImpresion tfoot td {
+        font-size: 14pt !important;
+        padding: 8px 10px !important;
+      }
+
+      /* ============================================================
+         FACTURA ARCA - Formato impresion
+         ============================================================ */
+      #facturaImpresion {
+        font-size: 11pt;
+      }
+      #facturaImpresion h2 { font-size: 18pt !important; text-align: center; }
+      #facturaImpresion .fact-tipo-letra {
+        font-size: 28pt !important;
+        font-weight: bold;
+        border: 3px solid black;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 8px;
+      }
+      #facturaImpresion .fact-header {
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 2px solid black;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+      }
+      #facturaImpresion .fact-header-col { flex: 1; }
+      #facturaImpresion .fact-cliente {
+        border: 1px solid #999;
+        padding: 8px;
+        margin-bottom: 10px;
+      }
+      #facturaImpresion .fact-tabla th,
+      #facturaImpresion .fact-tabla td {
+        padding: 5px 8px !important;
+        font-size: 11pt !important;
+      }
+      #facturaImpresion .fact-totales {
+        text-align: right;
+        margin-top: 10px;
+        font-size: 12pt;
+      }
+      #facturaImpresion .fact-totales .fact-total-final {
+        font-size: 16pt;
+        font-weight: bold;
+        border-top: 2px solid black;
+        padding-top: 5px;
+        margin-top: 5px;
+      }
+      #facturaImpresion .fact-cae {
+        margin-top: 15px;
+        padding-top: 10px;
+        border-top: 1px dashed #999;
+        font-size: 10pt;
       }
     }
 
@@ -1802,17 +1846,18 @@
         </div>
 
         <!-- Resumen de Arqueo para Impresión (oculto en pantalla, visible al imprimir) -->
-        <div id="resumenArqueoImpresion" class="print-only" style="display: none;">
-          <div style="text-align: center; margin-bottom: 1rem;">
-            <h3 style="margin: 0;">Resumen de Caja</h3>
-            <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem;" id="resumenArqueoFecha"></p>
+        <div id="resumenArqueoImpresion" style="display: none;">
+          <div style="text-align: center; margin-bottom: 1.5rem;">
+            <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" class="print-logo">
+            <h3 style="margin: 0; font-size: 1.5rem;">Resumen de Caja - Sol & Verde</h3>
+            <p style="margin: 0.5rem 0 0 0; font-size: 1.1rem;" id="resumenArqueoFecha"></p>
           </div>
-          <table class="table" style="margin-bottom: 1rem;">
+          <table class="table" style="margin-bottom: 1rem; font-size: 1.1rem;">
             <tbody id="resumenArqueoDetalle"></tbody>
             <tfoot>
               <tr style="background: var(--sv-superficie-elevada); font-weight: bold;">
-                <td>Neto del Día</td>
-                <td id="resumenArqueoNeto" style="text-align: right;"></td>
+                <td style="font-size: 1.2rem;">NETO DEL DIA</td>
+                <td id="resumenArqueoNeto" style="text-align: right; font-size: 1.3rem;"></td>
               </tr>
               <tr id="resumenArqueoDiferencia" style="font-weight: bold;">
                 <td>Diferencia vs Esperado</td>
@@ -2144,6 +2189,50 @@
               <tbody id="tbodyHistorialFacturas"></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- VISTA IMPRESION FACTURA ARCA (oculta, se muestra solo al imprimir) -->
+      <div id="facturaImpresion" style="display: none;">
+        <div style="text-align: center;">
+          <div class="fact-tipo-letra" id="factPrintTipoLetra"></div>
+          <h2 id="factPrintTipoNombre" style="margin: 0;"></h2>
+        </div>
+
+        <div class="fact-header">
+          <div class="fact-header-col">
+            <strong style="font-size: 14pt;">Sol & Verde</strong><br>
+            <span id="factPrintEmisorCuit"></span><br>
+            <span>Condicion: Responsable Inscripto</span>
+          </div>
+          <div class="fact-header-col" style="text-align: right;">
+            <strong>Comprobante N°:</strong> <span id="factPrintNumero"></span><br>
+            <strong>Fecha:</strong> <span id="factPrintFecha"></span><br>
+            <strong>Punto de Venta:</strong> <span id="factPrintPtoVta"></span>
+          </div>
+        </div>
+
+        <div class="fact-cliente">
+          <strong>Cliente:</strong> <span id="factPrintCliente"></span><br>
+          <strong>CUIT:</strong> <span id="factPrintClienteCuit"></span>
+          <span style="margin-left: 2rem;"><strong>Cond. IVA:</strong> <span id="factPrintClienteCond"></span></span>
+        </div>
+
+        <table class="table fact-tabla" style="width: 100%; margin-top: 8px;">
+          <thead>
+            <tr>
+              <th>Descripcion</th>
+              <th style="text-align: right;">Importe</th>
+            </tr>
+          </thead>
+          <tbody id="factPrintDetalle"></tbody>
+        </table>
+
+        <div class="fact-totales" id="factPrintTotales"></div>
+
+        <div class="fact-cae">
+          <strong>CAE:</strong> <span id="factPrintCAE"></span><br>
+          <strong>Vencimiento CAE:</strong> <span id="factPrintCAEVto"></span>
         </div>
       </div>
 
@@ -4353,16 +4442,20 @@
       document.getElementById('resumenArqueoNeto').textContent = formatearMonto(neto);
       document.getElementById('resumenArqueoNeto').style.color = neto >= 0 ? 'var(--sv-exito)' : 'var(--sv-peligro)';
 
-      // Mostrar el resumen de impresión
+      // Mostrar solo el resumen al imprimir (oculta formularios via CSS)
+      var moduloArqueo = document.getElementById('module-arqueo-efectivo');
       document.getElementById('resumenArqueoImpresion').style.display = 'block';
+      moduloArqueo.classList.add('imprimiendo-resumen');
 
       // Imprimir
-      window.print();
-
-      // Ocultar después de imprimir
-      setTimeout(() => {
-        document.getElementById('resumenArqueoImpresion').style.display = 'none';
-      }, 1000);
+      setTimeout(function() {
+        window.print();
+        // Restaurar despues de imprimir
+        setTimeout(function() {
+          moduloArqueo.classList.remove('imprimiendo-resumen');
+          document.getElementById('resumenArqueoImpresion').style.display = 'none';
+        }, 500);
+      }, 100);
     }
 
     function guardarArqueo() {
@@ -6264,6 +6357,25 @@
           if (result && result.success) {
             mostrarToast(result.mensaje, 'success');
 
+            // Guardar datos de ultima factura para impresion
+            window._ultimaFacturaEmitida = {
+              cbteTipoNombre: result.cbteTipoNombre || (cbteTipo === 1 ? 'Factura A' : (cbteTipo === 6 ? 'Factura B' : 'Comprobante')),
+              cbteTipoLetra: cbteTipo === 1 ? 'A' : (cbteTipo === 6 ? 'B' : ''),
+              ptoVta: result.ptoVta,
+              cbteNro: result.cbteNro,
+              fecha: formatearFecha(obtenerFechaLocal()),
+              clienteNombre: arcaClienteSeleccionado ? arcaClienteSeleccionado.nombre : '',
+              clienteCuit: arcaClienteSeleccionado ? (arcaClienteSeleccionado.cuit || '-') : '-',
+              clienteCondicion: condicionTexto || 'Consumidor Final',
+              detalle: arcaItems,
+              neto: result.neto || 0,
+              iva: result.iva || 0,
+              total: result.total || 0,
+              cae: result.cae,
+              caeVto: result.caeVto || '',
+              esFacturaA: cbteTipo === 1
+            };
+
             // Mostrar resultado
             var resDiv = document.getElementById('arcaResultado');
             resDiv.style.display = 'block';
@@ -6274,8 +6386,9 @@
               '<p><strong>Total:</strong> $' + result.total.toFixed(2) + '</p>' +
               (result.pdfUrl ? '<p style="margin-top:0.5rem;"><a href="' + result.pdfUrl + '" target="_blank" style="color:white;text-decoration:underline;">Ver PDF del comprobante</a></p>' : '') +
               '</div>' +
-              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;">' +
-              '<button class="btn btn-primary" onclick="inicializarModuloArca()">Nuevo Comprobante</button>' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+              '<button class="btn btn-primary" onclick="imprimirFacturaArca()">Imprimir Factura</button>' +
+              '<button class="btn btn-outline" onclick="inicializarModuloArca()">Nuevo Comprobante</button>' +
               '<button class="btn btn-outline" onclick="navegarA(\'historial-facturas\')">Ver Historial</button>' +
               '</div>';
 
@@ -6332,11 +6445,15 @@
         return;
       }
 
-      tbody.innerHTML = facturas.map(function(f) {
+      // Guardar facturas para impresion desde historial
+      window._facturasHistorial = facturas;
+
+      tbody.innerHTML = facturas.map(function(f, idx) {
         var estadoColor = f.estado === 'EMITIDA' ? 'var(--sv-exito)' : (f.estado === 'ANULADA' ? 'var(--sv-peligro)' : 'var(--sv-advertencia)');
         var pv = String(f.ptoVta || 0).padStart(5, '0');
         var nro = String(f.cbteNro || 0).padStart(8, '0');
         var pdfLink = f.pdfUrl ? '<a href="' + f.pdfUrl + '" target="_blank" style="color:var(--sv-primario);">PDF</a>' : '';
+        var printBtn = '<button class="btn btn-outline" style="padding:2px 6px;font-size:0.7rem;" onclick="imprimirFacturaDesdeHistorial(' + idx + ')">Imprimir</button>';
         var ncBtn = (f.estado === 'EMITIDA' && (f.cbteTipo === 1 || f.cbteTipo === 6))
           ? '<button class="btn btn-outline" style="padding:2px 6px;font-size:0.7rem;" onclick="emitirNCDesdeHistorial(' + f.id + ')">NC</button>'
           : '';
@@ -6349,9 +6466,115 @@
           '<td style="text-align:right">$' + (f.total || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
           '<td style="font-size:0.75rem;">' + escapeHtml(String(f.cae || '-')) + '</td>' +
           '<td><span style="color:' + estadoColor + ';font-weight:bold;">' + (f.estado || '-') + '</span></td>' +
-          '<td>' + pdfLink + ' ' + ncBtn + '</td>' +
+          '<td>' + printBtn + ' ' + pdfLink + ' ' + ncBtn + '</td>' +
           '</tr>';
       }).join('');
+    }
+
+    // ============================================================================
+    // IMPRESION DE FACTURAS ARCA
+    // ============================================================================
+
+    function _poblarVistaFactura(datos) {
+      var tipoLetra = datos.cbteTipoLetra || '';
+      if (!tipoLetra) {
+        if (datos.cbteTipoNombre && datos.cbteTipoNombre.includes('A')) tipoLetra = 'A';
+        else if (datos.cbteTipoNombre && datos.cbteTipoNombre.includes('B')) tipoLetra = 'B';
+        else tipoLetra = '-';
+      }
+      var esA = tipoLetra === 'A';
+
+      document.getElementById('factPrintTipoLetra').textContent = tipoLetra;
+      document.getElementById('factPrintTipoNombre').textContent = datos.cbteTipoNombre || 'Comprobante';
+      document.getElementById('factPrintEmisorCuit').textContent = 'CUIT: 20-14954340-7';
+      document.getElementById('factPrintNumero').textContent =
+        String(datos.ptoVta || 0).padStart(5, '0') + '-' + String(datos.cbteNro || 0).padStart(8, '0');
+      document.getElementById('factPrintFecha').textContent = datos.fecha || formatearFecha(obtenerFechaLocal());
+      document.getElementById('factPrintPtoVta').textContent = String(datos.ptoVta || 0).padStart(5, '0');
+      document.getElementById('factPrintCliente').textContent = datos.clienteNombre || '-';
+      document.getElementById('factPrintClienteCuit').textContent = datos.clienteCuit || '-';
+      document.getElementById('factPrintClienteCond').textContent = datos.clienteCondicion || '-';
+
+      // Detalle
+      var detalleHtml = '';
+      if (datos.detalle && datos.detalle.length > 0) {
+        datos.detalle.forEach(function(item) {
+          var desc = item.descripcion || item.nombre || 'Producto';
+          var cant = item.cantidad || 1;
+          var precio = item.precioUnitario || item.precio || 0;
+          var subtotal = cant * precio;
+          detalleHtml += '<tr>' +
+            '<td>' + escapeHtml(desc) + (cant > 1 ? ' x' + cant : '') + '</td>' +
+            '<td style="text-align:right;">$' + subtotal.toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
+            '</tr>';
+        });
+      } else {
+        detalleHtml = '<tr><td>Servicios</td><td style="text-align:right;">$' +
+          (datos.total || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td></tr>';
+      }
+      document.getElementById('factPrintDetalle').innerHTML = detalleHtml;
+
+      // Totales
+      var totalesHtml = '';
+      if (esA) {
+        totalesHtml += '<div>Subtotal Neto: $' + (datos.neto || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</div>';
+        totalesHtml += '<div>IVA 10.5%: $' + (datos.iva || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</div>';
+      }
+      totalesHtml += '<div class="fact-total-final">TOTAL: $' + (datos.total || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</div>';
+      document.getElementById('factPrintTotales').innerHTML = totalesHtml;
+
+      // CAE
+      document.getElementById('factPrintCAE').textContent = datos.cae || '-';
+      document.getElementById('factPrintCAEVto').textContent = datos.caeVto || '-';
+    }
+
+    function _ejecutarImpresionFactura(datos) {
+      _poblarVistaFactura(datos);
+
+      // Usar clase en body para que @media print oculte modulo y muestre factura
+      document.getElementById('facturaImpresion').style.display = 'block';
+      document.body.classList.add('imprimiendo-factura');
+
+      setTimeout(function() {
+        window.print();
+        setTimeout(function() {
+          document.body.classList.remove('imprimiendo-factura');
+          document.getElementById('facturaImpresion').style.display = 'none';
+        }, 500);
+      }, 100);
+    }
+
+    function imprimirFacturaArca() {
+      if (!window._ultimaFacturaEmitida) {
+        mostrarToast('No hay factura para imprimir', 'warning');
+        return;
+      }
+      _ejecutarImpresionFactura(window._ultimaFacturaEmitida);
+    }
+
+    function imprimirFacturaDesdeHistorial(idx) {
+      if (!window._facturasHistorial || !window._facturasHistorial[idx]) {
+        mostrarToast('Factura no encontrada', 'error');
+        return;
+      }
+      var f = window._facturasHistorial[idx];
+      _ejecutarImpresionFactura({
+        cbteTipoNombre: f.cbteTipoNombre || '',
+        cbteTipoLetra: '',
+        ptoVta: f.ptoVta,
+        cbteNro: f.cbteNro,
+        fecha: f.fecha || '',
+        clienteNombre: f.clienteNombre || '',
+        clienteCuit: f.clienteCuit || '-',
+        clienteCondicion: f.clienteCondicion || '-',
+        detalle: f.detalle ? (typeof f.detalle === 'string' ? [{descripcion: f.detalle}] : f.detalle) : [],
+        neto: f.neto || 0,
+        iva: f.iva || 0,
+        total: f.total || 0,
+        cae: f.cae || '-',
+        caeVto: f.caeVto || '-',
+        esFacturaA: f.cbteTipo === 1
+      });
     }
 
     function emitirNCDesdeHistorial(facturaId) {
