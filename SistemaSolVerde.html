@@ -2541,11 +2541,10 @@
               </div>
               <div class="form-group">
                 <label class="form-label">Entorno</label>
-                <div class="btn-group">
-                  <button class="btn btn-outline" id="btnAfipDev" onclick="setAfipEnv('dev')">Dev (Pruebas)</button>
-                  <button class="btn btn-outline" id="btnAfipProd" onclick="setAfipEnv('prod')">Produccion</button>
+                <div style="padding: 0.5rem; background: var(--sv-exito); color: white; border-radius: 6px; font-weight: bold; text-align: center;">
+                  PRODUCCION - Facturas reales
                 </div>
-                <input type="hidden" id="inputAfipEnv" value="dev">
+                <input type="hidden" id="inputAfipEnv" value="prod">
               </div>
               <button class="btn btn-primary" onclick="guardarConfigAfipFront()" style="width: 100%;">Guardar Config ARCA</button>
               <button class="btn btn-outline" onclick="probarConexionAfipFront()" style="width: 100%; margin-top: 0.5rem;">Probar Conexion</button>
@@ -2555,7 +2554,7 @@
               <div style="background: var(--sv-fondo); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--sv-borde);">
                 <p style="font-weight: bold; margin-bottom: 0.5rem; font-size: 0.85rem;">Certificado Digital (obligatorio para CUIT propio)</p>
                 <p style="font-size: 0.75rem; color: var(--sv-texto-secundario); margin-bottom: 0.5rem;">
-                  Sin certificado, el modo desarrollo usa CUIT de test (20409378472). Para usar tu CUIT real necesitas generar un certificado con tu clave fiscal de ARCA.
+                  El certificado digital es obligatorio para emitir comprobantes reales en ARCA. Genera uno con tu clave fiscal.
                 </p>
                 <p id="estadoCert" style="font-size: 0.8rem; margin-bottom: 0.5rem;"></p>
                 <div class="form-group" style="margin-bottom: 0.5rem;">
@@ -6534,7 +6533,10 @@
       window._facturasHistorial = facturas;
 
       tbody.innerHTML = facturas.map(function(f, idx) {
-        var estadoColor = f.estado === 'EMITIDA' ? 'var(--sv-exito)' : (f.estado === 'ANULADA' ? 'var(--sv-peligro)' : 'var(--sv-advertencia)');
+        var estadoColor = f.estado === 'EMITIDA' ? 'var(--sv-exito)' :
+          (f.estado === 'ANULADA' ? 'var(--sv-peligro)' :
+          (f.estado === 'TEST' ? '#888' :
+          (f.estado === 'VALIDADA' ? 'var(--sv-exito)' : 'var(--sv-advertencia)')));
         var pv = String(f.ptoVta || 0).padStart(5, '0');
         var nro = String(f.cbteNro || 0).padStart(8, '0');
         var pdfLink = f.pdfUrl ? '<a href="' + f.pdfUrl + '" target="_blank" style="color:var(--sv-primario);">PDF</a>' : '';
@@ -6542,6 +6544,13 @@
         var ncBtn = (f.estado === 'EMITIDA' && (f.cbteTipo === 1 || f.cbteTipo === 6))
           ? '<button class="btn btn-outline" style="padding:2px 6px;font-size:0.7rem;" onclick="emitirNCDesdeHistorial(' + f.id + ')">NC</button>'
           : '';
+
+        // Botón "Validar" para facturas que no están validadas ni anuladas
+        var validarBtn = '';
+        if (f.estado === 'EMITIDA' || f.estado === 'TEST' || f.estado === '') {
+          validarBtn = '<button class="btn" style="padding:2px 6px;font-size:0.7rem;background:#1565C0;color:#fff;" ' +
+            'onclick="validarFacturaEnArca(' + f.id + ',' + idx + ')">Validar ARCA</button>';
+        }
 
         return '<tr>' +
           '<td>' + escapeHtml(f.fecha || '') + '</td>' +
@@ -6551,7 +6560,7 @@
           '<td style="text-align:right">$' + (f.total || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
           '<td style="font-size:0.75rem;">' + escapeHtml(String(f.cae || '-')) + '</td>' +
           '<td><span style="color:' + estadoColor + ';font-weight:bold;">' + (f.estado || '-') + '</span></td>' +
-          '<td>' + printBtn + ' ' + pdfLink + ' ' + ncBtn + '</td>' +
+          '<td>' + printBtn + ' ' + pdfLink + ' ' + ncBtn + ' ' + validarBtn + '</td>' +
           '</tr>';
       }).join('');
     }
@@ -6889,6 +6898,72 @@
       });
     }
 
+    function validarFacturaEnArca(facturaId, idx) {
+      var f = window._facturasHistorial ? window._facturasHistorial[idx] : null;
+      var infoExtra = f ? ('\n\nFactura: ' + (f.cbteTipoNombre || '') + '\nCliente: ' + (f.clienteNombre || '') + '\nTotal: $' + (f.total || 0)) : '';
+
+      // Para Factura A sin CUIT, pedir CUIT
+      var datosExtra = {};
+      if (f && (f.cbteTipo === 1 || f.cbteTipo === 3)) {
+        var cuit = f.clienteCuit || '';
+        cuit = String(cuit).replace(/[-\s]/g, '');
+        if (cuit.length !== 11) {
+          var cuitInput = prompt(
+            'Esta factura es tipo A y requiere CUIT del cliente.\n' +
+            'Cliente: ' + (f.clienteNombre || '') + '\n\n' +
+            'Ingresa el CUIT (11 digitos, sin guiones):'
+          );
+          if (!cuitInput) return;
+          cuitInput = cuitInput.replace(/[-\s]/g, '');
+          if (!/^\d{11}$/.test(cuitInput)) {
+            mostrarToast('CUIT invalido: debe tener 11 digitos', 'error');
+            return;
+          }
+          datosExtra.clienteCuit = cuitInput;
+        }
+      }
+
+      // Pedir condicion si no la tiene
+      if (f && (!f.clienteCondicion || f.clienteCondicion === 'CF' || f.clienteCondicion === '') && f.cbteTipo === 1) {
+        var condOpts = 'RI = Responsable Inscripto\nM = Monotributo\nEX = Exento';
+        var condInput = prompt('Condicion IVA del receptor para Factura A:\n\n' + condOpts + '\n\nIngresa RI, M o EX:');
+        if (!condInput) return;
+        condInput = condInput.trim().toUpperCase();
+        if (['RI', 'M', 'EX'].indexOf(condInput) < 0) {
+          mostrarToast('Condicion invalida. Usa RI, M o EX.', 'error');
+          return;
+        }
+        datosExtra.clienteCondicion = condInput;
+      }
+
+      if (!confirm(
+        'VALIDAR FACTURA EN ARCA (PRODUCCION)\n\n' +
+        'Esto va a emitir un comprobante REAL en ARCA con los datos de esta factura.' +
+        infoExtra + '\n\n' +
+        'La factura original quedara marcada como TEST y se creara una nueva con CAE real.\n\n' +
+        'ESTA ACCION NO SE PUEDE DESHACER.\n\nContinuar?'
+      )) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result && result.success) {
+            mostrarToast(result.mensaje, 'success');
+            cargarHistorialFacturas(); // Recargar historial
+          } else if (result && result.requiereDatos) {
+            mostrarToast('Se necesitan datos adicionales: ' + result.error, 'warning');
+          } else {
+            mostrarToast('Error: ' + ((result && result.error) || 'Error desconocido'), 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .reemitirFacturaComoReal(facturaId, datosExtra);
+    }
+
     function emitirNCDesdeHistorial(facturaId) {
       if (!confirm('Emitir Nota de Credito para anular esta factura?\n\nEsta accion NO se puede deshacer y quedara registrada en ARCA.')) {
         return;
@@ -6924,8 +6999,8 @@
           if (result && result.success) {
             document.getElementById('inputAfipCuit').value = result.cuit || '20149543407';
             document.getElementById('inputAfipPtoVta').value = result.puntoVenta || 11;
-            document.getElementById('inputAfipEnv').value = result.environment || 'dev';
-            setAfipEnv(result.environment || 'dev');
+            document.getElementById('inputAfipEnv').value = 'prod';
+            setAfipEnv('prod');
 
             var estado = document.getElementById('estadoAfip');
             if (estado) {
@@ -6942,7 +7017,7 @@
               if (result.tieneCert) {
                 estadoCert.innerHTML = '<span style="color:var(--sv-exito);">Certificado instalado (' + result.certPreview + ')</span>';
               } else {
-                estadoCert.innerHTML = '<span style="color:var(--sv-advertencia);">Sin certificado - modo dev usara CUIT de test</span>';
+                estadoCert.innerHTML = '<span style="color:var(--sv-peligro);">Sin certificado - obligatorio para emitir comprobantes</span>';
               }
             }
 
@@ -6958,23 +7033,19 @@
     }
 
     function setAfipEnv(env) {
-      document.getElementById('inputAfipEnv').value = env;
-      document.getElementById('btnAfipDev').className = 'btn ' + (env === 'dev' ? 'btn-primary' : 'btn-outline');
-      document.getElementById('btnAfipProd').className = 'btn ' + (env === 'prod' ? 'btn-primary' : 'btn-outline');
+      document.getElementById('inputAfipEnv').value = 'prod';
     }
 
     function guardarConfigAfipFront() {
       var token = document.getElementById('inputAfipToken').value.trim();
       var cuit = document.getElementById('inputAfipCuit').value.trim();
       var ptoVta = parseInt(document.getElementById('inputAfipPtoVta').value) || 11;
-      var env = document.getElementById('inputAfipEnv').value || 'dev';
-
       if (!token) {
         // Si no ingresó token nuevo, solo guardar los otros campos
       }
 
       var config = {
-        environment: env,
+        environment: 'prod',
         puntoVenta: ptoVta,
         cuit: cuit
       };
@@ -7067,11 +7138,11 @@
         'Continuar?'
       )) return;
 
-      var env = document.getElementById('inputAfipEnv').value || 'dev';
+      var env = 'prod';
       var estadoCert = document.getElementById('estadoCert');
       var btn = document.getElementById('btnGenerarCert');
 
-      estadoCert.innerHTML = '<span style="color:var(--sv-info);">Generando certificado ' + env.toUpperCase() + '... (puede tardar hasta 60 seg)</span>';
+      estadoCert.innerHTML = '<span style="color:var(--sv-info);">Generando certificado PRODUCCION... (puede tardar hasta 60 seg)</span>';
       btn.disabled = true;
       btn.textContent = 'Generando...';
       mostrarLoading(true);
@@ -7130,11 +7201,11 @@
         'Continuar?'
       )) return;
 
-      var env = document.getElementById('inputAfipEnv').value || 'dev';
+      var env = 'prod';
       var estadoWS = document.getElementById('estadoWS');
       var btn = document.getElementById('btnAutorizarWS');
 
-      estadoWS.innerHTML = '<span style="color:var(--sv-info);">Autorizando web services ' + env.toUpperCase() + '... (puede tardar hasta 2 min)</span>';
+      estadoWS.innerHTML = '<span style="color:var(--sv-info);">Autorizando web services PRODUCCION... (puede tardar hasta 2 min)</span>';
       btn.disabled = true;
       btn.textContent = 'Autorizando...';
       mostrarLoading(true);
@@ -7203,7 +7274,7 @@
           }
 
           var html = '<div style="background:var(--sv-fondo);padding:0.5rem;border-radius:6px;margin-top:0.25rem;">';
-          html += '<p><strong>Entorno:</strong> ' + (result.environment || 'dev').toUpperCase() + '</p>';
+          html += '<p><strong>Entorno:</strong> PRODUCCION</p>';
           html += '<p><strong>CUIT:</strong> ' + (result.cuit || 'No configurado') + '</p>';
           html += '<p><strong>Certificado:</strong> ' + (result.tieneCert
             ? '<span style="color:var(--sv-exito);">Instalado</span>'

@@ -121,7 +121,7 @@ const AfipService = {
     const props = PropertiesService.getScriptProperties();
     return {
       accessToken: props.getProperty('AFIP_ACCESS_TOKEN') || '',
-      environment: props.getProperty('AFIP_ENVIRONMENT') || 'dev',
+      environment: 'prod', // Siempre producción - facturas reales
       puntoVenta: parseInt(props.getProperty('AFIP_PUNTO_VENTA') || '11'),
       cuit: props.getProperty('AFIP_CUIT') || CONFIG_AFIP.EMISOR.CUIT,
       cert: props.getProperty('AFIP_CERT') || '',
@@ -135,7 +135,8 @@ const AfipService = {
   setConfig: function(config) {
     const props = PropertiesService.getScriptProperties();
     if (config.accessToken !== undefined) props.setProperty('AFIP_ACCESS_TOKEN', config.accessToken);
-    if (config.environment !== undefined) props.setProperty('AFIP_ENVIRONMENT', config.environment);
+    // Environment siempre prod - no se permite cambiar
+    props.setProperty('AFIP_ENVIRONMENT', 'prod');
     if (config.puntoVenta !== undefined) props.setProperty('AFIP_PUNTO_VENTA', String(config.puntoVenta));
     if (config.cuit !== undefined) props.setProperty('AFIP_CUIT', config.cuit);
     if (config.cert !== undefined) props.setProperty('AFIP_CERT', config.cert);
@@ -241,24 +242,13 @@ const AfipService = {
     const config = this.getConfig();
     var ws = wsid || 'wsfe';
 
-    // CUIT de test de Afip SDK (no requiere certificado en dev)
-    var CUIT_TEST = '20409378472';
-
-    // Determinar qué CUIT usar para auth
     var cuitAuth = config.cuit;
 
-    // Si es modo dev y no tiene certificado, usar CUIT de test
-    if (config.environment === 'dev' && !this.tieneCertificado()) {
-      cuitAuth = CUIT_TEST;
-      Logger.log('Modo dev sin certificado: usando CUIT de test ' + CUIT_TEST);
-    }
-
-    // Si es modo prod o dev con CUIT propio, verificar certificado
-    if (cuitAuth !== CUIT_TEST && !this.tieneCertificado()) {
+    // Modo producción requiere certificado obligatoriamente
+    if (!this.tieneCertificado()) {
       throw new Error(
-        'Se requiere certificado para usar CUIT propio. ' +
-        'Ve a Configuración > Facturación ARCA > "Generar Certificado" para crear uno. ' +
-        'O si estás en modo desarrollo, podés probar sin certificado (usará CUIT de test).'
+        'Se requiere certificado digital para emitir comprobantes. ' +
+        'Ve a Configuración > Facturación ARCA > "Generar Certificado" con tu clave fiscal.'
       );
     }
 
@@ -627,9 +617,6 @@ const AfipService = {
         // "No existe persona con ese Id" = CUIT not found in padron (not a server error)
         if (error.message.indexOf('No existe persona') !== -1) {
           var msg = 'CUIT ' + cuitLimpio + ' no encontrado en el padrón de ARCA.';
-          if (config.environment === 'dev') {
-            msg += ' En modo desarrollo el padrón de prueba tiene datos limitados. Cambiá a producción para consultar CUITs reales.';
-          }
           ultimoError = msg;
           continue; // Try next service
         }
@@ -786,6 +773,34 @@ const FacturasRepository = {
     for (var i = 1; i < datos.length; i++) {
       if (datos[i][CONFIG_AFIP.COLS_FACTURAS.ID] === id) {
         hoja.getRange(i + 1, CONFIG_AFIP.COLS_FACTURAS.PDF_URL + 1).setValue(pdfUrl);
+        return true;
+      }
+    }
+    return false;
+  },
+
+  /**
+   * Actualiza el estado y opcionalmente otros campos de una factura
+   */
+  actualizarFactura: function(id, campos) {
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+
+    for (var i = 1; i < datos.length; i++) {
+      if (datos[i][CONFIG_AFIP.COLS_FACTURAS.ID] === id) {
+        var fila = i + 1;
+        if (campos.estado !== undefined)
+          hoja.getRange(fila, CONFIG_AFIP.COLS_FACTURAS.ESTADO + 1).setValue(campos.estado);
+        if (campos.cae !== undefined)
+          hoja.getRange(fila, CONFIG_AFIP.COLS_FACTURAS.CAE + 1).setValue(campos.cae);
+        if (campos.caeVto !== undefined)
+          hoja.getRange(fila, CONFIG_AFIP.COLS_FACTURAS.CAE_VTO + 1).setValue(campos.caeVto);
+        if (campos.cbteNro !== undefined)
+          hoja.getRange(fila, CONFIG_AFIP.COLS_FACTURAS.CBTE_NRO + 1).setValue(campos.cbteNro);
+        if (campos.ptoVta !== undefined)
+          hoja.getRange(fila, CONFIG_AFIP.COLS_FACTURAS.PTO_VTA + 1).setValue(campos.ptoVta);
+        if (campos.pdfUrl !== undefined)
+          hoja.getRange(fila, CONFIG_AFIP.COLS_FACTURAS.PDF_URL + 1).setValue(campos.pdfUrl);
         return true;
       }
     }
@@ -1048,8 +1063,8 @@ function generarCertificadoAfip(datos) {
     }
 
     var config = AfipService.getConfig();
-    var env = datos.environment || config.environment || 'dev';
-    var automationType = env === 'prod' ? 'create-cert-prod' : 'create-cert-dev';
+    var env = 'prod'; // Siempre producción
+    var automationType = 'create-cert-prod';
     var alias = datos.alias || 'solyverde';
 
     // Paso 1: Crear la automatización
@@ -1167,13 +1182,13 @@ function autorizarWebServicesAfip(datos) {
       throw new Error('Access Token de Afip SDK no configurado. Ve a Configuración > Facturación ARCA y pegá tu Access Token.');
     }
 
-    var env = datos.environment || config.environment || 'dev';
+    var env = 'prod'; // Siempre producción
     var alias = datos.alias || 'solyverde';
     var cuit = config.cuit || CONFIG_AFIP.EMISOR.CUIT;
 
-    // Verificar que hay certificado (requerido para autorizar web services con CUIT propio)
-    if (!AfipService.tieneCertificado() && env === 'prod') {
-      throw new Error('Se requiere certificado para autorizar web services en modo producción. Generá un certificado primero.');
+    // Verificar que hay certificado (obligatorio)
+    if (!AfipService.tieneCertificado()) {
+      throw new Error('Se requiere certificado digital. Generá uno primero en Configuración > ARCA.');
     }
 
     // Web services a autorizar
@@ -1361,7 +1376,7 @@ function obtenerConfigAfip() {
       success: true,
       configurado: AfipService.estaConfigurado(),
       tieneCert: AfipService.tieneCertificado(),
-      environment: config.environment,
+      environment: 'prod',
       puntoVenta: config.puntoVenta,
       cuit: config.cuit,
       tokenPreview: config.accessToken ? ('...' + config.accessToken.slice(-6)) : '',
@@ -1462,11 +1477,10 @@ function probarConexionAfip() {
       var config = AfipService.getConfig();
       var ultimo = AfipService.ultimoComprobante(CONFIG_AFIP.CBTE_TIPOS.FACTURA_B);
       var cuitUsado = auth.cuitAuth;
-      var nota = cuitUsado === '20409378472' ? ' (CUIT de test - sin certificado propio)' : ' (CUIT propio con certificado)';
       return {
         success: true,
-        mensaje: 'Conexion exitosa con ARCA (' + config.environment + '). CUIT: ' + cuitUsado + nota + '. Ultimo comprobante B: ' + ultimo,
-        environment: config.environment,
+        mensaje: 'Conexion exitosa con ARCA (PRODUCCION). CUIT: ' + cuitUsado + '. Ultimo comprobante B: ' + ultimo,
+        environment: 'prod',
         ultimoB: ultimo,
         cuitAuth: cuitUsado
       };
@@ -1678,6 +1692,113 @@ function actualizarCondicionesFiscalesDesdeArca() {
       mensaje: actualizados + ' clientes actualizados desde ARCA, ' + errores + ' errores'
     };
   } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Re-emite una factura del historial como comprobante real en ARCA producción.
+ * Toma los datos de una factura existente (que pudo haber sido de test/dev)
+ * y emite una factura nueva real con los mismos datos.
+ * La factura original queda marcada como TEST y la nueva como EMITIDA.
+ * @param {number} facturaId - ID de la factura a validar
+ * @param {Object} datosExtra - Datos adicionales si faltan (clienteCuit, clienteCondicion, etc.)
+ * @returns {Object} Resultado de la re-emisión
+ */
+function reemitirFacturaComoReal(facturaId, datosExtra) {
+  try {
+    // Verificar que estamos en producción con certificado
+    if (!AfipService.tieneCertificado()) {
+      return { success: false, error: 'Se requiere certificado digital para emitir comprobantes reales. Generá uno en Configuración > ARCA.' };
+    }
+
+    // Buscar la factura original
+    var facturas = FacturasRepository.obtenerTodas();
+    var original = null;
+    for (var i = 0; i < facturas.length; i++) {
+      if (facturas[i].id === facturaId) {
+        original = facturas[i];
+        break;
+      }
+    }
+
+    if (!original) return { success: false, error: 'Factura no encontrada (ID: ' + facturaId + ')' };
+    if (original.estado === 'ANULADA') return { success: false, error: 'No se puede validar una factura anulada' };
+    if (original.estado === 'VALIDADA') return { success: false, error: 'Esta factura ya fue validada en ARCA' };
+
+    // Determinar tipo de comprobante
+    var cbteTipo = original.cbteTipo || 6; // Default Factura B
+    var esA = (cbteTipo === 1 || cbteTipo === 3);
+
+    // CUIT del cliente (puede venir de datosExtra si no lo tenía)
+    var clienteCuit = (datosExtra && datosExtra.clienteCuit) || original.clienteCuit || '';
+    clienteCuit = String(clienteCuit).replace(/[-\s]/g, '');
+
+    // Para Factura A, CUIT es obligatorio
+    if (esA && (!clienteCuit || clienteCuit.length !== 11)) {
+      return {
+        success: false,
+        error: 'Factura tipo A requiere CUIT del cliente (11 dígitos)',
+        requiereDatos: true,
+        campos: ['clienteCuit']
+      };
+    }
+
+    // Condición del cliente
+    var clienteCondicion = (datosExtra && datosExtra.clienteCondicion) || original.clienteCondicion || 'CF';
+
+    // Parsear detalle
+    var detalle = [];
+    if (original.detalle) {
+      try {
+        detalle = typeof original.detalle === 'string' ? JSON.parse(original.detalle) : original.detalle;
+      } catch (e) { detalle = []; }
+    }
+
+    // Calcular importe neto para emitir
+    var importeNeto;
+    if (esA) {
+      importeNeto = original.neto; // Factura A: neto sin IVA
+    } else {
+      importeNeto = original.total; // Factura B: total con IVA incluido
+    }
+
+    if (!importeNeto || importeNeto <= 0) {
+      return { success: false, error: 'El importe de la factura es 0 o inválido' };
+    }
+
+    // Emitir la factura real en ARCA
+    var resultado = emitirFacturaElectronica({
+      cbteTipo: cbteTipo,
+      clienteNombre: original.clienteNombre || '',
+      clienteCuit: clienteCuit,
+      clienteCondicion: clienteCondicion,
+      clienteCondicionTexto: clienteCondicion === 'RI' ? 'Responsable Inscripto' :
+                            (clienteCondicion === 'M' ? 'Monotributo' : 'Consumidor Final'),
+      importeNeto: importeNeto,
+      detalle: detalle
+    });
+
+    if (resultado.success) {
+      // Marcar la factura original como TEST (ya no es la real)
+      FacturasRepository.actualizarFactura(facturaId, { estado: 'TEST' });
+
+      return {
+        success: true,
+        mensaje: 'Factura validada en ARCA (prod). Nuevo CAE: ' + resultado.cae,
+        facturaOriginalId: facturaId,
+        nuevaFacturaId: resultado.facturaId,
+        cae: resultado.cae,
+        caeVto: resultado.caeVto,
+        cbteNro: resultado.cbteNro,
+        ptoVta: resultado.ptoVta,
+        total: resultado.total
+      };
+    } else {
+      return { success: false, error: resultado.error };
+    }
+  } catch (error) {
+    Logger.log('Error en reemitirFacturaComoReal: ' + error.message);
     return { success: false, error: error.message };
   }
 }
