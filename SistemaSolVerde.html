@@ -945,58 +945,175 @@
       }
 
       /* ============================================================
-         FACTURA ARCA - Formato impresion
+         FACTURA ARCA - Formato oficial RG 1415
+         Original / Duplicado / Triplicado
          ============================================================ */
       #facturaImpresion {
-        font-size: 11pt;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #000;
+        font-size: 9pt;
+        line-height: 1.3;
       }
-      #facturaImpresion h2 { font-size: 18pt !important; text-align: center; }
-      #facturaImpresion .fact-tipo-letra {
-        font-size: 28pt !important;
+      .arca-copia {
+        width: 100%;
+        max-width: 190mm;
+        margin: 0 auto;
+        page-break-after: always;
+        padding: 0;
+      }
+      .arca-copia:last-child { page-break-after: avoid; }
+      .arca-copia-leyenda {
+        text-align: center;
+        font-size: 10pt;
         font-weight: bold;
-        border: 3px solid black;
-        width: 50px;
-        height: 50px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+        color: #333;
+      }
+      /* --- HEADER: 2 columnas con letra en medio --- */
+      .arca-header {
         display: flex;
+        border: 2px solid #000;
+        min-height: 90px;
+      }
+      .arca-header-izq {
+        flex: 1;
+        padding: 6px 10px;
+        border-right: 1px solid #000;
+      }
+      .arca-header-izq .arca-razon-social {
+        font-size: 14pt;
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+      .arca-header-izq .arca-domicilio { font-size: 8pt; color: #333; }
+      .arca-header-izq .arca-condiva { font-size: 8pt; margin-top: 2px; }
+      .arca-header-letra {
+        width: 60px;
+        display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 8px;
+        border-left: 1px solid #000;
+        border-right: 1px solid #000;
+        background: #fff;
       }
-      #facturaImpresion .fact-header {
+      .arca-letra-box {
+        font-size: 32pt;
+        font-weight: bold;
+        line-height: 1;
+      }
+      .arca-letra-cod {
+        font-size: 7pt;
+        text-align: center;
+        margin-top: 2px;
+      }
+      .arca-header-der {
+        flex: 1;
+        padding: 6px 10px;
+        text-align: right;
+      }
+      .arca-header-der .arca-tipo-cbte {
+        font-size: 12pt;
+        font-weight: bold;
+        text-align: left;
+      }
+      .arca-header-der .arca-numero {
+        font-size: 13pt;
+        font-weight: bold;
+        text-align: left;
+        margin: 2px 0;
+      }
+      .arca-header-der .arca-dato {
+        font-size: 8.5pt;
+        text-align: left;
+      }
+      /* --- CLIENTE --- */
+      .arca-receptor {
+        border: 1px solid #000;
+        border-top: none;
+        padding: 6px 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px 20px;
+        font-size: 8.5pt;
+      }
+      .arca-receptor .arca-campo { }
+      .arca-receptor .arca-campo-label { font-weight: bold; }
+      /* --- DETALLE --- */
+      .arca-detalle {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 6px;
+        font-size: 8.5pt;
+      }
+      .arca-detalle th {
+        background: #e8e8e8;
+        border: 1px solid #000;
+        padding: 4px 6px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 8pt;
+      }
+      .arca-detalle td {
+        border: 1px solid #ccc;
+        padding: 3px 6px;
+        vertical-align: top;
+      }
+      .arca-detalle td.num { text-align: right; }
+      .arca-detalle-min-height {
+        min-height: 120px;
+      }
+      /* --- TOTALES --- */
+      .arca-totales {
+        border: 1px solid #000;
+        border-top: 2px solid #000;
+        padding: 6px 10px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 30px;
+        font-size: 9pt;
+      }
+      .arca-totales .arca-tot-item { text-align: right; }
+      .arca-totales .arca-tot-label { font-weight: bold; }
+      .arca-totales .arca-tot-total {
+        font-size: 13pt;
+        font-weight: bold;
+      }
+      /* --- PIE: CAE + QR --- */
+      .arca-pie {
         display: flex;
         justify-content: space-between;
-        border-bottom: 2px solid black;
-        padding-bottom: 8px;
-        margin-bottom: 8px;
+        align-items: flex-end;
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid #ccc;
       }
-      #facturaImpresion .fact-header-col { flex: 1; }
-      #facturaImpresion .fact-cliente {
-        border: 1px solid #999;
-        padding: 8px;
-        margin-bottom: 10px;
+      .arca-pie-cae { font-size: 8.5pt; }
+      .arca-pie-cae strong { font-size: 9pt; }
+      .arca-pie-qr {
+        text-align: center;
+        font-size: 7pt;
       }
-      #facturaImpresion .fact-tabla th,
-      #facturaImpresion .fact-tabla td {
-        padding: 5px 8px !important;
-        font-size: 11pt !important;
+      .arca-pie-qr canvas,
+      .arca-pie-qr img { display: block; margin: 0 auto; }
+      .arca-pie-leyenda {
+        text-align: center;
+        font-size: 7pt;
+        color: #666;
+        margin-top: 4px;
+        border-top: 1px solid #ddd;
+        padding-top: 3px;
       }
-      #facturaImpresion .fact-totales {
-        text-align: right;
-        margin-top: 10px;
-        font-size: 12pt;
+      /* --- LINEA DE CORTE ENTRE COPIAS (no se imprime, se usa page-break) --- */
+      .arca-corte {
+        display: none;
       }
-      #facturaImpresion .fact-totales .fact-total-final {
-        font-size: 16pt;
-        font-weight: bold;
-        border-top: 2px solid black;
-        padding-top: 5px;
-        margin-top: 5px;
-      }
-      #facturaImpresion .fact-cae {
-        margin-top: 15px;
-        padding-top: 10px;
-        border-top: 1px dashed #999;
-        font-size: 10pt;
+      /* Forzar impresión de backgrounds en celdas cabecera */
+      .arca-detalle th {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
     }
 
@@ -2193,48 +2310,8 @@
       </div>
 
       <!-- VISTA IMPRESION FACTURA ARCA (oculta, se muestra solo al imprimir) -->
-      <div id="facturaImpresion" style="display: none;">
-        <div style="text-align: center;">
-          <div class="fact-tipo-letra" id="factPrintTipoLetra"></div>
-          <h2 id="factPrintTipoNombre" style="margin: 0;"></h2>
-        </div>
-
-        <div class="fact-header">
-          <div class="fact-header-col">
-            <strong style="font-size: 14pt;">Sol & Verde</strong><br>
-            <span id="factPrintEmisorCuit"></span><br>
-            <span>Condicion: Responsable Inscripto</span>
-          </div>
-          <div class="fact-header-col" style="text-align: right;">
-            <strong>Comprobante N°:</strong> <span id="factPrintNumero"></span><br>
-            <strong>Fecha:</strong> <span id="factPrintFecha"></span><br>
-            <strong>Punto de Venta:</strong> <span id="factPrintPtoVta"></span>
-          </div>
-        </div>
-
-        <div class="fact-cliente">
-          <strong>Cliente:</strong> <span id="factPrintCliente"></span><br>
-          <strong>CUIT:</strong> <span id="factPrintClienteCuit"></span>
-          <span style="margin-left: 2rem;"><strong>Cond. IVA:</strong> <span id="factPrintClienteCond"></span></span>
-        </div>
-
-        <table class="table fact-tabla" style="width: 100%; margin-top: 8px;">
-          <thead>
-            <tr>
-              <th>Descripcion</th>
-              <th style="text-align: right;">Importe</th>
-            </tr>
-          </thead>
-          <tbody id="factPrintDetalle"></tbody>
-        </table>
-
-        <div class="fact-totales" id="factPrintTotales"></div>
-
-        <div class="fact-cae">
-          <strong>CAE:</strong> <span id="factPrintCAE"></span><br>
-          <strong>Vencimiento CAE:</strong> <span id="factPrintCAEVto"></span>
-        </div>
-      </div>
+      <!-- FACTURA ARCA - Formato oficial RG 1415 con Original/Duplicado/Triplicado -->
+      <div id="facturaImpresion" style="display: none;"></div>
 
       <!-- MODULO: ALQUILERES DE PUESTOS -->
       <div class="module-view" id="module-alquileres">
@@ -6366,21 +6443,22 @@
 
             // Guardar datos de ultima factura para impresion
             window._ultimaFacturaEmitida = {
+              cbteTipo: cbteTipo,
               cbteTipoNombre: result.cbteTipoNombre || (cbteTipo === 1 ? 'Factura A' : (cbteTipo === 6 ? 'Factura B' : 'Comprobante')),
               cbteTipoLetra: cbteTipo === 1 ? 'A' : (cbteTipo === 6 ? 'B' : ''),
               ptoVta: result.ptoVta,
               cbteNro: result.cbteNro,
-              fecha: formatearFecha(obtenerFechaLocal()),
+              fecha: result.fecha || '',
               clienteNombre: arcaClienteSeleccionado ? arcaClienteSeleccionado.nombre : '',
               clienteCuit: arcaClienteSeleccionado ? (arcaClienteSeleccionado.cuit || '-') : '-',
               clienteCondicion: condicionTexto || 'Consumidor Final',
+              clienteCondicionTexto: condicionTexto || 'Consumidor Final',
               detalle: arcaItems,
               neto: result.neto || 0,
               iva: result.iva || 0,
               total: result.total || 0,
               cae: result.cae,
-              caeVto: result.caeVto || '',
-              esFacturaA: cbteTipo === 1
+              caeVto: result.caeVto || ''
             };
 
             // Mostrar resultado
@@ -6482,73 +6560,299 @@
     // IMPRESION DE FACTURAS ARCA
     // ============================================================================
 
-    function _poblarVistaFactura(datos) {
-      var tipoLetra = datos.cbteTipoLetra || '';
-      if (!tipoLetra) {
-        if (datos.cbteTipoNombre && datos.cbteTipoNombre.includes('A')) tipoLetra = 'A';
-        else if (datos.cbteTipoNombre && datos.cbteTipoNombre.includes('B')) tipoLetra = 'B';
-        else tipoLetra = '-';
+    // ================================================================
+    // FACTURA ARCA - Formato oficial RG 1415
+    // Original / Duplicado / Triplicado con QR
+    // ================================================================
+
+    function _parseDetalle(detalle) {
+      if (!detalle) return [];
+      if (Array.isArray(detalle)) return detalle;
+      if (typeof detalle === 'string') {
+        try { return JSON.parse(detalle); } catch (e) { return []; }
       }
-      var esA = tipoLetra === 'A';
+      return [];
+    }
 
-      document.getElementById('factPrintTipoLetra').textContent = tipoLetra;
-      document.getElementById('factPrintTipoNombre').textContent = datos.cbteTipoNombre || 'Comprobante';
-      document.getElementById('factPrintEmisorCuit').textContent = 'CUIT: 20-14954340-7';
-      document.getElementById('factPrintNumero').textContent =
-        String(datos.ptoVta || 0).padStart(5, '0') + '-' + String(datos.cbteNro || 0).padStart(8, '0');
-      document.getElementById('factPrintFecha').textContent = datos.fecha || formatearFecha(obtenerFechaLocal());
-      document.getElementById('factPrintPtoVta').textContent = String(datos.ptoVta || 0).padStart(5, '0');
-      document.getElementById('factPrintCliente').textContent = datos.clienteNombre || '-';
-      document.getElementById('factPrintClienteCuit').textContent = datos.clienteCuit || '-';
-      document.getElementById('factPrintClienteCond').textContent = datos.clienteCondicion || '-';
+    var EMISOR_ARCA = {
+      razonSocial: 'DOMINGUES ALDO FERMIN',
+      fantasia: 'Sol & Verde',
+      cuit: '20-14954340-7',
+      cuitNumero: 20149543407,
+      condicionIVA: 'IVA Responsable Inscripto',
+      domicilio: 'Merlo, Buenos Aires',
+      iibb: 'Convenio Multilateral',
+      inicioAct: '01/01/2020'
+    };
 
-      // Detalle
-      var detalleHtml = '';
+    function _formatMoney(n) {
+      return (n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function _cbteTipoCod(cbteTipo) {
+      var map = { 1: '01', 6: '06', 3: '03', 8: '08', 11: '11', 13: '13' };
+      return map[cbteTipo] || String(cbteTipo || 0).padStart(2, '0');
+    }
+
+    function _formatCaeVto(caeVto) {
+      if (!caeVto) return '-';
+      var s = String(caeVto);
+      if (s.length === 8) return s.substring(6,8) + '/' + s.substring(4,6) + '/' + s.substring(0,4);
+      return s;
+    }
+
+    function _formatFechaFactura(fecha) {
+      if (!fecha) return '-';
+      var s = String(fecha);
+      if (s.length === 8) return s.substring(6,8) + '/' + s.substring(4,6) + '/' + s.substring(0,4);
+      if (s.indexOf('-') > 0) {
+        var p = s.split('-');
+        return p[2] + '/' + p[1] + '/' + p[0];
+      }
+      return formatearFecha(s);
+    }
+
+    function _tipoLetraFromDatos(datos) {
+      if (datos.cbteTipoLetra) return datos.cbteTipoLetra;
+      var nombre = datos.cbteTipoNombre || '';
+      if (nombre.includes(' A')) return 'A';
+      if (nombre.includes(' B')) return 'B';
+      if (nombre.includes(' C')) return 'C';
+      return 'B';
+    }
+
+    function _tipoNombreFromDatos(datos) {
+      if (datos.cbteTipoNombre) return datos.cbteTipoNombre.toUpperCase();
+      var map = { 1: 'FACTURA', 6: 'FACTURA', 3: 'NOTA DE CREDITO', 8: 'NOTA DE CREDITO', 11: 'FACTURA', 13: 'NOTA DE CREDITO' };
+      return map[datos.cbteTipo] || 'COMPROBANTE';
+    }
+
+    // Genera JSON para código QR de ARCA (RG 4892/2020)
+    function _generarQrData(datos) {
+      var cbteTipo = datos.cbteTipo || 6;
+      var tipoDocRec = 99; // Consumidor Final
+      var nroDocRec = 0;
+      if (datos.clienteCuit && String(datos.clienteCuit).replace(/[-\s]/g, '').length === 11) {
+        tipoDocRec = 80;
+        nroDocRec = parseInt(String(datos.clienteCuit).replace(/[-\s]/g, ''));
+      }
+      var qrJson = {
+        ver: 1,
+        fecha: _qrFecha(datos.fecha),
+        cuit: EMISOR_ARCA.cuitNumero,
+        ptoVta: datos.ptoVta || 0,
+        tipoCmp: cbteTipo,
+        nroCmp: datos.cbteNro || 0,
+        importe: datos.total || 0,
+        moneda: 'PES',
+        ctz: 1,
+        tipoDocRec: tipoDocRec,
+        nroDocRec: nroDocRec,
+        tipoCodAut: 'E',
+        codAut: parseInt(datos.cae) || 0
+      };
+      return 'https://www.afip.gob.ar/fe/qr/?p=' + btoa(JSON.stringify(qrJson));
+    }
+
+    function _qrFecha(fecha) {
+      if (!fecha) return new Date().toISOString().substring(0, 10);
+      var s = String(fecha);
+      if (s.length === 8) return s.substring(0,4) + '-' + s.substring(4,6) + '-' + s.substring(6,8);
+      if (s.indexOf('/') > 0) {
+        var p = s.split('/');
+        return p[2] + '-' + p[1] + '-' + p[0];
+      }
+      return s.substring(0, 10);
+    }
+
+    // Genera el HTML de UNA copia de factura ARCA
+    function _generarCopiaArca(datos, leyendaCopia) {
+      var letra = _tipoLetraFromDatos(datos);
+      var esA = (letra === 'A');
+      var tipoNombre = _tipoNombreFromDatos(datos);
+      var numCbte = String(datos.ptoVta || 0).padStart(5, '0') + '-' + String(datos.cbteNro || 0).padStart(8, '0');
+      var codTipo = _cbteTipoCod(datos.cbteTipo);
+      var fechaStr = _formatFechaFactura(datos.fecha);
+      var caeVtoStr = _formatCaeVto(datos.caeVto);
+
+      // Condicion del receptor
+      var condReceptor = datos.clienteCondicion || datos.clienteCondicionTexto || 'Consumidor Final';
+      if (condReceptor === 'RI') condReceptor = 'IVA Responsable Inscripto';
+      else if (condReceptor === 'M') condReceptor = 'Responsable Monotributo';
+      else if (condReceptor === 'EX') condReceptor = 'IVA Exento';
+      else if (condReceptor === 'CF') condReceptor = 'Consumidor Final';
+
+      // Detalle filas
+      var detalleRows = '';
       if (datos.detalle && datos.detalle.length > 0) {
         datos.detalle.forEach(function(item) {
           var desc = item.descripcion || item.nombre || 'Producto';
           var cant = item.cantidad || 1;
+          var unidad = item.unidad || 'unidades';
           var precio = item.precioUnitario || item.precio || 0;
-          var subtotal = cant * precio;
-          detalleHtml += '<tr>' +
-            '<td>' + escapeHtml(desc) + (cant > 1 ? ' x' + cant : '') + '</td>' +
-            '<td style="text-align:right;">$' + subtotal.toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
+          var bonif = item.bonificacion || 0;
+          var subtotal = cant * precio * (1 - bonif / 100);
+          detalleRows += '<tr>' +
+            '<td class="num">' + escapeHtml(String(cant)) + '</td>' +
+            '<td>' + escapeHtml(desc) + '</td>' +
+            '<td class="num">' + escapeHtml(unidad) + '</td>' +
+            '<td class="num">$ ' + _formatMoney(precio) + '</td>' +
+            '<td class="num">' + (bonif > 0 ? bonif + '%' : '0,00%') + '</td>' +
+            '<td class="num">$ ' + _formatMoney(subtotal) + '</td>' +
             '</tr>';
         });
       } else {
-        detalleHtml = '<tr><td>Servicios</td><td style="text-align:right;">$' +
-          (datos.total || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td></tr>';
+        detalleRows = '<tr>' +
+          '<td class="num">1</td>' +
+          '<td>Venta de productos</td>' +
+          '<td class="num">unidades</td>' +
+          '<td class="num">$ ' + _formatMoney(esA ? datos.neto : datos.total) + '</td>' +
+          '<td class="num">0,00%</td>' +
+          '<td class="num">$ ' + _formatMoney(esA ? datos.neto : datos.total) + '</td>' +
+          '</tr>';
       }
-      document.getElementById('factPrintDetalle').innerHTML = detalleHtml;
+
+      // Pad rows vacías para altura mínima (8 filas)
+      var numItems = (datos.detalle && datos.detalle.length > 0) ? datos.detalle.length : 1;
+      for (var p = numItems; p < 4; p++) {
+        detalleRows += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>';
+      }
 
       // Totales
       var totalesHtml = '';
       if (esA) {
-        totalesHtml += '<div>Subtotal Neto: $' + (datos.neto || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</div>';
-        totalesHtml += '<div>IVA 10.5%: $' + (datos.iva || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</div>';
+        totalesHtml =
+          '<div class="arca-tot-item"><span class="arca-tot-label">Importe Neto Gravado:</span> $ ' + _formatMoney(datos.neto) + '</div>' +
+          '<div class="arca-tot-item"><span class="arca-tot-label">IVA 10,5%:</span> $ ' + _formatMoney(datos.iva) + '</div>' +
+          '<div class="arca-tot-item"><span class="arca-tot-label">Importe Otros Tributos:</span> $ 0,00</div>' +
+          '<div class="arca-tot-item arca-tot-total"><span class="arca-tot-label">Importe Total: </span>$ ' + _formatMoney(datos.total) + '</div>';
+      } else {
+        totalesHtml =
+          '<div class="arca-tot-item"><span class="arca-tot-label">Subtotal: </span>$ ' + _formatMoney(datos.total) + '</div>' +
+          '<div class="arca-tot-item"><span class="arca-tot-label">Importe Otros Tributos:</span> $ 0,00</div>' +
+          '<div class="arca-tot-item arca-tot-total"><span class="arca-tot-label">Importe Total: </span>$ ' + _formatMoney(datos.total) + '</div>';
       }
-      totalesHtml += '<div class="fact-total-final">TOTAL: $' + (datos.total || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</div>';
-      document.getElementById('factPrintTotales').innerHTML = totalesHtml;
 
-      // CAE
-      document.getElementById('factPrintCAE').textContent = datos.cae || '-';
-      document.getElementById('factPrintCAEVto').textContent = datos.caeVto || '-';
+      // CUIT receptor
+      var cuitReceptor = datos.clienteCuit || '-';
+      var docLabel = 'CUIT:';
+      if (!datos.clienteCuit || datos.clienteCuit === '-') {
+        docLabel = 'Documento:';
+        cuitReceptor = '-';
+      }
+
+      // Condicion de venta
+      var condVenta = datos.condVenta || 'Cuenta Corriente';
+
+      var html =
+        '<div class="arca-copia">' +
+          '<div class="arca-copia-leyenda">' + leyendaCopia + '</div>' +
+
+          // HEADER
+          '<div class="arca-header">' +
+            // Izq: emisor
+            '<div class="arca-header-izq">' +
+              '<div class="arca-razon-social">' + escapeHtml(EMISOR_ARCA.razonSocial) + '</div>' +
+              '<div class="arca-domicilio">' + escapeHtml(EMISOR_ARCA.domicilio) + '</div>' +
+              '<div class="arca-condiva">' + escapeHtml(EMISOR_ARCA.condicionIVA) + '</div>' +
+            '</div>' +
+            // Letra central
+            '<div class="arca-header-letra">' +
+              '<div class="arca-letra-box">' + letra + '</div>' +
+              '<div class="arca-letra-cod">Cod. ' + codTipo + '</div>' +
+            '</div>' +
+            // Der: numbering
+            '<div class="arca-header-der">' +
+              '<div class="arca-tipo-cbte">' + tipoNombre + '</div>' +
+              '<div class="arca-numero">N\u00BA ' + numCbte + '</div>' +
+              '<div class="arca-dato"><b>Fecha de Emisi\u00F3n:</b> ' + fechaStr + '</div>' +
+              '<div class="arca-dato"><b>CUIT:</b> ' + EMISOR_ARCA.cuit + '</div>' +
+              '<div class="arca-dato"><b>Ingresos Brutos:</b> ' + EMISOR_ARCA.iibb + '</div>' +
+              '<div class="arca-dato"><b>Inicio de Actividades:</b> ' + EMISOR_ARCA.inicioAct + '</div>' +
+            '</div>' +
+          '</div>' +
+
+          // RECEPTOR
+          '<div class="arca-receptor">' +
+            '<div class="arca-campo"><span class="arca-campo-label">Condici\u00F3n frente al IVA:</span> ' + escapeHtml(condReceptor) + '</div>' +
+            '<div class="arca-campo"><span class="arca-campo-label">' + docLabel + '</span> ' + escapeHtml(cuitReceptor) + '</div>' +
+            '<div class="arca-campo"><span class="arca-campo-label">Apellido y Nombre / Raz\u00F3n Social:</span> ' + escapeHtml(datos.clienteNombre || '-') + '</div>' +
+            '<div class="arca-campo"><span class="arca-campo-label">Condici\u00F3n de venta:</span> ' + escapeHtml(condVenta) + '</div>' +
+            '<div class="arca-campo"><span class="arca-campo-label">Domicilio:</span> ' + escapeHtml(datos.clienteDomicilio || '-') + '</div>' +
+          '</div>' +
+
+          // DETALLE
+          '<table class="arca-detalle">' +
+            '<thead><tr>' +
+              '<th style="width:50px;">Cantidad</th>' +
+              '<th>Producto / Servicio</th>' +
+              '<th style="width:70px;">U. Medida</th>' +
+              '<th style="width:85px;">Precio Unit.</th>' +
+              '<th style="width:55px;">% Bonif.</th>' +
+              '<th style="width:90px;">Subtotal</th>' +
+            '</tr></thead>' +
+            '<tbody>' + detalleRows + '</tbody>' +
+          '</table>' +
+
+          // TOTALES
+          '<div class="arca-totales">' + totalesHtml + '</div>' +
+
+          // PIE: CAE + QR
+          '<div class="arca-pie">' +
+            '<div class="arca-pie-qr" id="qr_' + leyendaCopia.toLowerCase().replace(/\s/g,'') + '"></div>' +
+            '<div class="arca-pie-cae">' +
+              '<strong>CAE N\u00BA:</strong> ' + (datos.cae || '-') + '<br>' +
+              '<strong>Fecha de Vto. de CAE:</strong> ' + caeVtoStr +
+            '</div>' +
+          '</div>' +
+
+          '<div class="arca-pie-leyenda">' +
+            'Comprobante autorizado - Esta Administraci\u00F3n Federal no se responsabiliza por los datos ingresados en el detalle de la operaci\u00F3n' +
+          '</div>' +
+
+        '</div>';
+
+      return html;
+    }
+
+    // Genera QR codes usando canvas (sin dependencias externas)
+    function _generarQrSimple(containerId, url) {
+      var el = document.getElementById(containerId);
+      if (!el) return;
+      // Crear imagen QR usando Google Charts API (funciona sin librerías externas)
+      var qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=120x120&chl=' + encodeURIComponent(url) + '&choe=UTF-8';
+      el.innerHTML = '<img src="' + qrUrl + '" width="120" height="120" style="image-rendering:pixelated;">' +
+        '<div style="font-size:6pt;color:#666;margin-top:1px;">Comprobante ARCA</div>';
     }
 
     function _ejecutarImpresionFactura(datos) {
-      _poblarVistaFactura(datos);
+      var container = document.getElementById('facturaImpresion');
 
-      // Usar clase en body para que @media print oculte modulo y muestre factura
-      document.getElementById('facturaImpresion').style.display = 'block';
+      // Generar 3 copias: Original, Duplicado, Triplicado
+      var html =
+        _generarCopiaArca(datos, 'ORIGINAL') +
+        '<hr class="arca-corte">' +
+        _generarCopiaArca(datos, 'DUPLICADO') +
+        '<hr class="arca-corte">' +
+        _generarCopiaArca(datos, 'TRIPLICADO');
+
+      container.innerHTML = html;
+      container.style.display = 'block';
       document.body.classList.add('imprimiendo-factura');
+
+      // Generar QR para cada copia
+      var qrUrl = _generarQrData(datos);
+      _generarQrSimple('qr_original', qrUrl);
+      _generarQrSimple('qr_duplicado', qrUrl);
+      _generarQrSimple('qr_triplicado', qrUrl);
 
       setTimeout(function() {
         window.print();
         setTimeout(function() {
           document.body.classList.remove('imprimiendo-factura');
-          document.getElementById('facturaImpresion').style.display = 'none';
-        }, 500);
-      }, 100);
+          container.style.display = 'none';
+        }, 800);
+      }, 300);
     }
 
     function imprimirFacturaArca() {
@@ -6566,6 +6870,7 @@
       }
       var f = window._facturasHistorial[idx];
       _ejecutarImpresionFactura({
+        cbteTipo: f.cbteTipo || 6,
         cbteTipoNombre: f.cbteTipoNombre || '',
         cbteTipoLetra: '',
         ptoVta: f.ptoVta,
@@ -6574,13 +6879,13 @@
         clienteNombre: f.clienteNombre || '',
         clienteCuit: f.clienteCuit || '-',
         clienteCondicion: f.clienteCondicion || '-',
-        detalle: f.detalle ? (typeof f.detalle === 'string' ? [{descripcion: f.detalle}] : f.detalle) : [],
+        clienteCondicionTexto: f.clienteCondicionTexto || f.clienteCondicion || '',
+        detalle: _parseDetalle(f.detalle),
         neto: f.neto || 0,
         iva: f.iva || 0,
         total: f.total || 0,
         cae: f.cae || '-',
-        caeVto: f.caeVto || '-',
-        esFacturaA: f.cbteTipo === 1
+        caeVto: f.caeVto || '-'
       });
     }
 

@@ -1559,6 +1559,7 @@ function emitirFacturaElectronica(datos) {
       ptoVta: resultado.ptoVta,
       cbteTipo: resultado.cbteTipo,
       cbteTipoNombre: nombresTipo[resultado.cbteTipo] || ('Comprobante ' + resultado.cbteTipo),
+      fecha: resultado.fecha,
       neto: resultado.neto,
       iva: resultado.iva,
       total: resultado.total,
