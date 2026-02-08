@@ -75,28 +75,34 @@ const TransferenciasRepository = {
   },
 
   /**
-   * Obtiene todas las transferencias
+   * Obtiene transferencias (ultimas N, desde abajo = mas recientes)
    */
-  obtenerTodas: function() {
+  obtenerTodas: function(limite) {
     const hoja = this.getHoja();
     const lastRow = hoja.getLastRow();
 
     if (lastRow <= 1) return [];
 
-    const datos = hoja.getRange(2, 1, lastRow - 1, 10).getValues();
+    const maxRows = limite || 500;
+    const totalRows = lastRow - 1;
+    const startRow = totalRows > maxRows ? (lastRow - maxRows + 1) : 2;
+    const numRows = totalRows > maxRows ? maxRows : totalRows;
+
+    const datos = hoja.getRange(startRow, 1, numRows, 10).getValues();
 
     return datos.map(fila => ({
       id: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID],
       fecha: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA] instanceof Date ?
-        formatearFechaLocal(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA]) : fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA],
-      cliente: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CLIENTE],
-      monto: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.MONTO] || 0,
-      banco: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.BANCO] || '',
-      condicion: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CONDICION] || 'Consumidor Final',
-      tipoFactura: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.TIPO_FACTURA] || '',
+        formatearFechaLocal(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA]) : String(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA] || ''),
+      cliente: String(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CLIENTE] || ''),
+      monto: Number(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.MONTO]) || 0,
+      banco: String(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.BANCO] || ''),
+      condicion: String(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.CONDICION] || 'Consumidor Final'),
+      tipoFactura: String(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.TIPO_FACTURA] || ''),
       facturada: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FACTURADA] === true || fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FACTURADA] === 'SI',
-      fechaFactura: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA_FACTURA] || '',
-      obs: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.OBS] || ''
+      fechaFactura: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA_FACTURA] instanceof Date ?
+        formatearFechaLocal(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA_FACTURA]) : String(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA_FACTURA] || ''),
+      obs: String(fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.OBS] || '')
     })).filter(t => t.id);
   },
 
@@ -421,17 +427,26 @@ const ProductosRepository = {
  */
 function obtenerDatosFacturacion() {
   try {
-    const transferencias = TransferenciasRepository.obtenerTodas();
-    const productos = ProductosRepository.obtenerTodos();
+    var transferencias = TransferenciasRepository.obtenerTodas();
+    var productos = ProductosRepository.obtenerTodos();
 
-    return {
+    var resultado = {
       success: true,
-      transferencias: transferencias,
-      productos: productos,
-      apiKeyConfigured: ClaudeService.tieneApiKey()
+      transferencias: serializarParaWeb(transferencias),
+      productos: serializarParaWeb(productos),
+      apiKeyConfigured: false
     };
+
+    // tieneApiKey puede fallar si ClaudeService no esta configurado
+    try {
+      resultado.apiKeyConfigured = ClaudeService.tieneApiKey();
+    } catch (e) {
+      Logger.log('Advertencia: no se pudo verificar API key: ' + e.message);
+    }
+
+    return resultado;
   } catch (error) {
-    Logger.log('Error en obtenerDatosFacturacion: ' + error.message);
+    Logger.log('Error en obtenerDatosFacturacion: ' + error.message + ' | Stack: ' + error.stack);
     return { success: false, error: error.message };
   }
 }

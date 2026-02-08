@@ -694,39 +694,45 @@ const FacturasRepository = {
   /**
    * Obtiene facturas emitidas (últimas N)
    */
-  obtenerTodas: function() {
-    const hoja = this.getHoja();
-    const lastRow = hoja.getLastRow();
+  obtenerTodas: function(limite) {
+    var hoja = this.getHoja();
+    var lastRow = hoja.getLastRow();
 
     if (lastRow <= 1) return [];
 
-    const datos = hoja.getRange(2, 1, lastRow - 1, 20).getValues();
+    var maxRows = limite || 500;
+    var totalRows = lastRow - 1;
+    var startRow = totalRows > maxRows ? (lastRow - maxRows + 1) : 2;
+    var numRows = totalRows > maxRows ? maxRows : totalRows;
+
+    var datos = hoja.getRange(startRow, 1, numRows, 20).getValues();
 
     return datos.map(function(fila) {
       return {
         id: fila[CONFIG_AFIP.COLS_FACTURAS.ID],
         fecha: fila[CONFIG_AFIP.COLS_FACTURAS.FECHA] instanceof Date
-          ? formatearFechaLocal(fila[CONFIG_AFIP.COLS_FACTURAS.FECHA]) : String(fila[CONFIG_AFIP.COLS_FACTURAS.FECHA]),
-        cbteTipo: fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_TIPO],
-        cbteTipoNombre: fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_TIPO_NOMBRE],
-        cbteNro: fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_NRO],
-        ptoVta: fila[CONFIG_AFIP.COLS_FACTURAS.PTO_VTA],
-        clienteNombre: fila[CONFIG_AFIP.COLS_FACTURAS.CLIENTE_NOMBRE],
-        clienteCuit: fila[CONFIG_AFIP.COLS_FACTURAS.CLIENTE_CUIT],
-        clienteCondicion: fila[CONFIG_AFIP.COLS_FACTURAS.CLIENTE_CONDICION],
-        neto: fila[CONFIG_AFIP.COLS_FACTURAS.NETO],
-        iva: fila[CONFIG_AFIP.COLS_FACTURAS.IVA],
-        total: fila[CONFIG_AFIP.COLS_FACTURAS.TOTAL],
-        cae: fila[CONFIG_AFIP.COLS_FACTURAS.CAE],
-        caeVto: fila[CONFIG_AFIP.COLS_FACTURAS.CAE_VTO],
-        cbteAsocTipo: fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_ASOC_TIPO],
-        cbteAsocNro: fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_ASOC_NRO],
-        estado: fila[CONFIG_AFIP.COLS_FACTURAS.ESTADO],
-        pdfUrl: fila[CONFIG_AFIP.COLS_FACTURAS.PDF_URL],
-        detalle: fila[CONFIG_AFIP.COLS_FACTURAS.DETALLE],
-        usuario: fila[CONFIG_AFIP.COLS_FACTURAS.USUARIO]
+          ? formatearFechaLocal(fila[CONFIG_AFIP.COLS_FACTURAS.FECHA]) : String(fila[CONFIG_AFIP.COLS_FACTURAS.FECHA] || ''),
+        cbteTipo: Number(fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_TIPO]) || 0,
+        cbteTipoNombre: String(fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_TIPO_NOMBRE] || ''),
+        cbteNro: Number(fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_NRO]) || 0,
+        ptoVta: Number(fila[CONFIG_AFIP.COLS_FACTURAS.PTO_VTA]) || 0,
+        clienteNombre: String(fila[CONFIG_AFIP.COLS_FACTURAS.CLIENTE_NOMBRE] || ''),
+        clienteCuit: String(fila[CONFIG_AFIP.COLS_FACTURAS.CLIENTE_CUIT] || ''),
+        clienteCondicion: String(fila[CONFIG_AFIP.COLS_FACTURAS.CLIENTE_CONDICION] || ''),
+        neto: Number(fila[CONFIG_AFIP.COLS_FACTURAS.NETO]) || 0,
+        iva: Number(fila[CONFIG_AFIP.COLS_FACTURAS.IVA]) || 0,
+        total: Number(fila[CONFIG_AFIP.COLS_FACTURAS.TOTAL]) || 0,
+        cae: String(fila[CONFIG_AFIP.COLS_FACTURAS.CAE] || ''),
+        caeVto: fila[CONFIG_AFIP.COLS_FACTURAS.CAE_VTO] instanceof Date
+          ? formatearFechaLocal(fila[CONFIG_AFIP.COLS_FACTURAS.CAE_VTO]) : String(fila[CONFIG_AFIP.COLS_FACTURAS.CAE_VTO] || ''),
+        cbteAsocTipo: fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_ASOC_TIPO] || '',
+        cbteAsocNro: fila[CONFIG_AFIP.COLS_FACTURAS.CBTE_ASOC_NRO] || '',
+        estado: String(fila[CONFIG_AFIP.COLS_FACTURAS.ESTADO] || ''),
+        pdfUrl: String(fila[CONFIG_AFIP.COLS_FACTURAS.PDF_URL] || ''),
+        detalle: String(fila[CONFIG_AFIP.COLS_FACTURAS.DETALLE] || ''),
+        usuario: String(fila[CONFIG_AFIP.COLS_FACTURAS.USUARIO] || '')
       };
-    }).filter(function(f) { return f.id; }).reverse(); // Más recientes primero
+    }).filter(function(f) { return f.id; }).reverse(); // Mas recientes primero
   },
 
   /**
@@ -1624,8 +1630,9 @@ function actualizarCondicionesFiscalesDesdeArca() {
 function obtenerHistorialFacturas() {
   try {
     var facturas = FacturasRepository.obtenerTodas();
-    return { success: true, facturas: facturas };
+    return { success: true, facturas: serializarParaWeb(facturas) };
   } catch (error) {
+    Logger.log('Error en obtenerHistorialFacturas: ' + error.message);
     return { success: false, error: error.message, facturas: [] };
   }
 }
