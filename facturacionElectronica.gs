@@ -523,9 +523,9 @@ const AfipService = {
       throw new Error('CUIT inválido: debe tener 11 dígitos. Recibido: ' + cuit);
     }
 
-    const auth = this.autenticar('ws_sr_padron_a5');
+    var auth = this.autenticar('ws_sr_padron_a5');
 
-    const payload = {
+    var payload = {
       environment: config.environment,
       method: 'getPersona',
       wsid: 'ws_sr_padron_a5',
@@ -541,76 +541,117 @@ const AfipService = {
     if (config.cert) payload.cert = config.cert;
     if (config.key) payload.key = config.key;
 
-    try {
-      const result = this._fetch('/requests', payload);
-      const persona = result.personaReturn || result.persona || result;
+    // Intentar primero con ws_sr_padron_a5, luego fallback a ws_sr_padron_a13
+    var servicios = ['ws_sr_padron_a5', 'ws_sr_padron_a13'];
+    var ultimoError = '';
 
-      if (!persona) {
-        return { encontrado: false, error: 'CUIT no encontrado en padrón ARCA' };
-      }
+    for (var s = 0; s < servicios.length; s++) {
+      var wsid = servicios[s];
+      try {
+        // Re-autenticar si cambiamos de servicio
+        if (s > 0) {
+          auth = this.autenticar(wsid);
+          payload.wsid = wsid;
+          payload.params.token = auth.token;
+          payload.params.sign = auth.sign;
+          payload.params.cuitRepresentada = auth.cuitAuth;
+          if (config.cert) payload.cert = config.cert;
+          if (config.key) payload.key = config.key;
+        }
 
-      // Determinar condición IVA
-      var condicionIVA = 'CF'; // Default: Consumidor Final
-      var condicionTexto = 'Consumidor Final';
+        const result = this._fetch('/requests', payload);
+        const persona = result.personaReturn || result.persona || result;
 
-      // Buscar en datosGenerales o en la estructura de impuestos
-      var impuestos = persona.datosRegimenGeneral && persona.datosRegimenGeneral.impuesto
-        ? persona.datosRegimenGeneral.impuesto
-        : (persona.impuestos || []);
+        if (!persona) {
+          ultimoError = 'CUIT no encontrado en padrón ARCA';
+          continue;
+        }
 
-      // Si es array, buscar IVA (código 30 o 32)
-      if (Array.isArray(impuestos)) {
-        for (var i = 0; i < impuestos.length; i++) {
-          var imp = impuestos[i];
-          var idImp = imp.idImpuesto || imp.id;
-          if (idImp === 30 || idImp === 32) {
-            condicionIVA = 'RI';
-            condicionTexto = 'Responsable Inscripto';
-            break;
-          }
-          if (idImp === 20) {
-            condicionIVA = 'M';
-            condicionTexto = 'Monotributo';
-            break;
+        // Determinar condición IVA
+        var condicionIVA = 'CF'; // Default: Consumidor Final
+        var condicionTexto = 'Consumidor Final';
+
+        // Buscar en datosGenerales o en la estructura de impuestos
+        var impuestos = persona.datosRegimenGeneral && persona.datosRegimenGeneral.impuesto
+          ? persona.datosRegimenGeneral.impuesto
+          : (persona.impuestos || []);
+
+        // Si es array, buscar IVA (código 30 o 32)
+        if (Array.isArray(impuestos)) {
+          for (var i = 0; i < impuestos.length; i++) {
+            var imp = impuestos[i];
+            var idImp = imp.idImpuesto || imp.id;
+            if (idImp === 30 || idImp === 32) {
+              condicionIVA = 'RI';
+              condicionTexto = 'Responsable Inscripto';
+              break;
+            }
+            if (idImp === 20) {
+              condicionIVA = 'M';
+              condicionTexto = 'Monotributo';
+              break;
+            }
           }
         }
+
+        // Buscar en categorías/actividades
+        var categorias = persona.datosMonotributo || persona.categorias || null;
+        if (categorias && condicionIVA === 'CF') {
+          condicionIVA = 'M';
+          condicionTexto = 'Monotributo';
+        }
+
+        var razonSocial = persona.datosGenerales
+          ? (persona.datosGenerales.razonSocial ||
+             ((persona.datosGenerales.apellido || '') + ' ' + (persona.datosGenerales.nombre || '')).trim())
+          : (persona.razonSocial || persona.nombre || '');
+
+        var domicilio = '';
+        if (persona.datosGenerales && persona.datosGenerales.domicilioFiscal) {
+          var dom = persona.datosGenerales.domicilioFiscal;
+          domicilio = (dom.direccion || '') + ', ' + (dom.localidad || '') + ', ' + (dom.descripcionProvincia || '');
+        }
+
+        return {
+          encontrado: true,
+          cuit: cuitLimpio,
+          razonSocial: razonSocial.toUpperCase(),
+          condicionIVA: condicionIVA,
+          condicionTexto: condicionTexto,
+          domicilio: domicilio,
+          tipoPersona: persona.datosGenerales ? persona.datosGenerales.tipoPersona : ''
+        };
+      } catch (error) {
+        Logger.log('Error consultando CUIT ' + cuit + ' con ' + wsid + ': ' + error.message);
+
+        // "No existe persona con ese Id" = CUIT not found in padron (not a server error)
+        if (error.message.indexOf('No existe persona') !== -1) {
+          var msg = 'CUIT ' + cuitLimpio + ' no encontrado en el padrón de ARCA.';
+          if (config.environment === 'dev') {
+            msg += ' En modo desarrollo el padrón de prueba tiene datos limitados. Cambiá a producción para consultar CUITs reales.';
+          }
+          ultimoError = msg;
+          continue; // Try next service
+        }
+
+        // Auth error for this specific service — try the next one
+        if (error.message.indexOf('autenticación') !== -1 || error.message.indexOf('token') !== -1 ||
+            error.message.indexOf('autorizado') !== -1 || error.message.indexOf('401') !== -1 ||
+            error.message.indexOf('403') !== -1) {
+          ultimoError = error.message;
+          continue;
+        }
+
+        // Other errors — don't retry
+        ultimoError = error.message;
+        break;
       }
-
-      // Buscar en categorías/actividades
-      var categorias = persona.datosMonotributo || persona.categorias || null;
-      if (categorias && condicionIVA === 'CF') {
-        condicionIVA = 'M';
-        condicionTexto = 'Monotributo';
-      }
-
-      var razonSocial = persona.datosGenerales
-        ? (persona.datosGenerales.razonSocial ||
-           ((persona.datosGenerales.apellido || '') + ' ' + (persona.datosGenerales.nombre || '')).trim())
-        : (persona.razonSocial || persona.nombre || '');
-
-      var domicilio = '';
-      if (persona.datosGenerales && persona.datosGenerales.domicilioFiscal) {
-        var dom = persona.datosGenerales.domicilioFiscal;
-        domicilio = (dom.direccion || '') + ', ' + (dom.localidad || '') + ', ' + (dom.descripcionProvincia || '');
-      }
-
-      return {
-        encontrado: true,
-        cuit: cuitLimpio,
-        razonSocial: razonSocial.toUpperCase(),
-        condicionIVA: condicionIVA,
-        condicionTexto: condicionTexto,
-        domicilio: domicilio,
-        tipoPersona: persona.datosGenerales ? persona.datosGenerales.tipoPersona : ''
-      };
-    } catch (error) {
-      // Si falla la consulta de padrón, no es un error crítico
-      Logger.log('Error consultando CUIT ' + cuit + ': ' + error.message);
-      return {
-        encontrado: false,
-        error: 'No se pudo consultar: ' + error.message
-      };
     }
+
+    return {
+      encontrado: false,
+      error: ultimoError || 'No se pudo consultar el CUIT'
+    };
   }
 };
 
@@ -1136,7 +1177,7 @@ function autorizarWebServicesAfip(datos) {
     }
 
     // Web services a autorizar
-    var webServices = ['wsfe', 'ws_sr_padron_a5'];
+    var webServices = ['wsfe', 'ws_sr_padron_a5', 'ws_sr_padron_a13'];
     var autorizados = [];
     var errores = [];
 
@@ -1383,6 +1424,22 @@ function verificarEstadoServiciosAfip() {
       }
     } catch (e) {
       resultado.servicios.ws_sr_padron_a5 = { activo: false, mensaje: e.message };
+    }
+
+    // Verificar ws_sr_padron_a13 (consulta padrón - fallback)
+    try {
+      var authPadron13 = AfipService.autenticar('ws_sr_padron_a13');
+      if (authPadron13.token && authPadron13.sign) {
+        resultado.servicios.ws_sr_padron_a13 = {
+          activo: true,
+          mensaje: 'Autorizado',
+          cuitAuth: authPadron13.cuitAuth
+        };
+      } else {
+        resultado.servicios.ws_sr_padron_a13 = { activo: false, mensaje: 'Sin token/sign' };
+      }
+    } catch (e) {
+      resultado.servicios.ws_sr_padron_a13 = { activo: false, mensaje: e.message };
     }
 
     return resultado;

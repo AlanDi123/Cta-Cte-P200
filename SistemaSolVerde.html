@@ -6249,12 +6249,19 @@
         return;
       }
 
+      // Validar formato CUIT antes de enviar
+      var cuitLimpio = String(arcaClienteSeleccionado.cuit).replace(/[-\s]/g, '');
+      if (!/^\d{11}$/.test(cuitLimpio)) {
+        mostrarToast('CUIT invalido: debe tener 11 digitos. Actual: ' + arcaClienteSeleccionado.cuit, 'error');
+        return;
+      }
+
       var resultado = document.getElementById('arcaCuitResultado');
       resultado.innerHTML = '<span style="color:var(--sv-info);">Consultando ARCA...</span>';
 
       google.script.run
         .withSuccessHandler(function(data) {
-          if (data.encontrado) {
+          if (data && data.encontrado) {
             resultado.innerHTML = '<span style="color:var(--sv-exito);">ARCA: ' + escapeHtml(data.razonSocial) + ' - ' + data.condicionTexto + '</span>';
             // Actualizar info en pantalla
             document.getElementById('arcaClienteIVA').textContent = data.condicionTexto;
@@ -6268,13 +6275,13 @@
               seleccionarCbteTipo(6);
             }
           } else {
-            resultado.innerHTML = '<span style="color:var(--sv-advertencia);">' + (data.error || 'CUIT no encontrado en padron') + '</span>';
+            resultado.innerHTML = '<span style="color:var(--sv-advertencia);">' + ((data && data.error) || 'CUIT no encontrado en padron') + '</span>';
           }
         })
         .withFailureHandler(function(err) {
           resultado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + err.message + '</span>';
         })
-        .consultarCUITArca(arcaClienteSeleccionado.cuit);
+        .consultarCUITArca(cuitLimpio);
     }
 
     function emitirFacturaArca() {
