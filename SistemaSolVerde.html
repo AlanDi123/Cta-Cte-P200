@@ -7195,7 +7195,7 @@
       }
 
       if (!confirm(
-        'Autorizar web services wsfe y ws_sr_padron_a5?\n\n' +
+        'Autorizar web services wsfe y ws_sr_constancia_inscripcion?\n\n' +
         'Esto es necesario después de generar un certificado nuevo.\n' +
         'El proceso tarda entre 30 y 120 segundos.\n\n' +
         'Continuar?'
@@ -7282,15 +7282,15 @@
 
           var servicios = result.servicios || {};
           var wsfeOk = servicios.wsfe && servicios.wsfe.activo;
-          var padronOk = servicios.ws_sr_padron_a5 && servicios.ws_sr_padron_a5.activo;
+          var padronOk = servicios.ws_sr_constancia_inscripcion && servicios.ws_sr_constancia_inscripcion.activo;
 
           html += '<p><strong>wsfe (facturacion):</strong> ' + (wsfeOk
             ? '<span style="color:var(--sv-exito);">' + servicios.wsfe.mensaje + ' (CUIT: ' + servicios.wsfe.cuitAuth + ')</span>'
             : '<span style="color:var(--sv-peligro);">No autorizado - ' + (servicios.wsfe ? servicios.wsfe.mensaje : 'sin respuesta') + '</span>') + '</p>';
 
-          html += '<p><strong>ws_sr_padron_a5 (padron):</strong> ' + (padronOk
-            ? '<span style="color:var(--sv-exito);">' + servicios.ws_sr_padron_a5.mensaje + '</span>'
-            : '<span style="color:var(--sv-peligro);">No autorizado - ' + (servicios.ws_sr_padron_a5 ? servicios.ws_sr_padron_a5.mensaje : 'sin respuesta') + '</span>') + '</p>';
+          html += '<p><strong>ws_sr_constancia_inscripcion (padron):</strong> ' + (padronOk
+            ? '<span style="color:var(--sv-exito);">' + servicios.ws_sr_constancia_inscripcion.mensaje + '</span>'
+            : '<span style="color:var(--sv-peligro);">No autorizado - ' + (servicios.ws_sr_constancia_inscripcion ? servicios.ws_sr_constancia_inscripcion.mensaje : 'sin respuesta') + '</span>') + '</p>';
 
           if (wsfeOk && padronOk) {
             html += '<p style="margin-top:0.5rem;color:var(--sv-exito);font-weight:bold;">Todo operativo - podes emitir comprobantes</p>';

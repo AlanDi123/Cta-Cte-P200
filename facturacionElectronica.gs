@@ -235,7 +235,7 @@ const AfipService = {
    *
    * Para generar el certificado, usar generarCertificadoAfip() desde Configuración.
    *
-   * @param {string} wsid - Web Service ID ('wsfe' para facturación, 'ws_sr_padron_a5' para padrón)
+   * @param {string} wsid - Web Service ID ('wsfe' para facturación, 'ws_sr_constancia_inscripcion' para padrón)
    * @returns {Object} {token, sign}
    */
   autenticar: function(wsid) {
@@ -513,12 +513,12 @@ const AfipService = {
       throw new Error('CUIT inválido: debe tener 11 dígitos. Recibido: ' + cuit);
     }
 
-    var auth = this.autenticar('ws_sr_padron_a5');
+    var auth = this.autenticar('ws_sr_constancia_inscripcion');
 
     var payload = {
       environment: config.environment,
-      method: 'getPersona',
-      wsid: 'ws_sr_padron_a5',
+      method: 'getPersona_v2',
+      wsid: 'ws_sr_constancia_inscripcion',
       params: {
         token: auth.token,
         sign: auth.sign,
@@ -531,8 +531,8 @@ const AfipService = {
     if (config.cert) payload.cert = config.cert;
     if (config.key) payload.key = config.key;
 
-    // Intentar primero con ws_sr_padron_a5, luego fallback a ws_sr_padron_a13
-    var servicios = ['ws_sr_padron_a5', 'ws_sr_padron_a13'];
+    // Intentar primero con ws_sr_constancia_inscripcion, luego fallback a ws_sr_padron_a13
+    var servicios = ['ws_sr_constancia_inscripcion', 'ws_sr_padron_a13'];
     var ultimoError = '';
 
     for (var s = 0; s < servicios.length; s++) {
@@ -542,6 +542,7 @@ const AfipService = {
         if (s > 0) {
           auth = this.autenticar(wsid);
           payload.wsid = wsid;
+          payload.method = (wsid === 'ws_sr_constancia_inscripcion') ? 'getPersona_v2' : 'getPersona';
           payload.params.token = auth.token;
           payload.params.sign = auth.sign;
           payload.params.cuitRepresentada = auth.cuitAuth;
@@ -1130,7 +1131,7 @@ function generarCertificadoAfip(datos) {
     Logger.log('Certificado generado y guardado exitosamente (' + env + ')');
 
     // Paso 5: Autorizar web services automáticamente
-    Logger.log('Autorizando web services wsfe y ws_sr_padron_a5...');
+    Logger.log('Autorizando web services wsfe y ws_sr_constancia_inscripcion...');
     var authResult = autorizarWebServicesAfip({
       username: datos.username,
       password: datos.password,
@@ -1161,7 +1162,7 @@ function generarCertificadoAfip(datos) {
 }
 
 /**
- * Autoriza los web services necesarios (wsfe y ws_sr_padron_a5) en ARCA
+ * Autoriza los web services necesarios (wsfe y ws_sr_constancia_inscripcion) en ARCA
  * via el endpoint ws-auths de Afip SDK.
  *
  * Este paso es OBLIGATORIO después de generar un certificado.
@@ -1192,7 +1193,7 @@ function autorizarWebServicesAfip(datos) {
     }
 
     // Web services a autorizar
-    var webServices = ['wsfe', 'ws_sr_padron_a5', 'ws_sr_padron_a13'];
+    var webServices = ['wsfe', 'ws_sr_constancia_inscripcion', 'ws_sr_padron_a13'];
     var autorizados = [];
     var errores = [];
 
@@ -1389,7 +1390,7 @@ function obtenerConfigAfip() {
 
 /**
  * Verifica el estado real del certificado y web services en ARCA.
- * Intenta autenticar con wsfe y ws_sr_padron_a5 para confirmar si funcionan.
+ * Intenta autenticar con wsfe y ws_sr_constancia_inscripcion para confirmar si funcionan.
  * @returns {Object} Estado detallado de cert y web services
  */
 function verificarEstadoServiciosAfip() {
@@ -1425,20 +1426,20 @@ function verificarEstadoServiciosAfip() {
       resultado.servicios.wsfe = { activo: false, mensaje: e.message };
     }
 
-    // Verificar ws_sr_padron_a5 (consulta padrón)
+    // Verificar ws_sr_constancia_inscripcion (consulta padrón)
     try {
-      var authPadron = AfipService.autenticar('ws_sr_padron_a5');
+      var authPadron = AfipService.autenticar('ws_sr_constancia_inscripcion');
       if (authPadron.token && authPadron.sign) {
-        resultado.servicios.ws_sr_padron_a5 = {
+        resultado.servicios.ws_sr_constancia_inscripcion = {
           activo: true,
           mensaje: 'Autorizado',
           cuitAuth: authPadron.cuitAuth
         };
       } else {
-        resultado.servicios.ws_sr_padron_a5 = { activo: false, mensaje: 'Sin token/sign' };
+        resultado.servicios.ws_sr_constancia_inscripcion = { activo: false, mensaje: 'Sin token/sign' };
       }
     } catch (e) {
-      resultado.servicios.ws_sr_padron_a5 = { activo: false, mensaje: e.message };
+      resultado.servicios.ws_sr_constancia_inscripcion = { activo: false, mensaje: e.message };
     }
 
     // Verificar ws_sr_padron_a13 (consulta padrón - fallback)
