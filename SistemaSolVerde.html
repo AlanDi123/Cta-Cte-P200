@@ -2087,6 +2087,58 @@
             </div>
 
             <div class="card">
+              <div class="card-title">📋 Datos Fiscales del Emisor</div>
+              <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Datos que aparecerán en las facturas electrónicas ARCA
+              </p>
+
+              <div class="form-group">
+                <label class="form-label">CUIT del Emisor *</label>
+                <div style="display: flex; gap: 0.5rem;">
+                  <input type="text" class="form-input" id="inputEmisorCuit" placeholder="XX-XXXXXXXX-X" style="flex: 1;">
+                  <button class="btn btn-outline btn-sm" onclick="autocompletarDatosEmisor()" title="Autocomplete desde ARCA">
+                    🔍
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Razón Social *</label>
+                <input type="text" class="form-input" id="inputEmisorRazonSocial" placeholder="Razón social completa">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Nombre de Fantasía</label>
+                <input type="text" class="form-input" id="inputEmisorFantasia" placeholder="Opcional">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Domicilio Comercial *</label>
+                <input type="text" class="form-input" id="inputEmisorDomicilio" placeholder="Calle Nro - Ciudad, Provincia">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Ingresos Brutos</label>
+                <input type="text" class="form-input" id="inputEmisorIIBB" placeholder="XXX-XXXXXX-X">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Fecha Inicio Actividades</label>
+                <input type="date" class="form-input" id="inputEmisorFechaInicio">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Condición frente al IVA</label>
+                <input type="text" class="form-input" id="inputEmisorCondicionIVA" readonly style="background: var(--sv-superficie-elevada);">
+              </div>
+
+              <button class="btn btn-primary" onclick="guardarDatosEmisor()" style="width: 100%;">
+                💾 Guardar Datos del Emisor
+              </button>
+              <div id="estadoEmisor" style="margin-top: 0.5rem; font-size: 0.875rem;"></div>
+            </div>
+
+            <div class="card">
               <div class="card-title">🎨 Apariencia</div>
 
               <div class="form-group">
@@ -2465,8 +2517,9 @@
         <input type="hidden" id="clienteEditando">
 
         <div class="form-group">
-          <label class="form-label">Nombre *</label>
+          <label class="form-label">Nombre de Fantasía / Nombre Comercial *</label>
           <input type="text" class="form-input" id="clienteNombre" required>
+          <small style="color: var(--sv-texto-muted); font-size: 0.75rem;">Nombre que usarás para identificar al cliente</small>
         </div>
 
         <div class="form-group">
@@ -2480,9 +2533,24 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">CUIT (opcional)</label>
-          <input type="text" class="form-input" id="clienteCuit" placeholder="XX-XXXXXXXX-X" inputmode="numeric">
+          <label class="form-label">CUIT (solo para Responsables Inscriptos)</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" class="form-input" id="clienteCuit" placeholder="XX-XXXXXXXX-X" inputmode="numeric" style="flex: 1;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="verificarCuitCliente()" title="Verificar en ARCA" id="btnVerificarCuit">
+              🔍
+            </button>
+          </div>
           <small style="color: var(--sv-texto-muted); font-size: 0.75rem;">Si no tiene CUIT, se considera Consumidor Final</small>
+        </div>
+
+        <div class="form-group" id="groupRazonSocial" style="display: none;">
+          <label class="form-label">Razón Social (autocompletado desde ARCA)</label>
+          <input type="text" class="form-input" id="clienteRazonSocial" readonly style="background: var(--sv-superficie-elevada);">
+        </div>
+
+        <div class="form-group" id="groupDomicilioFiscal" style="display: none;">
+          <label class="form-label">Domicilio Fiscal</label>
+          <input type="text" class="form-input" id="clienteDomicilioFiscal">
         </div>
 
         <div class="form-group">
@@ -3360,7 +3428,10 @@
       if (modulo === 'listas-facturas') cargarListasFacturas();
       if (modulo === 'facturacion-arca') inicializarModuloArca();
       if (modulo === 'historial-facturas') cargarHistorialFacturas();
-      if (modulo === 'configuracion') cargarConfigAfip();
+      if (modulo === 'configuracion') {
+        // Solo cargar datos del emisor sin verificaciones pesadas
+        cargarDatosEmisor();
+      }
     }
 
     // ============================================================================
@@ -4735,6 +4806,13 @@
       document.getElementById('clienteEditando').value = '';
       document.getElementById('formCliente').reset();
       document.getElementById('clienteLimite').value = '100000';
+
+      // Ocultar campos de Razón Social y Domicilio Fiscal
+      document.getElementById('groupRazonSocial').style.display = 'none';
+      document.getElementById('groupDomicilioFiscal').style.display = 'none';
+      document.getElementById('clienteRazonSocial').value = '';
+      document.getElementById('clienteDomicilioFiscal').value = '';
+
       abrirModal('modalCliente');
     }
 
@@ -4750,7 +4828,61 @@
       document.getElementById('clienteCuit').value = cliente.cuit || '';
       document.getElementById('clienteLimite').value = cliente.limite || 100000;
       document.getElementById('clienteObs').value = cliente.obs || '';
+
+      // Mostrar campos de Razón Social y Domicilio Fiscal si tiene CUIT
+      if (cliente.cuit) {
+        document.getElementById('groupRazonSocial').style.display = 'block';
+        document.getElementById('groupDomicilioFiscal').style.display = 'block';
+        document.getElementById('clienteRazonSocial').value = cliente.razonSocial || '';
+        document.getElementById('clienteDomicilioFiscal').value = cliente.domicilioFiscal || '';
+      } else {
+        document.getElementById('groupRazonSocial').style.display = 'none';
+        document.getElementById('groupDomicilioFiscal').style.display = 'none';
+      }
+
       abrirModal('modalCliente');
+    }
+
+    function verificarCuitCliente() {
+      const cuit = document.getElementById('clienteCuit').value.trim();
+
+      if (!cuit) {
+        mostrarToast('Ingrese un CUIT', 'error');
+        return;
+      }
+
+      const btnVerificar = document.getElementById('btnVerificarCuit');
+      btnVerificar.disabled = true;
+      btnVerificar.innerHTML = '⏳';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btnVerificar.disabled = false;
+          btnVerificar.innerHTML = '🔍';
+
+          if (result.encontrado) {
+            // Mostrar campos de Razón Social y Domicilio Fiscal
+            document.getElementById('groupRazonSocial').style.display = 'block';
+            document.getElementById('groupDomicilioFiscal').style.display = 'block';
+
+            // Autocompletar datos desde ARCA
+            document.getElementById('clienteRazonSocial').value = result.razonSocial || '';
+            document.getElementById('clienteDomicilioFiscal').value = result.domicilio || '';
+
+            mostrarToast('✓ Datos verificados en ARCA', 'success');
+          } else {
+            mostrarToast('CUIT no encontrado en padrón ARCA', 'warning');
+            // Igual mostrar los campos para que se puedan ingresar manualmente
+            document.getElementById('groupRazonSocial').style.display = 'block';
+            document.getElementById('groupDomicilioFiscal').style.display = 'block';
+          }
+        })
+        .withFailureHandler(function(error) {
+          btnVerificar.disabled = false;
+          btnVerificar.innerHTML = '🔍';
+          mostrarToast('Error al verificar: ' + error.message, 'error');
+        })
+        .consultarCUITArca(cuit);
     }
 
     function guardarCliente(e) {
@@ -4764,6 +4896,8 @@
         email: document.getElementById('clienteEmail').value,
         cuit: cuitVal,
         condicionFiscal: cuitVal ? 'Responsable Inscripto' : 'Consumidor Final',
+        razonSocial: document.getElementById('clienteRazonSocial').value.trim(),
+        domicilioFiscal: document.getElementById('clienteDomicilioFiscal').value.trim(),
         limite: parseFloat(document.getElementById('clienteLimite').value) || 100000,
         obs: document.getElementById('clienteObs').value
       };
@@ -6174,6 +6308,8 @@
         .emitirFacturaElectronica({
           cbteTipo: cbteTipo,
           clienteNombre: arcaClienteSeleccionado.nombre,
+          clienteRazonSocial: arcaClienteSeleccionado.razonSocial || arcaClienteSeleccionado.nombre,
+          clienteDomicilio: arcaClienteSeleccionado.domicilioFiscal || '',
           clienteCuit: arcaClienteSeleccionado.cuit || '',
           clienteCondicion: condicion,
           clienteCondicionTexto: condicionTexto,
@@ -6267,6 +6403,103 @@
           mostrarToast('Error: ' + error.message, 'error');
         })
         .emitirNotaCredito(facturaId);
+    }
+
+    // ============================================================================
+    // CONFIGURACION DATOS FISCALES DEL EMISOR
+    // ============================================================================
+
+    // Cargar datos del emisor al abrir configuración
+    function cargarDatosEmisor() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success && result.datos) {
+            document.getElementById('inputEmisorCuit').value = result.datos.cuit || '';
+            document.getElementById('inputEmisorRazonSocial').value = result.datos.razonSocial || '';
+            document.getElementById('inputEmisorFantasia').value = result.datos.nombreFantasia || '';
+            document.getElementById('inputEmisorDomicilio').value = result.datos.domicilio || '';
+            document.getElementById('inputEmisorIIBB').value = result.datos.ingresosBrutos || '';
+            document.getElementById('inputEmisorFechaInicio').value = result.datos.fechaInicio || '';
+            document.getElementById('inputEmisorCondicionIVA').value = result.datos.condicionIVA || '';
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error cargando datos del emisor:', error);
+        })
+        .obtenerDatosEmisor();
+    }
+
+    // Autocompletar datos desde ARCA
+    function autocompletarDatosEmisor() {
+      const cuit = document.getElementById('inputEmisorCuit').value.trim();
+
+      if (!cuit) {
+        mostrarToast('Ingrese un CUIT', 'error');
+        return;
+      }
+
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+
+          if (result.encontrado) {
+            document.getElementById('inputEmisorRazonSocial').value = result.razonSocial;
+            document.getElementById('inputEmisorCondicionIVA').value = result.condicionTexto;
+            if (result.domicilio) {
+              document.getElementById('inputEmisorDomicilio').value = result.domicilio;
+            }
+            mostrarToast('✓ Datos autocompletados desde ARCA', 'success');
+          } else {
+            mostrarToast('No se encontraron datos en ARCA para este CUIT', 'warning');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .consultarCUITArca(cuit);
+    }
+
+    // Guardar datos del emisor
+    function guardarDatosEmisor() {
+      const datos = {
+        cuit: document.getElementById('inputEmisorCuit').value.trim(),
+        razonSocial: document.getElementById('inputEmisorRazonSocial').value.trim(),
+        nombreFantasia: document.getElementById('inputEmisorFantasia').value.trim(),
+        domicilio: document.getElementById('inputEmisorDomicilio').value.trim(),
+        ingresosBrutos: document.getElementById('inputEmisorIIBB').value.trim(),
+        fechaInicio: document.getElementById('inputEmisorFechaInicio').value,
+        condicionIVA: document.getElementById('inputEmisorCondicionIVA').value
+      };
+
+      // Validaciones
+      if (!datos.cuit || !datos.razonSocial || !datos.domicilio) {
+        mostrarToast('Complete los campos obligatorios (CUIT, Razón Social, Domicilio)', 'error');
+        return;
+      }
+
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          const estado = document.getElementById('estadoEmisor');
+
+          if (result.success) {
+            estado.innerHTML = '<span style="color: var(--sv-exito);">✓ Datos guardados correctamente</span>';
+            mostrarToast('Datos del emisor guardados', 'success');
+          } else {
+            estado.innerHTML = '<span style="color: var(--sv-peligro);">✕ ' + result.error + '</span>';
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarDatosEmisor(datos);
     }
 
     // ============================================================================
@@ -6841,6 +7074,8 @@
         cbteTipo: 6, // Factura B
         cliente: {
           nombre: cliente.nombre,
+          razonSocial: cliente.razonSocial || cliente.nombre,
+          domicilio: cliente.domicilioFiscal || '',
           condicion: 'CF', // Consumidor Final
           cuit: cliente.cuit || null
         },
@@ -7065,11 +7300,30 @@
       btnEmitir.textContent = 'Emitiendo...';
       mostrarLoading(true);
 
+      // Validar que el cliente tenga Razón Social y Domicilio Fiscal
+      if (!cliente.razonSocial) {
+        mostrarLoading(false);
+        btnEmitir.disabled = false;
+        btnEmitir.textContent = '✓ Emitir Factura A';
+        mostrarToast('El cliente debe tener Razón Social para emitir Factura A', 'error');
+        return;
+      }
+
+      if (!cliente.domicilioFiscal) {
+        mostrarLoading(false);
+        btnEmitir.disabled = false;
+        btnEmitir.textContent = '✓ Emitir Factura A';
+        mostrarToast('El cliente debe tener Domicilio Fiscal para emitir Factura A', 'error');
+        return;
+      }
+
       // Preparar datos para ARCA
       const datosFactura = {
         cbteTipo: 1, // Factura A
         cliente: {
           nombre: cliente.nombre,
+          razonSocial: cliente.razonSocial,
+          domicilio: cliente.domicilioFiscal,
           condicion: 'RI', // Responsable Inscripto
           cuit: cliente.cuit
         },
