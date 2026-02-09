@@ -295,6 +295,7 @@
     @media (max-width: 768px) {
       :root {
         --sv-sidebar-width: 280px;
+        --sv-touch-target: 52px; /* Botones más grandes en tablets */
       }
 
       .header-logo-text {
@@ -307,6 +308,7 @@
 
       .sidebar.open {
         transform: translateX(0);
+        box-shadow: 4px 0 12px var(--sv-sombra);
       }
 
       .main-content {
@@ -317,9 +319,25 @@
       .grid-2, .grid-3, .grid-4 {
         grid-template-columns: 1fr;
       }
+
+      /* Formularios más táctiles */
+      .form-input, .form-select, .form-textarea {
+        font-size: 16px; /* Evita zoom en iOS */
+        padding: 1rem;
+      }
+
+      /* Tablas más compactas */
+      .table-container {
+        margin: 0 -0.75rem;
+        padding: 0 0.75rem;
+      }
     }
 
     @media (max-width: 480px) {
+      :root {
+        --sv-touch-target: 56px; /* Botones extra grandes en móviles */
+      }
+
       .header-logo-text {
         display: none;
       }
@@ -333,13 +351,32 @@
         margin-bottom: 1rem;
       }
 
-      .btn {
+      /* Botones full-width en móvil solo si están solos */
+      .btn:not(.btn-sm):not(.btn-group > .btn) {
         width: 100%;
         justify-content: center;
       }
 
       .btn-group {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+
+      .btn-group > .btn {
+        flex: 1;
+        min-width: 100px;
+      }
+
+      /* Inputs más grandes */
+      .form-input, .form-select {
+        font-size: 16px;
+      }
+
+      /* Modales fullscreen en móvil */
+      .modal-content {
+        max-width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
       }
     }
 
@@ -627,9 +664,14 @@
     .toast-warning { border-left: 4px solid var(--sv-advertencia); }
     .toast-info { border-left: 4px solid var(--sv-info); }
 
-    /* Animaciones */
+    /* Animaciones Mejoradas */
     @keyframes slideIn {
       from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes slideInLeft {
+      from { transform: translateX(-30px); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
 
@@ -644,17 +686,51 @@
     }
 
     @keyframes scaleIn {
-      from { opacity: 0; transform: scale(0.9); }
+      from { opacity: 0; transform: scale(0.95); }
       to { opacity: 1; transform: scale(1); }
     }
 
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+
     .fadeOut {
-      animation: fadeOut 0.2s ease forwards;
+      animation: fadeOut 0.3s ease forwards;
     }
 
     @keyframes fadeOut {
-      from { opacity: 1; }
-      to { opacity: 0; }
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(0.95); }
+    }
+
+    /* Skeleton Loading */
+    .skeleton {
+      background: linear-gradient(90deg, var(--sv-superficie-elevada) 25%, var(--sv-borde) 50%, var(--sv-superficie-elevada) 75%);
+      background-size: 2000px 100%;
+      animation: shimmer 2s infinite;
+      border-radius: var(--sv-radius);
+    }
+
+    .skeleton-text {
+      height: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .skeleton-title {
+      height: 1.5rem;
+      width: 60%;
+      margin-bottom: 1rem;
+    }
+
+    .skeleton-card {
+      height: 100px;
+      margin-bottom: 1rem;
     }
 
     /* Loading */
@@ -1262,13 +1338,9 @@
 
       <div class="menu-section">
         <div class="menu-section-title">Facturacion</div>
-        <div class="menu-item" data-module="facturacion">
-          <span class="menu-icon">🧾</span>
-          <span>Transferencias</span>
-        </div>
-        <div class="menu-item" data-module="listas-facturas">
-          <span class="menu-icon">📄</span>
-          <span>Listas Facturas</span>
+        <div class="menu-item" data-module="facturacion-unificada">
+          <span class="menu-icon">📋</span>
+          <span>Facturación & Transferencias</span>
         </div>
         <div class="menu-item" data-module="productos">
           <span class="menu-icon">📦</span>
@@ -1277,10 +1349,6 @@
         <div class="menu-item" data-module="escanear">
           <span class="menu-icon">📸</span>
           <span>Escanear IA</span>
-        </div>
-        <div class="menu-item" data-module="facturacion-arca">
-          <span class="menu-icon">📋</span>
-          <span>Factura ARCA</span>
         </div>
         <div class="menu-item" data-module="historial-facturas">
           <span class="menu-icon">📑</span>
@@ -1802,6 +1870,48 @@
         </div>
       </div>
 
+      <!-- MODULO: FACTURACION UNIFICADA -->
+      <div class="module-view" id="module-facturacion-unificada">
+        <h2 style="margin-bottom: 1rem;">💰 Facturación & Transferencias ARCA</h2>
+
+        <div class="card" style="margin-bottom: 1rem;">
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+            <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
+              <label class="form-label">Filtrar por mes</label>
+              <input type="month" class="form-input" id="filtroMesTransfUnif" onchange="cargarTransferenciasUnificadas()">
+            </div>
+            <button class="btn btn-primary" onclick="abrirModalNuevaTransferenciaUnif()">+ Nueva Transferencia</button>
+            <button class="btn btn-outline" onclick="cargarTransferenciasUnificadas(true)">🔄 Actualizar</button>
+          </div>
+        </div>
+
+        <!-- Tabs para filtrar por estado -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+          <button class="btn btn-outline" id="tabTodasUnif" onclick="filtrarTransferenciasUnif('todas')" style="flex: 1; min-width: 120px;">Todas</button>
+          <button class="btn btn-outline" id="tabPendientesUnif" onclick="filtrarTransferenciasUnif('pendientes')" style="flex: 1; min-width: 120px;">Pendientes</button>
+          <button class="btn btn-outline" id="tabFacturadasUnif" onclick="filtrarTransferenciasUnif('facturadas')" style="flex: 1; min-width: 120px;">Facturadas</button>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="table table-responsive-cards">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>Monto</th>
+                  <th>Banco</th>
+                  <th>Tipo</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyTransferenciasUnif"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- MODULO: FACTURACION ELECTRONICA ARCA -->
       <div class="module-view" id="module-facturacion-arca">
         <h2 style="margin-bottom: 1rem;">Emitir Comprobante Electronico ARCA</h2>
@@ -1974,6 +2084,58 @@
               </div>
               <button class="btn btn-primary" onclick="guardarApiKeyConfig()" style="width: 100%;">Guardar API Key</button>
               <p id="estadoApiKey" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
+            </div>
+
+            <div class="card">
+              <div class="card-title">📋 Datos Fiscales del Emisor</div>
+              <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Datos que aparecerán en las facturas electrónicas ARCA
+              </p>
+
+              <div class="form-group">
+                <label class="form-label">CUIT del Emisor *</label>
+                <div style="display: flex; gap: 0.5rem;">
+                  <input type="text" class="form-input" id="inputEmisorCuit" placeholder="XX-XXXXXXXX-X" style="flex: 1;">
+                  <button class="btn btn-outline btn-sm" onclick="autocompletarDatosEmisor()" title="Autocomplete desde ARCA">
+                    🔍
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Razón Social *</label>
+                <input type="text" class="form-input" id="inputEmisorRazonSocial" placeholder="Razón social completa">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Nombre de Fantasía</label>
+                <input type="text" class="form-input" id="inputEmisorFantasia" placeholder="Opcional">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Domicilio Comercial *</label>
+                <input type="text" class="form-input" id="inputEmisorDomicilio" placeholder="Calle Nro - Ciudad, Provincia">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Ingresos Brutos</label>
+                <input type="text" class="form-input" id="inputEmisorIIBB" placeholder="XXX-XXXXXX-X">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Fecha Inicio Actividades</label>
+                <input type="date" class="form-input" id="inputEmisorFechaInicio">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Condición frente al IVA</label>
+                <input type="text" class="form-input" id="inputEmisorCondicionIVA" readonly style="background: var(--sv-superficie-elevada);">
+              </div>
+
+              <button class="btn btn-primary" onclick="guardarDatosEmisor()" style="width: 100%;">
+                💾 Guardar Datos del Emisor
+              </button>
+              <div id="estadoEmisor" style="margin-top: 0.5rem; font-size: 0.875rem;"></div>
             </div>
 
             <div class="card">
@@ -2355,8 +2517,9 @@
         <input type="hidden" id="clienteEditando">
 
         <div class="form-group">
-          <label class="form-label">Nombre *</label>
+          <label class="form-label">Nombre de Fantasía / Nombre Comercial *</label>
           <input type="text" class="form-input" id="clienteNombre" required>
+          <small style="color: var(--sv-texto-muted); font-size: 0.75rem;">Nombre que usarás para identificar al cliente</small>
         </div>
 
         <div class="form-group">
@@ -2370,9 +2533,24 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">CUIT (opcional)</label>
-          <input type="text" class="form-input" id="clienteCuit" placeholder="XX-XXXXXXXX-X" inputmode="numeric">
+          <label class="form-label">CUIT (solo para Responsables Inscriptos)</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" class="form-input" id="clienteCuit" placeholder="XX-XXXXXXXX-X" inputmode="numeric" style="flex: 1;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="verificarCuitCliente()" title="Verificar en ARCA" id="btnVerificarCuit">
+              🔍
+            </button>
+          </div>
           <small style="color: var(--sv-texto-muted); font-size: 0.75rem;">Si no tiene CUIT, se considera Consumidor Final</small>
+        </div>
+
+        <div class="form-group" id="groupRazonSocial" style="display: none;">
+          <label class="form-label">Razón Social (autocompletado desde ARCA)</label>
+          <input type="text" class="form-input" id="clienteRazonSocial" readonly style="background: var(--sv-superficie-elevada);">
+        </div>
+
+        <div class="form-group" id="groupDomicilioFiscal" style="display: none;">
+          <label class="form-label">Domicilio Fiscal</label>
+          <input type="text" class="form-input" id="clienteDomicilioFiscal">
         </div>
 
         <div class="form-group">
@@ -2530,6 +2708,244 @@
     </div>
   </div>
 
+  <!-- Modales del Sistema Unificado de Facturación -->
+
+  <!-- Modal Nueva Transferencia Unificada -->
+  <div class="modal" id="modalTransferenciaUnif">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Nueva Transferencia</div>
+        <button class="modal-close" onclick="cerrarModal('modalTransferenciaUnif')">&times;</button>
+      </div>
+      <form id="formTransferenciaUnif" onsubmit="guardarTransferenciaUnif(event)">
+        <div class="form-group">
+          <label class="form-label">Fecha *</label>
+          <input type="date" class="form-input" id="transfUnifFecha" required>
+        </div>
+        <div class="form-group form-group-autocomplete">
+          <label class="form-label">Cliente *</label>
+          <input type="text" class="form-input" id="transfUnifCliente" placeholder="Escriba para buscar cliente..." autocomplete="off" required>
+          <div class="suggestions-list" id="transfUnifClienteSugerencias"></div>
+        </div>
+        <div id="transfUnifClienteInfo" style="display:none; margin-bottom: 1rem; padding: 0.75rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
+          <p style="margin: 0.25rem 0;"><strong>CUIT:</strong> <span id="transfUnifClienteCUIT">-</span></p>
+          <p style="margin: 0.25rem 0;"><strong>Condición IVA:</strong> <span id="transfUnifClienteIVA">-</span></p>
+          <p style="margin: 0.25rem 0; font-size: 0.875rem; color: var(--sv-primario);"><strong>Tipo de Factura:</strong> <span id="transfUnifTipoFactura">-</span></p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monto Total Transferido *</label>
+          <input type="number" class="form-input" id="transfUnifMonto" step="0.01" min="0" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Banco</label>
+          <input type="hidden" id="transfUnifBanco" value="">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button type="button" class="banco-option" data-banco="Santander" onclick="seleccionarBancoUnif('Santander')">
+              <span style="font-size: 1.5rem;">🔴</span>
+              <span>Santander</span>
+            </button>
+            <button type="button" class="banco-option" data-banco="Mercado Pago" onclick="seleccionarBancoUnif('Mercado Pago')">
+              <span style="font-size: 1.5rem;">💙</span>
+              <span>Mercado Pago</span>
+            </button>
+            <button type="button" class="banco-option" data-banco="Macro" onclick="seleccionarBancoUnif('Macro')">
+              <span style="font-size: 1.5rem;">🟡</span>
+              <span>Macro</span>
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones</label>
+          <textarea class="form-textarea" id="transfUnifObs" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar y Continuar con Facturación</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Vista Previa Factura B (Consumidor Final) -->
+  <div class="modal" id="modalFacturaB">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <div class="modal-title">Vista Previa - Factura B (Consumidor Final)</div>
+        <button class="modal-close" onclick="cerrarModal('modalFacturaB')">&times;</button>
+      </div>
+
+      <div class="alert alert-info" style="margin-bottom: 1rem;">
+        <strong>📋 Factura Tipo B - Consumidor Final</strong><br>
+        Se emitirá automáticamente con el concepto "Venta de Productos"
+      </div>
+
+      <div style="background: var(--sv-superficie-elevada); padding: 1.5rem; border-radius: var(--sv-radius); margin-bottom: 1rem;">
+        <div style="text-align: center; margin-bottom: 1rem;">
+          <h3 style="margin: 0; color: var(--sv-primario);">FACTURA B</h3>
+          <p style="margin: 0.5rem 0; font-size: 0.875rem; color: var(--sv-texto-secundario);" id="facturaBFecha"></p>
+        </div>
+
+        <div style="border-top: 1px solid var(--sv-borde); padding-top: 1rem;">
+          <p style="margin: 0.5rem 0;"><strong>Cliente:</strong> <span id="facturaBCliente"></span></p>
+          <p style="margin: 0.5rem 0;"><strong>Transferencia:</strong> <span id="facturaBTransferencia"></span></p>
+          <p style="margin: 0.5rem 0;"><strong>Banco:</strong> <span id="facturaBBanco"></span></p>
+        </div>
+
+        <div style="border-top: 1px solid var(--sv-borde); margin-top: 1rem; padding-top: 1rem;">
+          <div style="background: var(--sv-fondo); padding: 1rem; border-radius: var(--sv-radius);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>Concepto:</span>
+              <strong>Venta de Productos</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>Cantidad:</span>
+              <strong>1</strong>
+            </div>
+            <hr style="border-color: var(--sv-borde); margin: 0.75rem 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 1.25rem;">
+              <span><strong>TOTAL:</strong></span>
+              <strong style="color: var(--sv-primario);" id="facturaBTotal"></strong>
+            </div>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.75rem; color: var(--sv-texto-muted);">
+              (Incluye IVA 10.5%)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-outline" style="flex: 1;" onclick="cerrarModal('modalFacturaB')">Cancelar</button>
+        <button class="btn btn-primary" style="flex: 1;" onclick="emitirFacturaB()" id="btnEmitirFacturaB">✅ Emitir Factura B en ARCA</button>
+      </div>
+
+      <p style="margin-top: 1rem; font-size: 0.75rem; color: var(--sv-texto-muted); text-align: center;">
+        ATENCIÓN: Esta acción NO se puede deshacer. El comprobante quedará registrado en ARCA.
+      </p>
+    </div>
+  </div>
+
+  <!-- Modal Selección Productos Factura A (Responsable Inscripto) -->
+  <div class="modal" id="modalFacturaA">
+    <div class="modal-content" style="max-width: 900px;">
+      <div class="modal-header">
+        <div class="modal-title">Factura A - Selección de Productos</div>
+        <button class="modal-close" onclick="cerrarModal('modalFacturaA')">&times;</button>
+      </div>
+
+      <div class="alert alert-info" style="margin-bottom: 1rem;">
+        <strong>📋 Factura Tipo A - Responsable Inscripto</strong><br>
+        Seleccione los productos vendidos. Los precios deben cargarse SIN IVA.<br>
+        El total con IVA (10.5%) debe coincidir o superar el monto de la transferencia.
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <!-- Columna Izquierda: Selección de Productos -->
+        <div>
+          <div style="background: var(--sv-superficie-elevada); padding: 1rem; border-radius: var(--sv-radius); margin-bottom: 1rem;">
+            <p style="margin: 0;"><strong>Cliente:</strong> <span id="facturaACliente"></span></p>
+            <p style="margin: 0.5rem 0;"><strong>CUIT:</strong> <span id="facturaACUIT"></span></p>
+            <p style="margin: 0.5rem 0;"><strong>Transferencia:</strong> <span id="facturaATransferencia"></span></p>
+          </div>
+
+          <div class="card" style="margin-bottom: 1rem;">
+            <div class="card-title">Agregar Productos</div>
+            <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem;">
+              <div class="form-group" style="margin:0; flex:2;">
+                <label class="form-label">Producto</label>
+                <select class="form-input" id="facturaAProducto">
+                  <option value="">Seleccionar...</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0; flex:1;">
+                <label class="form-label">Cant.</label>
+                <input type="number" class="form-input" id="facturaACantidad" value="1" min="1">
+              </div>
+              <div class="form-group" style="margin:0; flex:1;">
+                <label class="form-label">P.Unit s/IVA</label>
+                <input type="number" class="form-input" id="facturaAPrecio" step="0.01" min="0">
+              </div>
+              <button class="btn btn-primary" onclick="agregarProductoFacturaA()" style="height: 48px;">+</button>
+            </div>
+            <p style="font-size: 0.75rem; color: var(--sv-texto-muted);">
+              También puede escribir un producto manual
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Productos Agregados</div>
+            <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Cant.</th>
+                    <th>Descripción</th>
+                    <th style="text-align:right">P.Unit</th>
+                    <th style="text-align:right">Subtotal</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="facturaAItemsTbody"></tbody>
+              </table>
+            </div>
+            <div id="facturaAItemsEmpty" style="text-align: center; padding: 2rem; color: var(--sv-texto-muted);">
+              No hay productos agregados
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Vista Previa -->
+        <div>
+          <div class="card" style="border: 2px solid var(--sv-primario); position: sticky; top: 1rem;">
+            <div class="card-title">Vista Previa del Comprobante</div>
+
+            <div style="background: var(--sv-fondo); padding: 1rem; border-radius: var(--sv-radius); margin-bottom: 1rem;">
+              <div style="text-align: center; margin-bottom: 1rem;">
+                <h3 style="margin: 0; color: var(--sv-primario);">FACTURA A</h3>
+                <p style="margin: 0.5rem 0; font-size: 0.875rem;" id="facturaAFecha"></p>
+              </div>
+
+              <div style="border-top: 1px solid var(--sv-borde); padding-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                  <span>Neto Gravado (s/IVA):</span>
+                  <strong id="facturaANeto">$0.00</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                  <span>IVA 10.5%:</span>
+                  <strong id="facturaAIva">$0.00</strong>
+                </div>
+                <hr style="border-color: var(--sv-borde); margin: 0.75rem 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 1.25rem; margin-bottom: 1rem;">
+                  <span><strong>TOTAL:</strong></span>
+                  <strong style="color: var(--sv-primario);" id="facturaATotal">$0.00</strong>
+                </div>
+              </div>
+
+              <div style="background: var(--sv-superficie-elevada); padding: 0.75rem; border-radius: var(--sv-radius); margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                  <span>Monto Transferido:</span>
+                  <strong id="facturaAMontoTransf" style="color: var(--sv-texto-secundario);">$0.00</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span>Diferencia:</span>
+                  <strong id="facturaADiferencia" style="font-size: 1.1rem;">$0.00</strong>
+                </div>
+              </div>
+
+              <div id="facturaAValidacion" style="padding: 0.75rem; border-radius: var(--sv-radius); text-align: center; font-size: 0.875rem;"></div>
+            </div>
+
+            <button class="btn btn-primary" style="width: 100%;" onclick="emitirFacturaA()" id="btnEmitirFacturaA" disabled>
+              ✅ Emitir Factura A en ARCA
+            </button>
+
+            <p style="margin-top: 0.75rem; font-size: 0.75rem; color: var(--sv-texto-muted); text-align: center;">
+              ATENCIÓN: Esta acción NO se puede deshacer.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ============================================================================
     // UTILIDADES
@@ -2575,6 +2991,13 @@
       sesionesCache: {}
     };
 
+    // Sistema de caché para módulos con carga en segundo plano
+    const CacheModulos = {
+      estadisticas: { cargado: false, cargando: false, datos: null },
+      historialCaja: { cargado: false, cargando: false, datos: null },
+      historialFacturas: { cargado: false, cargando: false, datos: null }
+    };
+
     // ============================================================================
     // INICIALIZACION
     // ============================================================================
@@ -2600,11 +3023,21 @@
       setupEventos();
       setupNavegacionTeclado();
 
-      // Precargar datos de facturación en background cuando el navegador esté idle
+      // Precargar todos los módulos en background cuando el navegador esté idle
       if ('requestIdleCallback' in window) {
-        requestIdleCallback(precargarDatosFacturacion, { timeout: 3000 });
+        requestIdleCallback(() => {
+          precargarDatosFacturacion();
+          precargarEstadisticas();
+          precargarHistorialCaja();
+          precargarHistorialFacturas();
+        }, { timeout: 3000 });
       } else {
-        setTimeout(precargarDatosFacturacion, 2000);
+        setTimeout(() => {
+          precargarDatosFacturacion();
+          precargarEstadisticas();
+          precargarHistorialCaja();
+          precargarHistorialFacturas();
+        }, 2000);
       }
     });
 
@@ -2995,7 +3428,10 @@
       if (modulo === 'listas-facturas') cargarListasFacturas();
       if (modulo === 'facturacion-arca') inicializarModuloArca();
       if (modulo === 'historial-facturas') cargarHistorialFacturas();
-      if (modulo === 'configuracion') cargarConfigAfip();
+      if (modulo === 'configuracion') {
+        // Solo cargar datos del emisor sin verificaciones pesadas
+        cargarDatosEmisor();
+      }
     }
 
     // ============================================================================
@@ -3373,32 +3809,48 @@
     // ============================================================================
     // ESTADISTICAS
     // ============================================================================
-    function cargarEstadisticas() {
-      mostrarLoading(true);
+    function cargarEstadisticas(forzar = false) {
+      // Si ya hay datos en caché y no se fuerza recarga, usar caché
+      if (CacheModulos.estadisticas.cargado && !forzar) {
+        renderEstadisticas(CacheModulos.estadisticas.datos);
+        return;
+      }
+
+      // Mostrar skeleton loading en lugar de overlay completo
+      const container = document.getElementById('module-estadisticas');
+      if (container) {
+        container.style.opacity = '0.6';
+      }
 
       google.script.run
         .withSuccessHandler(function(result) {
-          mostrarLoading(false);
+          if (container) container.style.opacity = '1';
           if (result.success) {
-            document.getElementById('statClientes').textContent = result.totalClientes;
-            document.getElementById('statDeudores').textContent = result.totalDeudores;
-            document.getElementById('statTotalDeuda').textContent = formatearMonto(result.totalAdeudado);
-            document.getElementById('statMovimientos').textContent = result.movimientos.totalMovimientos;
-
-            document.getElementById('topDeudores').innerHTML = result.topDeudores.map((d, i) => `
-              <tr>
-                <td data-label="#">${i + 1}</td>
-                <td data-label="Cliente">${escapeHtml(d.nombre)}</td>
-                <td data-label="Saldo" style="font-weight: bold; color: var(--sv-peligro);">${formatearMonto(d.saldo)}</td>
-              </tr>
-            `).join('');
+            CacheModulos.estadisticas.datos = result;
+            CacheModulos.estadisticas.cargado = true;
+            renderEstadisticas(result);
           }
         })
         .withFailureHandler(function(error) {
-          mostrarLoading(false);
+          if (container) container.style.opacity = '1';
           mostrarToast('Error: ' + error.message, 'error');
         })
         .obtenerEstadisticas();
+    }
+
+    function renderEstadisticas(result) {
+      document.getElementById('statClientes').textContent = result.totalClientes;
+      document.getElementById('statDeudores').textContent = result.totalDeudores;
+      document.getElementById('statTotalDeuda').textContent = formatearMonto(result.totalAdeudado);
+      document.getElementById('statMovimientos').textContent = result.movimientos.totalMovimientos;
+
+      document.getElementById('topDeudores').innerHTML = result.topDeudores.map((d, i) => `
+        <tr>
+          <td data-label="#">${i + 1}</td>
+          <td data-label="Cliente">${escapeHtml(d.nombre)}</td>
+          <td data-label="Saldo" style="font-weight: bold; color: var(--sv-peligro);">${formatearMonto(d.saldo)}</td>
+        </tr>
+      `).join('');
     }
 
     // ============================================================================
@@ -4085,37 +4537,51 @@
     // ============================================================================
     // HISTORIAL CAJA
     // ============================================================================
-    function cargarHistorialCaja() {
-      mostrarLoading(true);
+    function cargarHistorialCaja(forzar = false) {
+      // Si ya hay datos en caché y no se fuerza recarga, usar caché
+      if (CacheModulos.historialCaja.cargado && !forzar) {
+        renderHistorialCaja(CacheModulos.historialCaja.datos);
+        return;
+      }
+
+      // Mostrar loading suave
+      const container = document.getElementById('module-historial-caja');
+      if (container) container.style.opacity = '0.6';
 
       google.script.run
         .withSuccessHandler(function(result) {
-          mostrarLoading(false);
+          if (container) container.style.opacity = '1';
           if (result.success) {
-            if (result.sesiones.length === 0) {
-              document.getElementById('historialCajaTbody').innerHTML = '<tr><td colspan="6" class="empty-state">Sin registros</td></tr>';
-              return;
-            }
-
-            result.sesiones.forEach(s => Estado.sesionesCache[s.sesionId] = s);
-
-            document.getElementById('historialCajaTbody').innerHTML = result.sesiones.map(s => `
-              <tr>
-                <td data-label="Fecha">${formatearFecha(s.fecha)}</td>
-                <td data-label="Efectivo">${formatearMonto(s.totales.efectivo)}</td>
-                <td data-label="Proveedores" style="color: var(--sv-peligro);">-${formatearMonto(s.totales.proveedores)}</td>
-                <td data-label="Gastos" style="color: var(--sv-peligro);">-${formatearMonto(s.totales.gastos)}</td>
-                <td data-label="Neto" style="font-weight: bold;">${formatearMonto(s.totales.neto)}</td>
-                <td data-label=""><button class="btn btn-outline btn-sm" onclick="verDetalleSesion('${escapeHtml(s.sesionId)}')">Ver</button></td>
-              </tr>
-            `).join('');
+            CacheModulos.historialCaja.datos = result;
+            CacheModulos.historialCaja.cargado = true;
+            renderHistorialCaja(result);
           }
         })
         .withFailureHandler(function(error) {
-          mostrarLoading(false);
+          if (container) container.style.opacity = '1';
           mostrarToast('Error: ' + error.message, 'error');
         })
         .obtenerHistorialCaja(30);
+    }
+
+    function renderHistorialCaja(result) {
+      if (result.sesiones.length === 0) {
+        document.getElementById('historialCajaTbody').innerHTML = '<tr><td colspan="6" class="empty-state">Sin registros</td></tr>';
+        return;
+      }
+
+      result.sesiones.forEach(s => Estado.sesionesCache[s.sesionId] = s);
+
+      document.getElementById('historialCajaTbody').innerHTML = result.sesiones.map(s => `
+        <tr>
+          <td data-label="Fecha">${formatearFecha(s.fecha)}</td>
+          <td data-label="Efectivo">${formatearMonto(s.totales.efectivo)}</td>
+          <td data-label="Proveedores" style="color: var(--sv-peligro);">-${formatearMonto(s.totales.proveedores)}</td>
+          <td data-label="Gastos" style="color: var(--sv-peligro);">-${formatearMonto(s.totales.gastos)}</td>
+          <td data-label="Neto" style="font-weight: bold;">${formatearMonto(s.totales.neto)}</td>
+          <td data-label=""><button class="btn btn-outline btn-sm" onclick="verDetalleSesion('${escapeHtml(s.sesionId)}')">Ver</button></td>
+        </tr>
+      `).join('');
     }
 
     function verDetalleSesion(sesionId) {
@@ -4340,6 +4806,13 @@
       document.getElementById('clienteEditando').value = '';
       document.getElementById('formCliente').reset();
       document.getElementById('clienteLimite').value = '100000';
+
+      // Ocultar campos de Razón Social y Domicilio Fiscal
+      document.getElementById('groupRazonSocial').style.display = 'none';
+      document.getElementById('groupDomicilioFiscal').style.display = 'none';
+      document.getElementById('clienteRazonSocial').value = '';
+      document.getElementById('clienteDomicilioFiscal').value = '';
+
       abrirModal('modalCliente');
     }
 
@@ -4355,7 +4828,61 @@
       document.getElementById('clienteCuit').value = cliente.cuit || '';
       document.getElementById('clienteLimite').value = cliente.limite || 100000;
       document.getElementById('clienteObs').value = cliente.obs || '';
+
+      // Mostrar campos de Razón Social y Domicilio Fiscal si tiene CUIT
+      if (cliente.cuit) {
+        document.getElementById('groupRazonSocial').style.display = 'block';
+        document.getElementById('groupDomicilioFiscal').style.display = 'block';
+        document.getElementById('clienteRazonSocial').value = cliente.razonSocial || '';
+        document.getElementById('clienteDomicilioFiscal').value = cliente.domicilioFiscal || '';
+      } else {
+        document.getElementById('groupRazonSocial').style.display = 'none';
+        document.getElementById('groupDomicilioFiscal').style.display = 'none';
+      }
+
       abrirModal('modalCliente');
+    }
+
+    function verificarCuitCliente() {
+      const cuit = document.getElementById('clienteCuit').value.trim();
+
+      if (!cuit) {
+        mostrarToast('Ingrese un CUIT', 'error');
+        return;
+      }
+
+      const btnVerificar = document.getElementById('btnVerificarCuit');
+      btnVerificar.disabled = true;
+      btnVerificar.innerHTML = '⏳';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btnVerificar.disabled = false;
+          btnVerificar.innerHTML = '🔍';
+
+          if (result.encontrado) {
+            // Mostrar campos de Razón Social y Domicilio Fiscal
+            document.getElementById('groupRazonSocial').style.display = 'block';
+            document.getElementById('groupDomicilioFiscal').style.display = 'block';
+
+            // Autocompletar datos desde ARCA
+            document.getElementById('clienteRazonSocial').value = result.razonSocial || '';
+            document.getElementById('clienteDomicilioFiscal').value = result.domicilio || '';
+
+            mostrarToast('✓ Datos verificados en ARCA', 'success');
+          } else {
+            mostrarToast('CUIT no encontrado en padrón ARCA', 'warning');
+            // Igual mostrar los campos para que se puedan ingresar manualmente
+            document.getElementById('groupRazonSocial').style.display = 'block';
+            document.getElementById('groupDomicilioFiscal').style.display = 'block';
+          }
+        })
+        .withFailureHandler(function(error) {
+          btnVerificar.disabled = false;
+          btnVerificar.innerHTML = '🔍';
+          mostrarToast('Error al verificar: ' + error.message, 'error');
+        })
+        .consultarCUITArca(cuit);
     }
 
     function guardarCliente(e) {
@@ -4369,6 +4896,8 @@
         email: document.getElementById('clienteEmail').value,
         cuit: cuitVal,
         condicionFiscal: cuitVal ? 'Responsable Inscripto' : 'Consumidor Final',
+        razonSocial: document.getElementById('clienteRazonSocial').value.trim(),
+        domicilioFiscal: document.getElementById('clienteDomicilioFiscal').value.trim(),
         limite: parseFloat(document.getElementById('clienteLimite').value) || 100000,
         obs: document.getElementById('clienteObs').value
       };
@@ -4585,6 +5114,18 @@
       cargando: false
     };
 
+    // Estado del módulo unificado de facturación
+    const EstadoFacturacionUnif = {
+      transferencias: [],
+      productos: [],
+      filtroEstado: 'todas', // 'todas', 'pendientes', 'facturadas'
+      transferenciaActual: null,
+      clienteActual: null,
+      itemsFacturaA: [],
+      cargado: false,
+      cargando: false
+    };
+
     // Cargar datos de facturación
     function cargarDatosFacturacion(forzar = false) {
       // Si ya está cargado y no se fuerza, solo renderizar
@@ -4617,6 +5158,10 @@
         .obtenerDatosFacturacion();
     }
 
+    // ============================================================================
+    // SISTEMA DE PRECARGA EN SEGUNDO PLANO
+    // ============================================================================
+
     // Precargar datos de facturación en background (cuando el navegador esté idle)
     function precargarDatosFacturacion() {
       if (EstadoFacturacion.cargado || EstadoFacturacion.cargando) return;
@@ -4635,6 +5180,63 @@
           EstadoFacturacion.cargando = false;
         })
         .obtenerDatosFacturacion();
+    }
+
+    // Precargar estadísticas en background
+    function precargarEstadisticas() {
+      if (CacheModulos.estadisticas.cargado || CacheModulos.estadisticas.cargando) return;
+
+      CacheModulos.estadisticas.cargando = true;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          CacheModulos.estadisticas.cargando = false;
+          if (result.success) {
+            CacheModulos.estadisticas.datos = result;
+            CacheModulos.estadisticas.cargado = true;
+          }
+        })
+        .withFailureHandler(function(error) {
+          CacheModulos.estadisticas.cargando = false;
+        })
+        .obtenerEstadisticas();
+    }
+
+    // Precargar historial de caja en background
+    function precargarHistorialCaja() {
+      if (CacheModulos.historialCaja.cargado || CacheModulos.historialCaja.cargando) return;
+
+      CacheModulos.historialCaja.cargando = true;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          CacheModulos.historialCaja.cargando = false;
+          if (result.success) {
+            CacheModulos.historialCaja.datos = result;
+            CacheModulos.historialCaja.cargado = true;
+          }
+        })
+        .withFailureHandler(function(error) {
+          CacheModulos.historialCaja.cargando = false;
+        })
+        .obtenerHistorialCaja();
+    }
+
+    // Precargar historial de facturas en background
+    function precargarHistorialFacturas() {
+      if (CacheModulos.historialFacturas.cargado || CacheModulos.historialFacturas.cargando) return;
+
+      CacheModulos.historialFacturas.cargando = true;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          CacheModulos.historialFacturas.cargando = false;
+          if (result.success) {
+            CacheModulos.historialFacturas.datos = result;
+            CacheModulos.historialFacturas.cargado = true;
+          }
+        })
+        .withFailureHandler(function(error) {
+          CacheModulos.historialFacturas.cargando = false;
+        })
+        .obtenerHistorialFacturas();
     }
 
     // Cargar transferencias con filtro de mes
@@ -5706,6 +6308,8 @@
         .emitirFacturaElectronica({
           cbteTipo: cbteTipo,
           clienteNombre: arcaClienteSeleccionado.nombre,
+          clienteRazonSocial: arcaClienteSeleccionado.razonSocial || arcaClienteSeleccionado.nombre,
+          clienteDomicilio: arcaClienteSeleccionado.domicilioFiscal || '',
           clienteCuit: arcaClienteSeleccionado.cuit || '',
           clienteCondicion: condicion,
           clienteCondicionTexto: condicionTexto,
@@ -5718,19 +6322,30 @@
     // HISTORIAL FACTURAS ARCA
     // ============================================================================
 
-    function cargarHistorialFacturas() {
-      mostrarLoading(true);
+    function cargarHistorialFacturas(forzar = false) {
+      // Si ya hay datos en caché y no se fuerza recarga, usar caché
+      if (CacheModulos.historialFacturas.cargado && !forzar) {
+        renderHistorialFacturas(CacheModulos.historialFacturas.datos.facturas || []);
+        return;
+      }
+
+      // Mostrar loading suave
+      const container = document.getElementById('module-historial-facturas');
+      if (container) container.style.opacity = '0.6';
+
       google.script.run
         .withSuccessHandler(function(result) {
-          mostrarLoading(false);
+          if (container) container.style.opacity = '1';
           if (result.success) {
+            CacheModulos.historialFacturas.datos = result;
+            CacheModulos.historialFacturas.cargado = true;
             renderHistorialFacturas(result.facturas || []);
           } else {
             mostrarToast('Error cargando historial: ' + result.error, 'error');
           }
         })
         .withFailureHandler(function(error) {
-          mostrarLoading(false);
+          if (container) container.style.opacity = '1';
           mostrarToast('Error: ' + error.message, 'error');
         })
         .obtenerHistorialFacturas();
@@ -5788,6 +6403,103 @@
           mostrarToast('Error: ' + error.message, 'error');
         })
         .emitirNotaCredito(facturaId);
+    }
+
+    // ============================================================================
+    // CONFIGURACION DATOS FISCALES DEL EMISOR
+    // ============================================================================
+
+    // Cargar datos del emisor al abrir configuración
+    function cargarDatosEmisor() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success && result.datos) {
+            document.getElementById('inputEmisorCuit').value = result.datos.cuit || '';
+            document.getElementById('inputEmisorRazonSocial').value = result.datos.razonSocial || '';
+            document.getElementById('inputEmisorFantasia').value = result.datos.nombreFantasia || '';
+            document.getElementById('inputEmisorDomicilio').value = result.datos.domicilio || '';
+            document.getElementById('inputEmisorIIBB').value = result.datos.ingresosBrutos || '';
+            document.getElementById('inputEmisorFechaInicio').value = result.datos.fechaInicio || '';
+            document.getElementById('inputEmisorCondicionIVA').value = result.datos.condicionIVA || '';
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error cargando datos del emisor:', error);
+        })
+        .obtenerDatosEmisor();
+    }
+
+    // Autocompletar datos desde ARCA
+    function autocompletarDatosEmisor() {
+      const cuit = document.getElementById('inputEmisorCuit').value.trim();
+
+      if (!cuit) {
+        mostrarToast('Ingrese un CUIT', 'error');
+        return;
+      }
+
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+
+          if (result.encontrado) {
+            document.getElementById('inputEmisorRazonSocial').value = result.razonSocial;
+            document.getElementById('inputEmisorCondicionIVA').value = result.condicionTexto;
+            if (result.domicilio) {
+              document.getElementById('inputEmisorDomicilio').value = result.domicilio;
+            }
+            mostrarToast('✓ Datos autocompletados desde ARCA', 'success');
+          } else {
+            mostrarToast('No se encontraron datos en ARCA para este CUIT', 'warning');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .consultarCUITArca(cuit);
+    }
+
+    // Guardar datos del emisor
+    function guardarDatosEmisor() {
+      const datos = {
+        cuit: document.getElementById('inputEmisorCuit').value.trim(),
+        razonSocial: document.getElementById('inputEmisorRazonSocial').value.trim(),
+        nombreFantasia: document.getElementById('inputEmisorFantasia').value.trim(),
+        domicilio: document.getElementById('inputEmisorDomicilio').value.trim(),
+        ingresosBrutos: document.getElementById('inputEmisorIIBB').value.trim(),
+        fechaInicio: document.getElementById('inputEmisorFechaInicio').value,
+        condicionIVA: document.getElementById('inputEmisorCondicionIVA').value
+      };
+
+      // Validaciones
+      if (!datos.cuit || !datos.razonSocial || !datos.domicilio) {
+        mostrarToast('Complete los campos obligatorios (CUIT, Razón Social, Domicilio)', 'error');
+        return;
+      }
+
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          const estado = document.getElementById('estadoEmisor');
+
+          if (result.success) {
+            estado.innerHTML = '<span style="color: var(--sv-exito);">✓ Datos guardados correctamente</span>';
+            mostrarToast('Datos del emisor guardados', 'success');
+          } else {
+            estado.innerHTML = '<span style="color: var(--sv-peligro);">✕ ' + result.error + '</span>';
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarDatosEmisor(datos);
     }
 
     // ============================================================================
@@ -6057,6 +6769,678 @@
         })
         .probarConexionClaude();
     }
+
+    // ============================================================================
+    // MODULO UNIFICADO DE FACTURACION Y TRANSFERENCIAS
+    // ============================================================================
+
+    // Cargar transferencias unificadas
+    function cargarTransferenciasUnificadas(forzar = false) {
+      if (EstadoFacturacionUnif.cargado && !forzar) {
+        renderTransferenciasUnificadas();
+        return;
+      }
+
+      if (EstadoFacturacionUnif.cargando) return;
+
+      EstadoFacturacionUnif.cargando = true;
+      const container = document.getElementById('module-facturacion-unificada');
+      if (container) container.style.opacity = '0.6';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          EstadoFacturacionUnif.cargando = false;
+          if (container) container.style.opacity = '1';
+
+          if (result.success) {
+            EstadoFacturacionUnif.transferencias = result.transferencias || [];
+            EstadoFacturacionUnif.productos = result.productos || [];
+            EstadoFacturacionUnif.cargado = true;
+            renderTransferenciasUnificadas();
+          } else {
+            mostrarToast('Error cargando datos: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          EstadoFacturacionUnif.cargando = false;
+          if (container) container.style.opacity = '1';
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .obtenerDatosFacturacion();
+    }
+
+    // Filtrar transferencias por estado
+    function filtrarTransferenciasUnif(estado) {
+      EstadoFacturacionUnif.filtroEstado = estado;
+
+      // Actualizar botones activos
+      ['tabTodasUnif', 'tabPendientesUnif', 'tabFacturadasUnif'].forEach(id => {
+        document.getElementById(id).classList.remove('btn-primary');
+        document.getElementById(id).classList.add('btn-outline');
+      });
+
+      const botonActivo = estado === 'todas' ? 'tabTodasUnif' :
+                          estado === 'pendientes' ? 'tabPendientesUnif' : 'tabFacturadasUnif';
+      document.getElementById(botonActivo).classList.remove('btn-outline');
+      document.getElementById(botonActivo).classList.add('btn-primary');
+
+      renderTransferenciasUnificadas();
+    }
+
+    // Renderizar tabla de transferencias unificadas
+    function renderTransferenciasUnificadas() {
+      const tbody = document.getElementById('tbodyTransferenciasUnif');
+      if (!tbody) return;
+
+      let transferencias = EstadoFacturacionUnif.transferencias;
+
+      // Aplicar filtro
+      if (EstadoFacturacionUnif.filtroEstado === 'pendientes') {
+        transferencias = transferencias.filter(t => !t.facturada);
+      } else if (EstadoFacturacionUnif.filtroEstado === 'facturadas') {
+        transferencias = transferencias.filter(t => t.facturada);
+      }
+
+      if (transferencias.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay transferencias</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = transferencias.map(t => `
+        <tr style="animation: fadeIn 0.3s ease;">
+          <td data-label="Fecha">${formatearFecha(t.fecha)}</td>
+          <td data-label="Cliente"><strong>${escapeHtml(t.cliente)}</strong></td>
+          <td data-label="Monto" style="font-weight: bold; color: var(--sv-primario);">${formatearMonto(t.monto)}</td>
+          <td data-label="Banco">${escapeHtml(t.banco) || '-'}</td>
+          <td data-label="Tipo">
+            <span class="tag ${t.tipoFactura === 'A' ? 'tag-haber' : 'tag-debe'}">
+              Factura ${escapeHtml(t.tipoFactura || '?')}
+            </span>
+          </td>
+          <td data-label="Estado">
+            ${t.facturada ?
+              '<span style="color: var(--sv-exito); font-weight: bold;">✓ Facturada</span>' :
+              '<span style="color: var(--sv-advertencia); font-weight: bold;">⏳ Pendiente</span>'}
+          </td>
+          <td data-label="Acciones">
+            <div class="btn-group">
+              ${!t.facturada ? `
+                <button class="btn btn-primary btn-sm" onclick="iniciarFacturacionDesdeTransferencia(${t.id})" title="Facturar en ARCA">
+                  📋 Facturar
+                </button>
+              ` : ''}
+              <button class="btn btn-outline btn-sm" onclick="verDetalleTransferenciaUnif(${t.id})" title="Ver detalle">👁️</button>
+              ${!t.facturada ? `
+                <button class="btn btn-outline btn-sm" onclick="eliminarTransferenciaUnif(${t.id})" style="color: var(--sv-peligro);" title="Eliminar">🗑️</button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Abrir modal nueva transferencia
+    function abrirModalNuevaTransferenciaUnif() {
+      document.getElementById('formTransferenciaUnif').reset();
+      document.getElementById('transfUnifFecha').value = obtenerFechaLocal();
+      document.getElementById('transfUnifClienteInfo').style.display = 'none';
+      EstadoFacturacionUnif.clienteActual = null;
+      abrirModal('modalTransferenciaUnif');
+    }
+
+    // Autocompletar cliente en transferencia unificada
+    document.addEventListener('DOMContentLoaded', function() {
+      const input = document.getElementById('transfUnifCliente');
+      if (input) {
+        input.addEventListener('input', debounce(function() {
+          buscarClienteAutocomplete(this.value, 'transfUnifClienteSugerencias', false, function(cliente) {
+            seleccionarClienteTransferenciaUnif(cliente);
+          });
+        }, 200));
+      }
+    });
+
+    function seleccionarClienteTransferenciaUnif(cliente) {
+      EstadoFacturacionUnif.clienteActual = cliente;
+      document.getElementById('transfUnifCliente').value = cliente.nombre;
+      document.getElementById('transfUnifClienteSugerencias').style.display = 'none';
+
+      // Mostrar info del cliente
+      const infoDiv = document.getElementById('transfUnifClienteInfo');
+      infoDiv.style.display = 'block';
+
+      document.getElementById('transfUnifClienteCUIT').textContent = cliente.cuit || 'No registrado';
+      document.getElementById('transfUnifClienteIVA').textContent = cliente.condicionFiscal || 'Consumidor Final';
+
+      // Determinar tipo de factura
+      const tipoFactura = (cliente.cuit && cliente.condicionFiscal &&
+                          (cliente.condicionFiscal.includes('Responsable') || cliente.condicionFiscal === 'RI'))
+                          ? 'A' : 'B';
+
+      const tipoTexto = tipoFactura === 'A' ?
+        'Factura A (Responsable Inscripto) - Requerirá selección de productos' :
+        'Factura B (Consumidor Final) - Se facturará automáticamente';
+
+      document.getElementById('transfUnifTipoFactura').textContent = tipoTexto;
+      document.getElementById('transfUnifTipoFactura').style.color =
+        tipoFactura === 'A' ? 'var(--sv-primario)' : 'var(--sv-secundario)';
+    }
+
+    function seleccionarBancoUnif(banco) {
+      document.getElementById('transfUnifBanco').value = banco;
+      document.querySelectorAll('#modalTransferenciaUnif .banco-option').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.closest('.banco-option').classList.add('active');
+    }
+
+    // Guardar transferencia unificada
+    function guardarTransferenciaUnif(event) {
+      event.preventDefault();
+
+      if (!EstadoFacturacionUnif.clienteActual) {
+        mostrarToast('Debe seleccionar un cliente de la lista', 'error');
+        return;
+      }
+
+      const datos = {
+        fecha: document.getElementById('transfUnifFecha').value,
+        cliente: EstadoFacturacionUnif.clienteActual.nombre,
+        clienteObj: EstadoFacturacionUnif.clienteActual,
+        monto: parseFloat(document.getElementById('transfUnifMonto').value),
+        banco: document.getElementById('transfUnifBanco').value,
+        obs: document.getElementById('transfUnifObs').value
+      };
+
+      if (!datos.monto || datos.monto <= 0) {
+        mostrarToast('Ingrese un monto válido', 'error');
+        return;
+      }
+
+      // Determinar tipo de factura
+      const tipoFactura = (datos.clienteObj.cuit && datos.clienteObj.condicionFiscal &&
+                          (datos.clienteObj.condicionFiscal.includes('Responsable') ||
+                           datos.clienteObj.condicionFiscal === 'RI')) ? 'A' : 'B';
+
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+
+          if (result.success) {
+            mostrarToast('Transferencia guardada', 'success');
+            cerrarModal('modalTransferenciaUnif');
+
+            // Actualizar datos
+            EstadoFacturacionUnif.transferencias.push({
+              id: result.id,
+              ...datos,
+              tipoFactura: tipoFactura,
+              facturada: false
+            });
+
+            renderTransferenciasUnificadas();
+
+            // Abrir modal de facturación inmediatamente
+            setTimeout(() => {
+              iniciarFacturacionDesdeTransferencia(result.id);
+            }, 500);
+          } else {
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .crearTransferencia({
+          fecha: datos.fecha,
+          cliente: datos.cliente,
+          monto: datos.monto,
+          banco: datos.banco,
+          condicion: datos.clienteObj.condicionFiscal || 'CF',
+          tipoFactura: tipoFactura,
+          obs: datos.obs
+        });
+    }
+
+    // Iniciar facturación desde transferencia
+    function iniciarFacturacionDesdeTransferencia(id) {
+      const transferencia = EstadoFacturacionUnif.transferencias.find(t => t.id === id);
+
+      if (!transferencia) {
+        mostrarToast('Transferencia no encontrada', 'error');
+        return;
+      }
+
+      if (transferencia.facturada) {
+        mostrarToast('Esta transferencia ya fue facturada', 'warning');
+        return;
+      }
+
+      EstadoFacturacionUnif.transferenciaActual = transferencia;
+
+      // Buscar cliente completo en Estado.clientes
+      const cliente = Estado.clientes.find(c => c.nombre === transferencia.cliente) ||
+                     transferencia.clienteObj ||
+                     { nombre: transferencia.cliente };
+
+      EstadoFacturacionUnif.clienteActual = cliente;
+
+      // Decidir qué modal abrir según el tipo de factura
+      if (transferencia.tipoFactura === 'B') {
+        abrirModalFacturaB(transferencia, cliente);
+      } else {
+        abrirModalFacturaA(transferencia, cliente);
+      }
+    }
+
+    // ============================================================================
+    // FACTURA B - CONSUMIDOR FINAL (AUTOMÁTICA)
+    // ============================================================================
+
+    function abrirModalFacturaB(transferencia, cliente) {
+      // Llenar datos en el modal
+      document.getElementById('facturaBFecha').textContent = formatearFecha(new Date());
+      document.getElementById('facturaBCliente').textContent = cliente.nombre;
+      document.getElementById('facturaBTransferencia').textContent = formatearMonto(transferencia.monto);
+      document.getElementById('facturaBBanco').textContent = transferencia.banco || '-';
+      document.getElementById('facturaBTotal').textContent = formatearMonto(transferencia.monto);
+
+      abrirModal('modalFacturaB');
+    }
+
+    function emitirFacturaB() {
+      const transferencia = EstadoFacturacionUnif.transferenciaActual;
+      const cliente = EstadoFacturacionUnif.clienteActual;
+
+      if (!transferencia || !cliente) {
+        mostrarToast('Error: datos no disponibles', 'error');
+        return;
+      }
+
+      if (!confirm('¿Emitir Factura B en ARCA?\n\nEsta acción NO se puede deshacer.')) {
+        return;
+      }
+
+      const btnEmitir = document.getElementById('btnEmitirFacturaB');
+      btnEmitir.disabled = true;
+      btnEmitir.textContent = 'Emitiendo...';
+      mostrarLoading(true);
+
+      // Preparar datos para ARCA
+      const datosFactura = {
+        cbteTipo: 6, // Factura B
+        cliente: {
+          nombre: cliente.nombre,
+          razonSocial: cliente.razonSocial || cliente.nombre,
+          domicilio: cliente.domicilioFiscal || '',
+          condicion: 'CF', // Consumidor Final
+          cuit: cliente.cuit || null
+        },
+        items: [{
+          descripcion: 'Venta de Productos',
+          cantidad: 1,
+          precioUnitario: transferencia.monto // Incluye IVA
+        }],
+        obs: 'Transferencia: ' + (transferencia.banco || '') + ' - ID: ' + transferencia.id
+      };
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          btnEmitir.disabled = false;
+          btnEmitir.textContent = '✅ Emitir Factura B en ARCA';
+
+          if (result.success) {
+            mostrarToast('¡Factura B emitida exitosamente!', 'success');
+
+            // Marcar transferencia como facturada
+            transferencia.facturada = true;
+            transferencia.fechaFactura = new Date().toISOString();
+
+            // Actualizar en servidor
+            marcarTransferenciaFacturadaEnServidor(transferencia.id);
+
+            renderTransferenciasUnificadas();
+            cerrarModal('modalFacturaB');
+
+            // Mostrar resultado
+            setTimeout(() => {
+              alert('Factura B emitida correctamente\\n\\nCAE: ' + result.cae + '\\nNúmero: ' + result.ptoVta + '-' + result.cbteNro);
+            }, 500);
+          } else {
+            mostrarToast('Error al emitir factura: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          btnEmitir.disabled = false;
+          btnEmitir.textContent = '✅ Emitir Factura B en ARCA';
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .emitirFactura(datosFactura);
+    }
+
+    // ============================================================================
+    // FACTURA A - RESPONSABLE INSCRIPTO (CON PRODUCTOS)
+    // ============================================================================
+
+    function abrirModalFacturaA(transferencia, cliente) {
+      // Resetear items
+      EstadoFacturacionUnif.itemsFacturaA = [];
+
+      // Llenar datos del cliente y transferencia
+      document.getElementById('facturaACliente').textContent = cliente.nombre;
+      document.getElementById('facturaACUIT').textContent = cliente.cuit || 'S/D';
+      document.getElementById('facturaATransferencia').textContent = formatearMonto(transferencia.monto);
+      document.getElementById('facturaAFecha').textContent = formatearFecha(new Date());
+      document.getElementById('facturaAMontoTransf').textContent = formatearMonto(transferencia.monto);
+
+      // Cargar productos en select
+      const select = document.getElementById('facturaAProducto');
+      select.innerHTML = '<option value="">Seleccionar...</option>' +
+        EstadoFacturacionUnif.productos.map(p =>
+          `<option value="${p.id}">${escapeHtml(p.nombre)} - ${formatearMonto(p.precio)}</option>`
+        ).join('');
+
+      // Listener para autocompletar precio
+      select.onchange = function() {
+        if (this.value) {
+          const producto = EstadoFacturacionUnif.productos.find(p => p.id == this.value);
+          if (producto) {
+            document.getElementById('facturaAPrecio').value = producto.precio;
+          }
+        }
+      };
+
+      renderItemsFacturaA();
+      actualizarVistaPreviaFacturaA();
+
+      abrirModal('modalFacturaA');
+    }
+
+    function agregarProductoFacturaA() {
+      const selectProd = document.getElementById('facturaAProducto');
+      const cantidad = parseInt(document.getElementById('facturaACantidad').value) || 1;
+      const precioUnit = parseFloat(document.getElementById('facturaAPrecio').value) || 0;
+
+      let descripcion = '';
+
+      if (selectProd.value) {
+        const producto = EstadoFacturacionUnif.productos.find(p => p.id == selectProd.value);
+        descripcion = producto ? producto.nombre : '';
+      } else {
+        descripcion = selectProd.options[selectProd.selectedIndex]?.text || '';
+      }
+
+      if (!descripcion) {
+        mostrarToast('Seleccione o escriba un producto', 'error');
+        return;
+      }
+
+      if (precioUnit <= 0) {
+        mostrarToast('Ingrese un precio válido (sin IVA)', 'error');
+        return;
+      }
+
+      if (cantidad <= 0) {
+        mostrarToast('Ingrese una cantidad válida', 'error');
+        return;
+      }
+
+      EstadoFacturacionUnif.itemsFacturaA.push({
+        descripcion: descripcion,
+        cantidad: cantidad,
+        precioUnitario: precioUnit,
+        subtotal: cantidad * precioUnit
+      });
+
+      // Resetear formulario
+      selectProd.value = '';
+      document.getElementById('facturaACantidad').value = 1;
+      document.getElementById('facturaAPrecio').value = '';
+
+      renderItemsFacturaA();
+      actualizarVistaPreviaFacturaA();
+    }
+
+    function eliminarItemFacturaA(index) {
+      EstadoFacturacionUnif.itemsFacturaA.splice(index, 1);
+      renderItemsFacturaA();
+      actualizarVistaPreviaFacturaA();
+    }
+
+    function renderItemsFacturaA() {
+      const tbody = document.getElementById('facturaAItemsTbody');
+      const emptyDiv = document.getElementById('facturaAItemsEmpty');
+
+      if (EstadoFacturacionUnif.itemsFacturaA.length === 0) {
+        tbody.innerHTML = '';
+        emptyDiv.style.display = 'block';
+        return;
+      }
+
+      emptyDiv.style.display = 'none';
+      tbody.innerHTML = EstadoFacturacionUnif.itemsFacturaA.map((item, i) => `
+        <tr>
+          <td>${item.cantidad}</td>
+          <td>${escapeHtml(item.descripcion)}</td>
+          <td style="text-align:right">${formatearMonto(item.precioUnitario)}</td>
+          <td style="text-align:right"><strong>${formatearMonto(item.subtotal)}</strong></td>
+          <td>
+            <button class="btn btn-outline" style="padding:2px 8px;font-size:0.7rem;" onclick="eliminarItemFacturaA(${i})">X</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function actualizarVistaPreviaFacturaA() {
+      const transferencia = EstadoFacturacionUnif.transferenciaActual;
+      const items = EstadoFacturacionUnif.itemsFacturaA;
+
+      // Calcular totales
+      const neto = items.reduce((sum, item) => sum + item.subtotal, 0);
+      const iva = Math.round(neto * 0.105 * 100) / 100;
+      const total = Math.round((neto + iva) * 100) / 100;
+
+      // Actualizar vista previa
+      document.getElementById('facturaANeto').textContent = formatearMonto(neto);
+      document.getElementById('facturaAIva').textContent = formatearMonto(iva);
+      document.getElementById('facturaATotal').textContent = formatearMonto(total);
+
+      // Calcular diferencia con transferencia
+      const montoTransf = transferencia ? transferencia.monto : 0;
+      const diferencia = total - montoTransf;
+
+      document.getElementById('facturaADiferencia').textContent = formatearMonto(Math.abs(diferencia));
+      document.getElementById('facturaADiferencia').style.color =
+        diferencia >= 0 ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+
+      // Validación y mensaje
+      const validacionDiv = document.getElementById('facturaAValidacion');
+      const btnEmitir = document.getElementById('btnEmitirFacturaA');
+
+      if (items.length === 0) {
+        validacionDiv.innerHTML = '<span style="color: var(--sv-texto-muted);">Agregue productos para continuar</span>';
+        validacionDiv.style.background = 'transparent';
+        btnEmitir.disabled = true;
+      } else if (total < montoTransf) {
+        validacionDiv.innerHTML = '<span style="color: white;">⚠️ El total es MENOR que la transferencia. Debe ajustar los productos.</span>';
+        validacionDiv.style.background = 'var(--sv-peligro)';
+        btnEmitir.disabled = true;
+      } else if (diferencia > montoTransf * 0.15) {
+        validacionDiv.innerHTML = '<span style="color: white;">⚠️ La diferencia es muy alta. Verifique los montos.</span>';
+        validacionDiv.style.background = 'var(--sv-advertencia)';
+        btnEmitir.disabled = true;
+      } else {
+        validacionDiv.innerHTML = '<span style="color: white;">✓ Montos correctos. Puede emitir la factura.</span>';
+        validacionDiv.style.background = 'var(--sv-exito)';
+        btnEmitir.disabled = false;
+      }
+    }
+
+    function emitirFacturaA() {
+      const transferencia = EstadoFacturacionUnif.transferenciaActual;
+      const cliente = EstadoFacturacionUnif.clienteActual;
+      const items = EstadoFacturacionUnif.itemsFacturaA;
+
+      if (!transferencia || !cliente || items.length === 0) {
+        mostrarToast('Error: datos no disponibles', 'error');
+        return;
+      }
+
+      if (!confirm('¿Emitir Factura A en ARCA?\n\nEsta acción NO se puede deshacer.')) {
+        return;
+      }
+
+      const btnEmitir = document.getElementById('btnEmitirFacturaA');
+      btnEmitir.disabled = true;
+      btnEmitir.textContent = 'Emitiendo...';
+      mostrarLoading(true);
+
+      // Validar que el cliente tenga Razón Social y Domicilio Fiscal
+      if (!cliente.razonSocial) {
+        mostrarLoading(false);
+        btnEmitir.disabled = false;
+        btnEmitir.textContent = '✓ Emitir Factura A';
+        mostrarToast('El cliente debe tener Razón Social para emitir Factura A', 'error');
+        return;
+      }
+
+      if (!cliente.domicilioFiscal) {
+        mostrarLoading(false);
+        btnEmitir.disabled = false;
+        btnEmitir.textContent = '✓ Emitir Factura A';
+        mostrarToast('El cliente debe tener Domicilio Fiscal para emitir Factura A', 'error');
+        return;
+      }
+
+      // Preparar datos para ARCA
+      const datosFactura = {
+        cbteTipo: 1, // Factura A
+        cliente: {
+          nombre: cliente.nombre,
+          razonSocial: cliente.razonSocial,
+          domicilio: cliente.domicilioFiscal,
+          condicion: 'RI', // Responsable Inscripto
+          cuit: cliente.cuit
+        },
+        items: items.map(item => ({
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          precioUnitario: item.precioUnitario // Sin IVA
+        })),
+        obs: 'Transferencia: ' + (transferencia.banco || '') + ' - ID: ' + transferencia.id
+      };
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          btnEmitir.disabled = false;
+          btnEmitir.textContent = '✅ Emitir Factura A en ARCA';
+
+          if (result.success) {
+            mostrarToast('¡Factura A emitida exitosamente!', 'success');
+
+            // Marcar transferencia como facturada
+            transferencia.facturada = true;
+            transferencia.fechaFactura = new Date().toISOString();
+
+            // Actualizar en servidor
+            marcarTransferenciaFacturadaEnServidor(transferencia.id);
+
+            renderTransferenciasUnificadas();
+            cerrarModal('modalFacturaA');
+
+            // Mostrar resultado
+            setTimeout(() => {
+              alert('Factura A emitida correctamente\\n\\nCAE: ' + result.cae + '\\nNúmero: ' + result.ptoVta + '-' + result.cbteNro);
+            }, 500);
+          } else {
+            mostrarToast('Error al emitir factura: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          btnEmitir.disabled = false;
+          btnEmitir.textContent = '✅ Emitir Factura A en ARCA';
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .emitirFactura(datosFactura);
+    }
+
+    // Marcar transferencia como facturada en el servidor
+    function marcarTransferenciaFacturadaEnServidor(id) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result.success) {
+            console.error('Error al marcar transferencia como facturada:', result.error);
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error:', error);
+        })
+        .marcarTransferenciaFacturada(id);
+    }
+
+    // Ver detalle de transferencia
+    function verDetalleTransferenciaUnif(id) {
+      const transferencia = EstadoFacturacionUnif.transferencias.find(t => t.id === id);
+      if (!transferencia) return;
+
+      const detalle = `
+Fecha: ${formatearFecha(transferencia.fecha)}
+Cliente: ${transferencia.cliente}
+Monto: ${formatearMonto(transferencia.monto)}
+Banco: ${transferencia.banco || '-'}
+Tipo de Factura: ${transferencia.tipoFactura}
+Estado: ${transferencia.facturada ? 'Facturada' : 'Pendiente'}
+${transferencia.facturada ? 'Fecha Factura: ' + formatearFecha(transferencia.fechaFactura) : ''}
+${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
+      `;
+
+      alert(detalle);
+    }
+
+    // Eliminar transferencia
+    function eliminarTransferenciaUnif(id) {
+      if (!confirm('¿Eliminar esta transferencia?\n\nEsta acción NO se puede deshacer.')) {
+        return;
+      }
+
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+
+          if (result.success) {
+            mostrarToast('Transferencia eliminada', 'success');
+            EstadoFacturacionUnif.transferencias = EstadoFacturacionUnif.transferencias.filter(t => t.id !== id);
+            renderTransferenciasUnificadas();
+          } else {
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .eliminarTransferencia(id);
+    }
+
+    // Actualizar función de navegación para cargar el módulo unificado
+    const navegarAOriginal = navegarA;
+    navegarA = function(modulo) {
+      navegarAOriginal(modulo);
+
+      if (modulo === 'facturacion-unificada') {
+        cargarTransferenciasUnificadas();
+      }
+    };
+
   </script>
 </body>
 </html>

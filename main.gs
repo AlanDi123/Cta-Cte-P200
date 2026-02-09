@@ -764,3 +764,85 @@ function obtenerConfiguracion() {
     sistema: CONFIG.SISTEMA
   };
 }
+
+// ============================================================================
+// API PUBLICA - CONFIGURACION FISCAL DEL EMISOR
+// ============================================================================
+
+/**
+ * Guarda los datos fiscales del emisor
+ * @param {Object} datos - Datos del emisor
+ * @returns {Object} Resultado
+ */
+function guardarDatosEmisor(datos) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+
+    // Validar CUIT
+    if (!datos.cuit || datos.cuit.trim().length < 11) {
+      throw new Error('CUIT inválido');
+    }
+
+    // Validar campos obligatorios
+    if (!datos.razonSocial || !datos.razonSocial.trim()) {
+      throw new Error('La Razón Social es obligatoria');
+    }
+
+    if (!datos.domicilio || !datos.domicilio.trim()) {
+      throw new Error('El Domicilio Comercial es obligatorio');
+    }
+
+    // Guardar en ScriptProperties
+    props.setProperty('EMISOR_CUIT', datos.cuit.trim());
+    props.setProperty('EMISOR_RAZON_SOCIAL', datos.razonSocial.trim());
+    props.setProperty('EMISOR_NOMBRE_FANTASIA', datos.nombreFantasia ? datos.nombreFantasia.trim() : '');
+    props.setProperty('EMISOR_DOMICILIO', datos.domicilio.trim());
+    props.setProperty('EMISOR_IIBB', datos.ingresosBrutos ? datos.ingresosBrutos.trim() : '');
+    props.setProperty('EMISOR_FECHA_INICIO', datos.fechaInicio || '');
+    props.setProperty('EMISOR_CONDICION_IVA', datos.condicionIVA || 'Responsable Inscripto');
+
+    Logger.log('Datos del emisor guardados: ' + datos.razonSocial);
+
+    return {
+      success: true,
+      mensaje: 'Datos del emisor guardados correctamente'
+    };
+  } catch (error) {
+    Logger.log('Error en guardarDatosEmisor: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Obtiene los datos fiscales del emisor
+ * @returns {Object} Datos del emisor
+ */
+function obtenerDatosEmisor() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+
+    const datos = {
+      cuit: props.getProperty('EMISOR_CUIT') || '',
+      razonSocial: props.getProperty('EMISOR_RAZON_SOCIAL') || '',
+      nombreFantasia: props.getProperty('EMISOR_NOMBRE_FANTASIA') || '',
+      domicilio: props.getProperty('EMISOR_DOMICILIO') || '',
+      ingresosBrutos: props.getProperty('EMISOR_IIBB') || '',
+      fechaInicio: props.getProperty('EMISOR_FECHA_INICIO') || '',
+      condicionIVA: props.getProperty('EMISOR_CONDICION_IVA') || 'Responsable Inscripto'
+    };
+
+    return {
+      success: true,
+      datos: datos
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerDatosEmisor: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}

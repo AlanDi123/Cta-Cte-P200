@@ -44,11 +44,21 @@ const CONFIG_AFIP = {
   // URL base de Afip SDK REST API
   API_URL: 'https://app.afipsdk.com/api/v1/afip',
 
-  // Datos del emisor (fijos)
-  EMISOR: {
-    CUIT: '20149543407',
-    RAZON_SOCIAL: 'DOMINGUES ALDO FERMIN',
-    CONDICION_IVA: 'Responsable Inscripto'
+  /**
+   * Obtiene los datos del emisor desde ScriptProperties (dinámico)
+   * @returns {Object} Datos del emisor
+   */
+  getEmisor: function() {
+    const props = PropertiesService.getScriptProperties();
+    return {
+      CUIT: props.getProperty('EMISOR_CUIT') || '20149543407',
+      RAZON_SOCIAL: props.getProperty('EMISOR_RAZON_SOCIAL') || 'DOMINGUES ALDO FERMIN',
+      NOMBRE_FANTASIA: props.getProperty('EMISOR_NOMBRE_FANTASIA') || '',
+      DOMICILIO: props.getProperty('EMISOR_DOMICILIO') || '',
+      INGRESOS_BRUTOS: props.getProperty('EMISOR_IIBB') || '',
+      FECHA_INICIO: props.getProperty('EMISOR_FECHA_INICIO') || '',
+      CONDICION_IVA: props.getProperty('EMISOR_CONDICION_IVA') || 'Responsable Inscripto'
+    };
   },
 
   // IVA por defecto: 10.5%
@@ -119,11 +129,12 @@ const AfipService = {
    */
   getConfig: function() {
     const props = PropertiesService.getScriptProperties();
+    const emisor = CONFIG_AFIP.getEmisor();
     return {
       accessToken: props.getProperty('AFIP_ACCESS_TOKEN') || '',
       environment: props.getProperty('AFIP_ENVIRONMENT') || 'dev',
       puntoVenta: parseInt(props.getProperty('AFIP_PUNTO_VENTA') || '11'),
-      cuit: props.getProperty('AFIP_CUIT') || CONFIG_AFIP.EMISOR.CUIT,
+      cuit: props.getProperty('AFIP_CUIT') || emisor.CUIT,
       cert: props.getProperty('AFIP_CERT') || '',
       key: props.getProperty('AFIP_KEY') || ''
     };
@@ -790,18 +801,21 @@ const FacturaPDF = {
   },
 
   _construirHTML: function(f) {
+    // Obtener datos del emisor
+    var emisor = CONFIG_AFIP.getEmisor();
+
     var tipoLetra = '';
     var tipoNombre = '';
+    var tipoCodigo = '';
     switch (f.cbteTipo) {
-      case 1: tipoLetra = 'A'; tipoNombre = 'FACTURA'; break;
-      case 3: tipoLetra = 'A'; tipoNombre = 'NOTA DE CRÉDITO'; break;
-      case 6: tipoLetra = 'B'; tipoNombre = 'FACTURA'; break;
-      case 8: tipoLetra = 'B'; tipoNombre = 'NOTA DE CRÉDITO'; break;
+      case 1: tipoLetra = 'A'; tipoNombre = 'FACTURA'; tipoCodigo = '01'; break;
+      case 3: tipoLetra = 'A'; tipoNombre = 'NOTA DE CRÉDITO'; tipoCodigo = '03'; break;
+      case 6: tipoLetra = 'B'; tipoNombre = 'FACTURA'; tipoCodigo = '06'; break;
+      case 8: tipoLetra = 'B'; tipoNombre = 'NOTA DE CRÉDITO'; tipoCodigo = '08'; break;
     }
 
     var pv = String(f.ptoVta).padStart(5, '0');
     var nro = String(f.cbteNro).padStart(8, '0');
-    var nroCompleto = pv + '-' + nro;
 
     // Formatear fecha
     var fechaStr = '';
@@ -830,7 +844,7 @@ const FacturaPDF = {
     var qrData = JSON.stringify({
       ver: 1,
       fecha: fechaStr ? (f.fecha.substring(0, 4) + '-' + f.fecha.substring(4, 6) + '-' + f.fecha.substring(6, 8)) : '',
-      cuit: parseInt(CONFIG_AFIP.EMISOR.CUIT),
+      cuit: parseInt(emisor.CUIT.replace(/-/g, '')),
       ptoVta: f.ptoVta,
       tipoCmp: f.cbteTipo,
       nroCmp: f.cbteNro,
@@ -838,14 +852,14 @@ const FacturaPDF = {
       moneda: 'PES',
       ctz: 1,
       tipoDocRec: f.clienteCuit ? 80 : 99,
-      nroDocRec: f.clienteCuit ? parseInt(f.clienteCuit) : 0,
+      nroDocRec: f.clienteCuit ? parseInt(f.clienteCuit.replace(/-/g, '')) : 0,
       tipoCodAut: 'E',
       codAut: parseInt(f.cae || '0')
     });
     var qrBase64 = Utilities.base64Encode(qrData);
     var qrUrl = 'https://www.afip.gob.ar/fe/qr/?p=' + qrBase64;
 
-    // Detalle de productos
+    // Detalle de productos y cálculo de IVA por alícuota
     var detalleHTML = '';
     var items = [];
     try {
@@ -853,89 +867,192 @@ const FacturaPDF = {
       else if (Array.isArray(f.detalle)) items = f.detalle;
     } catch (e) {}
 
+    // Inicializar desglose de IVA por alícuota
+    var desglosesIVA = {
+      '27': { neto: 0, iva: 0 },
+      '21': { neto: 0, iva: 0 },
+      '10.5': { neto: 0, iva: 0 },
+      '5': { neto: 0, iva: 0 },
+      '2.5': { neto: 0, iva: 0 },
+      '0': { neto: 0, iva: 0 }
+    };
+
+    var netoTotal = 0;
+
     if (items.length > 0) {
       for (var i = 0; i < items.length; i++) {
         var item = items[i];
+        var cant = item.cantidad || 1;
+        var precioUnit = item.precioUnit || item.precioUnitario || 0;
+        var subtotal = cant * precioUnit;
+        var alicuota = item.alicuotaIVA || item.alicuota || 10.5;
+        var montoIVA = subtotal * (alicuota / 100);
+        var subtotalConIVA = subtotal + montoIVA;
+
+        // Acumular en desglose
+        var alicStr = String(alicuota);
+        if (desglosesIVA[alicStr]) {
+          desglosesIVA[alicStr].neto += subtotal;
+          desglosesIVA[alicStr].iva += montoIVA;
+        }
+        netoTotal += subtotal;
+
         detalleHTML += '<tr>' +
-          '<td>' + (item.cantidad || 1) + '</td>' +
+          '<td style="text-align:center">' + (item.codigo || '') + '</td>' +
           '<td>' + escapeHtmlGS(item.descripcion || item.nombre || 'Producto') + '</td>' +
-          '<td style="text-align:right">$' + formatNumero(item.precioUnit || 0) + '</td>' +
-          '<td style="text-align:right">$' + formatNumero((item.cantidad || 1) * (item.precioUnit || 0)) + '</td>' +
+          '<td style="text-align:right">' + formatNumero(cant) + '</td>' +
+          '<td style="text-align:center">unidades</td>' +
+          '<td style="text-align:right">' + formatNumero(precioUnit) + '</td>' +
+          '<td style="text-align:right">0.00</td>' +
+          '<td style="text-align:right">' + formatNumero(subtotal) + '</td>' +
+          '<td style="text-align:right">' + alicuota + '%</td>' +
+          '<td style="text-align:right">' + formatNumero(subtotalConIVA) + '</td>' +
           '</tr>';
       }
     } else {
       // Si no hay detalle, mostrar línea genérica
-      detalleHTML = '<tr><td>1</td><td>Productos según remito</td>' +
-        '<td style="text-align:right">$' + formatNumero(f.neto) + '</td>' +
-        '<td style="text-align:right">$' + formatNumero(f.neto) + '</td></tr>';
+      var alicuota = 10.5;
+      var montoIVA = f.neto * (alicuota / 100);
+      desglosesIVA['10.5'].neto = f.neto;
+      desglosesIVA['10.5'].iva = montoIVA;
+      netoTotal = f.neto;
+
+      detalleHTML = '<tr>' +
+        '<td style="text-align:center"></td>' +
+        '<td>Productos según remito</td>' +
+        '<td style="text-align:right">1.00</td>' +
+        '<td style="text-align:center">unidades</td>' +
+        '<td style="text-align:right">' + formatNumero(f.neto) + '</td>' +
+        '<td style="text-align:right">0.00</td>' +
+        '<td style="text-align:right">' + formatNumero(f.neto) + '</td>' +
+        '<td style="text-align:right">10.5%</td>' +
+        '<td style="text-align:right">' + formatNumero(f.total) + '</td>' +
+        '</tr>';
     }
+
+    // Formatear fecha inicio actividades si existe
+    var fechaInicioStr = '';
+    if (emisor.FECHA_INICIO) {
+      var partes = emisor.FECHA_INICIO.split('-');
+      if (partes.length === 3) {
+        fechaInicioStr = partes[2] + '/' + partes[1] + '/' + partes[0];
+      }
+    }
+
+    // Generar URL de QR con Chart API de Google
+    var qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=' + encodeURIComponent('https://www.afip.gob.ar/fe/qr/?p=' + qrBase64);
 
     return '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
       '<style>' +
-      'body{font-family:Arial,sans-serif;margin:20px;font-size:11px;color:#333}' +
-      '.factura{max-width:800px;margin:0 auto;border:2px solid #333;padding:0}' +
-      '.header{display:flex;border-bottom:2px solid #333}' +
-      '.header-left{flex:1;padding:15px;border-right:2px solid #333}' +
-      '.header-center{width:80px;display:flex;align-items:center;justify-content:center;border-right:2px solid #333}' +
-      '.header-center .letra{font-size:36px;font-weight:bold;border:2px solid #333;width:50px;height:50px;display:flex;align-items:center;justify-content:center}' +
-      '.header-right{flex:1;padding:15px}' +
-      '.header-right h2{margin:0 0 5px;font-size:14px}' +
-      '.info-row{display:flex;border-bottom:1px solid #ccc;padding:8px 15px}' +
-      '.info-row .label{font-weight:bold;min-width:120px}' +
-      '.cliente{border-bottom:2px solid #333;padding:10px 15px}' +
-      '.cliente h3{margin:0 0 8px;font-size:12px;border-bottom:1px solid #ccc;padding-bottom:5px}' +
-      'table{width:100%;border-collapse:collapse}' +
-      'th{background:#f0f0f0;border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:10px}' +
-      'td{border:1px solid #ccc;padding:6px 8px;font-size:10px}' +
-      '.totales{margin-top:10px;text-align:right;padding:10px 15px}' +
-      '.totales table{width:300px;margin-left:auto}' +
-      '.totales td{border:none;padding:4px 8px}' +
-      '.totales .total-final{font-size:14px;font-weight:bold;border-top:2px solid #333}' +
-      '.footer{border-top:2px solid #333;padding:10px 15px;display:flex;justify-content:space-between;align-items:center}' +
-      '.cae-info{text-align:right}' +
+      '@page{size:A4;margin:1cm}' +
+      'body{font-family:Arial,sans-serif;font-size:9pt;line-height:1.2;margin:0;padding:0}' +
+      '.factura-container{border:2px solid #000;max-width:19cm;margin:0 auto}' +
+      '.header-original{text-align:center;font-weight:bold;font-size:10pt;padding:4px;border-bottom:2px solid #000}' +
+      '.header-tipo{display:grid;grid-template-columns:100px 1fr;border-bottom:2px solid #000}' +
+      '.tipo-letra{border-right:2px solid #000;text-align:center;padding:10px}' +
+      '.tipo-letra-grande{font-size:48pt;font-weight:bold;line-height:1}' +
+      '.tipo-codigo{font-size:8pt}' +
+      '.tipo-info{padding:8px 12px}' +
+      '.tipo-info p{margin:2px 0}' +
+      '.section{padding:8px 12px;border-bottom:1px solid #000}' +
+      '.section p{margin:3px 0}' +
+      '.productos-table{width:100%;border-collapse:collapse;font-size:8pt}' +
+      '.productos-table th{background:#f0f0f0;border:1px solid #000;padding:4px 6px;text-align:left;font-weight:bold}' +
+      '.productos-table td{border:1px solid #000;padding:4px 6px}' +
+      '.text-right{text-align:right}' +
+      '.totales{padding:12px;border-top:2px solid #000}' +
+      '.totales-left{float:left;width:40%}' +
+      '.totales-right{float:right;width:58%;text-align:right}' +
+      '.total-line{margin:2px 0;padding-right:12px}' +
+      '.total-final{font-size:11pt;font-weight:bold;margin-top:8px;padding-top:4px;border-top:1px solid #000}' +
+      '.footer{clear:both;display:grid;grid-template-columns:120px 1fr;padding:12px;border-top:2px solid #000}' +
+      '.footer-qr{text-align:center}' +
+      '.footer-info{padding-left:12px}' +
+      '.footer-info p{margin:2px 0;font-size:8pt}' +
+      '.disclaimer{font-size:7pt;color:#666;margin-top:8px}' +
+      '.clearfix::after{content:"";display:table;clear:both}' +
       '</style></head><body>' +
-      '<div class="factura">' +
-      // HEADER
-      '<div class="header">' +
-      '<div class="header-left">' +
-      '<h2 style="margin:0">' + escapeHtmlGS(CONFIG_AFIP.EMISOR.RAZON_SOCIAL) + '</h2>' +
-      '<p style="margin:5px 0">' + escapeHtmlGS(CONFIG_AFIP.EMISOR.CONDICION_IVA) + '</p>' +
-      '<p style="margin:2px 0;font-size:10px">CUIT: ' + formatCUIT(CONFIG_AFIP.EMISOR.CUIT) + '</p>' +
+      '<div class="factura-container">' +
+      // ORIGINAL
+      '<div class="header-original">ORIGINAL</div>' +
+      // TIPO Y DATOS DEL COMPROBANTE
+      '<div class="header-tipo">' +
+      '<div class="tipo-letra">' +
+      '<div class="tipo-letra-grande">' + tipoLetra + '</div>' +
+      '<div class="tipo-codigo">COD ' + tipoCodigo + '</div>' +
       '</div>' +
-      '<div class="header-center"><div class="letra">' + tipoLetra + '</div></div>' +
-      '<div class="header-right">' +
-      '<h2>' + tipoNombre + '</h2>' +
-      '<p style="margin:2px 0"><strong>Nro:</strong> ' + nroCompleto + '</p>' +
-      '<p style="margin:2px 0"><strong>Fecha:</strong> ' + fechaStr + '</p>' +
-      '<p style="margin:2px 0;font-size:9px">Cod. ' + String(f.cbteTipo).padStart(3, '0') + '</p>' +
+      '<div class="tipo-info">' +
+      '<p><strong>' + tipoNombre + '</strong></p>' +
+      '<p><strong>Punto de Venta:</strong> ' + pv + '</p>' +
+      '<p><strong>Comp. Nro:</strong> ' + nro + '</p>' +
+      '<p><strong>Fecha de Emisión:</strong> ' + fechaStr + '</p>' +
       '</div>' +
       '</div>' +
-      // CLIENTE
-      '<div class="cliente">' +
-      '<h3>DATOS DEL RECEPTOR</h3>' +
-      '<p><strong>Razón Social:</strong> ' + escapeHtmlGS(f.clienteNombre || 'CONSUMIDOR FINAL') + '</p>' +
-      '<p><strong>CUIT/DNI:</strong> ' + (f.clienteCuit ? formatCUIT(String(f.clienteCuit)) : 'S/D - Consumidor Final') + '</p>' +
-      '<p><strong>Condición IVA:</strong> ' + escapeHtmlGS(f.clienteCondicionTexto || f.clienteCondicion || 'Consumidor Final') + '</p>' +
+      // DATOS DEL EMISOR
+      '<div class="section">' +
+      '<p><strong>Razón Social:</strong> ' + escapeHtmlGS(emisor.RAZON_SOCIAL) + '</p>' +
+      '<p><strong>Domicilio Comercial:</strong> ' + escapeHtmlGS(emisor.DOMICILIO || 'N/E') + '</p>' +
+      '<p><strong>Condición frente al IVA:</strong> ' + escapeHtmlGS(emisor.CONDICION_IVA) + '</p>' +
+      '<p><strong>CUIT:</strong> ' + formatCUIT(emisor.CUIT) + '</p>' +
+      (emisor.INGRESOS_BRUTOS ? '<p><strong>Ingresos Brutos:</strong> ' + escapeHtmlGS(emisor.INGRESOS_BRUTOS) + '</p>' : '') +
+      (fechaInicioStr ? '<p><strong>Fecha de Inicio de Actividades:</strong> ' + fechaInicioStr + '</p>' : '') +
       '</div>' +
-      // DETALLE
-      '<div style="padding:10px 15px">' +
-      '<table><thead><tr><th>Cant.</th><th>Descripción</th><th style="text-align:right">P. Unit.</th><th style="text-align:right">Subtotal</th></tr></thead>' +
-      '<tbody>' + detalleHTML + '</tbody></table>' +
+      // DATOS DEL RECEPTOR
+      '<div class="section">' +
+      '<p><strong>CUIT:</strong> ' + (f.clienteCuit ? formatCUIT(String(f.clienteCuit)) : 'Consumidor Final') + '</p>' +
+      '<p><strong>Apellido y Nombre / Razón Social:</strong> ' + escapeHtmlGS(f.clienteRazonSocial || f.clienteNombre || 'CONSUMIDOR FINAL') + '</p>' +
+      '<p><strong>Condición frente al IVA:</strong> ' + escapeHtmlGS(f.clienteCondicionTexto || f.clienteCondicion || 'Consumidor Final') + '</p>' +
+      (f.clienteDomicilio ? '<p><strong>Domicilio Comercial:</strong> ' + escapeHtmlGS(f.clienteDomicilio) + '</p>' : '') +
+      '<p><strong>Condición de Venta:</strong></p>' +
       '</div>' +
+      // TABLA DE PRODUCTOS
+      '<table class="productos-table">' +
+      '<thead><tr>' +
+      '<th style="width:60px">Código</th>' +
+      '<th>Producto / Servicio</th>' +
+      '<th style="width:60px">Cantidad</th>' +
+      '<th style="width:60px">U.medida</th>' +
+      '<th style="width:90px" class="text-right">Precio Unit.</th>' +
+      '<th style="width:60px" class="text-right">% Bonif.</th>' +
+      '<th style="width:90px" class="text-right">Subtotal</th>' +
+      '<th style="width:70px" class="text-right">Alícuota IVA</th>' +
+      '<th style="width:100px" class="text-right">Subtotal c/IVA</th>' +
+      '</tr></thead>' +
+      '<tbody>' + detalleHTML + '</tbody>' +
+      '</table>' +
       // TOTALES
-      '<div class="totales">' +
-      '<table>' +
-      '<tr><td>Subtotal (Neto Gravado):</td><td style="text-align:right">$' + formatNumero(f.neto) + '</td></tr>' +
-      '<tr><td>IVA 10.5%:</td><td style="text-align:right">$' + formatNumero(f.iva) + '</td></tr>' +
-      '<tr class="total-final"><td><strong>TOTAL:</strong></td><td style="text-align:right"><strong>$' + formatNumero(f.total) + '</strong></td></tr>' +
-      '</table></div>' +
-      // FOOTER CON CAE
+      '<div class="totales clearfix">' +
+      '<div class="totales-left">' +
+      '<p><strong>Importe Otros Tributos: $</strong> 0.00</p>' +
+      '</div>' +
+      '<div class="totales-right">' +
+      '<div class="total-line"><strong>Importe Neto Gravado: $</strong> ' + formatNumero(netoTotal) + '</div>' +
+      '<div class="total-line"><strong>IVA 27%: $</strong> ' + formatNumero(desglosesIVA['27'].iva) + '</div>' +
+      '<div class="total-line"><strong>IVA 21%: $</strong> ' + formatNumero(desglosesIVA['21'].iva) + '</div>' +
+      '<div class="total-line"><strong>IVA 10.5%: $</strong> ' + formatNumero(desglosesIVA['10.5'].iva) + '</div>' +
+      '<div class="total-line"><strong>IVA 5%: $</strong> ' + formatNumero(desglosesIVA['5'].iva) + '</div>' +
+      '<div class="total-line"><strong>IVA 2.5%: $</strong> ' + formatNumero(desglosesIVA['2.5'].iva) + '</div>' +
+      '<div class="total-line"><strong>IVA 0%: $</strong> ' + formatNumero(desglosesIVA['0'].iva) + '</div>' +
+      '<div class="total-line"><strong>Importe Otros Tributos: $</strong> 0.00</div>' +
+      '<div class="total-final"><strong>Importe Total: $</strong> ' + formatNumero(f.total) + '</div>' +
+      '</div>' +
+      '</div>' +
+      // FOOTER CON QR Y CAE
       '<div class="footer">' +
-      '<div><img src="' + qrUrl + '" width="100" height="100" alt="QR ARCA" onerror="this.style.display=\'none\'"></div>' +
-      '<div class="cae-info">' +
-      '<p><strong>CAE:</strong> ' + (f.cae || 'En trámite') + '</p>' +
-      '<p><strong>Vto. CAE:</strong> ' + (caeVtoStr || '-') + '</p>' +
-      '</div></div>' +
+      '<div class="footer-qr">' +
+      '<img src="' + qrUrl + '" alt="QR ARCA" style="width:100px;height:100px">' +
+      '<p style="font-weight:bold;margin-top:4px">ARCA</p>' +
+      '<p style="font-size:7pt">Comprobante<br>Autorizado</p>' +
+      '</div>' +
+      '<div class="footer-info">' +
+      '<p style="text-align:right"><strong>Pág. 1/1</strong></p>' +
+      '<p style="margin-top:8px"><strong>CAE N°:</strong> ' + (f.cae || 'En trámite') + '</p>' +
+      '<p><strong>Fecha de Vto. de CAE:</strong> ' + (caeVtoStr || '-') + '</p>' +
+      '<p class="disclaimer">' +
+      'Esta Administración no se responsabiliza por los datos ingresados en el detalle de la operación' +
+      '</p>' +
+      '</div>' +
+      '</div>' +
       '</div></body></html>';
   }
 };
@@ -985,10 +1102,11 @@ function generarCertificadoAfip(datos) {
     var alias = datos.alias || 'solyverde';
 
     // Paso 1: Crear la automatización
+    var emisor = CONFIG_AFIP.getEmisor();
     var createPayload = {
       automation: automationType,
       params: {
-        cuit: config.cuit || CONFIG_AFIP.EMISOR.CUIT,
+        cuit: config.cuit || emisor.CUIT,
         username: String(datos.username).replace(/[-\s]/g, ''),
         password: datos.password,
         alias: alias
@@ -1094,9 +1212,10 @@ function autorizarWebServicesAfip(datos) {
     }
 
     var config = AfipService.getConfig();
+    var emisor = CONFIG_AFIP.getEmisor();
     var env = datos.environment || config.environment || 'dev';
     var alias = datos.alias || 'solyverde';
-    var cuit = config.cuit || CONFIG_AFIP.EMISOR.CUIT;
+    var cuit = config.cuit || emisor.CUIT;
 
     // Web services a autorizar
     var webServices = ['wsfe', 'ws_sr_padron_a5'];
@@ -1379,6 +1498,8 @@ function emitirFacturaElectronica(datos) {
       cbteNro: resultado.cbteNro,
       ptoVta: resultado.ptoVta,
       clienteNombre: datos.clienteNombre,
+      clienteRazonSocial: datos.clienteRazonSocial || datos.clienteNombre,
+      clienteDomicilio: datos.clienteDomicilio || '',
       clienteCuit: cuitLimpio,
       clienteCondicion: datos.clienteCondicion || 'CF',
       neto: resultado.neto,
@@ -1397,6 +1518,8 @@ function emitirFacturaElectronica(datos) {
       ptoVta: resultado.ptoVta,
       fecha: resultado.fecha,
       clienteNombre: datos.clienteNombre,
+      clienteRazonSocial: datos.clienteRazonSocial || datos.clienteNombre,
+      clienteDomicilio: datos.clienteDomicilio || '',
       clienteCuit: cuitLimpio,
       clienteCondicion: datos.clienteCondicion || 'CF',
       clienteCondicionTexto: datos.clienteCondicionTexto || datos.clienteCondicion || 'Consumidor Final',

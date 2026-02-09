@@ -18,8 +18,8 @@ const ClientesRepository = {
     // Crear hoja si no existe
     if (!hoja) {
       hoja = ss.insertSheet(CONFIG.HOJAS.CLIENTES);
-      hoja.appendRow(['NOMBRE', 'TEL', 'EMAIL', 'LIMITE', 'SALDO', 'TOTAL_MOVS', 'ALTA', 'ULTIMO_MOV', 'OBS', 'CUIT', 'CONDICION_FISCAL']);
-      hoja.getRange(1, 1, 1, 11).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
+      hoja.appendRow(['NOMBRE', 'TEL', 'EMAIL', 'LIMITE', 'SALDO', 'TOTAL_MOVS', 'ALTA', 'ULTIMO_MOV', 'OBS', 'CUIT', 'CONDICION_FISCAL', 'RAZON_SOCIAL', 'DOMICILIO_FISCAL']);
+      hoja.getRange(1, 1, 1, 13).setFontWeight('bold').setBackground('#4A90E2').setFontColor('#FFFFFF');
       hoja.setFrozenRows(1);
     }
 
@@ -43,7 +43,7 @@ const ClientesRepository = {
 
     if (numRows <= 0) return [];
 
-    const datos = hoja.getRange(startRow, 1, numRows, 11).getValues();
+    const datos = hoja.getRange(startRow, 1, numRows, 13).getValues();
     const clientes = [];
 
     for (const fila of datos) {
@@ -60,7 +60,9 @@ const ClientesRepository = {
         ultimoMov: fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV] instanceof Date ? fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV].toISOString() : '',
         obs: fila[CONFIG.COLS_CLIENTES.OBS] || '',
         cuit: fila[CONFIG.COLS_CLIENTES.CUIT] || '',
-        condicionFiscal: fila[CONFIG.COLS_CLIENTES.CONDICION_FISCAL] || (fila[CONFIG.COLS_CLIENTES.CUIT] ? 'Responsable Inscripto' : 'Consumidor Final')
+        condicionFiscal: fila[CONFIG.COLS_CLIENTES.CONDICION_FISCAL] || (fila[CONFIG.COLS_CLIENTES.CUIT] ? 'Responsable Inscripto' : 'Consumidor Final'),
+        razonSocial: fila[CONFIG.COLS_CLIENTES.RAZON_SOCIAL] || '',
+        domicilioFiscal: fila[CONFIG.COLS_CLIENTES.DOMICILIO_FISCAL] || ''
       });
     }
 
@@ -94,6 +96,8 @@ const ClientesRepository = {
           obs: fila[CONFIG.COLS_CLIENTES.OBS] || '',
           cuit: fila[CONFIG.COLS_CLIENTES.CUIT] || '',
           condicionFiscal: fila[CONFIG.COLS_CLIENTES.CONDICION_FISCAL] || (fila[CONFIG.COLS_CLIENTES.CUIT] ? 'Responsable Inscripto' : 'Consumidor Final'),
+          razonSocial: fila[CONFIG.COLS_CLIENTES.RAZON_SOCIAL] || '',
+          domicilioFiscal: fila[CONFIG.COLS_CLIENTES.DOMICILIO_FISCAL] || '',
           fila: i + 1
         };
       }
@@ -163,7 +167,9 @@ const ClientesRepository = {
       '',
       clienteData.obs || '',
       cuit,
-      condicionFiscal
+      condicionFiscal,
+      clienteData.razonSocial || '',
+      clienteData.domicilioFiscal || ''
     ];
 
     hoja.appendRow(nuevaFila);
@@ -179,7 +185,9 @@ const ClientesRepository = {
       ultimoMov: '',
       obs: clienteData.obs || '',
       cuit: cuit,
-      condicionFiscal: condicionFiscal
+      condicionFiscal: condicionFiscal,
+      razonSocial: clienteData.razonSocial || '',
+      domicilioFiscal: clienteData.domicilioFiscal || ''
     };
   },
 
@@ -242,6 +250,12 @@ const ClientesRepository = {
     }
     if (datos.condicionFiscal !== undefined) {
       hoja.getRange(fila, CONFIG.COLS_CLIENTES.CONDICION_FISCAL + 1).setValue(datos.condicionFiscal);
+    }
+    if (datos.razonSocial !== undefined) {
+      hoja.getRange(fila, CONFIG.COLS_CLIENTES.RAZON_SOCIAL + 1).setValue(datos.razonSocial);
+    }
+    if (datos.domicilioFiscal !== undefined) {
+      hoja.getRange(fila, CONFIG.COLS_CLIENTES.DOMICILIO_FISCAL + 1).setValue(datos.domicilioFiscal);
     }
 
     return this.buscarPorNombre(nombreFinal);
