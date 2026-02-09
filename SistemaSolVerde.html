@@ -2963,6 +2963,14 @@
 
     function formatearFecha(fecha) {
       if (!fecha) return '-';
+
+      // Si ya viene como YYYY-MM-DD (desde backend corregido), parsearlo como local
+      if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [anio, mes, dia] = fecha.split('-');
+        return `${dia}/${mes}/${anio}`;
+      }
+
+      // Fallback para otros formatos
       const d = new Date(fecha);
       return d.toLocaleDateString('es-AR');
     }
