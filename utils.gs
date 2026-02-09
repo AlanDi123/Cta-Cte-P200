@@ -39,7 +39,7 @@ function normalizarString(str) {
  */
 function serializarParaWeb(obj) {
   if (obj === null || obj === undefined) return obj;
-  if (obj instanceof Date) return obj.toISOString();
+  if (obj instanceof Date) return formatearFechaLocal(obj);
   if (Array.isArray(obj)) return obj.map(item => serializarParaWeb(item));
   if (typeof obj === 'object') {
     const resultado = {};

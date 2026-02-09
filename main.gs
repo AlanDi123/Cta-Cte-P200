@@ -399,7 +399,7 @@ function obtenerSaldosConMovimientosDia(fecha) {
 
     return {
       success: true,
-      fecha: fechaFiltro.toISOString(),
+      fecha: formatearFechaLocal(fechaFiltro),
       esHistorico: !esHoy,
       deudores: serializarParaWeb(resultado),
       totalAdeudado: totalAdeudado,

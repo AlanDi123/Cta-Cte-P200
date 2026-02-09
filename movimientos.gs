@@ -112,7 +112,7 @@ const MovimientosRepository = {
 
       return {
         id: nuevoID,
-        fecha: fecha.toISOString(),
+        fecha: formatearFechaLocal(fecha),
         cliente: clienteNorm,
         tipo: movimientoData.tipo,
         monto: movimientoData.monto,
@@ -182,7 +182,7 @@ const MovimientosRepository = {
 
       movimientos.push({
         id: fila[CONFIG.COLS_MOVS.ID],
-        fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+        fecha: fecha instanceof Date ? formatearFechaLocal(fecha) : fecha,
         cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
         tipo: fila[CONFIG.COLS_MOVS.TIPO],
         monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -218,7 +218,7 @@ const MovimientosRepository = {
 
         movimientos.push({
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+          fecha: fecha instanceof Date ? formatearFechaLocal(fecha) : fecha,
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],
@@ -290,7 +290,7 @@ const MovimientosRepository = {
         const fecha = fila[CONFIG.COLS_MOVS.FECHA];
         return {
           id: fila[CONFIG.COLS_MOVS.ID],
-          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+          fecha: fecha instanceof Date ? formatearFechaLocal(fecha) : fecha,
           cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
           tipo: fila[CONFIG.COLS_MOVS.TIPO],
           monto: fila[CONFIG.COLS_MOVS.MONTO],

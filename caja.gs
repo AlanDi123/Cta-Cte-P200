@@ -179,7 +179,7 @@ const CajaRepository = {
       return {
         success: true,
         sesionId: sesionId,
-        fecha: fecha.toISOString(),
+        fecha: formatearFechaLocal(fecha),
         registros: registros.length,
         totales: totales
       };
@@ -333,7 +333,7 @@ const CajaRepository = {
 
     return {
       sesionId: sesionId,
-      fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+      fecha: fecha instanceof Date ? formatearFechaLocal(fecha) : fecha,
       usuario: usuario,
       registros: registros
     };
@@ -390,7 +390,7 @@ function generarHojaRuta(fecha) {
   }
 
   return {
-    fecha: fechaObj.toISOString(),
+    fecha: formatearFechaLocal(fechaObj),
     fechaFormateada: formatearFecha(fechaObj),
     proveedores: proveedores,
     gastos: gastos,
