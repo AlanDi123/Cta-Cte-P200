@@ -427,8 +427,8 @@ function obtenerDatosFacturacion() {
 
     return {
       success: true,
-      transferencias: transferencias,
-      productos: productos,
+      transferencias: serializarParaWeb(transferencias),
+      productos: serializarParaWeb(productos),
       apiKeyConfigured: ClaudeService.tieneApiKey()
     };
   } catch (error) {
