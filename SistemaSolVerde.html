@@ -7691,7 +7691,7 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
             return;
           }
 
-          const inquilinos = result.data;
+          const inquilinos = result.inquilinos;
           const html = inquilinos.map(function(inq) {
             return `
               <div class="inquilino-card">
@@ -7903,7 +7903,7 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            const config = result.data.find(function(c) { return c.inquilino === inquilino; });
+            const config = result.inquilinos.find(function(c) { return c.inquilino === inquilino; });
             if (config) {
               document.getElementById('configAlquiler_inquilino').value = inquilino;
               document.getElementById('configAlquiler_montoSemanal').value = config.montoSemanal;
