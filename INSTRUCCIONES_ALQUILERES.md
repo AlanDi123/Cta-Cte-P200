@@ -99,6 +99,18 @@ if (!result.inquilinos || !Array.isArray(result.inquilinos)) {
 }
 ```
 
+### Corrección 4: Función formatearNumero agregada
+```javascript
+// En SistemaSolVerde.html - línea ~3186
+function formatearNumero(numero) {
+  return (numero || 0).toLocaleString('es-AR');
+}
+
+// Usada en el módulo de alquileres para formatear montos:
+// $${formatearNumero(inq.montoSemanal)}
+// +$${formatearNumero(inq.ajusteObra)}
+```
+
 ## 📊 Verificar que todo funcione
 
 ### Usando el script de diagnóstico:
@@ -142,6 +154,8 @@ testModuloAlquileres()
 ## 📝 Resumen de Commits
 
 ```
+a618969 - Agregar función formatearNumero para módulo de alquileres
+3320efc - Agregar instrucciones de solución para módulo de alquileres
 1fb9203 - Agregar script de diagnóstico para módulo de alquileres
 46c2bf3 - Agregar validación exhaustiva al módulo de alquileres
 d631365 - Corregir bug en módulo de alquileres: result.data -> result.inquilinos
