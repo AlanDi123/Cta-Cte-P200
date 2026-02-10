@@ -7685,9 +7685,29 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
 
       google.script.run
         .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+
+          // Validación exhaustiva
+          if (!result) {
+            mostrarToast('Error: respuesta vacía del servidor', 'error');
+            return;
+          }
+
           if (!result.success) {
-            mostrarToast('Error cargando alquileres: ' + (result ? result.error : 'sin respuesta'), 'error');
-            mostrarLoading(false);
+            mostrarToast('Error cargando alquileres: ' + (result.error || 'error desconocido'), 'error');
+            return;
+          }
+
+          // Validar que inquilinos sea un array
+          if (!result.inquilinos || !Array.isArray(result.inquilinos)) {
+            console.error('Respuesta del servidor:', result);
+            mostrarToast('Error: datos de inquilinos inválidos (esperaba array, recibió ' + typeof result.inquilinos + ')', 'error');
+            return;
+          }
+
+          // Si no hay inquilinos, mostrar mensaje
+          if (result.inquilinos.length === 0) {
+            document.getElementById('listaInquilinos').innerHTML = '<p style="text-align:center;padding:2rem;color:#666;">No hay inquilinos configurados</p>';
             return;
           }
 
@@ -7747,7 +7767,6 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
           }).join('');
 
           document.getElementById('listaInquilinos').innerHTML = html;
-          mostrarLoading(false);
         })
         .withFailureHandler(function(error) {
           mostrarToast('Error de conexión: ' + error.message, 'error');
