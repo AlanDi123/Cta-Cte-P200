@@ -46,14 +46,228 @@ function getSpreadsheet() {
 }
 
 /**
- * Punto de entrada para Web App
- * @returns {HtmlOutput}
+ * Punto de entrada para Web App y API REST
+ * @param {Object} e - Evento con parámetros de la petición
+ * @returns {HtmlOutput|TextOutput}
  */
-function doGet() {
+function doGet(e) {
+  // Si tiene parámetro 'action', es una petición API REST
+  if (e && e.parameter && e.parameter.action) {
+    return manejarApiGet(e);
+  }
+
+  // Si no, devolver la Web App
   return HtmlService.createHtmlOutputFromFile('SistemaSolVerde')
     .setTitle('Sol & Verde - Sistema de Cuenta Corriente')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/**
+ * Punto de entrada para peticiones POST (API REST)
+ * @param {Object} e - Evento con datos POST
+ * @returns {TextOutput} Respuesta JSON
+ */
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+
+    // Registrar en log para debugging
+    Logger.log('API POST recibida - Acción: ' + data.action);
+
+    if (data.action === 'addTransfers') {
+      return agregarTransferenciasAPI(data.data);
+    }
+
+    if (data.action === 'addMovements') {
+      return agregarMovimientosAPI(data.data);
+    }
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: 'Acción no reconocida: ' + data.action })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Error en doPost: ' + error.message);
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: error.message })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Maneja peticiones GET de la API REST
+ * @param {Object} e - Evento con parámetros
+ * @returns {TextOutput} Respuesta JSON
+ */
+function manejarApiGet(e) {
+  try {
+    const action = e.parameter.action;
+
+    if (action === 'getClients') {
+      return obtenerClientesAPI();
+    }
+
+    if (action === 'status') {
+      return ContentService.createTextOutput(
+        JSON.stringify({
+          success: true,
+          status: 'POS Sol y Verde API activa',
+          version: CONFIG.SISTEMA.VERSION,
+          timestamp: new Date().toISOString()
+        })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Acción por defecto
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        success: true,
+        status: 'POS Sol y Verde API activa',
+        availableActions: ['getClients', 'status'],
+        postActions: ['addTransfers', 'addMovements']
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Error en manejarApiGet: ' + error.message);
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: error.message })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// ============================================================================
+// API REST - FUNCIONES PRIVADAS
+// ============================================================================
+
+/**
+ * Agrega múltiples transferencias desde API externa
+ * @param {Array} transferencias - Array de objetos transferencia
+ * @returns {TextOutput} Respuesta JSON
+ */
+function agregarTransferenciasAPI(transferencias) {
+  try {
+    if (!Array.isArray(transferencias) || transferencias.length === 0) {
+      throw new Error('Se requiere un array de transferencias válido');
+    }
+
+    // Adaptar formato de API a formato interno
+    const transferenciasAdaptadas = transferencias.map(t => ({
+      fecha: t.FECHA,
+      cliente: (t.CLIENTE || '').toUpperCase(),
+      monto: Number(t.MONTO) || 0,
+      banco: t.BANCO || '',
+      condicion: t.CONDICION || 'Consumidor Final',
+      tipoFactura: t.TIPO_FACTURA || '',
+      obs: t.OBS || ''
+    }));
+
+    // Usar el repositorio existente
+    const resultado = TransferenciasRepository.agregarMultiples(transferenciasAdaptadas);
+
+    Logger.log(`API: ${resultado.exitosos.length} transferencias agregadas exitosamente`);
+
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        success: true,
+        count: resultado.exitosos.length,
+        exitosos: resultado.exitosos.length,
+        errores: resultado.errores.length,
+        detalleErrores: resultado.errores
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Error en agregarTransferenciasAPI: ' + error.message);
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: error.message })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Agrega múltiples movimientos desde API externa
+ * @param {Array} movimientos - Array de objetos movimiento
+ * @returns {TextOutput} Respuesta JSON
+ */
+function agregarMovimientosAPI(movimientos) {
+  try {
+    if (!Array.isArray(movimientos) || movimientos.length === 0) {
+      throw new Error('Se requiere un array de movimientos válido');
+    }
+
+    // Adaptar formato de API a formato interno
+    const movimientosAdaptados = movimientos.map(m => ({
+      fecha: m.FECHA,
+      cliente: (m.CLIENTE || '').toUpperCase(),
+      tipo: m.TIPO, // DEBE o HABER
+      monto: Number(m.MONTO) || 0,
+      obs: m.OBS || '',
+      usuario: m.USUARIO || 'API_EXTERNA'
+    }));
+
+    // Usar el repositorio existente
+    const resultado = MovimientosRepository.registrarLote(movimientosAdaptados);
+
+    Logger.log(`API: ${resultado.exitosos.length} movimientos agregados exitosamente`);
+
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        success: true,
+        count: resultado.exitosos.length,
+        exitosos: resultado.exitosos.length,
+        errores: resultado.errores.length,
+        detalleErrores: resultado.errores
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Error en agregarMovimientosAPI: ' + error.message);
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: error.message })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Obtiene todos los clientes para API externa
+ * @returns {TextOutput} Respuesta JSON
+ */
+function obtenerClientesAPI() {
+  try {
+    // Obtener todos los clientes sin límite
+    const clientes = ClientesRepository.obtenerTodos(0, 0);
+
+    // Adaptar al formato de la API (usar nombres de columnas en mayúsculas)
+    const clientesAPI = clientes.map(c => ({
+      NOMBRE: c.nombre,
+      TEL: c.tel || '',
+      EMAIL: c.email || '',
+      CUIT: c.cuit || '',
+      SALDO: c.saldo || 0,
+      LIMITE: c.limite || 0,
+      CONDICION_FISCAL: c.condicionFiscal || 'Consumidor Final',
+      RAZON_SOCIAL: c.razonSocial || '',
+      DOMICILIO_FISCAL: c.domicilioFiscal || '',
+      OBS: c.obs || ''
+    }));
+
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        success: true,
+        data: clientesAPI,
+        total: clientesAPI.length,
+        timestamp: new Date().toISOString()
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Error en obtenerClientesAPI: ' + error.message);
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: error.message, data: [] })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**
