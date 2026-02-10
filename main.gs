@@ -83,6 +83,10 @@ function doPost(e) {
       return agregarMovimientosAPI(data.data);
     }
 
+    if (data.action === 'saveBackup') {
+      return guardarBackupAPI(data.data);
+    }
+
     return ContentService.createTextOutput(
       JSON.stringify({ success: false, error: 'Acción no reconocida: ' + data.action })
     ).setMimeType(ContentService.MimeType.JSON);
@@ -108,6 +112,14 @@ function manejarApiGet(e) {
       return obtenerClientesAPI();
     }
 
+    if (action === 'getLatestBackup') {
+      return obtenerUltimoBackupAPI();
+    }
+
+    if (action === 'exportData') {
+      return exportarDatosCompletos();
+    }
+
     if (action === 'status') {
       return ContentService.createTextOutput(
         JSON.stringify({
@@ -124,8 +136,8 @@ function manejarApiGet(e) {
       JSON.stringify({
         success: true,
         status: 'POS Sol y Verde API activa',
-        availableActions: ['getClients', 'status'],
-        postActions: ['addTransfers', 'addMovements']
+        availableActions: ['getClients', 'getLatestBackup', 'exportData', 'status'],
+        postActions: ['addTransfers', 'addMovements', 'saveBackup']
       })
     ).setMimeType(ContentService.MimeType.JSON);
 
@@ -268,6 +280,195 @@ function obtenerClientesAPI() {
       JSON.stringify({ success: false, error: error.message, data: [] })
     ).setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+/**
+ * Guarda un backup completo del sistema en Google Drive
+ * @param {Object} datosBackup - Datos del backup (opcional, si no se provee se generan automáticamente)
+ * @returns {TextOutput} Respuesta JSON
+ */
+function guardarBackupAPI(datosBackup) {
+  try {
+    let datosParaGuardar;
+
+    // Si no se proporcionan datos, exportar todo el sistema
+    if (!datosBackup || Object.keys(datosBackup).length === 0) {
+      Logger.log('Generando backup automático del sistema completo');
+      datosParaGuardar = generarBackupCompleto();
+    } else {
+      datosParaGuardar = datosBackup;
+    }
+
+    // Crear o recuperar carpeta de backup
+    const folder = getOrCreateFolder_('Backup Sistema POS');
+
+    // Generar nombre de archivo con timestamp
+    const date = Utilities.formatDate(
+      new Date(),
+      'America/Argentina/Buenos_Aires',
+      'yyyy-MM-dd_HHmmss'
+    );
+    const fileName = 'backup_pos_' + date + '.json';
+
+    // Crear archivo de backup
+    const contenidoBackup = JSON.stringify(datosParaGuardar, null, 2);
+    const archivo = folder.createFile(fileName, contenidoBackup, 'application/json');
+
+    Logger.log('Backup guardado: ' + fileName);
+
+    // Mantener solo los últimos 30 backups
+    const files = folder.getFilesByType('application/json');
+    const allFiles = [];
+    while (files.hasNext()) {
+      allFiles.push(files.next());
+    }
+
+    // Ordenar por fecha de creación (más reciente primero)
+    allFiles.sort(function(a, b) {
+      return b.getDateCreated().getTime() - a.getDateCreated().getTime();
+    });
+
+    // Eliminar backups antiguos (mantener solo 30)
+    for (let i = 30; i < allFiles.length; i++) {
+      allFiles[i].setTrashed(true);
+      Logger.log('Backup eliminado (antiguo): ' + allFiles[i].getName());
+    }
+
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        success: true,
+        fileName: fileName,
+        fileId: archivo.getId(),
+        backupsMantenidos: Math.min(30, allFiles.length),
+        backupsEliminados: Math.max(0, allFiles.length - 30)
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Error en guardarBackupAPI: ' + error.message);
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: error.message })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Obtiene el último backup guardado en Google Drive
+ * @returns {TextOutput} Respuesta JSON con el contenido del backup
+ */
+function obtenerUltimoBackupAPI() {
+  try {
+    const folder = getOrCreateFolder_('Backup Sistema POS');
+    const files = folder.getFilesByType('application/json');
+
+    let latest = null;
+    while (files.hasNext()) {
+      const f = files.next();
+      if (!latest || f.getDateCreated().getTime() > latest.getDateCreated().getTime()) {
+        latest = f;
+      }
+    }
+
+    if (latest) {
+      const contenido = latest.getBlob().getDataAsString();
+      Logger.log('Último backup recuperado: ' + latest.getName());
+
+      // Intentar parsear para verificar que es JSON válido
+      const datosBackup = JSON.parse(contenido);
+
+      return ContentService.createTextOutput(
+        JSON.stringify({
+          success: true,
+          fileName: latest.getName(),
+          fileId: latest.getId(),
+          dateCreated: latest.getDateCreated().toISOString(),
+          data: datosBackup
+        })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        success: false,
+        error: 'No hay backups disponibles'
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Error en obtenerUltimoBackupAPI: ' + error.message);
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: error.message })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Exporta todos los datos del sistema para sincronización con POS
+ * @returns {TextOutput} Respuesta JSON con todos los datos
+ */
+function exportarDatosCompletos() {
+  try {
+    Logger.log('Exportando datos completos del sistema...');
+
+    const datosCompletos = generarBackupCompleto();
+
+    return ContentService.createTextOutput(
+      JSON.stringify({
+        success: true,
+        data: datosCompletos,
+        timestamp: new Date().toISOString()
+      })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Error en exportarDatosCompletos: ' + error.message);
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: error.message })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Genera un backup completo del sistema
+ * @returns {Object} Objeto con todos los datos del sistema
+ */
+function generarBackupCompleto() {
+  // Obtener todos los datos de los repositorios
+  const clientes = ClientesRepository.obtenerTodos(0, 0);
+  const movimientos = MovimientosRepository.obtenerRecientes(0); // 0 = todos
+  const transferencias = TransferenciasRepository.obtenerTodas();
+
+  // Obtener configuración del emisor
+  const datosEmisor = obtenerDatosEmisor();
+
+  return {
+    version: CONFIG.SISTEMA.VERSION,
+    fechaBackup: new Date().toISOString(),
+    clientes: serializarParaWeb(clientes),
+    movimientos: serializarParaWeb(movimientos),
+    transferencias: serializarParaWeb(transferencias),
+    emisor: datosEmisor.datos || {},
+    estadisticas: {
+      totalClientes: clientes.length,
+      totalMovimientos: movimientos.length,
+      totalTransferencias: transferencias.length,
+      totalAdeudado: clientes.reduce((sum, c) => sum + (c.saldo || 0), 0)
+    }
+  };
+}
+
+/**
+ * Obtiene o crea una carpeta en Google Drive
+ * @param {string} name - Nombre de la carpeta
+ * @returns {GoogleAppsScript.Drive.Folder} Carpeta de Drive
+ */
+function getOrCreateFolder_(name) {
+  const folders = DriveApp.getFoldersByName(name);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  Logger.log('Creando carpeta: ' + name);
+  return DriveApp.createFolder(name);
 }
 
 /**
