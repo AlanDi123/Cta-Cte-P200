@@ -1257,6 +1257,103 @@
       background: rgba(0, 172, 193, 0.1);
       border: 1px solid var(--sv-info);
     }
+
+    /* =====================================================
+       ALQUILERES DE PUESTOS
+       ===================================================== */
+    .alquileres-container {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .alquileres-inquilinos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+
+    .inquilino-card {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .inquilino-card h3 {
+      margin-top: 0;
+      color: #6A1B9A;
+      font-size: 1.2rem;
+      border-bottom: 2px solid #6A1B9A;
+      padding-bottom: 0.5rem;
+    }
+
+    .inquilino-info {
+      display: grid;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+
+    .inquilino-info-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem;
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    .inquilino-info-label {
+      font-weight: 600;
+      color: #666;
+    }
+
+    .inquilino-info-value {
+      color: #333;
+    }
+
+    .alquileres-calendario {
+      margin-top: 1rem;
+    }
+
+    .calendario-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .calendario-grid {
+      display: grid;
+      grid-template-columns: repeat(13, 1fr);
+      gap: 4px;
+    }
+
+    .semana-cell {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 0.5rem;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    .semana-cell.pagada {
+      background: #4CAF50;
+      color: white;
+      border-color: #4CAF50;
+    }
+
+    .semana-cell.impaga {
+      background: #f44336;
+      color: white;
+      border-color: #f44336;
+    }
+
+    .semana-cell.parcial {
+      background: #FFC107;
+      color: #333;
+      border-color: #FFC107;
+    }
   </style>
 </head>
 <body>
@@ -1353,6 +1450,14 @@
         <div class="menu-item" data-module="historial-facturas">
           <span class="menu-icon">📑</span>
           <span>Historial ARCA</span>
+        </div>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-section-title">Alquileres</div>
+        <div class="menu-item" data-module="alquileres">
+          <span class="menu-icon">🏪</span>
+          <span>Alquiler de Puestos</span>
         </div>
       </div>
 
@@ -2062,6 +2167,17 @@
               </thead>
               <tbody id="tbodyHistorialFacturas"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODULO: ALQUILERES DE PUESTOS -->
+      <div class="module-view" id="module-alquileres">
+        <h2 style="margin-bottom: 1rem;">Alquiler de Puestos</h2>
+
+        <div class="alquileres-container">
+          <div class="alquileres-inquilinos" id="listaInquilinos">
+            <!-- Se carga dinámicamente -->
           </div>
         </div>
       </div>
@@ -2946,6 +3062,113 @@
     </div>
   </div>
 
+  <!-- MODAL: Pago Semanal Alquiler -->
+  <div class="modal" id="modalPagoAlquiler">
+    <div class="modal-content modal-medium">
+      <div class="modal-header">
+        <h3>Registrar Pago Semanal</h3>
+        <span class="modal-close" onclick="cerrarModal('modalPagoAlquiler')">&times;</span>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="pagoAlquiler_inquilino">
+        <div class="form-group">
+          <label class="form-label">Fecha</label>
+          <input type="date" id="pagoAlquiler_fecha" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Semana ISO</label>
+          <input type="number" id="pagoAlquiler_semana" class="form-input" min="1" max="53">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monto</label>
+          <input type="number" id="pagoAlquiler_monto" class="form-input" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones</label>
+          <textarea id="pagoAlquiler_obs" class="form-input" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="cerrarModal('modalPagoAlquiler')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarPagoAlquiler()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Factura Mensual Alquiler -->
+  <div class="modal" id="modalFacturaAlquiler">
+    <div class="modal-content modal-medium">
+      <div class="modal-header">
+        <h3>Registrar Factura Mensual</h3>
+        <span class="modal-close" onclick="cerrarModal('modalFacturaAlquiler')">&times;</span>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="facturaAlquiler_inquilino">
+        <div class="form-group">
+          <label class="form-label">Fecha</label>
+          <input type="date" id="facturaAlquiler_fecha" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mes</label>
+          <input type="number" id="facturaAlquiler_mes" class="form-input" min="1" max="12">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Año</label>
+          <input type="number" id="facturaAlquiler_anio" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Semanas Cubiertas (ej: 1,2,3,4)</label>
+          <input type="text" id="facturaAlquiler_semanas" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monto Total</label>
+          <input type="number" id="facturaAlquiler_monto" class="form-input" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones</label>
+          <textarea id="facturaAlquiler_obs" class="form-input" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="cerrarModal('modalFacturaAlquiler')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarFacturaAlquiler()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Configuracion Alquiler -->
+  <div class="modal" id="modalConfigAlquiler">
+    <div class="modal-content modal-medium">
+      <div class="modal-header">
+        <h3>Configuracion de Alquiler</h3>
+        <span class="modal-close" onclick="cerrarModal('modalConfigAlquiler')">&times;</span>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="configAlquiler_inquilino">
+        <div class="form-group">
+          <label class="form-label">Monto Semanal Base</label>
+          <input type="number" id="configAlquiler_montoSemanal" class="form-input" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ajuste Obra (+ suma al alquiler)</label>
+          <input type="number" id="configAlquiler_ajusteObra" class="form-input" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ajuste Mercaderia (- descuenta del alquiler)</label>
+          <input type="number" id="configAlquiler_ajusteMercaderia" class="form-input" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones</label>
+          <textarea id="configAlquiler_obs" class="form-input" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="cerrarModal('modalConfigAlquiler')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarConfigAlquiler()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ============================================================================
     // UTILIDADES
@@ -3436,6 +3659,7 @@
       if (modulo === 'listas-facturas') cargarListasFacturas();
       if (modulo === 'facturacion-arca') inicializarModuloArca();
       if (modulo === 'historial-facturas') cargarHistorialFacturas();
+      if (modulo === 'alquileres') cargarModuloAlquileres();
       if (modulo === 'configuracion') {
         // Solo cargar datos del emisor sin verificaciones pesadas
         cargarDatosEmisor();
@@ -7448,6 +7672,297 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
         cargarTransferenciasUnificadas();
       }
     };
+
+    // =========================================================================
+    // ALQUILERES DE PUESTOS
+    // =========================================================================
+
+    /**
+     * Carga el módulo de alquileres
+     */
+    function cargarModuloAlquileres() {
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result.success) {
+            mostrarToast('Error cargando alquileres: ' + (result ? result.error : 'sin respuesta'), 'error');
+            mostrarLoading(false);
+            return;
+          }
+
+          const inquilinos = result.data;
+          const html = inquilinos.map(function(inq) {
+            return `
+              <div class="inquilino-card">
+                <h3>${inq.inquilino}</h3>
+                <div class="inquilino-info">
+                  <div class="inquilino-info-item">
+                    <span class="inquilino-info-label">Monto Semanal:</span>
+                    <span class="inquilino-info-value">$${formatearNumero(inq.montoSemanal)}</span>
+                  </div>
+                  <div class="inquilino-info-item">
+                    <span class="inquilino-info-label">Ajuste Obra:</span>
+                    <span class="inquilino-info-value">+$${formatearNumero(inq.ajusteObra)}</span>
+                  </div>
+                  <div class="inquilino-info-item">
+                    <span class="inquilino-info-label">Ajuste Mercaderia:</span>
+                    <span class="inquilino-info-value">-$${formatearNumero(inq.ajusteMercaderia)}</span>
+                  </div>
+                  <div class="inquilino-info-item">
+                    <span class="inquilino-info-label">Monto Efectivo:</span>
+                    <span class="inquilino-info-value"><strong>$${formatearNumero(inq.montoEfectivo)}</strong></span>
+                  </div>
+                  <div class="inquilino-info-item">
+                    <span class="inquilino-info-label">Saldo:</span>
+                    <span class="inquilino-info-value" style="color: ${inq.saldo < 0 ? '#f44336' : '#4CAF50'}">
+                      $${formatearNumero(inq.saldo)}
+                    </span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                  <button class="btn btn-primary btn-small" onclick="abrirModalPagoAlquiler('${inq.inquilino}')">
+                    Pago Semanal
+                  </button>
+                  <button class="btn btn-secondary btn-small" onclick="abrirModalFacturaAlquiler('${inq.inquilino}')">
+                    Factura Mensual
+                  </button>
+                  <button class="btn btn-secondary btn-small" onclick="abrirModalConfigAlquiler('${inq.inquilino}')">
+                    Configurar
+                  </button>
+                </div>
+                <div class="alquileres-calendario">
+                  <div class="calendario-header">
+                    <h4>Calendario 2026</h4>
+                    <button class="btn btn-small" onclick="cargarCalendarioAlquiler('${inq.inquilino}', 2026)">
+                      Ver Calendario
+                    </button>
+                  </div>
+                  <div id="calendario-${inq.inquilino.replace(/\s/g, '-')}" class="calendario-grid">
+                    <!-- Se carga dinámicamente -->
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          document.getElementById('listaInquilinos').innerHTML = html;
+          mostrarLoading(false);
+        })
+        .withFailureHandler(function(error) {
+          mostrarToast('Error de conexión: ' + error.message, 'error');
+          mostrarLoading(false);
+        })
+        .obtenerDatosAlquileres();
+    }
+
+    /**
+     * Carga el calendario de alquiler para un inquilino
+     */
+    function cargarCalendarioAlquiler(inquilino, anio) {
+      const containerId = 'calendario-' + inquilino.replace(/\s/g, '-');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (!result.success) {
+            mostrarToast('Error cargando calendario', 'error');
+            return;
+          }
+
+          const semanas = result.calendario;
+          let html = '';
+
+          for (let i = 1; i <= 53; i++) {
+            const estado = semanas[i] || 'impaga';
+            let clase = 'semana-cell ';
+            if (estado === 'pagada') clase += 'pagada';
+            else if (estado === 'facturada') clase += 'pagada';
+            else if (estado === 'parcial') clase += 'parcial';
+            else clase += 'impaga';
+
+            html += `<div class="${clase}" title="Semana ${i}: ${estado}">S${i}</div>`;
+          }
+
+          document.getElementById(containerId).innerHTML = html;
+        })
+        .withFailureHandler(function(error) {
+          mostrarToast('Error cargando calendario: ' + error.message, 'error');
+        })
+        .obtenerCalendarioAlquiler(inquilino, anio);
+    }
+
+    /**
+     * Abre modal para registrar pago semanal
+     */
+    function abrirModalPagoAlquiler(inquilino) {
+      document.getElementById('pagoAlquiler_inquilino').value = inquilino;
+      document.getElementById('pagoAlquiler_fecha').value = obtenerFechaHoy();
+      document.getElementById('pagoAlquiler_semana').value = obtenerSemanaISO();
+      document.getElementById('pagoAlquiler_monto').value = '';
+      document.getElementById('pagoAlquiler_obs').value = '';
+      abrirModal('modalPagoAlquiler');
+    }
+
+    /**
+     * Guarda pago semanal de alquiler
+     */
+    function guardarPagoAlquiler() {
+      const datos = {
+        inquilino: document.getElementById('pagoAlquiler_inquilino').value,
+        fecha: document.getElementById('pagoAlquiler_fecha').value,
+        semana: parseInt(document.getElementById('pagoAlquiler_semana').value),
+        monto: parseFloat(document.getElementById('pagoAlquiler_monto').value),
+        obs: document.getElementById('pagoAlquiler_obs').value
+      };
+
+      if (!datos.fecha || !datos.semana || !datos.monto) {
+        mostrarToast('Complete todos los campos obligatorios', 'warning');
+        return;
+      }
+
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            mostrarToast('Pago registrado correctamente', 'success');
+            cerrarModal('modalPagoAlquiler');
+            cargarModuloAlquileres();
+          } else {
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+          mostrarLoading(false);
+        })
+        .withFailureHandler(function(error) {
+          mostrarToast('Error de conexión: ' + error.message, 'error');
+          mostrarLoading(false);
+        })
+        .guardarPagoAlquiler(datos);
+    }
+
+    /**
+     * Abre modal para registrar factura mensual
+     */
+    function abrirModalFacturaAlquiler(inquilino) {
+      const hoy = new Date();
+      document.getElementById('facturaAlquiler_inquilino').value = inquilino;
+      document.getElementById('facturaAlquiler_fecha').value = obtenerFechaHoy();
+      document.getElementById('facturaAlquiler_mes').value = hoy.getMonth() + 1;
+      document.getElementById('facturaAlquiler_anio').value = hoy.getFullYear();
+      document.getElementById('facturaAlquiler_semanas').value = '';
+      document.getElementById('facturaAlquiler_monto').value = '';
+      document.getElementById('facturaAlquiler_obs').value = '';
+      abrirModal('modalFacturaAlquiler');
+    }
+
+    /**
+     * Guarda factura mensual de alquiler
+     */
+    function guardarFacturaAlquiler() {
+      const datos = {
+        inquilino: document.getElementById('facturaAlquiler_inquilino').value,
+        fecha: document.getElementById('facturaAlquiler_fecha').value,
+        mes: parseInt(document.getElementById('facturaAlquiler_mes').value),
+        anio: parseInt(document.getElementById('facturaAlquiler_anio').value),
+        semanasCubiertas: document.getElementById('facturaAlquiler_semanas').value,
+        monto: parseFloat(document.getElementById('facturaAlquiler_monto').value),
+        obs: document.getElementById('facturaAlquiler_obs').value
+      };
+
+      if (!datos.fecha || !datos.mes || !datos.anio || !datos.semanasCubiertas || !datos.monto) {
+        mostrarToast('Complete todos los campos obligatorios', 'warning');
+        return;
+      }
+
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            mostrarToast('Factura registrada correctamente', 'success');
+            cerrarModal('modalFacturaAlquiler');
+            cargarModuloAlquileres();
+          } else {
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+          mostrarLoading(false);
+        })
+        .withFailureHandler(function(error) {
+          mostrarToast('Error de conexión: ' + error.message, 'error');
+          mostrarLoading(false);
+        })
+        .guardarFacturaMensual(datos);
+    }
+
+    /**
+     * Abre modal para configurar alquiler
+     */
+    function abrirModalConfigAlquiler(inquilino) {
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            const config = result.data.find(function(c) { return c.inquilino === inquilino; });
+            if (config) {
+              document.getElementById('configAlquiler_inquilino').value = inquilino;
+              document.getElementById('configAlquiler_montoSemanal').value = config.montoSemanal;
+              document.getElementById('configAlquiler_ajusteObra').value = config.ajusteObra;
+              document.getElementById('configAlquiler_ajusteMercaderia').value = config.ajusteMercaderia;
+              document.getElementById('configAlquiler_obs').value = config.obs;
+              abrirModal('modalConfigAlquiler');
+            }
+          }
+          mostrarLoading(false);
+        })
+        .withFailureHandler(function(error) {
+          mostrarToast('Error cargando configuración: ' + error.message, 'error');
+          mostrarLoading(false);
+        })
+        .obtenerDatosAlquileres();
+    }
+
+    /**
+     * Guarda configuración de alquiler
+     */
+    function guardarConfigAlquiler() {
+      const inquilino = document.getElementById('configAlquiler_inquilino').value;
+      const datos = {
+        montoSemanal: parseFloat(document.getElementById('configAlquiler_montoSemanal').value),
+        ajusteObra: parseFloat(document.getElementById('configAlquiler_ajusteObra').value),
+        ajusteMercaderia: parseFloat(document.getElementById('configAlquiler_ajusteMercaderia').value),
+        obs: document.getElementById('configAlquiler_obs').value
+      };
+
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            mostrarToast('Configuración actualizada', 'success');
+            cerrarModal('modalConfigAlquiler');
+            cargarModuloAlquileres();
+          } else {
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+          mostrarLoading(false);
+        })
+        .withFailureHandler(function(error) {
+          mostrarToast('Error de conexión: ' + error.message, 'error');
+          mostrarLoading(false);
+        })
+        .actualizarConfigAlquiler(inquilino, datos);
+    }
+
+    /**
+     * Obtiene la semana ISO actual
+     */
+    function obtenerSemanaISO() {
+      const hoy = new Date();
+      const inicioAnio = new Date(hoy.getFullYear(), 0, 1);
+      const dias = Math.floor((hoy - inicioAnio) / (24 * 60 * 60 * 1000));
+      return Math.ceil((dias + inicioAnio.getDay() + 1) / 7);
+    }
 
   </script>
 </body>
