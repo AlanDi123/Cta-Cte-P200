@@ -3184,6 +3184,10 @@
       return '$' + (monto || 0).toLocaleString('es-AR');
     }
 
+    function formatearNumero(numero) {
+      return (numero || 0).toLocaleString('es-AR');
+    }
+
     function formatearFecha(fecha) {
       if (!fecha) return '-';
 
