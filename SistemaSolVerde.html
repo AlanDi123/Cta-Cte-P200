@@ -4092,21 +4092,25 @@
       }
 
       contenedor.innerHTML = matches.map(c => `
-        <div class="suggestion-item" data-nombre="${escapeHtml(c.nombre)}">
+        <div class="suggestion-item" onmousedown="seleccionarClienteTransf('${escapeHtml(c.nombre).replace(/'/g, "\\'")}'); event.preventDefault();">
           <strong>${escapeHtml(c.nombre)}</strong>
           <span style="color: var(--sv-texto-muted);">${c.cuit || 'Sin CUIT'}</span>
         </div>
       `).join('');
 
-      contenedor.querySelectorAll('.suggestion-item').forEach(item => {
-        item.addEventListener('click', function() {
-          document.getElementById('transfCliente').value = this.dataset.nombre;
-          contenedor.style.display = 'none';
-          document.getElementById('transfMonto').focus();
-        });
-      });
-
       contenedor.style.display = 'block';
+    }
+
+    // Función global para seleccionar cliente en transferencia
+    function seleccionarClienteTransf(nombre) {
+      const input = document.getElementById('transfCliente');
+      const contenedor = document.getElementById('transfClienteSugerencias');
+      if (input) input.value = nombre;
+      if (contenedor) contenedor.style.display = 'none';
+      setTimeout(() => {
+        const montoInput = document.getElementById('transfMonto');
+        if (montoInput) montoInput.focus();
+      }, 100);
     }
 
     // ============================================================================
@@ -4199,13 +4203,13 @@
     // ============================================================================
     // SALDOS PENDIENTES
     // ============================================================================
-    function cargarSaldosPendientes() {
-      mostrarLoading(true);
+    function cargarSaldosPendientes(mostrarSpinner = false) {
+      if (mostrarSpinner) mostrarLoading(true);
       const fecha = document.getElementById('fechaSaldos').value || obtenerFechaLocal();
 
       google.script.run
         .withSuccessHandler(function(result) {
-          mostrarLoading(false);
+          if (mostrarSpinner) mostrarLoading(false);
           if (result.success) {
             if (result.deudores.length === 0) {
               document.getElementById('tbodySaldos').innerHTML = '<tr><td colspan="4" class="empty-state">No hay deudores</td></tr>';
@@ -4227,7 +4231,7 @@
           }
         })
         .withFailureHandler(function(error) {
-          mostrarLoading(false);
+          if (mostrarSpinner) mostrarLoading(false);
           mostrarToast('Error: ' + error.message, 'error');
         })
         .obtenerSaldosConMovimientosDia(fecha);
@@ -5711,10 +5715,21 @@
 
     // Seleccionar banco
     function seleccionarBanco(banco) {
-      document.getElementById('transfBanco').value = banco;
-      document.querySelectorAll('.banco-option').forEach(b => {
-        b.classList.toggle('selected', b.dataset.banco === banco);
-      });
+      const input = document.getElementById('transfBanco');
+      if (!input) return;
+
+      input.value = banco;
+
+      // Solo seleccionar botones del modal de transferencias (no otros modales)
+      const modal = document.getElementById('modalTransferencia');
+      if (modal) {
+        modal.querySelectorAll('.banco-option').forEach(b => {
+          b.classList.remove('selected');
+          if (b.dataset.banco === banco) {
+            b.classList.add('selected');
+          }
+        });
+      }
     }
 
     // Guardar transferencia (nueva o edición)
@@ -7814,13 +7829,14 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
 
     /**
      * Carga el módulo de alquileres
+     * @param {boolean} mostrarSpinner - Si debe mostrar el spinner de loading
      */
-    function cargarModuloAlquileres() {
-      mostrarLoading(true);
+    function cargarModuloAlquileres(mostrarSpinner = false) {
+      if (mostrarSpinner) mostrarLoading(true);
 
       google.script.run
         .withSuccessHandler(function(result) {
-          mostrarLoading(false);
+          if (mostrarSpinner) mostrarLoading(false);
 
           // Validación exhaustiva
           if (!result) {
