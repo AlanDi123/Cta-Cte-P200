@@ -844,11 +844,11 @@
       justify-content: center;
     }
 
-    /* Impresion A4 */
+    /* Impresion A4 - OPTIMIZADO PARA 1 PÁGINA */
     @media print {
       @page {
         size: A4 portrait;
-        margin: 1cm;
+        margin: 0.8cm;
       }
 
       /* Forzar colores claros incluso en modo oscuro */
@@ -873,88 +873,107 @@
         display: block !important;
       }
 
-      body {
-        background: white !important;
-        color: black !important;
-        font-size: 8pt;
-        line-height: 1.2;
+      * {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
 
-      /* Cards compactas */
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      body {
+        background: white !important;
+        color: black !important;
+        font-size: 7pt;
+        line-height: 1.1;
+      }
+
+      /* CRÍTICO: Limitar altura del módulo activo a 1 página */
+      .module-view.active {
+        display: block !important;
+        background: white !important;
+        max-height: 27cm; /* Altura A4 menos márgenes */
+        overflow: hidden !important;
+        page-break-after: avoid !important;
+      }
+
+      /* Cards ultra compactas */
       .card {
         background: white !important;
         color: black !important;
         border: 1px solid #ddd !important;
         box-shadow: none !important;
-        padding: 0.25rem 0.5rem !important;
-        margin: 0 0 0.25rem 0 !important;
-        animation: none !important;
+        padding: 0.15rem 0.3rem !important;
+        margin: 0 0 0.15rem 0 !important;
         page-break-inside: avoid;
       }
 
-      /* Headings compactos */
+      /* Headings ultra compactos */
       h2, h3, h4 {
-        margin-top: 0.25rem !important;
-        margin-bottom: 0.25rem !important;
+        margin: 0.15rem 0 !important;
+        padding: 0 !important;
       }
 
-      h2 { font-size: 12pt !important; }
-      h3 { font-size: 11pt !important; }
-      h4 { font-size: 10pt !important; }
+      h2 { font-size: 10pt !important; }
+      h3 { font-size: 9pt !important; }
+      h4 { font-size: 8pt !important; }
 
-      /* Tablas generales compactas */
+      /* Tablas ultra compactas */
       .table, .table-print {
         width: 100%;
-        font-size: 7.5pt;
+        font-size: 6.5pt;
         background: white !important;
         border-collapse: collapse;
+        margin: 0 !important;
       }
 
       .table th, .table td, .table-print th, .table-print td {
-        padding: 2px 4px;
-        border: 1px solid #ddd !important;
+        padding: 1px 2px !important;
+        border: 0.5px solid #ddd !important;
         background: white !important;
         color: black !important;
-        line-height: 1.1;
+        line-height: 1.05;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+      }
+
+      .table th, .table-print th {
+        background: #e8e8e8 !important;
+        color: black !important;
+        font-weight: bold;
+        font-size: 7pt;
       }
 
       /* Control de saltos de página */
-      .page-break-avoid { page-break-inside: avoid; }
-      .page-break-before { page-break-before: always; }
-      .page-break-after { page-break-after: always; }
-
-      .table th, .table-print th {
-        background: #f0f0f0 !important;
-        color: black !important;
-        font-weight: bold;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
+      .page-break-avoid { page-break-inside: avoid !important; }
+      .page-break-before { page-break-before: always !important; }
+      .page-break-after { page-break-after: always !important; }
 
       /* Textos y elementos con colores */
       h1, h2, h3, h4, h5, h6, p, span, strong, div, td, th {
         color: black !important;
       }
 
-      /* Colores específicos para montos */
-      [style*="color: var(--sv-peligro)"],
-      [style*="color: var(--sv-exito)"] {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-
       .print-logo {
         display: block !important;
-        width: 60px;
-        margin: 0 auto 10px;
+        width: 50px;
+        margin: 0 auto 5px;
       }
 
       .main-content {
         margin: 0 !important;
         padding: 0 !important;
         background: white !important;
+        height: auto !important;
+        max-height: 27cm !important;
+        overflow: hidden !important;
       }
 
       /* Ocultar sidebar y header al imprimir */
@@ -967,68 +986,78 @@
         display: none !important;
       }
 
-      .module-view.active {
-        display: block !important;
-        background: white !important;
-      }
-
       /* Asegurar que los totales se vean */
       tfoot tr {
-        background: #f5f5f5 !important;
+        background: #f0f0f0 !important;
         font-weight: bold;
       }
 
-      /* Ajustar para que entre en 1 página - Hoja de Ruta */
+      /* ESPECÍFICO: Hoja de Ruta - AJUSTE DINÁMICO */
+      #module-hoja-ruta {
+        max-height: 27cm !important;
+        overflow: hidden !important;
+        transform-origin: top left;
+      }
+
       #module-hoja-ruta h3 {
-        font-size: 11pt !important;
-        margin-bottom: 0.25rem !important;
+        font-size: 9pt !important;
+        margin: 0.1rem 0 !important;
+      }
+
+      #module-hoja-ruta h4 {
+        font-size: 7.5pt !important;
+        margin: 0.1rem 0 !important;
       }
 
       #module-hoja-ruta .table th,
       #module-hoja-ruta .table td {
-        padding: 1px 3px !important;
-        font-size: 7pt !important;
+        padding: 0.5px 2px !important;
+        font-size: 6pt !important;
+        line-height: 1.05;
       }
 
       #module-hoja-ruta .card {
-        margin-bottom: 0.15rem !important;
-        padding: 0.15rem 0.25rem !important;
+        margin-bottom: 0.1rem !important;
+        padding: 0.1rem 0.2rem !important;
       }
 
-      #module-hoja-ruta h4 {
-        font-size: 9pt !important;
-        margin-bottom: 0.15rem !important;
+      /* ESPECÍFICO: Impresión de Saldos - AJUSTE DINÁMICO */
+      #module-impresion-saldos {
+        max-height: 27cm !important;
+        overflow: hidden !important;
+        transform-origin: top left;
       }
 
-      /* Ajustar para que entre en 1 página - Impresión de Saldos */
       #module-impresion-saldos h3 {
-        font-size: 11pt !important;
-        margin-bottom: 0.25rem !important;
+        font-size: 9pt !important;
+        margin: 0.1rem 0 !important;
       }
 
       #module-impresion-saldos .table th,
       #module-impresion-saldos .table td {
-        padding: 1px 3px !important;
-        font-size: 7pt !important;
+        padding: 0.5px 2px !important;
+        font-size: 6pt !important;
+        line-height: 1.05;
       }
 
       #module-impresion-saldos .card {
-        margin-bottom: 0.15rem !important;
-        padding: 0.15rem 0.25rem !important;
+        margin-bottom: 0.1rem !important;
+        padding: 0.1rem 0.2rem !important;
       }
 
-      /* Forzar todo en una página */
-      #module-hoja-ruta,
-      #module-impresion-saldos {
-        max-height: none;
-        overflow: visible;
-      }
-
-      /* Ocultar totales en impresión hoja de ruta */
+      /* Ocultar elementos innecesarios en impresión */
       .hoja-ruta-total,
       .hoja-ruta-grand-total,
       .hoja-ruta-excluded {
         display: none !important;
+      }
+
+      /* Ajuste automático si el contenido es muy largo */
+      @supports (transform: scale(1)) {
+        .module-view.active {
+          transform: scale(0.98);
+          transform-origin: top center;
+        }
       }
     }
 
@@ -1803,8 +1832,8 @@
               <thead>
                 <tr>
                   <th>Cliente</th>
-                  <th style="text-align: right;">Pagos</th>
-                  <th style="text-align: right;">Fiados</th>
+                  <th style="text-align: right;">Fiados (DEBE)</th>
+                  <th style="text-align: right;">Pagos (HABER)</th>
                   <th style="text-align: right;">Saldo</th>
                 </tr>
               </thead>
@@ -1812,8 +1841,8 @@
               <tfoot>
                 <tr style="font-weight: bold;">
                   <td>TOTAL</td>
-                  <td style="text-align: right;" id="totalPagosDia">$0</td>
                   <td style="text-align: right;" id="totalFiadosDia">$0</td>
+                  <td style="text-align: right;" id="totalPagosDia">$0</td>
                   <td style="text-align: right;" id="totalSaldos">$0</td>
                 </tr>
               </tfoot>
@@ -4092,25 +4121,30 @@
       }
 
       contenedor.innerHTML = matches.map(c => `
-        <div class="suggestion-item" onmousedown="seleccionarClienteTransf('${escapeHtml(c.nombre).replace(/'/g, "\\'")}'); event.preventDefault();">
+        <div class="suggestion-item" data-nombre="${escapeHtml(c.nombre)}">
           <strong>${escapeHtml(c.nombre)}</strong>
           <span style="color: var(--sv-texto-muted);">${c.cuit || 'Sin CUIT'}</span>
         </div>
       `).join('');
 
-      contenedor.style.display = 'block';
-    }
+      contenedor.querySelectorAll('.suggestion-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const nombre = this.dataset.nombre;
+          const input = document.getElementById('transfCliente');
+          const sugerenciasDiv = document.getElementById('transfClienteSugerencias');
 
-    // Función global para seleccionar cliente en transferencia
-    function seleccionarClienteTransf(nombre) {
-      const input = document.getElementById('transfCliente');
-      const contenedor = document.getElementById('transfClienteSugerencias');
-      if (input) input.value = nombre;
-      if (contenedor) contenedor.style.display = 'none';
-      setTimeout(() => {
-        const montoInput = document.getElementById('transfMonto');
-        if (montoInput) montoInput.focus();
-      }, 100);
+          if (input) input.value = nombre;
+          if (sugerenciasDiv) sugerenciasDiv.style.display = 'none';
+
+          setTimeout(() => {
+            const montoInput = document.getElementById('transfMonto');
+            if (montoInput) montoInput.focus();
+          }, 100);
+        });
+      });
+
+      contenedor.style.display = 'block';
     }
 
     // ============================================================================
@@ -4217,15 +4251,15 @@
               document.getElementById('tbodySaldos').innerHTML = result.deudores.map(d => `
                 <tr>
                   <td>${escapeHtml(d.nombre)}</td>
-                  <td style="text-align: right; color: var(--sv-exito);">${d.pagosDia > 0 ? formatearMonto(d.pagosDia) : '-'}</td>
                   <td style="text-align: right; color: var(--sv-peligro);">${d.fiadosDia > 0 ? formatearMonto(d.fiadosDia) : '-'}</td>
+                  <td style="text-align: right; color: var(--sv-exito);">${d.pagosDia > 0 ? formatearMonto(d.pagosDia) : '-'}</td>
                   <td style="text-align: right; font-weight: bold;">${formatearMonto(d.saldo)}</td>
                 </tr>
               `).join('');
             }
 
-            document.getElementById('totalPagosDia').textContent = formatearMonto(result.totalPagosDia || 0);
             document.getElementById('totalFiadosDia').textContent = formatearMonto(result.totalFiadosDia || 0);
+            document.getElementById('totalPagosDia').textContent = formatearMonto(result.totalPagosDia || 0);
             document.getElementById('totalSaldos').textContent = formatearMonto(result.totalAdeudado);
             document.getElementById('fechaImpresion').textContent = 'Fecha: ' + formatearFecha(fecha);
           }
@@ -5683,8 +5717,11 @@
       document.getElementById('transfBanco').value = '';
       document.getElementById('transfObs').value = '';
       document.getElementById('transfClienteSugerencias').style.display = 'none';
-      // Limpiar selección de banco
-      document.querySelectorAll('.banco-option').forEach(b => b.classList.remove('selected'));
+      // Limpiar selección de banco (solo del modal de transferencia)
+      const modal = document.getElementById('modalTransferencia');
+      if (modal) {
+        modal.querySelectorAll('.banco-option').forEach(b => b.classList.remove('selected'));
+      }
       abrirModal('modalTransferencia');
     }
 
@@ -5705,10 +5742,13 @@
       document.getElementById('transfObs').value = transferencia.obs || '';
       document.getElementById('transfClienteSugerencias').style.display = 'none';
 
-      // Seleccionar banco
-      document.querySelectorAll('.banco-option').forEach(b => {
-        b.classList.toggle('selected', b.dataset.banco === transferencia.banco);
-      });
+      // Seleccionar banco (solo del modal de transferencia)
+      const modal = document.getElementById('modalTransferencia');
+      if (modal) {
+        modal.querySelectorAll('.banco-option').forEach(b => {
+          b.classList.toggle('selected', b.dataset.banco === transferencia.banco);
+        });
+      }
 
       abrirModal('modalTransferencia');
     }
