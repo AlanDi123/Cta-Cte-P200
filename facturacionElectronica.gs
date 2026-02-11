@@ -1483,30 +1483,97 @@ function probarConexionAfip() {
 /**
  * Emite una factura electrónica
  * @param {Object} datos - {cbteTipo, clienteNombre, clienteCuit, clienteCondicion, importeNeto, detalle}
+ *                         O {cbteTipo, cliente: {nombre, razonSocial, domicilio, condicion, cuit}, items: [{descripcion, cantidad, precioUnitario}], obs}
  */
 function emitirFacturaElectronica(datos) {
   try {
+    // Normalizar estructura de datos: soportar tanto el formato antiguo como el nuevo
+    var datosNormalizados = {};
+    
+    // Si viene en formato nuevo (con cliente e items), transformar al formato antiguo
+    if (datos.cliente && datos.items) {
+      datosNormalizados.cbteTipo = datos.cbteTipo;
+      datosNormalizados.clienteNombre = datos.cliente.nombre;
+      datosNormalizados.clienteRazonSocial = datos.cliente.razonSocial || datos.cliente.nombre;
+      datosNormalizados.clienteDomicilio = datos.cliente.domicilio || '';
+      datosNormalizados.clienteCondicion = datos.cliente.condicion || 'CF';
+      datosNormalizados.clienteCuit = datos.cliente.cuit || '';
+      
+      // Calcular importeNeto desde items
+      var importeNeto = 0;
+      var DECIMAL_PRECISION = 100; // Para redondear a 2 decimales
+      
+      if (datos.items && datos.items.length > 0) {
+        datos.items.forEach(function(item) {
+          var cantidad = parseFloat(item.cantidad);
+          var precioUnitario = parseFloat(item.precioUnitario);
+          
+          // Validar que sean números válidos
+          if (isNaN(cantidad) || isNaN(precioUnitario)) {
+            throw new Error('Los items deben tener cantidad y precioUnitario numéricos válidos');
+          }
+          
+          importeNeto += cantidad * precioUnitario;
+        });
+      }
+      
+      // Para Factura B (tipo 6), el precio unitario incluye IVA, hay que quitarlo
+      // Para Factura A (tipo 1), el precio unitario ya está sin IVA
+      if (datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_B || 
+          datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.NOTA_CREDITO_B) {
+        // Factura B o Nota de Crédito B: el monto incluye IVA, calcular neto
+        var ivaConfig = CONFIG_AFIP.getIVA();
+        if (!ivaConfig || typeof ivaConfig.MULTIPLICADOR !== 'number') {
+          throw new Error('Configuración de IVA no disponible');
+        }
+        var multiplicadorIVA = ivaConfig.MULTIPLICADOR;
+        importeNeto = Math.round(importeNeto / (1 + multiplicadorIVA) * DECIMAL_PRECISION) / DECIMAL_PRECISION;
+      } else if (datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_A || 
+                 datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.NOTA_CREDITO_A) {
+        // Factura A o Nota de Crédito A: el precio ya está sin IVA, usar directamente
+        importeNeto = Math.round(importeNeto * DECIMAL_PRECISION) / DECIMAL_PRECISION;
+      } else {
+        // Tipo de comprobante no reconocido, usar el importe tal cual con redondeo
+        importeNeto = Math.round(importeNeto * DECIMAL_PRECISION) / DECIMAL_PRECISION;
+      }
+      
+      datosNormalizados.importeNeto = importeNeto;
+      datosNormalizados.detalle = datos.items;
+      
+      // Determinar clienteCondicionTexto
+      if (datosNormalizados.clienteCondicion === 'RI') {
+        datosNormalizados.clienteCondicionTexto = 'Responsable Inscripto';
+      } else if (datosNormalizados.clienteCondicion === 'CF') {
+        datosNormalizados.clienteCondicionTexto = 'Consumidor Final';
+      } else {
+        datosNormalizados.clienteCondicionTexto = datosNormalizados.clienteCondicion;
+      }
+    } else {
+      // Formato antiguo, usar tal cual
+      datosNormalizados = datos;
+    }
+    
     // Validaciones
-    if (!datos.cbteTipo) throw new Error('Tipo de comprobante requerido');
-    if (!datos.importeNeto || datos.importeNeto <= 0) throw new Error('Importe neto debe ser mayor a 0');
-    if (!datos.clienteNombre) throw new Error('Nombre del cliente requerido');
+    if (!datosNormalizados.cbteTipo) throw new Error('Tipo de comprobante requerido');
+    if (!datosNormalizados.importeNeto || datosNormalizados.importeNeto <= 0) throw new Error('Importe neto debe ser mayor a 0');
+    if (!datosNormalizados.clienteNombre) throw new Error('Nombre del cliente requerido');
 
     // Para Factura A, validar CUIT
-    if ((datos.cbteTipo === 1 || datos.cbteTipo === 3) && !datos.clienteCuit) {
+    if ((datosNormalizados.cbteTipo === 1 || datosNormalizados.cbteTipo === 3) && !datosNormalizados.clienteCuit) {
       throw new Error('Factura/NC tipo A requiere CUIT del cliente');
     }
 
     // Limpiar CUIT
-    var cuitLimpio = datos.clienteCuit ? String(datos.clienteCuit).replace(/[-\s]/g, '') : '';
+    var cuitLimpio = datosNormalizados.clienteCuit ? String(datosNormalizados.clienteCuit).replace(/[-\s]/g, '') : '';
 
     // Emitir en ARCA
     var resultado = AfipService.emitirComprobante({
-      cbteTipo: datos.cbteTipo,
+      cbteTipo: datosNormalizados.cbteTipo,
       clienteCuit: cuitLimpio,
-      importeNeto: datos.importeNeto,
-      cbteAsocTipo: datos.cbteAsocTipo || null,
-      cbteAsocNro: datos.cbteAsocNro || null,
-      cbteAsocFecha: datos.cbteAsocFecha || null
+      importeNeto: datosNormalizados.importeNeto,
+      cbteAsocTipo: datosNormalizados.cbteAsocTipo || null,
+      cbteAsocNro: datosNormalizados.cbteAsocNro || null,
+      cbteAsocFecha: datosNormalizados.cbteAsocFecha || null
     });
 
     // Registrar en hoja
@@ -1514,18 +1581,18 @@ function emitirFacturaElectronica(datos) {
       cbteTipo: resultado.cbteTipo,
       cbteNro: resultado.cbteNro,
       ptoVta: resultado.ptoVta,
-      clienteNombre: datos.clienteNombre,
-      clienteRazonSocial: datos.clienteRazonSocial || datos.clienteNombre,
-      clienteDomicilio: datos.clienteDomicilio || '',
+      clienteNombre: datosNormalizados.clienteNombre,
+      clienteRazonSocial: datosNormalizados.clienteRazonSocial || datosNormalizados.clienteNombre,
+      clienteDomicilio: datosNormalizados.clienteDomicilio || '',
       clienteCuit: cuitLimpio,
-      clienteCondicion: datos.clienteCondicion || 'CF',
+      clienteCondicion: datosNormalizados.clienteCondicion || 'CF',
       neto: resultado.neto,
       iva: resultado.iva,
       total: resultado.total,
       cae: resultado.cae,
       caeVto: resultado.caeVto,
       estado: 'EMITIDA',
-      detalle: datos.detalle || []
+      detalle: datosNormalizados.detalle || []
     });
 
     // Generar PDF
@@ -1534,18 +1601,18 @@ function emitirFacturaElectronica(datos) {
       cbteNro: resultado.cbteNro,
       ptoVta: resultado.ptoVta,
       fecha: resultado.fecha,
-      clienteNombre: datos.clienteNombre,
-      clienteRazonSocial: datos.clienteRazonSocial || datos.clienteNombre,
-      clienteDomicilio: datos.clienteDomicilio || '',
+      clienteNombre: datosNormalizados.clienteNombre,
+      clienteRazonSocial: datosNormalizados.clienteRazonSocial || datosNormalizados.clienteNombre,
+      clienteDomicilio: datosNormalizados.clienteDomicilio || '',
       clienteCuit: cuitLimpio,
-      clienteCondicion: datos.clienteCondicion || 'CF',
-      clienteCondicionTexto: datos.clienteCondicionTexto || datos.clienteCondicion || 'Consumidor Final',
+      clienteCondicion: datosNormalizados.clienteCondicion || 'CF',
+      clienteCondicionTexto: datosNormalizados.clienteCondicionTexto || datosNormalizados.clienteCondicion || 'Consumidor Final',
       neto: resultado.neto,
       iva: resultado.iva,
       total: resultado.total,
       cae: resultado.cae,
       caeVto: resultado.caeVto,
-      detalle: datos.detalle || []
+      detalle: datosNormalizados.detalle || []
     });
 
     // Actualizar URL del PDF en la hoja
