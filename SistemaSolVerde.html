@@ -7754,9 +7754,9 @@
     function seleccionarBancoUnif(banco) {
       document.getElementById('transfUnifBanco').value = banco;
       document.querySelectorAll('#modalTransferenciaUnif .banco-option').forEach(btn => {
-        btn.classList.remove('active');
+        btn.classList.remove('selected');
         if (btn.dataset.banco === banco) {
-          btn.classList.add('active');
+          btn.classList.add('selected');
         }
       });
     }
@@ -7801,7 +7801,7 @@
 
             // Actualizar datos
             EstadoFacturacionUnif.transferencias.push({
-              id: result.id,
+              id: result.transferencia.id,
               ...datos,
               tipoFactura: tipoFactura,
               facturada: false
@@ -7811,7 +7811,7 @@
 
             // Abrir modal de facturación inmediatamente
             setTimeout(() => {
-              iniciarFacturacionDesdeTransferencia(result.id);
+              iniciarFacturacionDesdeTransferencia(result.transferencia.id);
             }, 500);
           } else {
             mostrarToast('Error: ' + result.error, 'error');
@@ -7821,7 +7821,7 @@
           mostrarLoading(false);
           mostrarToast('Error: ' + error.message, 'error');
         })
-        .crearTransferencia({
+        .agregarTransferencia({
           fecha: datos.fecha,
           cliente: datos.cliente,
           monto: datos.monto,
