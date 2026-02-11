@@ -1511,9 +1511,14 @@ function emitirFacturaElectronica(datos) {
       
       // Para Factura B (tipo 6), el precio unitario incluye IVA, hay que quitarlo
       // Para Factura A (tipo 1), el precio unitario ya está sin IVA
-      if (datos.cbteTipo === 6 || datos.cbteTipo === 8) {
+      if (datos.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_B || 
+          datos.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.NOTA_CREDITO_B) {
         // Factura B o Nota de Crédito B: el monto incluye IVA, calcular neto
-        var multiplicadorIVA = CONFIG_AFIP.getIVA().MULTIPLICADOR;
+        var ivaConfig = CONFIG_AFIP.getIVA();
+        if (!ivaConfig || typeof ivaConfig.MULTIPLICADOR !== 'number') {
+          throw new Error('Configuración de IVA no disponible');
+        }
+        var multiplicadorIVA = ivaConfig.MULTIPLICADOR;
         importeNeto = Math.round(importeNeto / (1 + multiplicadorIVA) * 100) / 100;
       }
       
