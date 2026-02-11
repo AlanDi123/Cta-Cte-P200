@@ -61,11 +61,19 @@ const CONFIG_AFIP = {
     };
   },
 
-  // IVA por defecto: 10.5%
-  IVA: {
-    ALICUOTA_ID: 4,        // Id 4 = 10.5% en tabla ARCA
-    PORCENTAJE: 10.5,
-    MULTIPLICADOR: 0.105
+  /**
+   * Obtiene la configuración de IVA desde CONFIG global
+   */
+  getIVA: function() {
+    const ivaConfig = CONFIG.getIVA();
+    const props = PropertiesService.getScriptProperties();
+    const alicuotaId = parseInt(props.getProperty('IVA_ALICUOTA_ID') || '4');
+    
+    return {
+      ALICUOTA_ID: alicuotaId,
+      PORCENTAJE: ivaConfig.PORCENTAJE,
+      MULTIPLICADOR: ivaConfig.MULTIPLICADOR
+    };
   },
 
   // Tipos de comprobante
@@ -360,7 +368,7 @@ const AfipService = {
 
     // Calcular importes
     const neto = datosFactura.importeNeto;
-    const iva = Math.round(neto * CONFIG_AFIP.IVA.MULTIPLICADOR * 100) / 100;
+    const iva = Math.round(neto * CONFIG_AFIP.getIVA().MULTIPLICADOR * 100) / 100;
     const total = Math.round((neto + iva) * 100) / 100;
 
     // Determinar DocTipo según tipo de comprobante
@@ -385,7 +393,7 @@ const AfipService = {
 
     // Construir detalle de IVA
     var ivaArray = [{
-      Id: CONFIG_AFIP.IVA.ALICUOTA_ID,
+      Id: CONFIG_AFIP.getIVA().ALICUOTA_ID,
       BaseImp: neto,
       Importe: iva
     }];
