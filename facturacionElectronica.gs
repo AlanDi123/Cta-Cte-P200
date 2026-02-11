@@ -245,7 +245,7 @@ const AfipService = {
    *
    * Para generar el certificado, usar generarCertificadoAfip() desde Configuración.
    *
-   * @param {string} wsid - Web Service ID ('wsfe' para facturación, 'ws_sr_padron_a5' para padrón)
+   * @param {string} wsid - Web Service ID ('wsfe' para facturación, 'ws_sr_padron_a13' para padrón)
    * @returns {Object} {token, sign}
    */
   autenticar: function(wsid) {
@@ -511,12 +511,12 @@ const AfipService = {
       throw new Error('CUIT inválido: debe tener 11 dígitos. Recibido: ' + cuit);
     }
 
-    const auth = this.autenticar('ws_sr_padron_a5');
+    const auth = this.autenticar('ws_sr_padron_a13');
 
     const payload = {
       environment: config.environment,
       method: 'getPersona',
-      wsid: 'ws_sr_padron_a5',
+      wsid: 'ws_sr_padron_a13',
       params: {
         token: auth.token,
         sign: auth.sign,
@@ -841,9 +841,18 @@ const FacturaPDF = {
     }
 
     // URL del QR de ARCA
+    // Construir fecha en formato YYYY-MM-DD para el QR
+    var fechaQR = '';
+    if (f.fecha) {
+      var fechaParts = String(f.fecha);
+      if (fechaParts.length === 8) {
+        fechaQR = fechaParts.substring(0, 4) + '-' + fechaParts.substring(4, 6) + '-' + fechaParts.substring(6, 8);
+      }
+    }
+    
     var qrData = JSON.stringify({
       ver: 1,
-      fecha: fechaStr ? (f.fecha.substring(0, 4) + '-' + f.fecha.substring(4, 6) + '-' + f.fecha.substring(6, 8)) : '',
+      fecha: fechaQR,
       cuit: parseInt(emisor.CUIT.replace(/-/g, '')),
       ptoVta: f.ptoVta,
       tipoCmp: f.cbteTipo,
@@ -852,9 +861,9 @@ const FacturaPDF = {
       moneda: 'PES',
       ctz: 1,
       tipoDocRec: f.clienteCuit ? 80 : 99,
-      nroDocRec: f.clienteCuit ? parseInt(f.clienteCuit.replace(/-/g, '')) : 0,
+      nroDocRec: f.clienteCuit ? parseInt(String(f.clienteCuit).replace(/-/g, '')) : 0,
       tipoCodAut: 'E',
-      codAut: parseInt(f.cae || '0')
+      codAut: parseInt(String(f.cae || '0'))
     });
     var qrBase64 = Utilities.base64Encode(qrData);
     var qrUrl = 'https://www.afip.gob.ar/fe/qr/?p=' + qrBase64;
@@ -1165,7 +1174,7 @@ function generarCertificadoAfip(datos) {
     Logger.log('Certificado generado y guardado exitosamente (' + env + ')');
 
     // Paso 5: Autorizar web services automáticamente
-    Logger.log('Autorizando web services wsfe y ws_sr_padron_a5...');
+    Logger.log('Autorizando web services wsfe y ws_sr_padron_a13...');
     var authResult = autorizarWebServicesAfip({
       username: datos.username,
       password: datos.password,
@@ -1196,7 +1205,7 @@ function generarCertificadoAfip(datos) {
 }
 
 /**
- * Autoriza los web services necesarios (wsfe y ws_sr_padron_a5) en ARCA
+ * Autoriza los web services necesarios (wsfe y ws_sr_padron_a13) en ARCA
  * via el endpoint ws-auths de Afip SDK.
  *
  * Este paso es OBLIGATORIO después de generar un certificado.
@@ -1218,7 +1227,7 @@ function autorizarWebServicesAfip(datos) {
     var cuit = config.cuit || emisor.CUIT;
 
     // Web services a autorizar
-    var webServices = ['wsfe', 'ws_sr_padron_a5'];
+    var webServices = ['wsfe', 'ws_sr_padron_a13'];
     var autorizados = [];
     var errores = [];
 
