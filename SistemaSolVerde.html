@@ -2469,6 +2469,7 @@
                 <button class="btn btn-outline" onclick="recalcularTodosSaldos()">🔄 Recalcular Saldos</button>
                 <button class="btn btn-outline" onclick="exportarDatosCSV()">📥 Exportar CSV</button>
                 <button class="btn btn-outline" onclick="limpiarCacheLocal()">🗑️ Limpiar Cache</button>
+                <button class="btn btn-outline" onclick="restaurarConfigPorDefecto()" style="color: var(--sv-advertencia);">↺ Restaurar Config por Defecto</button>
               </div>
             </div>
 
@@ -2483,14 +2484,186 @@
             <div class="card">
               <div class="card-title">ℹ️ Acerca de</div>
               <div style="display: flex; align-items: center; gap: 1rem;">
-                <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 50px; height: 50px; border-radius: 8px;">
+                <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" id="logoPreview" style="width: 50px; height: 50px; border-radius: 8px;">
                 <div>
-                  <p><strong>Sol & Verde</strong></p>
+                  <p><strong id="nombreSistemaDisplay">Sol & Verde</strong></p>
                   <p style="font-size: 0.875rem; color: var(--sv-texto-secundario);">Sistema de Cuenta Corriente</p>
                   <p style="font-size: 0.75rem; color: var(--sv-texto-muted);">Version 3.0.0</p>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Nueva Sección: Configuración General del Sistema -->
+        <div style="margin-top: 2rem;">
+          <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">⚙️ Configuración General del Sistema</h3>
+          
+          <div class="grid grid-2">
+            <div>
+              <div class="card">
+                <div class="card-title">🏢 Información del Sistema</div>
+
+                <div class="form-group">
+                  <label class="form-label">Nombre del Sistema</label>
+                  <input type="text" class="form-input" id="inputNombreSistema" placeholder="Sol & Verde">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">URL del Logo</label>
+                  <input type="text" class="form-input" id="inputLogoUrl" placeholder="https://...">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    URL de la imagen que aparece en el sistema
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Nombre de Carpeta de Backups</label>
+                  <input type="text" class="form-input" id="inputCarpetaBackup" placeholder="Backup Sistema POS">
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">💰 Límites y Valores por Defecto</div>
+
+                <div class="form-group">
+                  <label class="form-label">Límite de Crédito por Defecto</label>
+                  <input type="number" class="form-input" id="inputLimiteCredito" placeholder="100000" step="1000" min="0">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Límite de crédito asignado a nuevos clientes
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Saldo Inicial por Defecto</label>
+                  <input type="number" class="form-input" id="inputSaldoInicial" placeholder="0" step="1000">
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">📄 Paginación</div>
+
+                <div class="form-group">
+                  <label class="form-label">Tamaño de Página por Defecto</label>
+                  <input type="number" class="form-input" id="inputPaginaTamano" placeholder="50" min="1" max="100">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Número de registros por página (1-100)
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Tamaño Máximo de Página</label>
+                  <input type="number" class="form-input" id="inputPaginaTamanoMax" placeholder="100" min="1" max="500">
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="card">
+                <div class="card-title">💵 Configuración de IVA</div>
+
+                <div class="form-group">
+                  <label class="form-label">Porcentaje de IVA (%)</label>
+                  <input type="number" class="form-input" id="inputIvaPorcentaje" placeholder="10.5" step="0.1" min="0" max="100">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Alícuota de IVA aplicada en el sistema (ej: 10.5, 21)
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">ID de Alícuota ARCA</label>
+                  <input type="number" class="form-input" id="inputIvaAlicuotaId" placeholder="4" min="1" max="10">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    ID según tabla ARCA (3=0%, 4=10.5%, 5=21%, 6=27%)
+                  </p>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">🤖 Configuración de Claude AI (Avanzado)</div>
+
+                <div class="form-group">
+                  <label class="form-label">Modelo de Claude</label>
+                  <input type="text" class="form-input" id="inputClaudeModel" placeholder="claude-sonnet-4-20250514">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Modelo usado para Visual Reasoning (OCR)
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Máximo de Tokens</label>
+                  <input type="number" class="form-input" id="inputClaudeMaxTokens" placeholder="4096" min="100" max="100000">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Máximo de tokens en respuestas (100-100000)
+                  </p>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">🔍 Búsqueda Fuzzy (Avanzado)</div>
+
+                <div class="form-group">
+                  <label class="form-label">Score Mínimo</label>
+                  <input type="number" class="form-input" id="inputFuzzyMinScore" placeholder="65" min="0" max="100">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Máximo de Sugerencias</label>
+                  <input type="number" class="form-input" id="inputFuzzyMaxSugerencias" placeholder="5" min="1" max="20">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                  <div class="form-group">
+                    <label class="form-label" style="font-size: 0.8rem;">Peso Exacto</label>
+                    <input type="number" class="form-input" id="inputFuzzyPesoExacto" placeholder="100" min="0" max="100">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" style="font-size: 0.8rem;">Peso Comienza</label>
+                    <input type="number" class="form-input" id="inputFuzzyPesoComienza" placeholder="85" min="0" max="100">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" style="font-size: 0.8rem;">Peso Contiene</label>
+                    <input type="number" class="form-input" id="inputFuzzyPesoContiene" placeholder="70" min="0" max="100">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" style="font-size: 0.8rem;">Peso Levenshtein</label>
+                    <input type="number" class="form-input" id="inputFuzzyPesoLevenshtein" placeholder="50" min="0" max="100">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 1rem;">
+            <button class="btn btn-primary" onclick="guardarConfiguracionGeneral()" style="width: 100%; max-width: 400px;">
+              💾 Guardar Configuración General
+            </button>
+            <p id="estadoConfigGeneral" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
+          </div>
+        </div>
+
+        <!-- Nueva Sección: Configuración de Inquilinos -->
+        <div style="margin-top: 2rem;">
+          <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">🏠 Configuración de Inquilinos</h3>
+          
+          <div class="card">
+            <div class="card-title">Lista de Inquilinos</div>
+            <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+              Inquilinos que aparecerán en el módulo de Alquileres. Escribe los nombres separados por comas (MAYÚSCULAS).
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">Inquilinos (separados por comas)</label>
+              <textarea class="form-input" id="inputInquilinos" rows="3" placeholder="ORTIZ JESUS, FLORES FLORIBEL" style="resize: vertical;"></textarea>
+              <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                Ejemplo: ORTIZ JESUS, FLORES FLORIBEL, GONZALEZ MARIA
+              </p>
+            </div>
+
+            <button class="btn btn-primary" onclick="guardarInquilinos()" style="width: 100%; max-width: 400px;">
+              💾 Guardar Inquilinos
+            </button>
+            <p id="estadoInquilinos" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
           </div>
         </div>
       </div>
@@ -5356,6 +5529,9 @@
       const animaciones = localStorage.getItem('animaciones') !== 'false';
       document.getElementById('toggleAnimaciones').checked = animaciones;
       toggleAnimaciones(animaciones);
+      
+      // Cargar configuración general del sistema
+      cargarConfiguracionGeneral();
     }
 
     function setTema(tema) {
@@ -7202,6 +7378,217 @@
           document.getElementById('estadoConexionIA').innerHTML = '<span style="color: var(--sv-peligro);">✕ Error: ' + error.message + '</span>';
         })
         .probarConexionClaude();
+    }
+
+    // ============================================================================
+    // CONFIGURACION GENERAL DEL SISTEMA
+    // ============================================================================
+
+    /**
+     * Carga la configuración general del sistema
+     */
+    function cargarConfiguracionGeneral() {
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            const config = result.config;
+            
+            // Sistema
+            document.getElementById('inputNombreSistema').value = config.nombreSistema || '';
+            document.getElementById('inputLogoUrl').value = config.logoUrl || '';
+            document.getElementById('inputCarpetaBackup').value = config.carpetaBackup || '';
+            
+            // Actualizar preview del logo y nombre
+            if (config.logoUrl) {
+              document.getElementById('logoPreview').src = config.logoUrl;
+            }
+            if (config.nombreSistema) {
+              document.getElementById('nombreSistemaDisplay').textContent = config.nombreSistema;
+            }
+            
+            // Límites
+            document.getElementById('inputLimiteCredito').value = config.limiteCredito || '';
+            document.getElementById('inputSaldoInicial').value = config.saldoInicial || '';
+            
+            // Paginación
+            document.getElementById('inputPaginaTamano').value = config.paginaTamano || '';
+            document.getElementById('inputPaginaTamanoMax').value = config.paginaTamanoMax || '';
+            
+            // IVA
+            document.getElementById('inputIvaPorcentaje').value = config.ivaPorcentaje || '';
+            document.getElementById('inputIvaAlicuotaId').value = config.ivaAlicuotaId || '';
+            
+            // Claude
+            document.getElementById('inputClaudeModel').value = config.claudeModel || '';
+            document.getElementById('inputClaudeMaxTokens').value = config.claudeMaxTokens || '';
+            
+            // Fuzzy
+            document.getElementById('inputFuzzyMinScore').value = config.fuzzyMinScore || '';
+            document.getElementById('inputFuzzyMaxSugerencias').value = config.fuzzyMaxSugerencias || '';
+            document.getElementById('inputFuzzyPesoExacto').value = config.fuzzyPesoExacto || '';
+            document.getElementById('inputFuzzyPesoComienza').value = config.fuzzyPesoComienza || '';
+            document.getElementById('inputFuzzyPesoContiene').value = config.fuzzyPesoContiene || '';
+            document.getElementById('inputFuzzyPesoLevenshtein').value = config.fuzzyPesoLevenshtein || '';
+            
+            // Inquilinos
+            if (config.inquilinos && config.inquilinos.length > 0) {
+              document.getElementById('inputInquilinos').value = config.inquilinos.join(', ');
+            }
+          } else {
+            mostrarToast('Error al cargar configuración: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .obtenerConfiguracionCompleta();
+    }
+
+    /**
+     * Guarda la configuración general del sistema
+     */
+    function guardarConfiguracionGeneral() {
+      const config = {
+        nombreSistema: document.getElementById('inputNombreSistema').value.trim(),
+        logoUrl: document.getElementById('inputLogoUrl').value.trim(),
+        carpetaBackup: document.getElementById('inputCarpetaBackup').value.trim(),
+        limiteCredito: parseFloat(document.getElementById('inputLimiteCredito').value) || 0,
+        saldoInicial: parseFloat(document.getElementById('inputSaldoInicial').value) || 0,
+        paginaTamano: parseInt(document.getElementById('inputPaginaTamano').value) || 50,
+        paginaTamanoMax: parseInt(document.getElementById('inputPaginaTamanoMax').value) || 100,
+        ivaPorcentaje: parseFloat(document.getElementById('inputIvaPorcentaje').value) || 10.5,
+        ivaAlicuotaId: parseInt(document.getElementById('inputIvaAlicuotaId').value) || 4,
+        claudeModel: document.getElementById('inputClaudeModel').value.trim(),
+        claudeMaxTokens: parseInt(document.getElementById('inputClaudeMaxTokens').value) || 4096,
+        fuzzyMinScore: parseInt(document.getElementById('inputFuzzyMinScore').value) || 65,
+        fuzzyMaxSugerencias: parseInt(document.getElementById('inputFuzzyMaxSugerencias').value) || 5,
+        fuzzyPesoExacto: parseInt(document.getElementById('inputFuzzyPesoExacto').value) || 100,
+        fuzzyPesoComienza: parseInt(document.getElementById('inputFuzzyPesoComienza').value) || 85,
+        fuzzyPesoContiene: parseInt(document.getElementById('inputFuzzyPesoContiene').value) || 70,
+        fuzzyPesoLevenshtein: parseInt(document.getElementById('inputFuzzyPesoLevenshtein').value) || 50
+      };
+
+      const estado = document.getElementById('estadoConfigGeneral');
+      estado.innerHTML = '<span style="color:var(--sv-info);">Guardando...</span>';
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            estado.innerHTML = '<span style="color:var(--sv-exito);">✓ ' + result.mensaje + '</span>';
+            mostrarToast('Configuración guardada correctamente', 'success');
+            
+            // Actualizar UI
+            if (config.logoUrl) {
+              document.getElementById('logoPreview').src = config.logoUrl;
+            }
+            if (config.nombreSistema) {
+              document.getElementById('nombreSistemaDisplay').textContent = config.nombreSistema;
+            }
+            
+            // Recargar datos si es necesario
+            setTimeout(function() {
+              estado.innerHTML = '';
+            }, 3000);
+          } else {
+            estado.innerHTML = '<span style="color:var(--sv-peligro);">✕ ' + result.error + '</span>';
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          estado.innerHTML = '<span style="color:var(--sv-peligro);">✕ Error: ' + error.message + '</span>';
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarConfiguracionGeneral(config);
+    }
+
+    /**
+     * Guarda la lista de inquilinos
+     */
+    function guardarInquilinos() {
+      const inquilinosStr = document.getElementById('inputInquilinos').value.trim();
+      
+      if (!inquilinosStr) {
+        mostrarToast('Ingresa al menos un inquilino', 'error');
+        return;
+      }
+
+      // Separar por comas y normalizar
+      const inquilinos = inquilinosStr.split(',')
+        .map(i => i.trim().toUpperCase())
+        .filter(i => i.length > 0);
+
+      if (inquilinos.length === 0) {
+        mostrarToast('Ingresa al menos un inquilino válido', 'error');
+        return;
+      }
+
+      const config = {
+        inquilinos: inquilinos
+      };
+
+      const estado = document.getElementById('estadoInquilinos');
+      estado.innerHTML = '<span style="color:var(--sv-info);">Guardando...</span>';
+      mostrarLoading(true);
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            estado.innerHTML = '<span style="color:var(--sv-exito);">✓ Inquilinos guardados: ' + inquilinos.join(', ') + '</span>';
+            mostrarToast('Inquilinos guardados correctamente', 'success');
+            
+            setTimeout(function() {
+              estado.innerHTML = '';
+            }, 5000);
+          } else {
+            estado.innerHTML = '<span style="color:var(--sv-peligro);">✕ ' + result.error + '</span>';
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          estado.innerHTML = '<span style="color:var(--sv-peligro);">✕ Error: ' + error.message + '</span>';
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarConfiguracionGeneral(config);
+    }
+
+    /**
+     * Restaura la configuración a valores por defecto
+     */
+    function restaurarConfigPorDefecto() {
+      if (!confirm(
+        '¿Restaurar configuración a valores por defecto?\n\n' +
+        'ATENCIÓN: Esta acción restablecerá todas las configuraciones personalizadas.\n' +
+        'Se mantendrán las credenciales (API Keys, datos fiscales, config ARCA).\n\n' +
+        '¿Deseas continuar?'
+      )) {
+        return;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            mostrarToast(result.mensaje, 'success');
+            // Recargar configuración
+            cargarConfiguracionGeneral();
+          } else {
+            mostrarToast('Error: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .restaurarConfiguracionPorDefecto();
     }
 
     // ============================================================================

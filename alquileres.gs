@@ -30,8 +30,9 @@ const AlquileresRepository = {
       hoja.getRange(1, 1, 1, 7).setFontWeight('bold').setBackground('#6A1B9A').setFontColor('#FFFFFF');
       hoja.setFrozenRows(1);
       // Insertar inquilinos iniciales
-      for (var i = 0; i < CONFIG.INQUILINOS.length; i++) {
-        hoja.appendRow([CONFIG.INQUILINOS[i], 400000, 0, 0, 0, '', '']);
+      const inquilinos = CONFIG.getInquilinos();
+      for (var i = 0; i < inquilinos.length; i++) {
+        hoja.appendRow([inquilinos[i], 400000, 0, 0, 0, '', '']);
       }
     }
     return hoja;
@@ -75,9 +76,10 @@ const AlquileresRepository = {
   },
 
   obtenerTodosInquilinos: function() {
+    const inquilinos = CONFIG.getInquilinos();
     var resultado = [];
-    for (var i = 0; i < CONFIG.INQUILINOS.length; i++) {
-      var config = this.obtenerConfigInquilino(CONFIG.INQUILINOS[i]);
+    for (var i = 0; i < inquilinos.length; i++) {
+      var config = this.obtenerConfigInquilino(inquilinos[i]);
       if (config) resultado.push(config);
     }
     return resultado;

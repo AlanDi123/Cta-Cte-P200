@@ -32,7 +32,12 @@ const CONFIG_FACTURACION = {
     STOCK: 3,
     ACTIVO: 4
   },
-  IVA: 0.105,
+  /**
+   * Obtiene el multiplicador de IVA desde la configuración global
+   */
+  getIVA: function() {
+    return CONFIG.getIVA().MULTIPLICADOR;
+  },
   CLAUDE: {
     API_URL: 'https://api.anthropic.com/v1/messages',
     MODEL: 'claude-sonnet-4-5',
@@ -784,7 +789,7 @@ function crearHojaFacturasA(ss, nombreHoja, transferencias, productos) {
   hoja.getRange(4, 2).setValue(transferencias.reduce((sum, t) => sum + t.monto, 0)).setNumberFormat('$#,##0.00');
 
   // Headers tabla
-  const headers = ['Fecha', 'Cliente', 'Banco', 'Monto Transf.', 'Productos', 'Subtotal', 'IVA 10.5%', 'Total'];
+  const headers = ['Fecha', 'Cliente', 'Banco', 'Monto Transf.', 'Productos', 'Subtotal', 'IVA ' + CONFIG.getIVA().PORCENTAJE + '%', 'Total'];
   hoja.getRange(6, 1, 1, 8).setValues([headers]);
   hoja.getRange(6, 1, 1, 8).setFontWeight('bold').setBackground('#1976D2').setFontColor('white');
 
@@ -793,7 +798,7 @@ function crearHojaFacturasA(ss, nombreHoja, transferencias, productos) {
   for (const t of transferencias) {
     const productosSeleccionados = seleccionarProductosParaMonto(t.monto, productos);
     const subtotal = productosSeleccionados.reduce((sum, p) => sum + p.precio, 0);
-    const iva = subtotal * CONFIG_FACTURACION.IVA;
+    const iva = subtotal * CONFIG_FACTURACION.getIVA();
     const total = subtotal + iva;
 
     hoja.getRange(fila, 1, 1, 8).setValues([[
@@ -869,7 +874,7 @@ function crearHojaConsumidoresFinales(ss, nombreHoja, transferencias) {
 function seleccionarProductosParaMonto(montoObjetivo, productos) {
   if (!productos || productos.length === 0) return [];
 
-  const baseAmount = montoObjetivo / (1 + CONFIG_FACTURACION.IVA);
+  const baseAmount = montoObjetivo / (1 + CONFIG_FACTURACION.getIVA());
   const seleccionados = [];
   let sumaActual = 0;
 

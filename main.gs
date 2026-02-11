@@ -1261,3 +1261,243 @@ function obtenerDatosEmisor() {
     };
   }
 }
+
+// ============================================================================
+// API PUBLICA - CONFIGURACION GENERAL DEL SISTEMA
+// ============================================================================
+
+/**
+ * Obtiene todas las configuraciones del sistema
+ * @returns {Object} Todas las configuraciones
+ */
+function obtenerConfiguracionCompleta() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    
+    // Configuración general del sistema
+    const config = {
+      // Sistema
+      nombreSistema: props.getProperty('SISTEMA_NOMBRE') || CONFIG.SISTEMA.NOMBRE,
+      version: CONFIG.SISTEMA.VERSION,
+      
+      // Límites y valores por defecto
+      limiteCredito: parseFloat(props.getProperty('LIMITE_CREDITO_DEFAULT') || CONFIG.DEFAULTS.LIMITE_CREDITO),
+      saldoInicial: parseFloat(props.getProperty('SALDO_INICIAL_DEFAULT') || CONFIG.DEFAULTS.SALDO_INICIAL),
+      
+      // Backups
+      carpetaBackup: props.getProperty('CARPETA_BACKUP') || 'Backup Sistema POS',
+      
+      // UI
+      logoUrl: props.getProperty('LOGO_URL') || 'https://i.imgur.com/tStvmV1.png',
+      
+      // Paginación
+      paginaTamano: parseInt(props.getProperty('PAGINATION_DEFAULT_SIZE') || CONFIG.PAGINATION.DEFAULT_PAGE_SIZE),
+      paginaTamanoMax: parseInt(props.getProperty('PAGINATION_MAX_SIZE') || CONFIG.PAGINATION.MAX_PAGE_SIZE),
+      
+      // IVA
+      ivaPorcentaje: parseFloat(props.getProperty('IVA_PORCENTAJE') || '10.5'),
+      ivaMultiplicador: parseFloat(props.getProperty('IVA_MULTIPLICADOR') || '0.105'),
+      ivaAlicuotaId: parseInt(props.getProperty('IVA_ALICUOTA_ID') || '4'),
+      
+      // Claude AI
+      claudeModel: props.getProperty('CLAUDE_MODEL') || CONFIG.CLAUDE.MODEL,
+      claudeMaxTokens: parseInt(props.getProperty('CLAUDE_MAX_TOKENS') || CONFIG.CLAUDE.MAX_TOKENS),
+      claudeApiKey: props.getProperty('CLAUDE_API_KEY') ? '***CONFIGURED***' : '',
+      
+      // Búsqueda Fuzzy
+      fuzzyMinScore: parseInt(props.getProperty('FUZZY_MIN_SCORE') || CONFIG.FUZZY.MIN_SCORE),
+      fuzzyMaxSugerencias: parseInt(props.getProperty('FUZZY_MAX_SUGERENCIAS') || CONFIG.FUZZY.MAX_SUGERENCIAS),
+      fuzzyPesoExacto: parseInt(props.getProperty('FUZZY_PESO_EXACTO') || CONFIG.FUZZY.PESO_EXACTO),
+      fuzzyPesoComienza: parseInt(props.getProperty('FUZZY_PESO_COMIENZA') || CONFIG.FUZZY.PESO_COMIENZA),
+      fuzzyPesoContiene: parseInt(props.getProperty('FUZZY_PESO_CONTIENE') || CONFIG.FUZZY.PESO_CONTIENE),
+      fuzzyPesoLevenshtein: parseInt(props.getProperty('FUZZY_PESO_LEVENSHTEIN') || CONFIG.FUZZY.PESO_LEVENSHTEIN),
+      
+      // Inquilinos (lista separada por comas)
+      const inquilinosProp = props.getProperty('INQUILINOS') || CONFIG.INQUILINOS.join(',');
+      const inquilinosArray = inquilinosProp.split(',');
+      const inquilinosFiltrados = inquilinosArray.map(i => i.trim()).filter(i => i);
+      inquilinos: inquilinosFiltrados
+    };
+    
+    return {
+      success: true,
+      config: config
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerConfiguracionCompleta: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Guarda configuraciones generales del sistema
+ * @param {Object} config - Configuraciones a guardar
+ * @returns {Object} Resultado
+ */
+function guardarConfiguracionGeneral(config) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    
+    // Guardar cada configuración si está presente
+    if (config.nombreSistema !== undefined) {
+      props.setProperty('SISTEMA_NOMBRE', config.nombreSistema.trim());
+    }
+    
+    if (config.limiteCredito !== undefined) {
+      const limite = parseFloat(config.limiteCredito);
+      if (isNaN(limite) || limite < 0) {
+        throw new Error('Límite de crédito debe ser un número mayor o igual a 0');
+      }
+      props.setProperty('LIMITE_CREDITO_DEFAULT', limite.toString());
+    }
+    
+    if (config.saldoInicial !== undefined) {
+      props.setProperty('SALDO_INICIAL_DEFAULT', config.saldoInicial.toString());
+    }
+    
+    if (config.carpetaBackup !== undefined) {
+      props.setProperty('CARPETA_BACKUP', config.carpetaBackup.trim());
+    }
+    
+    if (config.logoUrl !== undefined) {
+      props.setProperty('LOGO_URL', config.logoUrl.trim());
+    }
+    
+    if (config.paginaTamano !== undefined) {
+      const tamano = parseInt(config.paginaTamano);
+      if (isNaN(tamano) || tamano < 1 || tamano > 100) {
+        throw new Error('Tamaño de página debe estar entre 1 y 100');
+      }
+      props.setProperty('PAGINATION_DEFAULT_SIZE', tamano.toString());
+    }
+    
+    if (config.paginaTamanoMax !== undefined) {
+      const tamanoMax = parseInt(config.paginaTamanoMax);
+      if (isNaN(tamanoMax) || tamanoMax < 1 || tamanoMax > 500) {
+        throw new Error('Tamaño máximo de página inválido (1-500)');
+      }
+      props.setProperty('PAGINATION_MAX_SIZE', tamanoMax.toString());
+    }
+    
+    // IVA
+    if (config.ivaPorcentaje !== undefined) {
+      const iva = parseFloat(config.ivaPorcentaje);
+      if (isNaN(iva) || iva < 0 || iva > 100) {
+        throw new Error('Porcentaje de IVA inválido (0-100)');
+      }
+      props.setProperty('IVA_PORCENTAJE', iva.toString());
+      props.setProperty('IVA_MULTIPLICADOR', (iva / 100).toString());
+    }
+    
+    if (config.ivaAlicuotaId !== undefined) {
+      props.setProperty('IVA_ALICUOTA_ID', config.ivaAlicuotaId.toString());
+    }
+    
+    // Claude AI
+    if (config.claudeModel !== undefined) {
+      props.setProperty('CLAUDE_MODEL', config.claudeModel.trim());
+    }
+    
+    if (config.claudeMaxTokens !== undefined) {
+      const tokens = parseInt(config.claudeMaxTokens);
+      if (isNaN(tokens) || tokens < 100 || tokens > 100000) {
+        throw new Error('Máximo de tokens debe estar entre 100 y 100000');
+      }
+      props.setProperty('CLAUDE_MAX_TOKENS', tokens.toString());
+    }
+    
+    if (config.claudeApiKey !== undefined && config.claudeApiKey !== '***CONFIGURED***') {
+      props.setProperty('CLAUDE_API_KEY', config.claudeApiKey.trim());
+    }
+    
+    // Búsqueda Fuzzy
+    if (config.fuzzyMinScore !== undefined) {
+      props.setProperty('FUZZY_MIN_SCORE', config.fuzzyMinScore.toString());
+    }
+    
+    if (config.fuzzyMaxSugerencias !== undefined) {
+      props.setProperty('FUZZY_MAX_SUGERENCIAS', config.fuzzyMaxSugerencias.toString());
+    }
+    
+    if (config.fuzzyPesoExacto !== undefined) {
+      props.setProperty('FUZZY_PESO_EXACTO', config.fuzzyPesoExacto.toString());
+    }
+    
+    if (config.fuzzyPesoComienza !== undefined) {
+      props.setProperty('FUZZY_PESO_COMIENZA', config.fuzzyPesoComienza.toString());
+    }
+    
+    if (config.fuzzyPesoContiene !== undefined) {
+      props.setProperty('FUZZY_PESO_CONTIENE', config.fuzzyPesoContiene.toString());
+    }
+    
+    if (config.fuzzyPesoLevenshtein !== undefined) {
+      props.setProperty('FUZZY_PESO_LEVENSHTEIN', config.fuzzyPesoLevenshtein.toString());
+    }
+    
+    // Inquilinos
+    if (config.inquilinos !== undefined) {
+      if (Array.isArray(config.inquilinos)) {
+        props.setProperty('INQUILINOS', config.inquilinos.join(','));
+      } else if (typeof config.inquilinos === 'string') {
+        props.setProperty('INQUILINOS', config.inquilinos);
+      }
+    }
+    
+    Logger.log('Configuración general guardada correctamente');
+    
+    return {
+      success: true,
+      mensaje: 'Configuración guardada correctamente'
+    };
+  } catch (error) {
+    Logger.log('Error en guardarConfiguracionGeneral: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Restablece la configuración a valores por defecto
+ * @returns {Object} Resultado
+ */
+function restaurarConfiguracionPorDefecto() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    
+    // Eliminar todas las configuraciones personalizadas (pero mantener credenciales)
+    const keysToKeep = [
+      'SPREADSHEET_ID',
+      'EMISOR_CUIT', 'EMISOR_RAZON_SOCIAL', 'EMISOR_NOMBRE_FANTASIA', 
+      'EMISOR_DOMICILIO', 'EMISOR_IIBB', 'EMISOR_FECHA_INICIO', 'EMISOR_CONDICION_IVA',
+      'AFIP_ACCESS_TOKEN', 'AFIP_ENVIRONMENT', 'AFIP_PUNTO_VENTA', 'AFIP_CUIT',
+      'AFIP_CERT', 'AFIP_KEY',
+      'CLAUDE_API_KEY'
+    ];
+    
+    const allProperties = props.getProperties();
+    for (let key in allProperties) {
+      if (!keysToKeep.includes(key)) {
+        props.deleteProperty(key);
+      }
+    }
+    
+    Logger.log('Configuración restaurada a valores por defecto');
+    
+    return {
+      success: true,
+      mensaje: 'Configuración restaurada a valores por defecto. Se mantuvieron las credenciales.'
+    };
+  } catch (error) {
+    Logger.log('Error en restaurarConfiguracionPorDefecto: ' + error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
