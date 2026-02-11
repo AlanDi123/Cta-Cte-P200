@@ -6473,7 +6473,12 @@
         document.getElementById('arcaClienteIVA').textContent = cliente.condicionFiscal || 'Consumidor Final';
 
         // Auto-seleccionar tipo de comprobante
-        if (cliente.cuit && (cliente.condicionFiscal === 'Responsable Inscripto' || cliente.condicionFiscal === 'RI')) {
+        // Factura A: Responsables Inscriptos o Monotributistas con CUIT
+        // Factura B: Consumidores Finales
+        if (cliente.cuit && (cliente.condicionFiscal === 'Responsable Inscripto' || 
+                             cliente.condicionFiscal === 'RI' || 
+                             cliente.condicionFiscal.includes('Monotribut') ||
+                             cliente.condicionFiscal === 'M')) {
           seleccionarCbteTipo(1); // Factura A
         } else {
           seleccionarCbteTipo(6); // Factura B
@@ -6623,7 +6628,9 @@
               arcaClienteSeleccionado.condicionFiscal = data.condicionTexto;
             }
             // Auto-ajustar tipo de comprobante
-            if (data.condicionIVA === 'RI') {
+            // Factura A: RI (Responsable Inscripto) o M (Monotributista)
+            // Factura B: Consumidor Final u otros
+            if (data.condicionIVA === 'RI' || data.condicionIVA === 'M') {
               seleccionarCbteTipo(1);
             } else {
               seleccionarCbteTipo(6);
