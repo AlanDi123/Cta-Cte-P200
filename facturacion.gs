@@ -136,7 +136,12 @@ const TransferenciasRepository = {
     }
 
     // Determinar tipo de factura según condición
-    const tipoFactura = condicion === 'Responsable Inscripto' ? 'A' : 'CONSUMIDOR FINAL';
+    // Factura A: Responsables Inscriptos o Monotributistas con CUIT
+    // Factura B: Consumidores Finales
+    const tipoFactura = (condicion === 'Responsable Inscripto' || 
+                         condicion === 'RI' || 
+                         condicion === 'Monotributista' ||
+                         condicion === 'Monotributo') ? 'A' : 'B';
 
     const nuevaFila = [
       id,

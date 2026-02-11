@@ -4024,7 +4024,7 @@
         .trim();
     }
 
-    function buscarClienteAutocomplete(termino, contenedorId, esVisor = false) {
+    function buscarClienteAutocomplete(termino, contenedorId, esVisor = false, callback = null) {
       const contenedor = document.getElementById(contenedorId);
 
       if (!termino || termino.length < 2) {
@@ -4072,7 +4072,12 @@
       contenedor.querySelectorAll('.suggestion-item').forEach(item => {
         item.addEventListener('click', function() {
           const nombre = this.dataset.nombre;
-          if (this.dataset.visor === 'true') {
+          const cliente = Estado.clientes.find(c => c.nombre === nombre);
+          
+          if (callback && typeof callback === 'function') {
+            // Si hay callback, usarlo
+            callback(cliente);
+          } else if (this.dataset.visor === 'true') {
             document.getElementById('visorBuscar').value = nombre;
             contenedor.style.display = 'none';
             cargarHistorialCliente(nombre);
@@ -6468,7 +6473,12 @@
         document.getElementById('arcaClienteIVA').textContent = cliente.condicionFiscal || 'Consumidor Final';
 
         // Auto-seleccionar tipo de comprobante
-        if (cliente.cuit && (cliente.condicionFiscal === 'Responsable Inscripto' || cliente.condicionFiscal === 'RI')) {
+        // Factura A: Responsables Inscriptos o Monotributistas con CUIT
+        // Factura B: Consumidores Finales
+        if (cliente.cuit && (cliente.condicionFiscal === 'Responsable Inscripto' || 
+                             cliente.condicionFiscal === 'RI' || 
+                             cliente.condicionFiscal.includes('Monotribut') ||
+                             cliente.condicionFiscal === 'M')) {
           seleccionarCbteTipo(1); // Factura A
         } else {
           seleccionarCbteTipo(6); // Factura B
@@ -6618,7 +6628,9 @@
               arcaClienteSeleccionado.condicionFiscal = data.condicionTexto;
             }
             // Auto-ajustar tipo de comprobante
-            if (data.condicionIVA === 'RI') {
+            // Factura A: RI (Responsable Inscripto) o M (Monotributista)
+            // Factura B: Consumidor Final u otros
+            if (data.condicionIVA === 'RI' || data.condicionIVA === 'M') {
               seleccionarCbteTipo(1);
             } else {
               seleccionarCbteTipo(6);
@@ -7335,12 +7347,16 @@
       document.getElementById('transfUnifClienteIVA').textContent = cliente.condicionFiscal || 'Consumidor Final';
 
       // Determinar tipo de factura
+      // Factura A: Responsables Inscriptos o Monotributistas con CUIT
+      // Factura B: Consumidores Finales
       const tipoFactura = (cliente.cuit && cliente.condicionFiscal &&
-                          (cliente.condicionFiscal.includes('Responsable') || cliente.condicionFiscal === 'RI'))
+                          (cliente.condicionFiscal.includes('Responsable') || 
+                           cliente.condicionFiscal === 'RI' ||
+                           cliente.condicionFiscal.includes('Monotribut')))
                           ? 'A' : 'B';
 
       const tipoTexto = tipoFactura === 'A' ?
-        'Factura A (Responsable Inscripto) - Requerirá selección de productos' :
+        'Factura A (Responsable Inscripto / Monotributista) - Requerirá selección de productos' :
         'Factura B (Consumidor Final) - Se facturará automáticamente';
 
       document.getElementById('transfUnifTipoFactura').textContent = tipoTexto;
@@ -7352,8 +7368,10 @@
       document.getElementById('transfUnifBanco').value = banco;
       document.querySelectorAll('#modalTransferenciaUnif .banco-option').forEach(btn => {
         btn.classList.remove('active');
+        if (btn.dataset.banco === banco) {
+          btn.classList.add('active');
+        }
       });
-      event.target.closest('.banco-option').classList.add('active');
     }
 
     // Guardar transferencia unificada
