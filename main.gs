@@ -1274,6 +1274,11 @@ function obtenerConfiguracionCompleta() {
   try {
     const props = PropertiesService.getScriptProperties();
     
+    // Inquilinos (lista separada por comas)
+    const inquilinosProp = props.getProperty('INQUILINOS') || CONFIG.INQUILINOS.join(',');
+    const inquilinosArray = inquilinosProp.split(',');
+    const inquilinosFiltrados = inquilinosArray.map(i => i.trim()).filter(i => i);
+    
     // Configuración general del sistema
     const config = {
       // Sistema
@@ -1312,10 +1317,7 @@ function obtenerConfiguracionCompleta() {
       fuzzyPesoContiene: parseInt(props.getProperty('FUZZY_PESO_CONTIENE') || CONFIG.FUZZY.PESO_CONTIENE),
       fuzzyPesoLevenshtein: parseInt(props.getProperty('FUZZY_PESO_LEVENSHTEIN') || CONFIG.FUZZY.PESO_LEVENSHTEIN),
       
-      // Inquilinos (lista separada por comas)
-      const inquilinosProp = props.getProperty('INQUILINOS') || CONFIG.INQUILINOS.join(',');
-      const inquilinosArray = inquilinosProp.split(',');
-      const inquilinosFiltrados = inquilinosArray.map(i => i.trim()).filter(i => i);
+      // Inquilinos
       inquilinos: inquilinosFiltrados
     };
     
