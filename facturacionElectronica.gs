@@ -1501,6 +1501,8 @@ function emitirFacturaElectronica(datos) {
       
       // Calcular importeNeto desde items
       var importeNeto = 0;
+      var DECIMAL_PRECISION = 100; // Para redondear a 2 decimales
+      
       if (datos.items && datos.items.length > 0) {
         datos.items.forEach(function(item) {
           var cantidad = parseFloat(item.cantidad);
@@ -1525,14 +1527,14 @@ function emitirFacturaElectronica(datos) {
           throw new Error('Configuración de IVA no disponible');
         }
         var multiplicadorIVA = ivaConfig.MULTIPLICADOR;
-        importeNeto = Math.round(importeNeto / (1 + multiplicadorIVA) * 100) / 100;
+        importeNeto = Math.round(importeNeto / (1 + multiplicadorIVA) * DECIMAL_PRECISION) / DECIMAL_PRECISION;
       } else if (datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_A || 
                  datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.NOTA_CREDITO_A) {
         // Factura A o Nota de Crédito A: el precio ya está sin IVA, usar directamente
-        importeNeto = Math.round(importeNeto * 100) / 100;
+        importeNeto = Math.round(importeNeto * DECIMAL_PRECISION) / DECIMAL_PRECISION;
       } else {
         // Tipo de comprobante no reconocido, usar el importe tal cual con redondeo
-        importeNeto = Math.round(importeNeto * 100) / 100;
+        importeNeto = Math.round(importeNeto * DECIMAL_PRECISION) / DECIMAL_PRECISION;
       }
       
       datosNormalizados.importeNeto = importeNeto;
