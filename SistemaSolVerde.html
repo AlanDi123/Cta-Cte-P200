@@ -7519,11 +7519,9 @@
       }
 
       // Separar por comas y normalizar
-      const inquilinos = inquilinosStr.split(',').map(function(i) {
-        return i.trim().toUpperCase();
-      }).filter(function(i) {
-        return i.length > 0;
-      });
+      const inquilinos = inquilinosStr.split(',')
+        .map(i => i.trim().toUpperCase())
+        .filter(i => i.length > 0);
 
       if (inquilinos.length === 0) {
         mostrarToast('Ingresa al menos un inquilino válido', 'error');
@@ -7566,10 +7564,10 @@
      */
     function restaurarConfigPorDefecto() {
       if (!confirm(
-        'Restaurar configuración a valores por defecto?\n\n' +
+        '¿Restaurar configuración a valores por defecto?\n\n' +
         'ATENCIÓN: Esta acción restablecerá todas las configuraciones personalizadas.\n' +
         'Se mantendrán las credenciales (API Keys, datos fiscales, config ARCA).\n\n' +
-        'Deseas continuar?'
+        '¿Deseas continuar?'
       )) {
         return;
       }

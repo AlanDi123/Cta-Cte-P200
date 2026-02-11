@@ -1313,7 +1313,10 @@ function obtenerConfiguracionCompleta() {
       fuzzyPesoLevenshtein: parseInt(props.getProperty('FUZZY_PESO_LEVENSHTEIN') || CONFIG.FUZZY.PESO_LEVENSHTEIN),
       
       // Inquilinos (lista separada por comas)
-      inquilinos: (props.getProperty('INQUILINOS') || CONFIG.INQUILINOS.join(',')).split(',').map(i => i.trim()).filter(i => i)
+      const inquilinosProp = props.getProperty('INQUILINOS') || CONFIG.INQUILINOS.join(',');
+      const inquilinosArray = inquilinosProp.split(',');
+      const inquilinosFiltrados = inquilinosArray.map(i => i.trim()).filter(i => i);
+      inquilinos: inquilinosFiltrados
     };
     
     return {
@@ -1346,7 +1349,7 @@ function guardarConfiguracionGeneral(config) {
     if (config.limiteCredito !== undefined) {
       const limite = parseFloat(config.limiteCredito);
       if (isNaN(limite) || limite < 0) {
-        throw new Error('Límite de crédito inválido');
+        throw new Error('Límite de crédito debe ser un número mayor o igual a 0');
       }
       props.setProperty('LIMITE_CREDITO_DEFAULT', limite.toString());
     }
@@ -1366,7 +1369,7 @@ function guardarConfiguracionGeneral(config) {
     if (config.paginaTamano !== undefined) {
       const tamano = parseInt(config.paginaTamano);
       if (isNaN(tamano) || tamano < 1 || tamano > 100) {
-        throw new Error('Tamaño de página inválido (1-100)');
+        throw new Error('Tamaño de página debe estar entre 1 y 100');
       }
       props.setProperty('PAGINATION_DEFAULT_SIZE', tamano.toString());
     }
@@ -1401,7 +1404,7 @@ function guardarConfiguracionGeneral(config) {
     if (config.claudeMaxTokens !== undefined) {
       const tokens = parseInt(config.claudeMaxTokens);
       if (isNaN(tokens) || tokens < 100 || tokens > 100000) {
-        throw new Error('Máximo de tokens inválido (100-100000)');
+        throw new Error('Máximo de tokens debe estar entre 100 y 100000');
       }
       props.setProperty('CLAUDE_MAX_TOKENS', tokens.toString());
     }
