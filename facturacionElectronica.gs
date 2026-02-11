@@ -1503,8 +1503,14 @@ function emitirFacturaElectronica(datos) {
       var importeNeto = 0;
       if (datos.items && datos.items.length > 0) {
         datos.items.forEach(function(item) {
-          var cantidad = parseFloat(item.cantidad) || 0;
-          var precioUnitario = parseFloat(item.precioUnitario) || 0;
+          var cantidad = parseFloat(item.cantidad);
+          var precioUnitario = parseFloat(item.precioUnitario);
+          
+          // Validar que sean números válidos
+          if (isNaN(cantidad) || isNaN(precioUnitario)) {
+            throw new Error('Los items deben tener cantidad y precioUnitario numéricos válidos');
+          }
+          
           importeNeto += cantidad * precioUnitario;
         });
       }
@@ -1519,8 +1525,14 @@ function emitirFacturaElectronica(datos) {
           throw new Error('Configuración de IVA no disponible');
         }
         var multiplicadorIVA = ivaConfig.MULTIPLICADOR;
-        var DECIMAL_PRECISION = 100; // Para redondear a 2 decimales
-        importeNeto = Math.round(importeNeto / (1 + multiplicadorIVA) * DECIMAL_PRECISION) / DECIMAL_PRECISION;
+        importeNeto = Math.round(importeNeto / (1 + multiplicadorIVA) * 100) / 100;
+      } else if (datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_A || 
+                 datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.NOTA_CREDITO_A) {
+        // Factura A o Nota de Crédito A: el precio ya está sin IVA, usar directamente
+        importeNeto = Math.round(importeNeto * 100) / 100;
+      } else {
+        // Tipo de comprobante no reconocido, usar el importe tal cual con redondeo
+        importeNeto = Math.round(importeNeto * 100) / 100;
       }
       
       datosNormalizados.importeNeto = importeNeto;
