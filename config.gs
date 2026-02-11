@@ -165,6 +165,85 @@ const CONFIG = {
     PELIGRO: '#C62828',
     ADVERTENCIA: '#FBC02D',
     INFO: '#00ACC1'
+  },
+
+  /**
+   * Obtiene una configuración, priorizando ScriptProperties sobre valores por defecto
+   * @param {string} key - Clave de la propiedad
+   * @param {*} defaultValue - Valor por defecto si no existe en ScriptProperties
+   * @returns {*} Valor configurado o por defecto
+   */
+  get: function(key, defaultValue) {
+    try {
+      const props = PropertiesService.getScriptProperties();
+      const value = props.getProperty(key);
+      return value !== null ? value : defaultValue;
+    } catch (error) {
+      return defaultValue;
+    }
+  },
+
+  /**
+   * Obtiene el límite de crédito por defecto
+   */
+  getLimiteCredito: function() {
+    const value = this.get('LIMITE_CREDITO_DEFAULT', this.DEFAULTS.LIMITE_CREDITO);
+    return parseFloat(value);
+  },
+
+  /**
+   * Obtiene la configuración de IVA
+   */
+  getIVA: function() {
+    const porcentaje = parseFloat(this.get('IVA_PORCENTAJE', '10.5'));
+    return {
+      PORCENTAJE: porcentaje,
+      MULTIPLICADOR: porcentaje / 100
+    };
+  },
+
+  /**
+   * Obtiene la configuración de Claude
+   */
+  getClaude: function() {
+    return {
+      API_URL: this.CLAUDE.API_URL,
+      MODEL: this.get('CLAUDE_MODEL', this.CLAUDE.MODEL),
+      MAX_TOKENS: parseInt(this.get('CLAUDE_MAX_TOKENS', this.CLAUDE.MAX_TOKENS)),
+      VERSION: this.CLAUDE.VERSION
+    };
+  },
+
+  /**
+   * Obtiene la configuración de Fuzzy Search
+   */
+  getFuzzy: function() {
+    return {
+      MIN_SCORE: parseInt(this.get('FUZZY_MIN_SCORE', this.FUZZY.MIN_SCORE)),
+      MAX_SUGERENCIAS: parseInt(this.get('FUZZY_MAX_SUGERENCIAS', this.FUZZY.MAX_SUGERENCIAS)),
+      PESO_EXACTO: parseInt(this.get('FUZZY_PESO_EXACTO', this.FUZZY.PESO_EXACTO)),
+      PESO_COMIENZA: parseInt(this.get('FUZZY_PESO_COMIENZA', this.FUZZY.PESO_COMIENZA)),
+      PESO_CONTIENE: parseInt(this.get('FUZZY_PESO_CONTIENE', this.FUZZY.PESO_CONTIENE)),
+      PESO_LEVENSHTEIN: parseInt(this.get('FUZZY_PESO_LEVENSHTEIN', this.FUZZY.PESO_LEVENSHTEIN))
+    };
+  },
+
+  /**
+   * Obtiene la configuración de paginación
+   */
+  getPagination: function() {
+    return {
+      DEFAULT_PAGE_SIZE: parseInt(this.get('PAGINATION_DEFAULT_SIZE', this.PAGINATION.DEFAULT_PAGE_SIZE)),
+      MAX_PAGE_SIZE: parseInt(this.get('PAGINATION_MAX_SIZE', this.PAGINATION.MAX_PAGE_SIZE))
+    };
+  },
+
+  /**
+   * Obtiene la lista de inquilinos
+   */
+  getInquilinos: function() {
+    const inquilinosStr = this.get('INQUILINOS', this.INQUILINOS.join(','));
+    return inquilinosStr.split(',').map(i => i.trim()).filter(i => i);
   }
 };
 

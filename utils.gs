@@ -196,24 +196,26 @@ function levenshteinDistance(a, b, maxDistance = Infinity) {
  * @returns {number} Score de 0-100
  */
 function calcularScoreFuzzy(busqueda, candidato) {
+  const fuzzyConfig = CONFIG.getFuzzy();
+
   // Match exacto
-  if (busqueda === candidato) return CONFIG.FUZZY.PESO_EXACTO;
+  if (busqueda === candidato) return fuzzyConfig.PESO_EXACTO;
 
   // Comienza con
-  if (candidato.startsWith(busqueda)) return CONFIG.FUZZY.PESO_COMIENZA;
+  if (candidato.startsWith(busqueda)) return fuzzyConfig.PESO_COMIENZA;
 
   // Contiene
-  if (candidato.includes(busqueda)) return CONFIG.FUZZY.PESO_CONTIENE;
+  if (candidato.includes(busqueda)) return fuzzyConfig.PESO_CONTIENE;
 
   // Levenshtein
   const maxLen = Math.max(busqueda.length, candidato.length);
-  const maxDistanceAllowed = Math.floor(maxLen * (1 - CONFIG.FUZZY.MIN_SCORE / 100));
+  const maxDistanceAllowed = Math.floor(maxLen * (1 - fuzzyConfig.MIN_SCORE / 100));
   const distancia = levenshteinDistance(busqueda, candidato, maxDistanceAllowed);
 
   if (distancia > maxDistanceAllowed) return 0;
 
   const similitud = 1 - (distancia / maxLen);
-  return Math.round(similitud * CONFIG.FUZZY.PESO_LEVENSHTEIN);
+  return Math.round(similitud * fuzzyConfig.PESO_LEVENSHTEIN);
 }
 
 /**
@@ -226,17 +228,18 @@ function buscarClientesFuzzy(termino, clientes) {
   const terminoNorm = normalizarString(termino);
   if (!terminoNorm) return [];
 
+  const fuzzyConfig = CONFIG.getFuzzy();
   const resultados = [];
 
   for (const cliente of clientes) {
     const nombreNorm = normalizarString(cliente.nombre);
     const score = calcularScoreFuzzy(terminoNorm, nombreNorm);
 
-    if (score >= CONFIG.FUZZY.MIN_SCORE) {
+    if (score >= fuzzyConfig.MIN_SCORE) {
       resultados.push({
         cliente: cliente,
         score: score,
-        esExacto: score === CONFIG.FUZZY.PESO_EXACTO
+        esExacto: score === fuzzyConfig.PESO_EXACTO
       });
     }
   }
@@ -244,7 +247,7 @@ function buscarClientesFuzzy(termino, clientes) {
   // Ordenar por score descendente
   resultados.sort((a, b) => b.score - a.score);
 
-  return resultados.slice(0, CONFIG.FUZZY.MAX_SUGERENCIAS);
+  return resultados.slice(0, fuzzyConfig.MAX_SUGERENCIAS);
 }
 
 // ============================================================================
