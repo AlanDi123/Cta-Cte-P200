@@ -16,6 +16,69 @@
 https://script.google.com/macros/s/TU_DEPLOYMENT_ID/exec
 ```
 
+### 3. Configuración del Sistema (NUEVO ✨)
+
+El sistema **Sol & Verde** ahora cuenta con un **módulo de configuración completo** que permite personalizar prácticamente TODO el sistema sin necesidad de un programador.
+
+#### Acceder al Menu de Configuración
+1. Abrir la aplicación web
+2. Ir al menú lateral → **⚙️ Configuracion**
+3. Todas las configuraciones están organizadas en secciones
+
+#### Configuraciones Disponibles
+
+##### 🏢 Información del Sistema
+- **Nombre del Sistema**: Personaliza el nombre que aparece en la aplicación
+- **URL del Logo**: URL de la imagen del logo (se actualiza en tiempo real)
+- **Carpeta de Backups**: Nombre de la carpeta en Google Drive para backups
+
+##### 💰 Límites y Valores por Defecto
+- **Límite de Crédito**: Límite asignado automáticamente a nuevos clientes
+- **Saldo Inicial**: Saldo con el que inician los nuevos clientes
+
+##### 📄 Paginación
+- **Tamaño de Página**: Número de registros por página (1-100)
+- **Tamaño Máximo**: Límite máximo de registros por página (1-500)
+
+##### 💵 Configuración de IVA
+- **Porcentaje de IVA**: Alícuota de IVA aplicada (ej: 10.5, 21)
+- **ID de Alícuota ARCA**: ID según tabla ARCA (3=0%, 4=10.5%, 5=21%, 6=27%)
+
+##### 🤖 Configuración de Claude AI
+- **Modelo de Claude**: Modelo usado para OCR/Visual Reasoning
+- **Máximo de Tokens**: Tokens máximos en respuestas (100-100000)
+
+##### 🔍 Búsqueda Fuzzy (Avanzado)
+- **Score Mínimo**: Umbral mínimo para sugerencias (0-100)
+- **Máximo de Sugerencias**: Cantidad máxima de sugerencias (1-20)
+- **Pesos de Búsqueda**: Configurar pesos para coincidencia exacta, comienza con, contiene, y Levenshtein
+
+##### 🏠 Inquilinos (Alquileres)
+- **Lista de Inquilinos**: Inquilinos separados por comas (MAYÚSCULAS)
+- Ejemplo: `ORTIZ JESUS, FLORES FLORIBEL, GONZALEZ MARIA`
+
+##### 🔑 Credenciales y Datos Fiscales
+- **API Key de Claude**: Para Visual Reasoning (OCR)
+- **Datos del Emisor**: CUIT, Razón Social, Domicilio, etc.
+- **Configuración ARCA**: Access Token, Punto de Venta, Certificado
+
+##### 🛠️ Herramientas
+- **Recalcular Saldos**: Recalcula todos los saldos de clientes
+- **Exportar CSV**: Exporta datos en formato CSV
+- **Limpiar Cache**: Limpia el cache del navegador
+- **Restaurar Config por Defecto**: Vuelve a valores por defecto (mantiene credenciales)
+
+#### Guardar Configuración
+- Cada sección tiene su propio botón **"Guardar"**
+- Los cambios se aplican inmediatamente
+- Las configuraciones se guardan en **ScriptProperties** (persistentes)
+
+#### Restaurar a Valores por Defecto
+Si necesitas volver a la configuración original:
+1. Ir a **Herramientas** → **"↺ Restaurar Config por Defecto"**
+2. Confirmar la acción
+3. **NOTA**: Se mantienen todas las credenciales (API Keys, datos fiscales, config ARCA)
+
 ---
 
 ## 📡 Endpoints Disponibles
