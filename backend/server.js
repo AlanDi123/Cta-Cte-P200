@@ -8,9 +8,12 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
 import config from './config.js';
 import { pool, closePool } from './database/connection.js';
 import logger from './utils/logger.js';
+import cacheManager from './utils/cache.js';
+import webSocketServer from './utils/websocket.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -26,7 +29,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = config.port;
+
+// ============================================================================
+// INITIALIZE SERVICES
+// ============================================================================
+
+// Initialize Redis cache
+cacheManager.connect().catch(err => {
+  logger.error('Failed to connect to Redis:', err);
+  logger.warn('Continuing without cache...');
+});
+
+// Initialize WebSocket server
+webSocketServer.initialize(httpServer);
 
 // ============================================================================
 // MIDDLEWARE
@@ -206,30 +223,55 @@ app.use((err, req, res, next) => {
 // SERVER START
 // ============================================================================
 
-const server = app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   logger.info(`🚀 Sol & Verde POS Server running on port ${PORT}`);
   logger.info(`📍 Environment: ${config.nodeEnv}`);
   logger.info(`📡 API: http://localhost:${PORT}/api/${config.apiVersion}`);
   logger.info(`📊 Health: http://localhost:${PORT}/health`);
+  logger.info(`🔌 WebSocket: ws://localhost:${PORT}`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...');
-  server.close(async () => {
+  
+  // Stop accepting new connections
+  httpServer.close(async () => {
+    // Disconnect WebSocket clients
+    webSocketServer.disconnectAll();
+    
+    // Close database pool
     await closePool();
+    
+    // Close Redis connection
+    await cacheManager.disconnect();
+    
     logger.info('Server closed');
     process.exit(0);
   });
+  
+  // Force close after 30 seconds
+  setTimeout(() => {
+    logger.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 30000);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully...');
-  server.close(async () => {
+  
+  httpServer.close(async () => {
+    webSocketServer.disconnectAll();
     await closePool();
+    await cacheManager.disconnect();
     logger.info('Server closed');
     process.exit(0);
   });
+  
+  setTimeout(() => {
+    logger.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 30000);
 });
 
 export default app;
