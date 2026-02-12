@@ -2,6 +2,14 @@
 
 **Versión 3.0.0** - Sistema completo de punto de venta para comercio mayorista de verduras y hortalizas.
 
+## 📖 Documentación en Español
+
+- **[¿Qué se Hizo?](EXPLICACION_ESPANOL.md)** - Explicación completa de la transformación
+- **[Guía de Uso Paso a Paso](GUIA_USO_ESPANOL.md)** - Cómo usar el sistema
+- **[Referencia Rápida](REFERENCIA_RAPIDA.md)** - Comandos y ejemplos más usados
+
+---
+
 ## 🚀 Características Principales
 
 ### ✅ Completado - Fase 1: Arquitectura y Fundamentos
