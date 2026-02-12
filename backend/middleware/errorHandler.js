@@ -314,10 +314,11 @@ export function setupGracefulShutdown(server, pool) {
     }
     
     // Give existing requests time to complete
+    const shutdownTimeout = parseInt(process.env.GRACEFUL_SHUTDOWN_TIMEOUT) || 5000;
     setTimeout(() => {
       logger.info('Graceful shutdown complete');
       process.exit(0);
-    }, 5000);
+    }, shutdownTimeout);
   };
   
   // Handle shutdown signals

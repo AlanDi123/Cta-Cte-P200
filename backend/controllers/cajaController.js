@@ -35,10 +35,10 @@ export const openShift = async (req, res) => {
       
       const newShift = await shiftManager.openShift(pool, shiftData);
       
-      // Add observaciones if provided
+      // Add observaciones_apertura if provided (using database update)
       if (observaciones_apertura) {
         await client.query(
-          'UPDATE turnos_caja SET notas_cierre = $1 WHERE id = $2',
+          'UPDATE turnos_caja SET observaciones_apertura = $1 WHERE id = $2',
           [observaciones_apertura, newShift.id]
         );
         newShift.observaciones_apertura = observaciones_apertura;

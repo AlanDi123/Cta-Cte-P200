@@ -18,12 +18,22 @@ export function isOvernightShift(startTime, endTime) {
   const start = new Date(startTime);
   const end = new Date(endTime);
   
-  // If end is before start, it's overnight
+  // Extract hours and minutes for time comparison
+  const startHour = start.getHours();
+  const endHour = end.getHours();
+  
+  // If end hour is earlier than start hour, it's overnight
+  // (e.g., start at 22:00, end at 06:00)
+  if (endHour < startHour) {
+    return true;
+  }
+  
+  // If end is before start in absolute time, it's overnight
   if (end < start) {
     return true;
   }
   
-  // If more than 12 hours apart, likely overnight
+  // If shift is longer than 12 hours, likely overnight
   const hoursDiff = (end - start) / (1000 * 60 * 60);
   return hoursDiff > 12;
 }

@@ -147,7 +147,8 @@ ALTER TABLE turnos_caja
     ADD COLUMN IF NOT EXISTS fecha_cierre_oficial DATE,
     ADD COLUMN IF NOT EXISTS es_overnight BOOLEAN DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'America/Argentina/Buenos_Aires',
-    ADD COLUMN IF NOT EXISTS notas_cierre TEXT;
+    ADD COLUMN IF NOT EXISTS notas_cierre TEXT,
+    ADD COLUMN IF NOT EXISTS observaciones_apertura TEXT;
 
 -- Create shift template table for recurring shifts
 CREATE TABLE IF NOT EXISTS turno_plantillas (
@@ -237,9 +238,22 @@ CREATE OR REPLACE FUNCTION registrar_auditoria()
 RETURNS TRIGGER AS $$
 DECLARE
     v_user_id UUID;
+    v_user_id_text TEXT;
 BEGIN
     -- Try to get current user from session variable (set by application)
-    v_user_id := current_setting('app.current_user_id', TRUE)::UUID;
+    BEGIN
+        v_user_id_text := current_setting('app.current_user_id', TRUE);
+        
+        -- Only cast if not null and looks like a UUID
+        IF v_user_id_text IS NOT NULL AND v_user_id_text != '' THEN
+            v_user_id := v_user_id_text::UUID;
+        END IF;
+    EXCEPTION
+        WHEN invalid_text_representation THEN
+            -- Invalid UUID format, log but continue
+            RAISE WARNING 'Invalid UUID in app.current_user_id: %', v_user_id_text;
+            v_user_id := NULL;
+    END;
     
     IF TG_OP = 'DELETE' THEN
         INSERT INTO auditoria (

@@ -309,12 +309,10 @@ export async function getAccountStatement(pool, clientId, options = {}) {
       paramCount++;
     }
     
-    query += ` ORDER BY cc.fecha DESC, cc.created_at DESC LIMIT $${paramCount}`;
-    params.push(limit);
+    // Get movements in chronological order for balance calculation
+    const movementsResult = await pool.query(query + ' ORDER BY cc.fecha ASC, cc.created_at ASC LIMIT $' + paramCount, params);
     
-    const movementsResult = await pool.query(query, params);
-    
-    // Calculate running balance for each movement
+    // Calculate running balance chronologically
     let runningBalance = 0;
     const movementsWithBalance = movementsResult.rows.map(mov => {
       if (mov.tipo === 'venta' || mov.tipo === 'nota_debito' || mov.tipo === 'ajuste_debito') {
@@ -327,7 +325,7 @@ export async function getAccountStatement(pool, clientId, options = {}) {
         ...mov,
         saldo_acumulado: runningBalance
       };
-    }).reverse(); // Reverse to show chronological order
+    });
     
     return {
       client: {
