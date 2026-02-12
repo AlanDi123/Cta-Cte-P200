@@ -1,11 +1,16 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { getKPIs, getCharts } from '../controllers/dashboardController.js';
 
 const router = express.Router();
+
+// All dashboard routes require authentication
 router.use(authenticate);
 
-router.get('/', (req, res) => {
-  res.json({ success: true, message: 'Dashboard endpoint - to be implemented' });
-});
+// Get KPIs
+router.get('/kpis', getKPIs);
+
+// Get chart data
+router.get('/charts', getCharts);
 
 export default router;

@@ -51,6 +51,9 @@
     "supertest": "^6.3.3",
     "@types/node": "^20.10.5"
   },
+  "overrides": {
+    "tar": "^7.5.7"
+  },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
