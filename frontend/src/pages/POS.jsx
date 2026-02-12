@@ -291,7 +291,7 @@ const POS = () => {
                     {/* Quantity Controls */}
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => updateItemQuantity(item.producto_id, Math.max(1, item.cantidad - 1))}
+                        onClick={() => updateItemQuantity(item.producto_id, Math.max(0.01, item.cantidad - 1))}
                         className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 
                           hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                       >
@@ -300,7 +300,7 @@ const POS = () => {
                       <input
                         type="number"
                         value={item.cantidad}
-                        onChange={(e) => updateItemQuantity(item.producto_id, parseFloat(e.target.value) || 1)}
+                        onChange={(e) => updateItemQuantity(item.producto_id, parseFloat(e.target.value) || 0.01)}
                         className="w-20 px-3 py-2 text-center rounded-lg border border-gray-300 dark:border-gray-600
                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         min="0.01"

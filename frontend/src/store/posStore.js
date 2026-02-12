@@ -124,7 +124,6 @@ const usePOSStore = create((set, get) => ({
     const { items, globalDiscount } = get();
     
     let subtotal = 0;
-    let totalIVA = 0;
     
     items.forEach(item => {
       const itemSubtotal = item.cantidad * item.precio_unitario;
@@ -132,19 +131,27 @@ const usePOSStore = create((set, get) => ({
       const itemTotal = itemSubtotal - itemDiscount;
       
       subtotal += itemTotal;
-      totalIVA += itemTotal * (item.iva_porcentaje / 100);
     });
     
     // Apply global discount
     const discountAmount = subtotal * (globalDiscount / 100);
-    subtotal -= discountAmount;
-    totalIVA = subtotal * 0.21; // Recalculate IVA after discount
+    const discountedSubtotal = subtotal - discountAmount;
     
-    const total = subtotal + totalIVA;
+    // Recalculate IVA proportionally after global discount
+    const ivaAfterDiscount = items.reduce((sum, item) => {
+      const itemSubtotal = item.cantidad * item.precio_unitario;
+      const itemDiscount = itemSubtotal * (item.descuento_porcentaje / 100);
+      const itemTotal = itemSubtotal - itemDiscount;
+      const itemProportion = itemTotal / subtotal;
+      const itemDiscountedTotal = discountedSubtotal * itemProportion;
+      return sum + (itemDiscountedTotal * (item.iva_porcentaje / 100));
+    }, 0);
+    
+    const total = discountedSubtotal + ivaAfterDiscount;
     
     return {
-      subtotal: subtotal.toFixed(2),
-      totalIVA: totalIVA.toFixed(2),
+      subtotal: discountedSubtotal.toFixed(2),
+      totalIVA: ivaAfterDiscount.toFixed(2),
       discountAmount: discountAmount.toFixed(2),
       total: total.toFixed(2),
       itemCount: items.reduce((sum, item) => sum + item.cantidad, 0),
