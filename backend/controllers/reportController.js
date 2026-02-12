@@ -16,6 +16,10 @@ const STOCK_LEVELS = {
   LOW_MULTIPLIER: 1.5, // Stock is considered low when above minimum but below minimum * multiplier
 };
 
+// Export limits
+const PDF_EXPORT_LIMIT = 1000;   // Maximum rows for PDF export
+const EXCEL_EXPORT_LIMIT = 5000; // Maximum rows for Excel export
+
 // Sales Report
 export const salesReport = async (req, res) => {
   try {
@@ -485,7 +489,7 @@ export const salesBySalespersonReport = async (req, res) => {
 
     query += ` GROUP BY u.id, u.nombre, u.apellido
                HAVING COUNT(v.id) > 0
-               ORDER BY monto_total_vendido DESC`;
+               ORDER BY SUM(v.monto_total) DESC`;
 
     const result = await pool.query(query, params);
 
@@ -559,7 +563,7 @@ export const exportSalesPDF = async (req, res) => {
       paramCount++;
     }
 
-    query += ` ORDER BY v.created_at DESC LIMIT 1000`;
+    query += ` ORDER BY v.created_at DESC LIMIT ${PDF_EXPORT_LIMIT}`;
 
     const result = await pool.query(query, params);
 
@@ -650,7 +654,7 @@ export const exportSalesExcel = async (req, res) => {
       paramCount++;
     }
 
-    query += ` ORDER BY v.created_at DESC LIMIT 5000`;
+    query += ` ORDER BY v.created_at DESC LIMIT ${EXCEL_EXPORT_LIMIT}`;
 
     const result = await pool.query(query, params);
 

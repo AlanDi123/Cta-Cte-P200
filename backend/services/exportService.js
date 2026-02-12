@@ -8,6 +8,19 @@ import fs from 'fs';
 import path from 'path';
 import logger from '../utils/logger.js';
 
+// PDF Configuration Constants
+const PDF_CONFIG = {
+  PAGE_SIZE: 'A4',
+  LAYOUT: 'landscape',
+  MARGIN: 50,
+  HEADER_FONT_SIZE: 18,
+  SUBHEADER_FONT_SIZE: 10,
+  TABLE_HEADER_FONT_SIZE: 9,
+  TABLE_ROW_FONT_SIZE: 8,
+  TOTALS_FONT_SIZE: 10,
+  FOOTER_FONT_SIZE: 8,
+};
+
 /**
  * Generate PDF report
  * @param {Object} options - Report options
@@ -30,21 +43,25 @@ export const generatePDFReport = async (options) => {
   return new Promise((resolve, reject) => {
     try {
       const outputPath = path.join('/tmp', filename);
-      const doc = new PDFDocument({ size: 'A4', margin: 50, layout: 'landscape' });
+      const doc = new PDFDocument({ 
+        size: PDF_CONFIG.PAGE_SIZE, 
+        margin: PDF_CONFIG.MARGIN, 
+        layout: PDF_CONFIG.LAYOUT 
+      });
       const stream = fs.createWriteStream(outputPath);
       doc.pipe(stream);
 
       // Header
-      doc.fontSize(18).font('Helvetica-Bold').text(title, { align: 'center' });
-      doc.fontSize(10).font('Helvetica').text(`Generado: ${new Date().toLocaleString('es-AR')}`, { align: 'center' });
+      doc.fontSize(PDF_CONFIG.HEADER_FONT_SIZE).font('Helvetica-Bold').text(title, { align: 'center' });
+      doc.fontSize(PDF_CONFIG.SUBHEADER_FONT_SIZE).font('Helvetica').text(`Generado: ${new Date().toLocaleString('es-AR')}`, { align: 'center' });
       doc.moveDown(2);
 
       // Table header
       const tableTop = doc.y;
-      const startX = 50;
+      const startX = PDF_CONFIG.MARGIN;
       let currentX = startX;
 
-      doc.fontSize(9).font('Helvetica-Bold');
+      doc.fontSize(PDF_CONFIG.TABLE_HEADER_FONT_SIZE).font('Helvetica-Bold');
       columns.forEach(col => {
         doc.text(col.header, currentX, tableTop, { width: col.width, continued: false });
         currentX += col.width;
@@ -54,7 +71,7 @@ export const generatePDFReport = async (options) => {
 
       // Table rows
       let y = tableTop + 20;
-      doc.font('Helvetica').fontSize(8);
+      doc.font('Helvetica').fontSize(PDF_CONFIG.TABLE_ROW_FONT_SIZE);
 
       data.forEach((row, index) => {
         if (y > 500) {
@@ -80,7 +97,7 @@ export const generatePDFReport = async (options) => {
       if (totals) {
         doc.moveDown();
         y = doc.y + 20;
-        doc.fontSize(10).font('Helvetica-Bold');
+        doc.fontSize(PDF_CONFIG.TOTALS_FONT_SIZE).font('Helvetica-Bold');
         
         Object.keys(totals).forEach(key => {
           const label = key.replace(/_/g, ' ').toUpperCase();
@@ -94,10 +111,10 @@ export const generatePDFReport = async (options) => {
       }
 
       // Footer
-      doc.fontSize(8).font('Helvetica').text(
+      doc.fontSize(PDF_CONFIG.FOOTER_FONT_SIZE).font('Helvetica').text(
         'Sol & Verde POS - Sistema de Gestión',
         startX,
-        doc.page.height - 50,
+        doc.page.height - PDF_CONFIG.MARGIN,
         { align: 'center' }
       );
 
@@ -210,14 +227,24 @@ export const streamPDF = (filepath, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   
   const stream = fs.createReadStream(filepath);
-  stream.pipe(res);
   
-  stream.on('end', () => {
-    // Cleanup temp file after streaming
+  // Cleanup function
+  const cleanup = () => {
     fs.unlink(filepath, (err) => {
       if (err) logger.error('Error deleting temp PDF:', err);
     });
+  };
+  
+  stream.pipe(res);
+  
+  stream.on('end', cleanup);
+  stream.on('error', (err) => {
+    logger.error('Error streaming PDF:', err);
+    cleanup();
   });
+  
+  res.on('close', cleanup);
+  res.on('error', cleanup);
 };
 
 /**
@@ -232,14 +259,24 @@ export const streamExcel = (filepath, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   
   const stream = fs.createReadStream(filepath);
-  stream.pipe(res);
   
-  stream.on('end', () => {
-    // Cleanup temp file after streaming
+  // Cleanup function
+  const cleanup = () => {
     fs.unlink(filepath, (err) => {
       if (err) logger.error('Error deleting temp Excel:', err);
     });
+  };
+  
+  stream.pipe(res);
+  
+  stream.on('end', cleanup);
+  stream.on('error', (err) => {
+    logger.error('Error streaming Excel:', err);
+    cleanup();
   });
+  
+  res.on('close', cleanup);
+  res.on('error', cleanup);
 };
 
 export default {

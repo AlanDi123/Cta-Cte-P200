@@ -25,8 +25,7 @@ CREATE TABLE notas_credito (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     version INTEGER DEFAULT 1 NOT NULL,
-    idempotency_key VARCHAR(100) UNIQUE,
-    CONSTRAINT chk_monto_positivo CHECK (monto > 0)
+    idempotency_key VARCHAR(100) UNIQUE
 );
 
 -- Indexes for credit notes

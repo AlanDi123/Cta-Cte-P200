@@ -114,7 +114,7 @@ export const scheduleExpirationAlerts = () => {
           p.codigo,
           p.nombre,
           l.cantidad,
-          EXTRACT(DAY FROM l.fecha_vencimiento - CURRENT_DATE) as dias_para_vencer
+          (l.fecha_vencimiento::date - CURRENT_DATE) as dias_para_vencer
          FROM lotes l
          JOIN productos p ON l.producto_id = p.id
          WHERE l.fecha_vencimiento IS NOT NULL
