@@ -5,12 +5,23 @@
 import { pool } from '../database/connection.js';
 import logger from '../utils/logger.js';
 import { logAudit } from '../middleware/audit.js';
+import { generateIdempotencyKey } from '../middleware/idempotency.js';
+import webSocketServer from '../utils/websocket.js';
+import cacheManager, { CacheKeys, CacheTTL } from '../utils/cache.js';
 
 /**
- * Create new sale
+ * Generate idempotency key from request (wrapper for async import)
+ */
+const getIdempotencyKey = async (req, body) => {
+  return generateIdempotencyKey(req, body);
+};
+
+/**
+ * Create new sale with full concurrency protection
  */
 export const createSale = async (req, res) => {
   const client = await pool.connect();
+  let idempotency_key = null;
   
   try {
     const {
@@ -21,7 +32,7 @@ export const createSale = async (req, res) => {
       descuento = 0,
       tipo_comprobante = 'B',
       observaciones,
-      pagos = [], // [{metodo, monto, referencia, banco}]
+      pagos = [], // [{metodo, monto, referencia, banco, idempotency_key}]
     } = req.body;
 
     // Validation
@@ -39,15 +50,46 @@ export const createSale = async (req, res) => {
       });
     }
 
-    await client.query('BEGIN');
+    // Generate idempotency key for duplicate detection
+    idempotency_key = await getIdempotencyKey(req, req.body);
+    
+    // Check if this sale already exists (idempotent operation)
+    const existingSale = await client.query(
+      'SELECT id, numero_venta, total, estado FROM ventas WHERE idempotency_key = $1',
+      [idempotency_key]
+    );
+    
+    if (existingSale.rows.length > 0) {
+      const existing = existingSale.rows[0];
+      logger.info(`Duplicate sale request detected, returning existing sale #${existing.numero_venta}`);
+      
+      // Return the existing sale (idempotent response)
+      const saleDetails = await getSaleByIdInternal(client, existing.id);
+      return res.status(200).json({
+        success: true,
+        data: saleDetails,
+        message: 'Venta ya existente (duplicada)',
+        isDuplicate: true,
+      });
+    }
 
-    // Verify client exists and has credit available if needed
+    // Start transaction with SERIALIZABLE isolation for maximum consistency
+    await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+
+    // Set current user in session for audit triggers
+    await client.query(`SET LOCAL app.current_user_id = '${req.user.id}'`);
+    
+    // Lock client for balance update (SELECT FOR UPDATE)
     const clientResult = await client.query(
-      'SELECT nombre, saldo, limite_credito FROM clientes WHERE id = $1 AND activo = true',
+      `SELECT nombre, saldo, limite_credito, version 
+       FROM clientes 
+       WHERE id = $1 AND activo = true
+       FOR UPDATE`,
       [cliente_id]
     );
 
     if (clientResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({
         success: false,
         error: 'Cliente no encontrado o inactivo',
@@ -56,15 +98,19 @@ export const createSale = async (req, res) => {
 
     const cliente = clientResult.rows[0];
 
-    // Calculate totals
+    // Calculate totals and validate stock with locking
     let subtotal = 0;
     let ivaTotal = 0;
     const itemsConProducto = [];
 
     for (const item of items) {
-      // Get product info
+      // Lock product for stock update (SELECT FOR UPDATE) - prevents race conditions
       const productResult = await client.query(
-        'SELECT precio_venta, iva_porcentaje, stock_actual, permite_venta_sin_stock FROM productos WHERE id = $1 AND activo = true',
+        `SELECT id, precio_venta, iva_porcentaje, stock_actual, stock_minimo,
+                permite_venta_sin_stock, version
+         FROM productos 
+         WHERE id = $1 AND activo = true
+         FOR UPDATE`,
         [item.producto_id]
       );
 
@@ -74,9 +120,19 @@ export const createSale = async (req, res) => {
 
       const producto = productResult.rows[0];
 
-      // Check stock
-      if (!producto.permite_venta_sin_stock && producto.stock_actual < item.cantidad) {
-        throw new Error(`Stock insuficiente para producto ${item.producto_id}`);
+      // Check available stock (accounting for concurrent reservations)
+      const stockDisponibleResult = await client.query(
+        'SELECT stock_disponible($1) as disponible',
+        [item.producto_id]
+      );
+      const stockDisponible = stockDisponibleResult.rows[0].disponible;
+
+      // Strict stock validation - prevents negative stock
+      if (!producto.permite_venta_sin_stock && stockDisponible < item.cantidad) {
+        throw new Error(
+          `Stock insuficiente para producto ${item.producto_id}. ` +
+          `Disponible: ${stockDisponible}, Solicitado: ${item.cantidad}`
+        );
       }
 
       const precioUnitario = item.precio_unitario || producto.precio_venta;
@@ -101,35 +157,43 @@ export const createSale = async (req, res) => {
     const totalPagado = pagos.reduce((sum, pago) => sum + parseFloat(pago.monto), 0);
     const saldo = total - totalPagado;
 
-    // Check credit limit for credit sales
+    // Check credit limit for credit sales with current locked balance
     if (tipo_venta === 'credito' && (cliente.saldo + saldo) > cliente.limite_credito) {
+      await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
         error: 'Límite de crédito excedido',
         data: {
           saldo_actual: cliente.saldo,
           limite_credito: cliente.limite_credito,
-          saldo_nuevo: cliente.saldo + saldo,
+          saldo_nuevo: parseFloat(cliente.saldo) + saldo,
+          excedente: (parseFloat(cliente.saldo) + saldo) - cliente.limite_credito,
         },
       });
     }
 
-    // Create sale
+    // Create sale with idempotency key and request metadata
+    const request_ip = req.ip || req.connection.remoteAddress;
+    const user_agent = req.get('user-agent');
+    
     const saleResult = await client.query(
       `INSERT INTO ventas (
         cliente_id, usuario_id, turno_id, tipo_venta, tipo_comprobante,
-        subtotal, descuento, iva, total, pagado, saldo, observaciones
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        subtotal, descuento, iva, total, pagado, saldo, observaciones,
+        idempotency_key, request_ip, user_agent,
+        processing_started_at, processing_completed_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *`,
       [
         cliente_id, req.user.id, turno_id, tipo_venta, tipo_comprobante,
-        subtotal, descuento, ivaTotal, total, totalPagado, saldo, observaciones
+        subtotal, descuento, ivaTotal, total, totalPagado, saldo, observaciones,
+        idempotency_key, request_ip, user_agent
       ]
     );
 
     const venta = saleResult.rows[0];
 
-    // Create sale details and update stock
+    // Create sale details and update stock atomically
     for (const item of itemsConProducto) {
       // Insert detail
       await client.query(
@@ -143,16 +207,24 @@ export const createSale = async (req, res) => {
         ]
       );
 
-      // Update stock
+      // Update stock atomically (product is already locked with FOR UPDATE)
       const stockResult = await client.query(
         'SELECT stock_actual FROM productos WHERE id = $1',
         [item.producto_id]
       );
       const stockAnterior = stockResult.rows[0].stock_actual;
       const stockNuevo = parseFloat(stockAnterior) - parseFloat(item.cantidad);
+      
+      // Prevent negative stock (double-check)
+      if (stockNuevo < 0) {
+        throw new Error(
+          `Operación rechazada: stock negativo para producto ${item.producto_id}. ` +
+          `Stock anterior: ${stockAnterior}, Cantidad solicitada: ${item.cantidad}`
+        );
+      }
 
       await client.query(
-        'UPDATE productos SET stock_actual = $1 WHERE id = $2',
+        'UPDATE productos SET stock_actual = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
         [stockNuevo, item.producto_id]
       );
 
@@ -166,21 +238,48 @@ export const createSale = async (req, res) => {
       );
     }
 
-    // Register payments
+    // Register payments with idempotency
     for (const pago of pagos) {
-      await client.query(
-        `INSERT INTO pagos (
-          venta_id, cliente_id, turno_id, metodo, monto,
-          referencia, banco, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          venta.id, cliente_id, turno_id, pago.metodo, pago.monto,
-          pago.referencia, pago.banco, req.user.id
-        ]
+      // Generate payment idempotency key
+      const pagoIdempotencyKey = pago.idempotency_key || 
+        `${idempotency_key}-pago-${pago.metodo}-${pago.monto}`;
+      
+      // Check if payment already exists
+      const existingPayment = await client.query(
+        'SELECT id, metodo, monto FROM pagos WHERE idempotency_key = $1',
+        [pagoIdempotencyKey]
       );
+      
+      let pagoId;
+      if (existingPayment.rows.length > 0) {
+        // Payment already exists - verify it matches
+        const existing = existingPayment.rows[0];
+        if (existing.metodo !== pago.metodo || parseFloat(existing.monto) !== parseFloat(pago.monto)) {
+          throw new Error(
+            `Payment idempotency conflict: existing payment (${existing.metodo}, ${existing.monto}) ` +
+            `does not match attempted payment (${pago.metodo}, ${pago.monto})`
+          );
+        }
+        pagoId = existing.id;
+        logger.debug(`Payment already exists, skipping: ${pagoId}`);
+      } else {
+        // Insert new payment
+        const pagoResult = await client.query(
+          `INSERT INTO pagos (
+            venta_id, cliente_id, turno_id, metodo, monto,
+            referencia, banco, created_by, idempotency_key, request_ip
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING id`,
+          [
+            venta.id, cliente_id, turno_id, pago.metodo, pago.monto,
+            pago.referencia, pago.banco, req.user.id, pagoIdempotencyKey, request_ip
+          ]
+        );
+        pagoId = pagoResult.rows[0].id;
+      }
 
-      // Register cash movement if there's an open shift
-      if (turno_id) {
+      // Only create cash movement if payment was newly inserted and there's a shift
+      if (existingPayment.rows.length === 0 && turno_id) {
         await client.query(
           `INSERT INTO movimientos_caja (
             turno_id, tipo, monto, concepto, medio_pago,
@@ -195,7 +294,7 @@ export const createSale = async (req, res) => {
       }
     }
 
-    // Update client account if credit sale
+    // Update client account if credit sale (with locked balance)
     if (saldo > 0) {
       const saldoAnterior = cliente.saldo;
       const saldoNuevo = parseFloat(saldoAnterior) + saldo;
@@ -210,14 +309,54 @@ export const createSale = async (req, res) => {
           `Venta #${venta.numero_venta}`, venta.id, req.user.id
         ]
       );
+      
+      // Update client balance atomically
+      await client.query(
+        'UPDATE clientes SET saldo = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [saldoNuevo, cliente_id]
+      );
     }
 
-    // Log audit
-    await logAudit('ventas', venta.id, 'INSERT', null, venta, req.user, req);
-
+    // Commit transaction - all or nothing
     await client.query('COMMIT');
 
-    logger.info(`Sale created: #${venta.numero_venta} - Total: ${total} - Cliente: ${cliente.nombre}`);
+    logger.info(`Sale created: #${venta.numero_venta} - Total: ${total} - Cliente: ${cliente.nombre} - Idempotency: ${idempotency_key}`);
+
+    // Invalidate relevant caches
+    await Promise.all([
+      cacheManager.delPattern('sales:*'),
+      cacheManager.delPattern('dashboard:*'),
+      ...itemsConProducto.map(item => cacheManager.del(CacheKeys.productStock(item.producto_id))),
+      cacheManager.del(CacheKeys.clientBalance(cliente_id)),
+    ]);
+
+    // Broadcast real-time updates
+    webSocketServer.emitNewSale({
+      id: venta.id,
+      numero_venta: venta.numero_venta,
+      total: venta.total,
+      cliente_nombre: cliente.nombre,
+    });
+
+    // Broadcast stock updates for affected products
+    for (const item of itemsConProducto) {
+      // Get updated stock from database
+      const updatedStock = await client.query(
+        'SELECT stock_actual FROM productos WHERE id = $1',
+        [item.producto_id]
+      );
+      
+      webSocketServer.emitStockUpdate(item.producto_id, {
+        stock_actual: parseFloat(updatedStock.rows[0].stock_actual),
+      });
+    }
+
+    // Broadcast client balance update
+    if (saldo > 0) {
+      webSocketServer.emitClientBalanceUpdate(cliente_id, {
+        saldo: parseFloat(cliente.saldo) + saldo,
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -227,6 +366,41 @@ export const createSale = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     logger.error('Error creating sale:', error);
+    
+    // Check if it's a serialization error (concurrent transaction conflict)
+    if (error.code === '40001' || error.code === '40P01') {
+      return res.status(409).json({
+        success: false,
+        error: 'Conflicto de concurrencia detectado. Por favor, reintente la operación.',
+        code: 'CONCURRENT_MODIFICATION',
+        retryable: true,
+      });
+    }
+    
+    // Check if it's a duplicate key error
+    if (error.code === '23505') {
+      return res.status(409).json({
+        success: false,
+        error: 'Operación duplicada detectada.',
+        code: 'DUPLICATE_OPERATION',
+        retryable: false,
+      });
+    }
+    
+    // Check if it's a business validation error (stock, credit, etc.)
+    if (error.message && (
+      error.message.includes('stock insuficiente') ||
+      error.message.includes('Stock insuficiente') ||
+      error.message.includes('stock negativo') ||
+      error.message.includes('Payment idempotency conflict')
+    )) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: error.message || 'Error al crear venta',
@@ -234,6 +408,56 @@ export const createSale = async (req, res) => {
   } finally {
     client.release();
   }
+};
+
+/**
+ * Helper function to get sale by ID (internal use)
+ */
+const getSaleByIdInternal = async (client, id) => {
+  // Get sale
+  const saleResult = await client.query(
+    `SELECT 
+      v.*,
+      c.nombre as cliente_nombre,
+      c.cuit as cliente_cuit,
+      u.nombre || ' ' || u.apellido as vendedor_nombre
+     FROM ventas v
+     JOIN clientes c ON v.cliente_id = c.id
+     JOIN usuarios u ON v.usuario_id = u.id
+     WHERE v.id = $1`,
+    [id]
+  );
+
+  if (saleResult.rows.length === 0) {
+    return null;
+  }
+
+  const venta = saleResult.rows[0];
+
+  // Get sale details
+  const detailsResult = await client.query(
+    `SELECT 
+      vd.*,
+      p.codigo as producto_codigo,
+      p.nombre as producto_nombre,
+      p.unidad_medida
+     FROM ventas_detalle vd
+     JOIN productos p ON vd.producto_id = p.id
+     WHERE vd.venta_id = $1`,
+    [id]
+  );
+
+  // Get payments
+  const paymentsResult = await client.query(
+    'SELECT * FROM pagos WHERE venta_id = $1 ORDER BY fecha',
+    [id]
+  );
+
+  return {
+    ...venta,
+    items: detailsResult.rows,
+    pagos: paymentsResult.rows,
+  };
 };
 
 /**
