@@ -5,6 +5,11 @@ import logger from '../utils/logger.js';
  * Reports Controller - Comprehensive reporting system
  */
 
+// Configuration constants
+const STOCK_LEVELS = {
+  LOW_MULTIPLIER: 1.5, // Stock is considered low when above minimum but below minimum * multiplier
+};
+
 // Sales Report
 export const salesReport = async (req, res) => {
   try {
@@ -231,9 +236,13 @@ export const stockReport = async (req, res) => {
     if (nivel === 'critico') {
       query += ` AND p.stock_actual <= p.stock_minimo`;
     } else if (nivel === 'bajo') {
-      query += ` AND p.stock_actual > p.stock_minimo AND p.stock_actual <= (p.stock_minimo * 1.5)`;
+      query += ` AND p.stock_actual > p.stock_minimo AND p.stock_actual <= (p.stock_minimo * $${paramCount})`;
+      params.push(STOCK_LEVELS.LOW_MULTIPLIER);
+      paramCount++;
     } else if (nivel === 'normal') {
-      query += ` AND p.stock_actual > (p.stock_minimo * 1.5) AND p.stock_actual < p.stock_maximo`;
+      query += ` AND p.stock_actual > (p.stock_minimo * $${paramCount}) AND p.stock_actual < p.stock_maximo`;
+      params.push(STOCK_LEVELS.LOW_MULTIPLIER);
+      paramCount++;
     } else if (nivel === 'alto') {
       query += ` AND p.stock_actual >= p.stock_maximo`;
     }

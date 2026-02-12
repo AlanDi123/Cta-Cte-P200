@@ -5,6 +5,9 @@
 
 set -e
 
+# Configuration
+BACKUP_HOUR=${BACKUP_HOUR:-2}  # Default to 2 AM, can be overridden with environment variable
+
 echo "======================================"
 echo "Sol Verde POS - Deployment Script"
 echo "======================================"
@@ -198,10 +201,10 @@ EOF
 
     chmod +x $BACKUP_SCRIPT
     
-    # Add to crontab (daily at 2 AM)
-    (crontab -l 2>/dev/null; echo "0 2 * * * cd $(pwd) && ./backup.sh >> logs/backup.log 2>&1") | crontab -
+    # Add to crontab (configurable time, default 2 AM)
+    (crontab -l 2>/dev/null; echo "0 $BACKUP_HOUR * * * cd $(pwd) && ./backup.sh >> logs/backup.log 2>&1") | crontab -
     
-    echo "✅ Backup script created and scheduled (daily at 2 AM)"
+    echo "✅ Backup script created and scheduled (daily at ${BACKUP_HOUR}:00)"
 fi
 
 echo ""
