@@ -11,6 +11,7 @@ import {
   getShiftMovements,
   getCashRegisters,
   getShiftHistory,
+  forceCloseShift,
 } from '../controllers/cajaController.js';
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.use(authenticate);
 router.get('/registers', getCashRegisters);
 router.post('/open', openShift);
 router.post('/close', closeShift);
+router.post('/force-close', authorize(['dueño', 'administrativo']), forceCloseShift);
 router.get('/current', getCurrentShift);
 router.post('/movement', registerMovement);
 router.get('/shifts/:id/movements', getShiftMovements);
