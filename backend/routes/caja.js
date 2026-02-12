@@ -1,11 +1,30 @@
+/**
+ * Cash Register (Caja) Routes
+ */
 import express from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, authorize } from '../middleware/auth.js';
+import {
+  openShift,
+  closeShift,
+  getCurrentShift,
+  registerMovement,
+  getShiftMovements,
+  getCashRegisters,
+  getShiftHistory,
+} from '../controllers/cajaController.js';
 
 const router = express.Router();
+
+// All caja routes require authentication
 router.use(authenticate);
 
-router.get('/', (req, res) => {
-  res.json({ success: true, message: 'Caja endpoint - to be implemented' });
-});
+// Cash register operations
+router.get('/registers', getCashRegisters);
+router.post('/open', openShift);
+router.post('/close', closeShift);
+router.get('/current', getCurrentShift);
+router.post('/movement', registerMovement);
+router.get('/shifts/:id/movements', getShiftMovements);
+router.get('/shifts/history', getShiftHistory);
 
 export default router;
