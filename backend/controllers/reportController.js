@@ -1,5 +1,11 @@
 import { pool } from '../database/connection.js';
 import logger from '../utils/logger.js';
+import {
+  generatePDFReport,
+  generateExcelReport,
+  streamPDF,
+  streamExcel,
+} from '../services/exportService.js';
 
 /**
  * Reports Controller - Comprehensive reporting system
@@ -427,6 +433,262 @@ export const profitReport = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Error al generar reporte de ganancias',
+    });
+  }
+};
+
+/**
+ * Sales by Salesperson Report
+ */
+export const salesBySalespersonReport = async (req, res) => {
+  try {
+    const { start_date, end_date, usuario_id } = req.query;
+
+    let query = `
+      SELECT 
+        u.id as usuario_id,
+        u.nombre || ' ' || u.apellido as vendedor,
+        COUNT(DISTINCT v.id) as total_ventas,
+        SUM(v.monto_total) as monto_total_vendido,
+        AVG(v.monto_total) as ticket_promedio,
+        SUM(CASE WHEN v.tipo_venta = 'contado' THEN v.monto_total ELSE 0 END) as ventas_contado,
+        SUM(CASE WHEN v.tipo_venta = 'credito' THEN v.monto_total ELSE 0 END) as ventas_credito,
+        COUNT(DISTINCT v.cliente_id) as clientes_atendidos
+      FROM usuarios u
+      LEFT JOIN ventas v ON u.id = v.usuario_id AND v.estado = 'completada'
+    `;
+
+    const params = [];
+    let paramCount = 1;
+
+    const whereClauses = [];
+
+    if (start_date) {
+      params.push(start_date);
+      whereClauses.push(`v.created_at >= $${paramCount}`);
+      paramCount++;
+    }
+    if (end_date) {
+      params.push(end_date);
+      whereClauses.push(`v.created_at <= $${paramCount}`);
+      paramCount++;
+    }
+    if (usuario_id) {
+      params.push(usuario_id);
+      whereClauses.push(`u.id = $${paramCount}`);
+      paramCount++;
+    }
+
+    if (whereClauses.length > 0) {
+      query += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
+
+    query += ` GROUP BY u.id, u.nombre, u.apellido
+               HAVING COUNT(v.id) > 0
+               ORDER BY monto_total_vendido DESC`;
+
+    const result = await pool.query(query, params);
+
+    // Calculate totals
+    const totals = result.rows.reduce((acc, row) => {
+      acc.total_ventas += parseInt(row.total_ventas || 0);
+      acc.monto_total += parseFloat(row.monto_total_vendido || 0);
+      acc.vendedores_activos += 1;
+      return acc;
+    }, { total_ventas: 0, monto_total: 0, vendedores_activos: 0 });
+
+    res.json({
+      success: true,
+      data: result.rows,
+      totals,
+    });
+  } catch (error) {
+    logger.error('Error generating salesperson report:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al generar reporte de vendedores',
+    });
+  }
+};
+
+/**
+ * Export Sales Report as PDF
+ */
+export const exportSalesPDF = async (req, res) => {
+  try {
+    const { start_date, end_date, cliente_id, tipo_venta } = req.query;
+
+    // Reuse sales report logic
+    let query = `
+      SELECT 
+        v.numero_venta,
+        TO_CHAR(v.created_at, 'DD/MM/YYYY HH24:MI') as fecha,
+        v.tipo_venta,
+        v.monto_total,
+        v.monto_pagado,
+        v.estado,
+        c.nombre as cliente,
+        u.nombre || ' ' || u.apellido as vendedor
+      FROM ventas v
+      LEFT JOIN clientes c ON v.cliente_id = c.id
+      LEFT JOIN usuarios u ON v.usuario_id = u.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+    let paramCount = 1;
+
+    if (start_date) {
+      params.push(start_date);
+      query += ` AND v.created_at >= $${paramCount}`;
+      paramCount++;
+    }
+    if (end_date) {
+      params.push(end_date);
+      query += ` AND v.created_at <= $${paramCount}`;
+      paramCount++;
+    }
+    if (cliente_id) {
+      params.push(cliente_id);
+      query += ` AND v.cliente_id = $${paramCount}`;
+      paramCount++;
+    }
+    if (tipo_venta) {
+      params.push(tipo_venta);
+      query += ` AND v.tipo_venta = $${paramCount}`;
+      paramCount++;
+    }
+
+    query += ` ORDER BY v.created_at DESC LIMIT 1000`;
+
+    const result = await pool.query(query, params);
+
+    const totals = result.rows.reduce((acc, row) => {
+      acc.total_ventas += parseFloat(row.monto_total);
+      acc.total_pagado += parseFloat(row.monto_pagado);
+      acc.cantidad += 1;
+      return acc;
+    }, { total_ventas: 0, total_pagado: 0, cantidad: 0 });
+
+    const columns = [
+      { key: 'numero_venta', header: 'Nº Venta', width: 60 },
+      { key: 'fecha', header: 'Fecha', width: 90 },
+      { key: 'cliente', header: 'Cliente', width: 120 },
+      { key: 'vendedor', header: 'Vendedor', width: 100 },
+      { key: 'tipo_venta', header: 'Tipo', width: 60 },
+      { key: 'monto_total', header: 'Total', width: 80, format: 'currency' },
+      { key: 'estado', header: 'Estado', width: 80 },
+    ];
+
+    const pdfPath = await generatePDFReport({
+      title: 'Reporte de Ventas',
+      data: result.rows,
+      columns,
+      totals: {
+        cantidad_ventas: totals.cantidad,
+        total_ventas: totals.total_ventas,
+        total_pagado: totals.total_pagado,
+      },
+      filename: `ventas-${Date.now()}.pdf`,
+    });
+
+    streamPDF(pdfPath, res);
+  } catch (error) {
+    logger.error('Error exporting sales PDF:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al exportar reporte PDF',
+    });
+  }
+};
+
+/**
+ * Export Sales Report as Excel
+ */
+export const exportSalesExcel = async (req, res) => {
+  try {
+    const { start_date, end_date, cliente_id, tipo_venta } = req.query;
+
+    // Reuse sales report logic
+    let query = `
+      SELECT 
+        v.numero_venta,
+        TO_CHAR(v.created_at, 'DD/MM/YYYY HH24:MI') as fecha,
+        v.tipo_venta,
+        v.monto_total,
+        v.monto_pagado,
+        v.estado,
+        c.nombre as cliente,
+        u.nombre || ' ' || u.apellido as vendedor
+      FROM ventas v
+      LEFT JOIN clientes c ON v.cliente_id = c.id
+      LEFT JOIN usuarios u ON v.usuario_id = u.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+    let paramCount = 1;
+
+    if (start_date) {
+      params.push(start_date);
+      query += ` AND v.created_at >= $${paramCount}`;
+      paramCount++;
+    }
+    if (end_date) {
+      params.push(end_date);
+      query += ` AND v.created_at <= $${paramCount}`;
+      paramCount++;
+    }
+    if (cliente_id) {
+      params.push(cliente_id);
+      query += ` AND v.cliente_id = $${paramCount}`;
+      paramCount++;
+    }
+    if (tipo_venta) {
+      params.push(tipo_venta);
+      query += ` AND v.tipo_venta = $${paramCount}`;
+      paramCount++;
+    }
+
+    query += ` ORDER BY v.created_at DESC LIMIT 5000`;
+
+    const result = await pool.query(query, params);
+
+    const totals = result.rows.reduce((acc, row) => {
+      acc.total_ventas += parseFloat(row.monto_total);
+      acc.total_pagado += parseFloat(row.monto_pagado);
+      acc.cantidad += 1;
+      return acc;
+    }, { total_ventas: 0, total_pagado: 0, cantidad: 0 });
+
+    const columns = [
+      { key: 'numero_venta', header: 'Nº Venta', width: 60 },
+      { key: 'fecha', header: 'Fecha', width: 90 },
+      { key: 'cliente', header: 'Cliente', width: 120 },
+      { key: 'vendedor', header: 'Vendedor', width: 100 },
+      { key: 'tipo_venta', header: 'Tipo', width: 60 },
+      { key: 'monto_total', header: 'Total', width: 80, format: 'currency' },
+      { key: 'estado', header: 'Estado', width: 80 },
+    ];
+
+    const excelPath = await generateExcelReport({
+      title: 'Reporte de Ventas',
+      data: result.rows,
+      columns,
+      totals: {
+        cantidad_ventas: totals.cantidad,
+        total_ventas: totals.total_ventas,
+        total_pagado: totals.total_pagado,
+      },
+      filename: `ventas-${Date.now()}.xlsx`,
+    });
+
+    streamExcel(excelPath, res);
+  } catch (error) {
+    logger.error('Error exporting sales Excel:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al exportar reporte Excel',
     });
   }
 };

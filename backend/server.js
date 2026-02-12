@@ -27,6 +27,7 @@ import saleRoutes from './routes/sales.js';
 import cajaRoutes from './routes/caja.js';
 import reportRoutes from './routes/reports.js';
 import dashboardRoutes from './routes/dashboard.js';
+import creditNotesRoutes from './routes/creditNotes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -116,6 +117,7 @@ app.use(`${API_PREFIX}/sales`, saleRoutes);
 app.use(`${API_PREFIX}/caja`, cajaRoutes);
 app.use(`${API_PREFIX}/reports`, reportRoutes);
 app.use(`${API_PREFIX}/dashboard`, dashboardRoutes);
+app.use(`${API_PREFIX}/credit-notes`, creditNotesRoutes);
 
 // Legacy API compatibility (for Google Apps Script migration)
 app.get('/api/legacy/exportData', async (req, res) => {

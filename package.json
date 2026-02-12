@@ -46,7 +46,8 @@
     "qrcode": "^1.5.3",
     "redis": "^4.6.13",
     "socket.io": "^4.7.4",
-    "bull": "^4.12.2"
+    "bull": "^4.12.2",
+    "exceljs": "^4.4.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
