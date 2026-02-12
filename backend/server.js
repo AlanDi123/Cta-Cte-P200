@@ -14,6 +14,9 @@ import { pool, closePool } from './database/connection.js';
 import logger from './utils/logger.js';
 import cacheManager from './utils/cache.js';
 import webSocketServer from './utils/websocket.js';
+import jobQueueManager from './utils/jobQueue.js';
+import { initializeJobProcessors } from './services/jobProcessors.js';
+import { initializeScheduledTasks } from './services/scheduledTasks.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -44,6 +47,12 @@ cacheManager.connect().catch(err => {
 
 // Initialize WebSocket server
 webSocketServer.initialize(httpServer);
+
+// Initialize background job processors
+initializeJobProcessors();
+
+// Initialize scheduled tasks (cron jobs)
+initializeScheduledTasks();
 
 // ============================================================================
 // MIDDLEWARE
@@ -240,6 +249,9 @@ process.on('SIGTERM', async () => {
     // Disconnect WebSocket clients
     webSocketServer.disconnectAll();
     
+    // Close job queues
+    await jobQueueManager.close();
+    
     // Close database pool
     await closePool();
     
@@ -262,6 +274,7 @@ process.on('SIGINT', async () => {
   
   httpServer.close(async () => {
     webSocketServer.disconnectAll();
+    await jobQueueManager.close();
     await closePool();
     await cacheManager.disconnect();
     logger.info('Server closed');

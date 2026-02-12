@@ -1,0 +1,23 @@
+{
+  "testEnvironment": "node",
+  "coverageDirectory": "coverage",
+  "collectCoverageFrom": [
+    "backend/**/*.js",
+    "!backend/node_modules/**",
+    "!backend/database/migrations/**",
+    "!backend/test/**"
+  ],
+  "testMatch": [
+    "**/backend/test/**/*.test.js",
+    "**/backend/**/__tests__/**/*.js"
+  ],
+  "setupFilesAfterEnv": [
+    "<rootDir>/backend/test/setup.js"
+  ],
+  "testTimeout": 10000,
+  "verbose": true,
+  "forceExit": true,
+  "clearMocks": true,
+  "resetMocks": true,
+  "restoreMocks": true
+}
