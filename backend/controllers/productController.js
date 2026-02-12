@@ -5,6 +5,7 @@
 import { pool } from '../database/connection.js';
 import logger from '../utils/logger.js';
 import { logAudit } from '../middleware/audit.js';
+import { withOptimisticLock, requireVersion } from '../utils/optimisticLocking.js';
 
 /**
  * Get all products with pagination and filters
@@ -80,7 +81,7 @@ export const getAllProducts = async (req, res) => {
         p.margen_porcentaje, p.iva_porcentaje,
         p.stock_actual, p.stock_minimo, p.stock_maximo,
         p.permite_venta_sin_stock, p.activo, p.imagen_url,
-        p.created_at, p.updated_at,
+        p.created_at, p.updated_at, p.version,
         CASE 
           WHEN p.stock_actual <= p.stock_minimo THEN 'CRÍTICO'
           WHEN p.stock_actual <= p.stock_minimo * 1.5 THEN 'BAJO'
@@ -239,84 +240,86 @@ export const createProduct = async (req, res) => {
 };
 
 /**
- * Update product
+ * Update product with optimistic locking
  */
 export const updateProduct = async (req, res) => {
-  const client = await pool.connect();
-  
   try {
     const { id } = req.params;
     const updates = req.body;
 
-    // Get current data for audit
-    const currentResult = await client.query(
-      'SELECT * FROM productos WHERE id = $1',
-      [id]
-    );
+    // Require version for optimistic locking
+    const expectedVersion = requireVersion(updates);
 
-    if (currentResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Producto no encontrado',
-      });
-    }
+    // Use optimistic lock to prevent concurrent edits
+    const updatedProduct = await withOptimisticLock(
+      pool,
+      'productos',
+      id,
+      expectedVersion,
+      async (client) => {
+        // Get current data for audit
+        const currentResult = await client.query(
+          'SELECT * FROM productos WHERE id = $1',
+          [id]
+        );
 
-    const currentData = currentResult.rows[0];
+        if (currentResult.rows.length === 0) {
+          throw new Error('Producto no encontrado');
+        }
 
-    await client.query('BEGIN');
+        const currentData = currentResult.rows[0];
 
-    // Build update query
-    const allowedFields = [
-      'codigo_barras', 'nombre', 'descripcion', 'categoria_id',
-      'unidad_medida', 'precio_compra', 'precio_venta', 'precio_mayorista',
-      'margen_porcentaje', 'iva_porcentaje',
-      'stock_minimo', 'stock_maximo',
-      'permite_venta_sin_stock', 'activo', 'imagen_url'
-    ];
+        // Build update query
+        const allowedFields = [
+          'codigo_barras', 'nombre', 'descripcion', 'categoria_id',
+          'unidad_medida', 'precio_compra', 'precio_venta', 'precio_mayorista',
+          'margen_porcentaje', 'iva_porcentaje',
+          'stock_minimo', 'stock_maximo',
+          'permite_venta_sin_stock', 'activo', 'imagen_url'
+        ];
 
-    const updateFields = [];
-    const params = [];
-    let paramCount = 1;
+        const updateFields = [];
+        const params = [];
+        let paramCount = 1;
 
-    Object.keys(updates).forEach(key => {
-      if (allowedFields.includes(key)) {
-        updateFields.push(`${key} = $${paramCount}`);
-        params.push(key === 'nombre' ? updates[key].toUpperCase() : updates[key]);
+        Object.keys(updates).forEach(key => {
+          if (allowedFields.includes(key)) {
+            updateFields.push(`${key} = $${paramCount}`);
+            params.push(key === 'nombre' ? updates[key].toUpperCase() : updates[key]);
+            paramCount++;
+          }
+        });
+
+        if (updateFields.length === 0) {
+          throw new Error('No hay campos válidos para actualizar');
+        }
+
+        // Add updated_by
+        updateFields.push(`updated_by = $${paramCount}`);
+        params.push(req.user.id);
         paramCount++;
+
+        // Add id for WHERE clause
+        params.push(id);
+
+        const result = await client.query(
+          `UPDATE productos 
+           SET ${updateFields.join(', ')}
+           WHERE id = $${paramCount}
+           RETURNING *`,
+          params
+        );
+
+        const updatedProduct = result.rows[0];
+
+        // Log audit
+        await logAudit('productos', id, 'UPDATE', currentData, updatedProduct, req.user, req);
+
+        logger.info(`Product updated: ${updatedProduct.codigo} - ${updatedProduct.nombre}`);
+
+        return updatedProduct;
       }
-    });
-
-    if (updateFields.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No hay campos válidos para actualizar',
-      });
-    }
-
-    // Add updated_by
-    updateFields.push(`updated_by = $${paramCount}`);
-    params.push(req.user.id);
-    paramCount++;
-
-    // Add id for WHERE clause
-    params.push(id);
-
-    const result = await client.query(
-      `UPDATE productos 
-       SET ${updateFields.join(', ')}
-       WHERE id = $${paramCount}
-       RETURNING *`,
-      params
     );
-
-    const updatedProduct = result.rows[0];
-
-    // Log audit
-    await logAudit('productos', id, 'UPDATE', currentData, updatedProduct, req.user, req);
-
-    await client.query('COMMIT');
-
-    logger.info(`Product updated: ${updatedProduct.codigo} - ${updatedProduct.nombre}`);
 
     res.json({
       success: true,
@@ -324,14 +327,20 @@ export const updateProduct = async (req, res) => {
       message: 'Producto actualizado exitosamente',
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    // Handle optimistic lock errors specially
+    if (error.name === 'OptimisticLockError') {
+      return res.status(409).json({
+        success: false,
+        error: error.message,
+        code: 'OPTIMISTIC_LOCK_CONFLICT'
+      });
+    }
+
     logger.error('Error updating product:', error);
     res.status(500).json({
       success: false,
-      error: 'Error al actualizar producto',
+      error: error.message || 'Error al actualizar producto',
     });
-  } finally {
-    client.release();
   }
 };
 
