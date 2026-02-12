@@ -324,9 +324,14 @@ export function sanitizeString(str) {
   if (!str) return str;
   
   return String(str)
-    .replace(/[<>]/g, '') // Remove < and >
-    .replace(/javascript:/gi, '') // Remove javascript: protocol
-    .replace(/on\w+\s*=/gi, '') // Remove on* event handlers
+    // Remove dangerous HTML tags
+    .replace(/[<>]/g, '')
+    // Remove javascript: and data: protocols
+    .replace(/javascript:/gi, '')
+    .replace(/data:/gi, '')
+    .replace(/vbscript:/gi, '')
+    // Remove all event handlers (on* attributes)
+    .replace(/\bon\w+\s*=/gi, '')
     .trim();
 }
 
