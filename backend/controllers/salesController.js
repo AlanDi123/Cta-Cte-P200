@@ -244,21 +244,42 @@ export const createSale = async (req, res) => {
       const pagoIdempotencyKey = pago.idempotency_key || 
         `${idempotency_key}-pago-${pago.metodo}-${pago.monto}`;
       
-      const pagoResult = await client.query(
-        `INSERT INTO pagos (
-          venta_id, cliente_id, turno_id, metodo, monto,
-          referencia, banco, created_by, idempotency_key, request_ip
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        ON CONFLICT (idempotency_key) DO NOTHING
-        RETURNING id`,
-        [
-          venta.id, cliente_id, turno_id, pago.metodo, pago.monto,
-          pago.referencia, pago.banco, req.user.id, pagoIdempotencyKey, request_ip
-        ]
+      // Check if payment already exists
+      const existingPayment = await client.query(
+        'SELECT id, metodo, monto FROM pagos WHERE idempotency_key = $1',
+        [pagoIdempotencyKey]
       );
+      
+      let pagoId;
+      if (existingPayment.rows.length > 0) {
+        // Payment already exists - verify it matches
+        const existing = existingPayment.rows[0];
+        if (existing.metodo !== pago.metodo || parseFloat(existing.monto) !== parseFloat(pago.monto)) {
+          throw new Error(
+            `Payment idempotency conflict: existing payment (${existing.metodo}, ${existing.monto}) ` +
+            `does not match attempted payment (${pago.metodo}, ${pago.monto})`
+          );
+        }
+        pagoId = existing.id;
+        logger.debug(`Payment already exists, skipping: ${pagoId}`);
+      } else {
+        // Insert new payment
+        const pagoResult = await client.query(
+          `INSERT INTO pagos (
+            venta_id, cliente_id, turno_id, metodo, monto,
+            referencia, banco, created_by, idempotency_key, request_ip
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING id`,
+          [
+            venta.id, cliente_id, turno_id, pago.metodo, pago.monto,
+            pago.referencia, pago.banco, req.user.id, pagoIdempotencyKey, request_ip
+          ]
+        );
+        pagoId = pagoResult.rows[0].id;
+      }
 
-      // Only create cash movement if payment was actually inserted (not a duplicate)
-      if (pagoResult.rows.length > 0 && turno_id) {
+      // Only create cash movement if payment was newly inserted and there's a shift
+      if (existingPayment.rows.length === 0 && turno_id) {
         await client.query(
           `INSERT INTO movimientos_caja (
             turno_id, tipo, monto, concepto, medio_pago,
@@ -319,8 +340,14 @@ export const createSale = async (req, res) => {
 
     // Broadcast stock updates for affected products
     for (const item of itemsConProducto) {
+      // Get updated stock from database
+      const updatedStock = await client.query(
+        'SELECT stock_actual FROM productos WHERE id = $1',
+        [item.producto_id]
+      );
+      
       webSocketServer.emitStockUpdate(item.producto_id, {
-        stock_actual: parseFloat(stockAnterior) - parseFloat(item.cantidad),
+        stock_actual: parseFloat(updatedStock.rows[0].stock_actual),
       });
     }
 
@@ -357,6 +384,20 @@ export const createSale = async (req, res) => {
         error: 'Operación duplicada detectada.',
         code: 'DUPLICATE_OPERATION',
         retryable: false,
+      });
+    }
+    
+    // Check if it's a business validation error (stock, credit, etc.)
+    if (error.message && (
+      error.message.includes('stock insuficiente') ||
+      error.message.includes('Stock insuficiente') ||
+      error.message.includes('stock negativo') ||
+      error.message.includes('Payment idempotency conflict')
+    )) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'VALIDATION_ERROR',
       });
     }
     

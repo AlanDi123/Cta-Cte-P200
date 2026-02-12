@@ -5,6 +5,9 @@
 import crypto from 'crypto';
 import logger from '../utils/logger.js';
 
+// Constants
+const TIME_BUCKET_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Generate idempotency key from request
  * @param {Object} req - Express request
@@ -24,7 +27,7 @@ export const generateIdempotencyKey = (req, body) => {
     method: req.method,
     body: sanitizeBodyForKey(body),
     // Include time bucket for natural expiration (5 minute window)
-    time_bucket: Math.floor(Date.now() / 300000),
+    time_bucket: Math.floor(Date.now() / TIME_BUCKET_MS),
   });
   
   return crypto.createHash('sha256').update(fingerprint).digest('hex');

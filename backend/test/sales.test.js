@@ -125,7 +125,7 @@ describe('Sales Controller - Concurrency Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send(saleData);
 
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/stock insuficiente/i);
     });
 
@@ -153,7 +153,7 @@ describe('Sales Controller - Concurrency Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send(saleData);
 
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/stock/i);
 
       // Verify stock is unchanged
