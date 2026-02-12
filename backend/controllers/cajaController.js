@@ -5,15 +5,16 @@
 import { pool } from '../database/connection.js';
 import logger from '../utils/logger.js';
 import { logAudit } from '../middleware/audit.js';
+import shiftManager from '../services/shiftManager.js';
+import { withTransaction } from '../utils/dbSession.js';
 
 /**
  * Open cash register shift (apertura de turno)
+ * Now supports overnight shifts with timezone handling
  */
 export const openShift = async (req, res) => {
-  const client = await pool.connect();
-  
   try {
-    const { caja_id, monto_apertura, observaciones_apertura } = req.body;
+    const { caja_id, monto_apertura, observaciones_apertura, es_overnight, timezone } = req.body;
 
     if (!caja_id || monto_apertura === undefined) {
       return res.status(400).json({
@@ -22,63 +23,53 @@ export const openShift = async (req, res) => {
       });
     }
 
-    await client.query('BEGIN');
+    // Use shift manager service for validation and opening
+    const turno = await withTransaction(pool, req.user.id, async (client) => {
+      const shiftData = {
+        cajaId: caja_id,
+        usuarioId: req.user.id,
+        montoInicial: monto_apertura,
+        esOvernight: es_overnight || false,
+        timezone: timezone || shiftManager.DEFAULT_TIMEZONE
+      };
+      
+      const newShift = await shiftManager.openShift(pool, shiftData);
+      
+      // Add observaciones_apertura if provided (using database update)
+      if (observaciones_apertura) {
+        await client.query(
+          'UPDATE turnos_caja SET observaciones_apertura = $1 WHERE id = $2',
+          [observaciones_apertura, newShift.id]
+        );
+        newShift.observaciones_apertura = observaciones_apertura;
+      }
+      
+      return newShift;
+    });
 
-    // Check if there's already an open shift for this user
-    const existingShift = await client.query(
-      `SELECT id FROM turnos_caja 
-       WHERE usuario_id = $1 AND estado = 'abierta'`,
-      [req.user.id]
-    );
-
-    if (existingShift.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Ya tienes un turno abierto. Cierra el turno actual antes de abrir uno nuevo.',
-      });
-    }
-
-    // Open new shift
-    const result = await client.query(
-      `INSERT INTO turnos_caja (
-        caja_id, usuario_id, estado, monto_apertura, observaciones_apertura
-      ) VALUES ($1, $2, 'abierta', $3, $4)
-      RETURNING *`,
-      [caja_id, req.user.id, monto_apertura, observaciones_apertura]
-    );
-
-    const turno = result.rows[0];
-
-    // Log audit
-    await logAudit('turnos_caja', turno.id, 'INSERT', null, turno, req.user, req);
-
-    await client.query('COMMIT');
-
-    logger.info(`Cash register shift opened by ${req.user.username} - Turno ID: ${turno.id}`);
+    logger.info(`Cash register shift opened by ${req.user.username} - Turno ID: ${turno.id}${turno.es_overnight ? ' (OVERNIGHT)' : ''}`);
 
     res.status(201).json({
       success: true,
       data: turno,
-      message: 'Turno de caja abierto exitosamente',
+      message: turno.es_overnight ? 
+        'Turno nocturno de caja abierto exitosamente' : 
+        'Turno de caja abierto exitosamente',
     });
   } catch (error) {
-    await client.query('ROLLBACK');
     logger.error('Error opening shift:', error);
     res.status(500).json({
       success: false,
-      error: 'Error al abrir turno de caja',
+      error: error.message || 'Error al abrir turno de caja',
     });
-  } finally {
-    client.release();
   }
 };
 
 /**
  * Close cash register shift (cierre de turno)
+ * Now supports overnight shifts and automatic date calculation
  */
 export const closeShift = async (req, res) => {
-  const client = await pool.connect();
-  
   try {
     const { turno_id, monto_cierre, observaciones_cierre } = req.body;
 
@@ -89,87 +80,63 @@ export const closeShift = async (req, res) => {
       });
     }
 
-    await client.query('BEGIN');
-
-    // Get shift data
-    const turnoResult = await client.query(
-      'SELECT * FROM turnos_caja WHERE id = $1 AND usuario_id = $2',
-      [turno_id, req.user.id]
-    );
-
-    if (turnoResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Turno no encontrado o no pertenece al usuario actual',
-      });
-    }
-
-    const turno = turnoResult.rows[0];
-
-    if (turno.estado === 'cerrada') {
-      return res.status(400).json({
-        success: false,
-        error: 'El turno ya está cerrado',
-      });
-    }
-
-    // Calculate expected amount (apertura + ingresos - egresos)
-    const movimientosResult = await client.query(
-      `SELECT 
-        COALESCE(SUM(CASE WHEN tipo IN ('ingreso', 'venta', 'aporte') THEN monto ELSE 0 END), 0) as total_ingresos,
-        COALESCE(SUM(CASE WHEN tipo IN ('egreso', 'retiro', 'gasto') THEN monto ELSE 0 END), 0) as total_egresos
-       FROM movimientos_caja
-       WHERE turno_id = $1`,
+    // Get shift statistics to calculate expected amount
+    const stats = await shiftManager.calculateShiftStats(pool, turno_id);
+    
+    // Get shift details
+    const shiftResult = await pool.query(
+      'SELECT * FROM turnos_caja WHERE id = $1',
       [turno_id]
     );
 
-    const { total_ingresos, total_egresos } = movimientosResult.rows[0];
-    const monto_esperado = parseFloat(turno.monto_apertura) + 
-                           parseFloat(total_ingresos) - 
-                           parseFloat(total_egresos);
-    const diferencia = parseFloat(monto_cierre) - monto_esperado;
+    if (shiftResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Turno no encontrado',
+      });
+    }
 
-    // Close shift
-    const result = await client.query(
-      `UPDATE turnos_caja 
-       SET estado = 'cerrada',
-           fecha_cierre = CURRENT_TIMESTAMP,
-           monto_cierre = $1,
-           monto_esperado = $2,
-           diferencia = $3,
-           observaciones_cierre = $4
-       WHERE id = $5
-       RETURNING *`,
-      [monto_cierre, monto_esperado, diferencia, observaciones_cierre, turno_id]
-    );
+    const shift = shiftResult.rows[0];
+    
+    // Verify ownership or admin rights
+    if (shift.usuario_id !== req.user.id && req.user.rol !== 'dueño') {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permiso para cerrar este turno',
+      });
+    }
 
-    const closedTurno = result.rows[0];
+    // Calculate expected amount from shift stats
+    const totalIngresos = parseFloat(stats.ventas.total_contado || 0);
+    const totalEgresos = stats.movimientos
+      .filter(m => m.tipo === 'egreso' || m.tipo === 'retiro')
+      .reduce((sum, m) => sum + parseFloat(m.total), 0);
+    
+    const montoEsperado = parseFloat(shift.monto_inicial || 0) + totalIngresos - totalEgresos;
 
-    // Log audit
-    await logAudit('turnos_caja', turno_id, 'UPDATE', turno, closedTurno, req.user, req);
+    // Close shift using shift manager
+    const closedShift = await shiftManager.closeShift(pool, turno_id, {
+      montoFinal: monto_cierre,
+      montoEsperado,
+      notasCierre: observaciones_cierre
+    });
 
-    await client.query('COMMIT');
-
-    logger.info(`Cash register shift closed by ${req.user.username} - Turno ID: ${turno_id}`);
+    logger.info(`Cash register shift closed by ${req.user.username} - Turno ID: ${turno_id}${closedShift.es_overnight ? ' (OVERNIGHT)' : ''}`);
 
     res.json({
       success: true,
       data: {
-        ...closedTurno,
-        total_ingresos,
-        total_egresos,
+        ...closedShift,
+        stats
       },
       message: 'Turno de caja cerrado exitosamente',
     });
   } catch (error) {
-    await client.query('ROLLBACK');
     logger.error('Error closing shift:', error);
     res.status(500).json({
       success: false,
-      error: 'Error al cerrar turno de caja',
+      error: error.message || 'Error al cerrar turno de caja',
     });
-  } finally {
-    client.release();
   }
 };
 
@@ -442,6 +409,51 @@ export const getShiftHistory = async (req, res) => {
   }
 };
 
+/**
+ * Force close a stuck shift (admin only)
+ */
+export const forceCloseShift = async (req, res) => {
+  try {
+    // Check admin permissions
+    if (req.user.rol !== 'dueño' && req.user.rol !== 'administrativo') {
+      return res.status(403).json({
+        success: false,
+        error: 'Permiso denegado. Solo administradores pueden forzar cierre de turnos.'
+      });
+    }
+
+    const { turno_id, reason } = req.body;
+
+    if (!turno_id || !reason) {
+      return res.status(400).json({
+        success: false,
+        error: 'Turno ID y razón son requeridos'
+      });
+    }
+
+    const closedShift = await shiftManager.forceCloseShift(
+      pool,
+      turno_id,
+      req.user.id,
+      reason
+    );
+
+    logger.warn(`Shift force-closed by admin ${req.user.username}: ${turno_id} - ${reason}`);
+
+    res.json({
+      success: true,
+      data: closedShift,
+      message: 'Turno cerrado forzosamente'
+    });
+  } catch (error) {
+    logger.error('Error force-closing shift:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error al forzar cierre de turno'
+    });
+  }
+};
+
 export default {
   openShift,
   closeShift,
@@ -450,4 +462,5 @@ export default {
   getShiftMovements,
   getCashRegisters,
   getShiftHistory,
+  forceCloseShift,
 };
