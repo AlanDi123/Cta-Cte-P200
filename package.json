@@ -1,0 +1,58 @@
+{
+  "name": "sol-verde-pos",
+  "version": "3.0.0",
+  "description": "Sistema POS Mayorista Profesional - Sol y Verde",
+  "main": "backend/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon backend/server.js",
+    "start": "node backend/server.js",
+    "db:migrate": "node backend/database/migrate.js",
+    "db:seed": "node backend/database/seed.js",
+    "db:import": "node backend/scripts/import-from-sheets.js",
+    "test": "NODE_ENV=test jest",
+    "test:watch": "NODE_ENV=test jest --watch",
+    "build:frontend": "cd frontend && npm run build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "keywords": [
+    "pos",
+    "punto-de-venta",
+    "mayorista",
+    "verduras",
+    "hortalizas",
+    "facturacion",
+    "inventario"
+  ],
+  "author": "Sol y Verde",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "winston": "^3.11.0",
+    "joi": "^17.11.0",
+    "multer": "^2.0.2",
+    "node-cron": "^3.0.3",
+    "pdfkit": "^0.14.0",
+    "sharp": "^0.33.1",
+    "qrcode": "^1.5.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "@types/node": "^20.10.5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
