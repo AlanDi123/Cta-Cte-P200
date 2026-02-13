@@ -956,9 +956,16 @@
       .page-break-before { page-break-before: always !important; }
       .page-break-after { page-break-after: always !important; }
 
-      /* Textos y elementos con colores */
+      /* Textos y elementos con colores - allow exceptions for special sections */
       h1, h2, h3, h4, h5, h6, p, span, strong, div, td, th {
         color: black !important;
+      }
+
+      /* Exception: Allow colors in Arqueo de Caja for better readability */
+      #resumenArqueoImpresion h2,
+      #resumenArqueoImpresion td,
+      #resumenArqueoImpresion p {
+        color: inherit !important;
       }
 
       .print-logo {
@@ -1056,12 +1063,10 @@
       #resumenArqueoImpresion {
         padding: 1rem;
         background: white !important;
-        color: black !important;
       }
 
       #resumenArqueoImpresion h2 {
         font-size: 20pt !important;
-        color: #2E7D32 !important;
       }
 
       #resumenArqueoImpresion table {
@@ -1069,7 +1074,6 @@
       }
 
       #resumenArqueoImpresion td {
-        color: black !important;
         border: none !important;
       }
 
