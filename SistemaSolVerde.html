@@ -2718,12 +2718,12 @@
                 </div>
 
                 <div class="form-group">
-                  <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                  <label for="inputPrintFitToWidth" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                     <input type="checkbox" id="inputPrintFitToWidth">
                     <span class="form-label" style="margin: 0;">Ajustar al ancho de página</span>
                   </label>
                   <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
-                    Reduce automáticamente el contenido para que quepa en el ancho de la página
+                    Aplica restricciones de ancho para evitar desbordamiento horizontal
                   </p>
                 </div>
               </div>
@@ -5770,7 +5770,7 @@
       
       // Pre-calcular valores para mejor rendimiento
       const scaleValue = scale / 100;
-      const fitToWidthCss = fitToWidth ? 'width: fit-content; max-width: 100%;' : '';
+      const widthConstraintCss = fitToWidth ? 'width: fit-content; max-width: 100%;' : '';
       
       // Eliminar estilo anterior si existe
       let style = document.getElementById('dynamic-print-style');
@@ -5792,8 +5792,8 @@
             /* Scale es un porcentaje (ej: 100 = 100%) convertido a decimal */
             transform: scale(${scaleValue});
             transform-origin: top left;
-            /* Ajustar contenido al ancho de página si está habilitado */
-            ${fitToWidthCss}
+            /* Restricciones de ancho para evitar desbordamiento horizontal */
+            ${widthConstraintCss}
           }
           
           #module-impresion-saldos .table th,
