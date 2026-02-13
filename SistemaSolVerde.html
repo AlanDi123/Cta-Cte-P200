@@ -1063,8 +1063,8 @@
       #resumenArqueoImpresion {
         padding: 0.5rem;
         background: white !important;
-        max-height: 25cm; /* A4 printable area with margins */
-        overflow: hidden; /* Prevent overflow beyond A4 page */
+        max-height: none !important; /* Allow full content to print */
+        overflow: visible !important; /* Show all content including totals */
       }
 
       #resumenArqueoImpresion h2 {
