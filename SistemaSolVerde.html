@@ -889,66 +889,66 @@
       body {
         background: white !important;
         color: black !important;
-        font-size: 7pt;
-        line-height: 1.1;
+        font-size: 11pt;
+        line-height: 1.3;
       }
 
       /* CRÍTICO: Limitar altura del módulo activo a 1 página */
       .module-view.active {
         display: block !important;
         background: white !important;
-        max-height: 27cm; /* Altura A4 menos márgenes */
-        overflow: hidden !important;
+        max-height: none !important; /* Allow full page height */
+        height: auto !important;
+        overflow: visible !important;
         page-break-after: avoid !important;
       }
 
-      /* Cards ultra compactas */
+      /* Cards with better spacing */
       .card {
         background: white !important;
         color: black !important;
-        border: 1px solid #ddd !important;
+        border: 1px solid #999 !important;
         box-shadow: none !important;
-        padding: 0.15rem 0.3rem !important;
-        margin: 0 0 0.15rem 0 !important;
+        padding: 0.4rem 0.5rem !important;
+        margin: 0 0 0.3rem 0 !important;
         page-break-inside: avoid;
       }
 
-      /* Headings ultra compactos */
+      /* Headings with readable sizes */
       h2, h3, h4 {
-        margin: 0.15rem 0 !important;
+        margin: 0.3rem 0 !important;
         padding: 0 !important;
       }
 
-      h2 { font-size: 10pt !important; }
-      h3 { font-size: 9pt !important; }
-      h4 { font-size: 8pt !important; }
+      h2 { font-size: 16pt !important; }
+      h3 { font-size: 14pt !important; }
+      h4 { font-size: 12pt !important; }
 
-      /* Tablas ultra compactas */
+      /* Tables with readable sizes */
       .table, .table-print {
         width: 100%;
-        font-size: 6.5pt;
+        font-size: 10pt;
         background: white !important;
         border-collapse: collapse;
-        margin: 0 !important;
+        margin: 0.2rem 0 !important;
       }
 
       .table th, .table td, .table-print th, .table-print td {
-        padding: 1px 2px !important;
-        border: 0.5px solid #ddd !important;
+        padding: 4px 6px !important;
+        border: 1px solid #999 !important;
         background: white !important;
         color: black !important;
-        line-height: 1.05;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 150px;
+        line-height: 1.3;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
       }
 
       .table th, .table-print th {
-        background: #e8e8e8 !important;
+        background: #d0d0d0 !important;
         color: black !important;
         font-weight: bold;
-        font-size: 7pt;
+        font-size: 11pt;
       }
 
       /* Control de saltos de página */
@@ -972,8 +972,8 @@
         padding: 0 !important;
         background: white !important;
         height: auto !important;
-        max-height: 27cm !important;
-        overflow: hidden !important;
+        max-height: none !important;
+        overflow: visible !important;
       }
 
       /* Ocultar sidebar y header al imprimir */
@@ -995,54 +995,54 @@
       /* ESPECÍFICO: Hoja de Ruta - AJUSTE DINÁMICO */
       #module-hoja-ruta {
         max-height: 27cm !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         transform-origin: top left;
       }
 
       #module-hoja-ruta h3 {
-        font-size: 9pt !important;
-        margin: 0.1rem 0 !important;
+        font-size: 14pt !important;
+        margin: 0.3rem 0 !important;
       }
 
       #module-hoja-ruta h4 {
-        font-size: 7.5pt !important;
-        margin: 0.1rem 0 !important;
+        font-size: 12pt !important;
+        margin: 0.3rem 0 !important;
       }
 
       #module-hoja-ruta .table th,
       #module-hoja-ruta .table td {
-        padding: 0.5px 2px !important;
-        font-size: 6pt !important;
-        line-height: 1.05;
+        padding: 4px 6px !important;
+        font-size: 10pt !important;
+        line-height: 1.3;
       }
 
       #module-hoja-ruta .card {
-        margin-bottom: 0.1rem !important;
-        padding: 0.1rem 0.2rem !important;
+        margin-bottom: 0.3rem !important;
+        padding: 0.4rem 0.5rem !important;
       }
 
       /* ESPECÍFICO: Impresión de Saldos - AJUSTE DINÁMICO */
       #module-impresion-saldos {
         max-height: 27cm !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         transform-origin: top left;
       }
 
       #module-impresion-saldos h3 {
-        font-size: 9pt !important;
-        margin: 0.1rem 0 !important;
+        font-size: 14pt !important;
+        margin: 0.3rem 0 !important;
       }
 
       #module-impresion-saldos .table th,
       #module-impresion-saldos .table td {
-        padding: 0.5px 2px !important;
-        font-size: 6pt !important;
-        line-height: 1.05;
+        padding: 4px 6px !important;
+        font-size: 10pt !important;
+        line-height: 1.3;
       }
 
       #module-impresion-saldos .card {
-        margin-bottom: 0.1rem !important;
-        padding: 0.1rem 0.2rem !important;
+        margin-bottom: 0.3rem !important;
+        padding: 0.4rem 0.5rem !important;
       }
 
       /* Ocultar elementos innecesarios en impresión */
@@ -1052,10 +1052,31 @@
         display: none !important;
       }
 
-      /* Ajuste automático si el contenido es muy largo */
+      /* ESPECÍFICO: Arqueo de Caja - Impresión mejorada */
+      #resumenArqueoImpresion {
+        padding: 1rem;
+        background: white !important;
+        color: black !important;
+      }
+
+      #resumenArqueoImpresion h2 {
+        font-size: 20pt !important;
+        color: #2E7D32 !important;
+      }
+
+      #resumenArqueoImpresion table {
+        border-collapse: collapse !important;
+      }
+
+      #resumenArqueoImpresion td {
+        color: black !important;
+        border: none !important;
+      }
+
+      /* Remove scale transform - let content use full page */
       @supports (transform: scale(1)) {
         .module-view.active {
-          transform: scale(0.98);
+          transform: none;
           transform-origin: top center;
         }
       }
@@ -1907,23 +1928,31 @@
 
         <!-- Resumen de Arqueo para Impresión (oculto en pantalla, visible al imprimir) -->
         <div id="resumenArqueoImpresion" class="print-only" style="display: none;">
-          <div style="text-align: center; margin-bottom: 1rem;">
-            <h3 style="margin: 0;">Resumen de Caja</h3>
-            <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem;" id="resumenArqueoFecha"></p>
+          <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; border-bottom: 3px solid #2E7D32;">
+            <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 80px; margin: 0 auto 0.5rem; display: block;">
+            <h2 style="margin: 0; color: #2E7D32; font-size: 20pt;">RESUMEN DE ARQUEO DE CAJA</h2>
+            <p style="margin: 0.5rem 0 0 0; font-size: 12pt; font-weight: bold;" id="resumenArqueoFecha"></p>
           </div>
-          <table class="table" style="margin-bottom: 1rem;">
-            <tbody id="resumenArqueoDetalle"></tbody>
-            <tfoot>
-              <tr style="background: var(--sv-superficie-elevada); font-weight: bold;">
-                <td>Neto del Día</td>
-                <td id="resumenArqueoNeto" style="text-align: right;"></td>
+          
+          <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11pt;">
+              <tbody id="resumenArqueoDetalle"></tbody>
+            </table>
+          </div>
+          
+          <div style="border-top: 3px solid #2E7D32; padding-top: 1rem; margin-top: 1rem;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13pt;">
+              <tr style="background: #e8f5e9; font-weight: bold; height: 50px;">
+                <td style="padding: 12px; border: 2px solid #2E7D32; font-size: 15pt;">NETO DEL DÍA</td>
+                <td id="resumenArqueoNeto" style="padding: 12px; text-align: right; border: 2px solid #2E7D32; font-size: 18pt; font-weight: bold;"></td>
               </tr>
-              <tr id="resumenArqueoDiferencia" style="font-weight: bold;">
-                <td>Diferencia vs Esperado</td>
-                <td id="resumenArqueoDif" style="text-align: right;"></td>
-              </tr>
-            </tfoot>
-          </table>
+            </table>
+          </div>
+          
+          <div style="margin-top: 2rem; text-align: center; font-size: 10pt; color: #666;">
+            <p style="margin: 0.5rem 0;">_________________________________</p>
+            <p style="margin: 0.5rem 0;">Firma del Responsable</p>
+          </div>
         </div>
       </div>
 
@@ -4797,29 +4826,70 @@
 
       const neto = efectivo - totalProveedores - totalGastos + totalIngresos;
 
-      // Generar el detalle HTML
+      // Generar el detalle HTML con mejor formato
       let html = '';
-      html += `<tr><td style="font-weight: bold;">Efectivo Contado</td><td style="text-align: right; color: var(--sv-primario);">${formatearMonto(efectivo)}</td></tr>`;
+      
+      // Efectivo inicial con estilo destacado
+      html += `<tr style="background: #e8f5e9; border-left: 4px solid #2E7D32;">
+        <td style="padding: 10px; font-weight: bold; font-size: 13pt; border-bottom: 1px solid #ddd;">💵 EFECTIVO CONTADO</td>
+        <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 13pt; color: #2E7D32; border-bottom: 1px solid #ddd;">${formatearMonto(efectivo)}</td>
+      </tr>`;
 
+      // Sección de Proveedores
       if (proveedoresList.length > 0) {
-        html += `<tr><td colspan="2" style="font-weight: bold; padding-top: 0.5rem;">(-) Proveedores</td></tr>`;
+        html += `<tr style="background: #ffebee; border-left: 4px solid #C62828;">
+          <td colspan="2" style="padding: 10px; font-weight: bold; font-size: 12pt; color: #C62828; border-bottom: 1px solid #ddd;">
+            📦 PROVEEDORES (-)
+          </td>
+        </tr>`;
         proveedoresList.forEach(p => {
-          html += `<tr><td style="padding-left: 1rem;">${escapeHtml(p.nombre)}</td><td style="text-align: right; color: var(--sv-peligro);">-${formatearMonto(p.monto)}</td></tr>`;
+          html += `<tr style="border-left: 4px solid #C62828;">
+            <td style="padding: 8px 8px 8px 24px; border-bottom: 1px solid #eee;">${escapeHtml(p.nombre)}</td>
+            <td style="padding: 8px; text-align: right; color: #C62828; font-weight: bold; border-bottom: 1px solid #eee;">-${formatearMonto(p.monto)}</td>
+          </tr>`;
         });
+        html += `<tr style="background: #ffcdd2; border-left: 4px solid #C62828;">
+          <td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #ddd;">SUBTOTAL PROVEEDORES</td>
+          <td style="padding: 8px; text-align: right; font-weight: bold; color: #C62828; border-bottom: 1px solid #ddd;">-${formatearMonto(totalProveedores)}</td>
+        </tr>`;
       }
 
+      // Sección de Gastos
       if (gastosList.length > 0) {
-        html += `<tr><td colspan="2" style="font-weight: bold; padding-top: 0.5rem;">(-) Gastos Extras</td></tr>`;
+        html += `<tr style="background: #fff3e0; border-left: 4px solid #F57C00;">
+          <td colspan="2" style="padding: 10px; font-weight: bold; font-size: 12pt; color: #F57C00; border-bottom: 1px solid #ddd;">
+            💸 GASTOS EXTRAS (-)
+          </td>
+        </tr>`;
         gastosList.forEach(g => {
-          html += `<tr><td style="padding-left: 1rem;">${escapeHtml(g.nombre)}</td><td style="text-align: right; color: var(--sv-peligro);">-${formatearMonto(g.monto)}</td></tr>`;
+          html += `<tr style="border-left: 4px solid #F57C00;">
+            <td style="padding: 8px 8px 8px 24px; border-bottom: 1px solid #eee;">${escapeHtml(g.nombre)}</td>
+            <td style="padding: 8px; text-align: right; color: #F57C00; font-weight: bold; border-bottom: 1px solid #eee;">-${formatearMonto(g.monto)}</td>
+          </tr>`;
         });
+        html += `<tr style="background: #ffe0b2; border-left: 4px solid #F57C00;">
+          <td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #ddd;">SUBTOTAL GASTOS</td>
+          <td style="padding: 8px; text-align: right; font-weight: bold; color: #F57C00; border-bottom: 1px solid #ddd;">-${formatearMonto(totalGastos)}</td>
+        </tr>`;
       }
 
+      // Sección de Ingresos
       if (ingresosList.length > 0) {
-        html += `<tr><td colspan="2" style="font-weight: bold; padding-top: 0.5rem;">(+) Ingresos Adicionales</td></tr>`;
+        html += `<tr style="background: #e3f2fd; border-left: 4px solid #1976D2;">
+          <td colspan="2" style="padding: 10px; font-weight: bold; font-size: 12pt; color: #1976D2; border-bottom: 1px solid #ddd;">
+            💰 INGRESOS ADICIONALES (+)
+          </td>
+        </tr>`;
         ingresosList.forEach(i => {
-          html += `<tr><td style="padding-left: 1rem;">${escapeHtml(i.nombre)}</td><td style="text-align: right; color: var(--sv-exito);">+${formatearMonto(i.monto)}</td></tr>`;
+          html += `<tr style="border-left: 4px solid #1976D2;">
+            <td style="padding: 8px 8px 8px 24px; border-bottom: 1px solid #eee;">${escapeHtml(i.nombre)}</td>
+            <td style="padding: 8px; text-align: right; color: #1976D2; font-weight: bold; border-bottom: 1px solid #eee;">+${formatearMonto(i.monto)}</td>
+          </tr>`;
         });
+        html += `<tr style="background: #bbdefb; border-left: 4px solid #1976D2;">
+          <td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #ddd;">SUBTOTAL INGRESOS</td>
+          <td style="padding: 8px; text-align: right; font-weight: bold; color: #1976D2; border-bottom: 1px solid #ddd;">+${formatearMonto(totalIngresos)}</td>
+        </tr>`;
       }
 
       document.getElementById('resumenArqueoDetalle').innerHTML = html;
