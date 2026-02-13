@@ -5768,6 +5768,10 @@
       if (margin == null) margin = 0.8;
       if (fitToWidth == null) fitToWidth = false;
       
+      // Pre-calcular valores para mejor rendimiento
+      const scaleValue = scale / 100;
+      const fitToWidthCss = fitToWidth ? 'width: fit-content; max-width: 100%;' : '';
+      
       // Eliminar estilo anterior si existe
       let style = document.getElementById('dynamic-print-style');
       if (style) {
@@ -5785,11 +5789,11 @@
           }
           
           .module-view.active {
-            /* Scale es un porcentaje (ej: 100 = 100%), por eso se divide entre 100 */
-            transform: scale(${scale / 100});
+            /* Scale es un porcentaje (ej: 100 = 100%) convertido a decimal */
+            transform: scale(${scaleValue});
             transform-origin: top left;
-            /* fit-content ajusta al tamaño del contenido, max-width: 100% previene desbordamiento horizontal */
-            ${fitToWidth ? 'width: fit-content; max-width: 100%;' : ''}
+            /* Ajustar contenido al ancho de página si está habilitado */
+            ${fitToWidthCss}
           }
           
           #module-impresion-saldos .table th,
