@@ -1320,6 +1320,10 @@ function obtenerConfiguracionCompleta() {
       // Impresión
       printFontSizeSaldos: parseInt(props.getProperty('PRINT_FONT_SIZE_SALDOS') || CONFIG.PRINT.FONT_SIZE_SALDOS),
       printFontSizeHeader: parseInt(props.getProperty('PRINT_FONT_SIZE_HEADER') || CONFIG.PRINT.FONT_SIZE_HEADER),
+      printOrientation: props.getProperty('PRINT_ORIENTATION') || CONFIG.PRINT.ORIENTATION,
+      printScale: parseInt(props.getProperty('PRINT_SCALE') || CONFIG.PRINT.SCALE),
+      printMargin: parseFloat(props.getProperty('PRINT_MARGIN') || CONFIG.PRINT.MARGIN),
+      printFitToWidth: (props.getProperty('PRINT_FIT_TO_WIDTH') || CONFIG.PRINT.FIT_TO_WIDTH.toString()) === 'true',
       
       // Inquilinos
       inquilinos: inquilinosFiltrados
@@ -1447,18 +1451,45 @@ function guardarConfiguracionGeneral(config) {
     // Impresión
     if (config.printFontSizeSaldos !== undefined) {
       const fontSize = parseInt(config.printFontSizeSaldos);
-      if (isNaN(fontSize) || fontSize < 6 || fontSize > 16) {
-        throw new Error('Tamaño de fuente de impresión debe estar entre 6 y 16 pt');
+      if (isNaN(fontSize) || fontSize < 4 || fontSize > 24) {
+        throw new Error('Tamaño de fuente de impresión debe estar entre 4 y 24 pt');
       }
       props.setProperty('PRINT_FONT_SIZE_SALDOS', fontSize.toString());
     }
     
     if (config.printFontSizeHeader !== undefined) {
       const fontSize = parseInt(config.printFontSizeHeader);
-      if (isNaN(fontSize) || fontSize < 10 || fontSize > 20) {
-        throw new Error('Tamaño de fuente de encabezado debe estar entre 10 y 20 pt');
+      if (isNaN(fontSize) || fontSize < 8 || fontSize > 28) {
+        throw new Error('Tamaño de fuente de encabezado debe estar entre 8 y 28 pt');
       }
       props.setProperty('PRINT_FONT_SIZE_HEADER', fontSize.toString());
+    }
+    
+    if (config.printOrientation !== undefined) {
+      if (config.printOrientation !== 'portrait' && config.printOrientation !== 'landscape') {
+        throw new Error('Orientación debe ser "portrait" o "landscape"');
+      }
+      props.setProperty('PRINT_ORIENTATION', config.printOrientation);
+    }
+    
+    if (config.printScale !== undefined) {
+      const scale = parseInt(config.printScale);
+      if (isNaN(scale) || scale < 50 || scale > 150) {
+        throw new Error('Escala de impresión debe estar entre 50 y 150%');
+      }
+      props.setProperty('PRINT_SCALE', scale.toString());
+    }
+    
+    if (config.printMargin !== undefined) {
+      const margin = parseFloat(config.printMargin);
+      if (isNaN(margin) || margin < 0.3 || margin > 3) {
+        throw new Error('Margen debe estar entre 0.3 y 3 cm');
+      }
+      props.setProperty('PRINT_MARGIN', margin.toString());
+    }
+    
+    if (config.printFitToWidth !== undefined) {
+      props.setProperty('PRINT_FIT_TO_WIDTH', config.printFitToWidth.toString());
     }
     
     // Inquilinos

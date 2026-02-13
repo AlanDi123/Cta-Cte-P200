@@ -170,7 +170,11 @@ const CONFIG = {
   // Configuracion de impresion
   PRINT: {
     FONT_SIZE_SALDOS: 10, // Tamaño de fuente en pt para impresión de saldos
-    FONT_SIZE_HEADER: 14  // Tamaño de fuente en pt para encabezados de impresión
+    FONT_SIZE_HEADER: 14,  // Tamaño de fuente en pt para encabezados de impresión
+    ORIENTATION: 'portrait', // Orientación de página (portrait/landscape)
+    SCALE: 100, // Escala de impresión (%)
+    MARGIN: 0.8, // Márgenes de página (cm)
+    FIT_TO_WIDTH: false // Ajustar al ancho de página
   },
 
   /**
@@ -258,7 +262,11 @@ const CONFIG = {
   getPrint: function() {
     return {
       FONT_SIZE_SALDOS: parseInt(this.get('PRINT_FONT_SIZE_SALDOS', this.PRINT.FONT_SIZE_SALDOS)),
-      FONT_SIZE_HEADER: parseInt(this.get('PRINT_FONT_SIZE_HEADER', this.PRINT.FONT_SIZE_HEADER))
+      FONT_SIZE_HEADER: parseInt(this.get('PRINT_FONT_SIZE_HEADER', this.PRINT.FONT_SIZE_HEADER)),
+      ORIENTATION: this.get('PRINT_ORIENTATION', this.PRINT.ORIENTATION),
+      SCALE: parseInt(this.get('PRINT_SCALE', this.PRINT.SCALE)),
+      MARGIN: parseFloat(this.get('PRINT_MARGIN', this.PRINT.MARGIN)),
+      FIT_TO_WIDTH: this.get('PRINT_FIT_TO_WIDTH', this.PRINT.FIT_TO_WIDTH.toString()) === 'true'
     };
   }
 };
