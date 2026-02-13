@@ -1001,7 +1001,7 @@
 
       /* ESPECÍFICO: Hoja de Ruta - AJUSTE DINÁMICO */
       #module-hoja-ruta {
-        max-height: 27cm !important;
+        max-height: none !important; /* Removed 1-page limit */
         overflow: visible !important;
         transform-origin: top left;
       }
@@ -1030,7 +1030,7 @@
 
       /* ESPECÍFICO: Impresión de Saldos - AJUSTE DINÁMICO */
       #module-impresion-saldos {
-        max-height: 27cm !important;
+        max-height: none !important; /* Removed 1-page limit */
         overflow: visible !important;
         transform-origin: top left;
       }
@@ -2676,17 +2676,54 @@
 
                 <div class="form-group">
                   <label class="form-label">Tamaño de Fuente para Saldos (pt)</label>
-                  <input type="number" class="form-input" id="inputPrintFontSizeSaldos" placeholder="10" min="6" max="16" step="1">
+                  <input type="number" class="form-input" id="inputPrintFontSizeSaldos" placeholder="10" min="4" max="24" step="1">
                   <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
-                    Tamaño de fuente para impresión de saldos (6-16 pt). Reducir si se corta en la parte inferior.
+                    Tamaño de fuente para impresión de saldos (4-24 pt). Ajustar según la cantidad de datos.
                   </p>
                 </div>
 
                 <div class="form-group">
                   <label class="form-label">Tamaño de Fuente para Encabezados (pt)</label>
-                  <input type="number" class="form-input" id="inputPrintFontSizeHeader" placeholder="14" min="10" max="20" step="1">
+                  <input type="number" class="form-input" id="inputPrintFontSizeHeader" placeholder="14" min="8" max="28" step="1">
                   <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
-                    Tamaño de fuente para encabezados de impresión (10-20 pt)
+                    Tamaño de fuente para encabezados de impresión (8-28 pt)
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Orientación de Página</label>
+                  <select class="form-input" id="inputPrintOrientation">
+                    <option value="portrait">Vertical (Portrait)</option>
+                    <option value="landscape">Horizontal (Landscape)</option>
+                  </select>
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Orientación de la página al imprimir
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Escala de Impresión (%)</label>
+                  <input type="number" class="form-input" id="inputPrintScale" placeholder="100" min="50" max="150" step="5">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Escala general para impresión (50-150%). 100% = tamaño normal
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Márgenes de Página (cm)</label>
+                  <input type="number" class="form-input" id="inputPrintMargin" placeholder="0.8" min="0.3" max="3" step="0.1">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Márgenes de la página en centímetros (0.3-3 cm)
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" id="inputPrintFitToWidth">
+                    <span class="form-label" style="margin: 0;">Ajustar al ancho de página</span>
+                  </label>
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Reduce automáticamente el contenido para que quepa en el ancho de la página
                   </p>
                 </div>
               </div>
@@ -5716,10 +5753,14 @@
     /**
      * Aplica la configuración de impresión dinámicamente
      */
-    function aplicarConfiguracionImpresion(fontSizeSaldos, fontSizeHeader) {
+    function aplicarConfiguracionImpresion(fontSizeSaldos, fontSizeHeader, orientation, scale, margin, fitToWidth) {
       // Valores por defecto si no se proporcionan o son nulos
       if (fontSizeSaldos == null) fontSizeSaldos = 10;
       if (fontSizeHeader == null) fontSizeHeader = 14;
+      if (orientation == null) orientation = 'portrait';
+      if (scale == null) scale = 100;
+      if (margin == null) margin = 0.8;
+      if (fitToWidth == null) fitToWidth = false;
       
       // Eliminar estilo anterior si existe
       let style = document.getElementById('dynamic-print-style');
@@ -5732,12 +5773,32 @@
       style.id = 'dynamic-print-style';
       style.textContent = `
         @media print {
+          @page {
+            size: A4 ${orientation};
+            margin: ${margin}cm;
+          }
+          
+          ${fitToWidth ? `
+          .module-view.active {
+            transform: scale(${Math.min(1, 100 / scale)});
+            transform-origin: top left;
+          }
+          ` : `
+          .module-view.active {
+            transform: scale(${scale / 100});
+            transform-origin: top left;
+          }
+          `}
+          
           #module-impresion-saldos .table th,
-          #module-impresion-saldos .table td {
+          #module-impresion-saldos .table td,
+          #module-hoja-ruta .table th,
+          #module-hoja-ruta .table td {
             font-size: ${fontSizeSaldos}pt !important;
           }
           
-          #module-impresion-saldos h3 {
+          #module-impresion-saldos h3,
+          #module-hoja-ruta h3 {
             font-size: ${fontSizeHeader}pt !important;
           }
         }
@@ -7617,9 +7678,20 @@
             // Impresión
             document.getElementById('inputPrintFontSizeSaldos').value = config.printFontSizeSaldos || '';
             document.getElementById('inputPrintFontSizeHeader').value = config.printFontSizeHeader || '';
+            document.getElementById('inputPrintOrientation').value = config.printOrientation || 'portrait';
+            document.getElementById('inputPrintScale').value = config.printScale || '';
+            document.getElementById('inputPrintMargin').value = config.printMargin || '';
+            document.getElementById('inputPrintFitToWidth').checked = config.printFitToWidth || false;
             
             // Aplicar configuración de impresión
-            aplicarConfiguracionImpresion(config.printFontSizeSaldos, config.printFontSizeHeader);
+            aplicarConfiguracionImpresion(
+              config.printFontSizeSaldos, 
+              config.printFontSizeHeader,
+              config.printOrientation,
+              config.printScale,
+              config.printMargin,
+              config.printFitToWidth
+            );
             
             // Inquilinos
             if (config.inquilinos && config.inquilinos.length > 0) {
@@ -7659,7 +7731,11 @@
         fuzzyPesoContiene: parseInt(document.getElementById('inputFuzzyPesoContiene').value) || 70,
         fuzzyPesoLevenshtein: parseInt(document.getElementById('inputFuzzyPesoLevenshtein').value) || 50,
         printFontSizeSaldos: parseInt(document.getElementById('inputPrintFontSizeSaldos').value) || 10,
-        printFontSizeHeader: parseInt(document.getElementById('inputPrintFontSizeHeader').value) || 14
+        printFontSizeHeader: parseInt(document.getElementById('inputPrintFontSizeHeader').value) || 14,
+        printOrientation: document.getElementById('inputPrintOrientation').value || 'portrait',
+        printScale: parseInt(document.getElementById('inputPrintScale').value) || 100,
+        printMargin: parseFloat(document.getElementById('inputPrintMargin').value) || 0.8,
+        printFitToWidth: document.getElementById('inputPrintFitToWidth').checked || false
       };
 
       const estado = document.getElementById('estadoConfigGeneral');
@@ -7682,7 +7758,14 @@
             }
             
             // Aplicar configuración de impresión
-            aplicarConfiguracionImpresion(config.printFontSizeSaldos, config.printFontSizeHeader);
+            aplicarConfiguracionImpresion(
+              config.printFontSizeSaldos, 
+              config.printFontSizeHeader,
+              config.printOrientation,
+              config.printScale,
+              config.printMargin,
+              config.printFitToWidth
+            );
             
             // Recargar datos si es necesario
             setTimeout(function() {
