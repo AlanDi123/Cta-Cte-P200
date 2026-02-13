@@ -1061,20 +1061,25 @@
 
       /* ESPECÍFICO: Arqueo de Caja - Impresión mejorada */
       #resumenArqueoImpresion {
-        padding: 1rem;
+        padding: 0.5rem;
         background: white !important;
+        max-height: 25cm; /* A4 printable area with margins */
+        overflow: hidden; /* Prevent overflow beyond A4 page */
       }
 
       #resumenArqueoImpresion h2 {
-        font-size: 20pt !important;
+        font-size: 18pt !important;
+        margin: 0 !important;
       }
 
       #resumenArqueoImpresion table {
         border-collapse: collapse !important;
+        font-size: 9pt !important;
       }
 
       #resumenArqueoImpresion td {
         border: none !important;
+        padding: 3px 6px !important;
       }
 
       /* Remove scale transform - let content use full page */
@@ -1932,30 +1937,31 @@
 
         <!-- Resumen de Arqueo para Impresión (oculto en pantalla, visible al imprimir) -->
         <div id="resumenArqueoImpresion" class="print-only" style="display: none;">
-          <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; border-bottom: 3px solid #2E7D32;">
-            <img src="https://i.imgur.com/tStvmV1.png" alt="SistemaSolVerde - Logo Empresa" style="width: 80px; margin: 0 auto 0.5rem; display: block;">
-            <h2 style="margin: 0; color: #2E7D32; font-size: 20pt;">RESUMEN DE ARQUEO DE CAJA</h2>
-            <p style="margin: 0.5rem 0 0 0; font-size: 12pt; font-weight: bold;" id="resumenArqueoFecha"></p>
+          <div style="text-align: center; margin-bottom: 1rem; padding: 0.75rem; border-bottom: 3px solid #2E7D32;">
+            <img src="https://i.imgur.com/tStvmV1.png" alt="SistemaSolVerde - Logo Empresa" style="width: 70px; margin: 0 auto 0.5rem; display: block;">
+            <h2 style="margin: 0; color: #2E7D32; font-size: 18pt;">ARQUEO DE CAJA</h2>
+            <p style="margin: 0.5rem 0 0 0; font-size: 11pt; font-weight: bold;" id="resumenArqueoFecha"></p>
           </div>
           
-          <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 11pt;">
+          <div style="background: #f8f9fa; padding: 0.75rem; border-radius: 6px; margin-bottom: 0.75rem;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 10pt;">
               <tbody id="resumenArqueoDetalle"></tbody>
             </table>
           </div>
           
-          <div style="border-top: 3px solid #2E7D32; padding-top: 1rem; margin-top: 1rem;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 13pt;">
-              <tr style="background: #e8f5e9; font-weight: bold; height: 50px;">
-                <td style="padding: 12px; border: 2px solid #2E7D32; font-size: 15pt;">NETO DEL DÍA</td>
-                <td id="resumenArqueoNeto" style="padding: 12px; text-align: right; border: 2px solid #2E7D32; font-size: 18pt; font-weight: bold;"></td>
-              </tr>
-            </table>
+          <div style="border-top: 3px solid #333; padding-top: 0.75rem; margin-top: 0.75rem; text-align: center;">
+            <div style="background: #f0f0f0; padding: 1rem; border: 3px solid #333; border-radius: 8px;">
+              <div style="font-size: 12pt; font-weight: bold; margin-bottom: 0.5rem;">RESULTADO FINAL</div>
+              <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                <div style="font-size: 16pt; font-weight: bold;" id="resumenArqueoEstado"></div>
+                <div style="font-size: 22pt; font-weight: bold;" id="resumenArqueoNeto"></div>
+              </div>
+            </div>
           </div>
           
-          <div style="margin-top: 2rem; text-align: center; font-size: 10pt; color: #666;">
-            <p style="margin: 0.5rem 0; padding-bottom: 0.5rem; border-bottom: 2px solid #333; display: inline-block; min-width: 300px;">&nbsp;</p>
-            <p style="margin: 0.5rem 0;">Firma del Responsable</p>
+          <div style="margin-top: 1.5rem; text-align: center; font-size: 9pt; color: #666;">
+            <p style="margin: 0.5rem 0; padding-bottom: 0.5rem; border-bottom: 2px solid #333; display: inline-block; min-width: 280px;">&nbsp;</p>
+            <p style="margin: 0.25rem 0;">Firma del Responsable</p>
           </div>
         </div>
       </div>
@@ -4792,6 +4798,25 @@
       const efectivoText = document.getElementById('totalEfectivo').textContent;
       const efectivo = parseInt(efectivoText.replace(/\D/g, '')) || 0;
 
+      // Recolectar detalle de billetes (solo los que tienen cantidad > 0)
+      const billetesList = [];
+      document.querySelectorAll('.denom-input').forEach(input => {
+        const cantidad = parseInt(input.value) || 0;
+        if (cantidad > 0) {
+          const valor = parseInt(input.getAttribute('data-valor')) || 0;
+          const tipo = input.getAttribute('data-tipo') || '';
+          const label = input.closest('.denom-item')?.querySelector('.denom-label')?.textContent || '';
+          const total = cantidad * valor;
+          billetesList.push({ 
+            nombre: label,
+            cantidad: cantidad,
+            valor: valor,
+            total: total,
+            tipo: tipo
+          });
+        }
+      });
+
       let totalProveedores = 0;
       const proveedoresList = [];
       document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
@@ -4829,77 +4854,108 @@
       });
 
       const neto = efectivo - totalProveedores - totalGastos + totalIngresos;
+      
+      // Determinar estado del resultado
+      let estadoTexto = '';
+      let estadoColor = '';
+      if (neto > 0) {
+        estadoTexto = 'SOBRÓ';
+        estadoColor = '#2E7D32';
+      } else if (neto < 0) {
+        estadoTexto = 'FALTÓ';
+        estadoColor = '#C62828';
+      } else {
+        estadoTexto = 'EXACTO';
+        estadoColor = '#1976D2';
+      }
 
-      // Generar el detalle HTML con mejor formato
+      // Generar el detalle HTML con mejor formato optimizado para A4
       let html = '';
       
-      // Efectivo inicial con estilo destacado
-      html += `<tr style="background: #e8f5e9; border-left: 4px solid #2E7D32;">
-        <td style="padding: 10px; font-weight: bold; font-size: 13pt; border-bottom: 1px solid #ddd;"><span aria-label="Efectivo">💵</span> EFECTIVO CONTADO</td>
-        <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 13pt; color: #2E7D32; border-bottom: 1px solid #ddd;">${formatearMonto(efectivo)}</td>
-      </tr>`;
+      // 1. DETALLE DE BILLETES (solo si hay billetes)
+      if (billetesList.length > 0) {
+        html += `<tr style="background: #e8f5e9;">
+          <td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #2E7D32; border-bottom: 2px solid #2E7D32;">
+            💵 DETALLE DE EFECTIVO
+          </td>
+        </tr>`;
+        billetesList.forEach(b => {
+          html += `<tr>
+            <td style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">${escapeHtml(b.nombre)}</td>
+            <td style="padding: 4px 8px; text-align: center; font-size: 9pt; border-bottom: 1px solid #eee;">${b.cantidad} x ${formatearMonto(b.valor)}</td>
+            <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #2E7D32; border-bottom: 1px solid #eee;">${formatearMonto(b.total)}</td>
+          </tr>`;
+        });
+        html += `<tr style="background: #c8e6c9;">
+          <td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL EFECTIVO</td>
+          <td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 11pt; color: #2E7D32;">${formatearMonto(efectivo)}</td>
+        </tr>`;
+      }
 
-      // Sección de Proveedores
+      // 2. PROVEEDORES
       if (proveedoresList.length > 0) {
-        html += `<tr style="background: #ffebee; border-left: 4px solid #C62828;">
-          <td colspan="2" style="padding: 10px; font-weight: bold; font-size: 12pt; color: #C62828; border-bottom: 1px solid #ddd;">
-            <span aria-label="Proveedores">📦</span> PROVEEDORES (-)
+        html += `<tr style="background: #ffebee;">
+          <td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #C62828; border-top: 2px solid #ddd; border-bottom: 2px solid #C62828;">
+            📦 PROVEEDORES
           </td>
         </tr>`;
         proveedoresList.forEach(p => {
-          html += `<tr style="border-left: 4px solid #C62828;">
-            <td style="padding: 8px 8px 8px 24px; border-bottom: 1px solid #eee;">${escapeHtml(p.nombre)}</td>
-            <td style="padding: 8px; text-align: right; color: #C62828; font-weight: bold; border-bottom: 1px solid #eee;">-${formatearMonto(p.monto)}</td>
+          html += `<tr>
+            <td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">${escapeHtml(p.nombre)}</td>
+            <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #C62828; border-bottom: 1px solid #eee;">-${formatearMonto(p.monto)}</td>
           </tr>`;
         });
-        html += `<tr style="background: #ffcdd2; border-left: 4px solid #C62828;">
-          <td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #ddd;">SUBTOTAL PROVEEDORES</td>
-          <td style="padding: 8px; text-align: right; font-weight: bold; color: #C62828; border-bottom: 1px solid #ddd;">-${formatearMonto(totalProveedores)}</td>
+        html += `<tr style="background: #ffcdd2;">
+          <td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL PROVEEDORES</td>
+          <td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #C62828;">-${formatearMonto(totalProveedores)}</td>
         </tr>`;
       }
 
-      // Sección de Gastos
+      // 3. GASTOS EXTRAS
       if (gastosList.length > 0) {
-        html += `<tr style="background: #fff3e0; border-left: 4px solid #F57C00;">
-          <td colspan="2" style="padding: 10px; font-weight: bold; font-size: 12pt; color: #F57C00; border-bottom: 1px solid #ddd;">
-            <span aria-label="Gastos">💸</span> GASTOS EXTRAS (-)
+        html += `<tr style="background: #fff3e0;">
+          <td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #F57C00; border-top: 2px solid #ddd; border-bottom: 2px solid #F57C00;">
+            💸 GASTOS EXTRAS
           </td>
         </tr>`;
         gastosList.forEach(g => {
-          html += `<tr style="border-left: 4px solid #F57C00;">
-            <td style="padding: 8px 8px 8px 24px; border-bottom: 1px solid #eee;">${escapeHtml(g.nombre)}</td>
-            <td style="padding: 8px; text-align: right; color: #F57C00; font-weight: bold; border-bottom: 1px solid #eee;">-${formatearMonto(g.monto)}</td>
+          html += `<tr>
+            <td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">${escapeHtml(g.nombre)}</td>
+            <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #F57C00; border-bottom: 1px solid #eee;">-${formatearMonto(g.monto)}</td>
           </tr>`;
         });
-        html += `<tr style="background: #ffe0b2; border-left: 4px solid #F57C00;">
-          <td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #ddd;">SUBTOTAL GASTOS</td>
-          <td style="padding: 8px; text-align: right; font-weight: bold; color: #F57C00; border-bottom: 1px solid #ddd;">-${formatearMonto(totalGastos)}</td>
+        html += `<tr style="background: #ffe0b2;">
+          <td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL GASTOS</td>
+          <td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #F57C00;">-${formatearMonto(totalGastos)}</td>
         </tr>`;
       }
 
-      // Sección de Ingresos
+      // 4. INGRESOS ADICIONALES
       if (ingresosList.length > 0) {
-        html += `<tr style="background: #e3f2fd; border-left: 4px solid #1976D2;">
-          <td colspan="2" style="padding: 10px; font-weight: bold; font-size: 12pt; color: #1976D2; border-bottom: 1px solid #ddd;">
-            <span aria-label="Ingresos">💰</span> INGRESOS ADICIONALES (+)
+        html += `<tr style="background: #e3f2fd;">
+          <td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #1976D2; border-top: 2px solid #ddd; border-bottom: 2px solid #1976D2;">
+            💰 INGRESOS ADICIONALES
           </td>
         </tr>`;
         ingresosList.forEach(i => {
-          html += `<tr style="border-left: 4px solid #1976D2;">
-            <td style="padding: 8px 8px 8px 24px; border-bottom: 1px solid #eee;">${escapeHtml(i.nombre)}</td>
-            <td style="padding: 8px; text-align: right; color: #1976D2; font-weight: bold; border-bottom: 1px solid #eee;">+${formatearMonto(i.monto)}</td>
+          html += `<tr>
+            <td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">${escapeHtml(i.nombre)}</td>
+            <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #1976D2; border-bottom: 1px solid #eee;">+${formatearMonto(i.monto)}</td>
           </tr>`;
         });
-        html += `<tr style="background: #bbdefb; border-left: 4px solid #1976D2;">
-          <td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #ddd;">SUBTOTAL INGRESOS</td>
-          <td style="padding: 8px; text-align: right; font-weight: bold; color: #1976D2; border-bottom: 1px solid #ddd;">+${formatearMonto(totalIngresos)}</td>
+        html += `<tr style="background: #bbdefb;">
+          <td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL INGRESOS</td>
+          <td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #1976D2;">+${formatearMonto(totalIngresos)}</td>
         </tr>`;
       }
 
       document.getElementById('resumenArqueoDetalle').innerHTML = html;
       document.getElementById('resumenArqueoFecha').textContent = formatearFecha(obtenerFechaLocal());
-      document.getElementById('resumenArqueoNeto').textContent = formatearMonto(neto);
-      document.getElementById('resumenArqueoNeto').style.color = neto >= 0 ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+      // Usar valor absoluto porque el estado (SOBRÓ/FALTÓ/EXACTO) ya indica el signo
+      document.getElementById('resumenArqueoNeto').textContent = formatearMonto(Math.abs(neto)); // Absolute value - sign shown by estado
+      document.getElementById('resumenArqueoNeto').style.color = estadoColor;
+      document.getElementById('resumenArqueoEstado').textContent = estadoTexto; // Display status indicator
+      document.getElementById('resumenArqueoEstado').style.color = estadoColor;
 
       // Mostrar el resumen de impresión
       document.getElementById('resumenArqueoImpresion').style.display = 'block';
