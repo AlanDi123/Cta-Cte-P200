@@ -167,6 +167,12 @@ const CONFIG = {
     INFO: '#00ACC1'
   },
 
+  // Configuracion de impresion
+  PRINT: {
+    FONT_SIZE_SALDOS: 10, // Tamaño de fuente en pt para impresión de saldos
+    FONT_SIZE_HEADER: 14  // Tamaño de fuente en pt para encabezados de impresión
+  },
+
   /**
    * Obtiene una configuración, priorizando ScriptProperties sobre valores por defecto
    * @param {string} key - Clave de la propiedad
@@ -244,6 +250,16 @@ const CONFIG = {
   getInquilinos: function() {
     const inquilinosStr = this.get('INQUILINOS', this.INQUILINOS.join(','));
     return inquilinosStr.split(',').map(i => i.trim()).filter(i => i);
+  },
+
+  /**
+   * Obtiene la configuración de impresión
+   */
+  getPrint: function() {
+    return {
+      FONT_SIZE_SALDOS: parseInt(this.get('PRINT_FONT_SIZE_SALDOS', this.PRINT.FONT_SIZE_SALDOS)),
+      FONT_SIZE_HEADER: parseInt(this.get('PRINT_FONT_SIZE_HEADER', this.PRINT.FONT_SIZE_HEADER))
+    };
   }
 };
 

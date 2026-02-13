@@ -1317,6 +1317,10 @@ function obtenerConfiguracionCompleta() {
       fuzzyPesoContiene: parseInt(props.getProperty('FUZZY_PESO_CONTIENE') || CONFIG.FUZZY.PESO_CONTIENE),
       fuzzyPesoLevenshtein: parseInt(props.getProperty('FUZZY_PESO_LEVENSHTEIN') || CONFIG.FUZZY.PESO_LEVENSHTEIN),
       
+      // Impresión
+      printFontSizeSaldos: parseInt(props.getProperty('PRINT_FONT_SIZE_SALDOS') || CONFIG.PRINT.FONT_SIZE_SALDOS),
+      printFontSizeHeader: parseInt(props.getProperty('PRINT_FONT_SIZE_HEADER') || CONFIG.PRINT.FONT_SIZE_HEADER),
+      
       // Inquilinos
       inquilinos: inquilinosFiltrados
     };
@@ -1438,6 +1442,23 @@ function guardarConfiguracionGeneral(config) {
     
     if (config.fuzzyPesoLevenshtein !== undefined) {
       props.setProperty('FUZZY_PESO_LEVENSHTEIN', config.fuzzyPesoLevenshtein.toString());
+    }
+    
+    // Impresión
+    if (config.printFontSizeSaldos !== undefined) {
+      const fontSize = parseInt(config.printFontSizeSaldos);
+      if (isNaN(fontSize) || fontSize < 6 || fontSize > 16) {
+        throw new Error('Tamaño de fuente de impresión debe estar entre 6 y 16 pt');
+      }
+      props.setProperty('PRINT_FONT_SIZE_SALDOS', fontSize.toString());
+    }
+    
+    if (config.printFontSizeHeader !== undefined) {
+      const fontSize = parseInt(config.printFontSizeHeader);
+      if (isNaN(fontSize) || fontSize < 10 || fontSize > 20) {
+        throw new Error('Tamaño de fuente de encabezado debe estar entre 10 y 20 pt');
+      }
+      props.setProperty('PRINT_FONT_SIZE_HEADER', fontSize.toString());
     }
     
     // Inquilinos
