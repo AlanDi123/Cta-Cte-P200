@@ -5778,17 +5778,11 @@
             margin: ${margin}cm;
           }
           
-          ${fitToWidth ? `
-          .module-view.active {
-            transform: scale(${Math.min(1, 100 / scale)});
-            transform-origin: top left;
-          }
-          ` : `
           .module-view.active {
             transform: scale(${scale / 100});
             transform-origin: top left;
+            ${fitToWidth ? 'width: fit-content; max-width: 100%;' : ''}
           }
-          `}
           
           #module-impresion-saldos .table th,
           #module-impresion-saldos .table td,
