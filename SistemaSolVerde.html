@@ -4951,6 +4951,7 @@
 
       document.getElementById('resumenArqueoDetalle').innerHTML = html;
       document.getElementById('resumenArqueoFecha').textContent = formatearFecha(obtenerFechaLocal());
+      // Usar valor absoluto porque el estado (SOBRÓ/FALTÓ/EXACTO) ya indica el signo
       document.getElementById('resumenArqueoNeto').textContent = formatearMonto(Math.abs(neto));
       document.getElementById('resumenArqueoNeto').style.color = estadoColor;
       document.getElementById('resumenArqueoEstado').textContent = estadoTexto;
