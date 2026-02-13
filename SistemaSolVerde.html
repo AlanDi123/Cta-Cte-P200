@@ -2670,6 +2670,26 @@
                   </div>
                 </div>
               </div>
+
+              <div class="card">
+                <div class="card-title">🖨️ Configuración de Impresión</div>
+
+                <div class="form-group">
+                  <label class="form-label">Tamaño de Fuente para Saldos (pt)</label>
+                  <input type="number" class="form-input" id="inputPrintFontSizeSaldos" placeholder="10" min="6" max="16" step="1">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Tamaño de fuente para impresión de saldos (6-16 pt). Reducir si se corta en la parte inferior.
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Tamaño de Fuente para Encabezados (pt)</label>
+                  <input type="number" class="form-input" id="inputPrintFontSizeHeader" placeholder="14" min="10" max="20" step="1">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Tamaño de fuente para encabezados de impresión (10-20 pt)
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -5693,6 +5713,38 @@
       }
     }
 
+    /**
+     * Aplica la configuración de impresión dinámicamente
+     */
+    function aplicarConfiguracionImpresion(fontSizeSaldos, fontSizeHeader) {
+      // Valores por defecto si no se proporcionan o son nulos
+      if (fontSizeSaldos == null) fontSizeSaldos = 10;
+      if (fontSizeHeader == null) fontSizeHeader = 14;
+      
+      // Eliminar estilo anterior si existe
+      let style = document.getElementById('dynamic-print-style');
+      if (style) {
+        style.remove();
+      }
+      
+      // Crear nuevo estilo
+      style = document.createElement('style');
+      style.id = 'dynamic-print-style';
+      style.textContent = `
+        @media print {
+          #module-impresion-saldos .table th,
+          #module-impresion-saldos .table td {
+            font-size: ${fontSizeSaldos}pt !important;
+          }
+          
+          #module-impresion-saldos h3 {
+            font-size: ${fontSizeHeader}pt !important;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     function guardarApiKeyConfig() {
       const apiKey = document.getElementById('inputApiKey').value.trim();
       if (!apiKey) {
@@ -7562,6 +7614,13 @@
             document.getElementById('inputFuzzyPesoContiene').value = config.fuzzyPesoContiene || '';
             document.getElementById('inputFuzzyPesoLevenshtein').value = config.fuzzyPesoLevenshtein || '';
             
+            // Impresión
+            document.getElementById('inputPrintFontSizeSaldos').value = config.printFontSizeSaldos || '';
+            document.getElementById('inputPrintFontSizeHeader').value = config.printFontSizeHeader || '';
+            
+            // Aplicar configuración de impresión
+            aplicarConfiguracionImpresion(config.printFontSizeSaldos, config.printFontSizeHeader);
+            
             // Inquilinos
             if (config.inquilinos && config.inquilinos.length > 0) {
               document.getElementById('inputInquilinos').value = config.inquilinos.join(', ');
@@ -7598,7 +7657,9 @@
         fuzzyPesoExacto: parseInt(document.getElementById('inputFuzzyPesoExacto').value) || 100,
         fuzzyPesoComienza: parseInt(document.getElementById('inputFuzzyPesoComienza').value) || 85,
         fuzzyPesoContiene: parseInt(document.getElementById('inputFuzzyPesoContiene').value) || 70,
-        fuzzyPesoLevenshtein: parseInt(document.getElementById('inputFuzzyPesoLevenshtein').value) || 50
+        fuzzyPesoLevenshtein: parseInt(document.getElementById('inputFuzzyPesoLevenshtein').value) || 50,
+        printFontSizeSaldos: parseInt(document.getElementById('inputPrintFontSizeSaldos').value) || 10,
+        printFontSizeHeader: parseInt(document.getElementById('inputPrintFontSizeHeader').value) || 14
       };
 
       const estado = document.getElementById('estadoConfigGeneral');
@@ -7619,6 +7680,9 @@
             if (config.nombreSistema) {
               document.getElementById('nombreSistemaDisplay').textContent = config.nombreSistema;
             }
+            
+            // Aplicar configuración de impresión
+            aplicarConfiguracionImpresion(config.printFontSizeSaldos, config.printFontSizeHeader);
             
             // Recargar datos si es necesario
             setTimeout(function() {

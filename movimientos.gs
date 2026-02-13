@@ -203,13 +203,18 @@ const MovimientosRepository = {
   obtenerPorCliente: function(nombreCliente) {
     const nombreNorm = normalizarString(nombreCliente);
     const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
+    const lastRow = hoja.getLastRow();
 
-    if (datos.length <= 1) return [];
+    if (lastRow <= 1) return [];
+
+    // Leer todas las filas explícitamente desde la fila 2 hasta la última
+    // Número de columnas basado en CONFIG.COLS_MOVS (ID, FECHA, CLIENTE, TIPO, MONTO, SALDO_POST, OBS, USUARIO = 8 columnas)
+    const numColumnas = 8;
+    const datos = hoja.getRange(2, 1, lastRow - 1, numColumnas).getValues();
 
     const movimientos = [];
 
-    for (let i = 1; i < datos.length; i++) {
+    for (let i = 0; i < datos.length; i++) {
       const fila = datos[i];
       const clienteFila = normalizarString(fila[CONFIG.COLS_MOVS.CLIENTE]);
 
