@@ -5717,9 +5717,9 @@
      * Aplica la configuración de impresión dinámicamente
      */
     function aplicarConfiguracionImpresion(fontSizeSaldos, fontSizeHeader) {
-      // Valores por defecto si no se proporcionan
-      fontSizeSaldos = fontSizeSaldos || 10;
-      fontSizeHeader = fontSizeHeader || 14;
+      // Valores por defecto si no se proporcionan o son nulos
+      if (fontSizeSaldos == null) fontSizeSaldos = 10;
+      if (fontSizeHeader == null) fontSizeHeader = 14;
       
       // Eliminar estilo anterior si existe
       let style = document.getElementById('dynamic-print-style');

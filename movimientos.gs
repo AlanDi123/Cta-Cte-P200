@@ -208,7 +208,9 @@ const MovimientosRepository = {
     if (lastRow <= 1) return [];
 
     // Leer todas las filas explícitamente desde la fila 2 hasta la última
-    const datos = hoja.getRange(2, 1, lastRow - 1, 8).getValues();
+    // Número de columnas basado en CONFIG.COLS_MOVS (ID, FECHA, CLIENTE, TIPO, MONTO, SALDO_POST, OBS, USUARIO = 8 columnas)
+    const numColumnas = 8;
+    const datos = hoja.getRange(2, 1, lastRow - 1, numColumnas).getValues();
 
     const movimientos = [];
 
