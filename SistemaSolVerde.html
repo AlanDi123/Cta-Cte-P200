@@ -5752,6 +5752,12 @@
 
     /**
      * Aplica la configuración de impresión dinámicamente
+     * @param {number} fontSizeSaldos - Tamaño de fuente para saldos en pt (4-24)
+     * @param {number} fontSizeHeader - Tamaño de fuente para encabezados en pt (8-28)
+     * @param {string} orientation - Orientación de página ('portrait' o 'landscape')
+     * @param {number} scale - Escala de impresión como porcentaje (50-150, donde 100 = tamaño normal)
+     * @param {number} margin - Márgenes de página en cm (0.3-3)
+     * @param {boolean} fitToWidth - Si es true, ajusta el contenido al ancho de la página
      */
     function aplicarConfiguracionImpresion(fontSizeSaldos, fontSizeHeader, orientation, scale, margin, fitToWidth) {
       // Valores por defecto si no se proporcionan o son nulos
@@ -5779,8 +5785,10 @@
           }
           
           .module-view.active {
+            /* Scale es un porcentaje (ej: 100 = 100%), por eso se divide entre 100 */
             transform: scale(${scale / 100});
             transform-origin: top left;
+            /* fit-content ajusta al tamaño del contenido, max-width: 100% previene desbordamiento horizontal */
             ${fitToWidth ? 'width: fit-content; max-width: 100%;' : ''}
           }
           
