@@ -1064,7 +1064,7 @@
         padding: 0.5rem;
         background: white !important;
         max-height: 27cm;
-        overflow: visible;
+        overflow: hidden; /* Prevent overflow beyond A4 page */
       }
 
       #resumenArqueoImpresion h2 {
@@ -4952,9 +4952,9 @@
       document.getElementById('resumenArqueoDetalle').innerHTML = html;
       document.getElementById('resumenArqueoFecha').textContent = formatearFecha(obtenerFechaLocal());
       // Usar valor absoluto porque el estado (SOBRÓ/FALTÓ/EXACTO) ya indica el signo
-      document.getElementById('resumenArqueoNeto').textContent = formatearMonto(Math.abs(neto));
+      document.getElementById('resumenArqueoNeto').textContent = formatearMonto(Math.abs(neto)); // Estado separado indica el signo
       document.getElementById('resumenArqueoNeto').style.color = estadoColor;
-      document.getElementById('resumenArqueoEstado').textContent = estadoTexto;
+      document.getElementById('resumenArqueoEstado').textContent = estadoTexto; // SOBRÓ/FALTÓ/EXACTO
       document.getElementById('resumenArqueoEstado').style.color = estadoColor;
 
       // Mostrar el resumen de impresión
