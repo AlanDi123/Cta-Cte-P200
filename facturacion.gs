@@ -81,14 +81,16 @@ const TransferenciasRepository = {
 
   /**
    * Obtiene todas las transferencias
+   * @param {number} limite - Máximo de registros (0 = todos)
    */
-  obtenerTodas: function(limite = 100) {
+  obtenerTodas: function(limite = 0) {
     const hoja = this.getHoja();
     const lastRow = hoja.getLastRow();
 
     if (lastRow <= 1) return [];
 
-    const numRows = Math.min(limite, lastRow - 1);
+    // 0 = sin límite (todos los registros)
+    const numRows = (limite > 0) ? Math.min(limite, lastRow - 1) : (lastRow - 1);
     const datos = hoja.getRange(2, 1, numRows, 10).getValues();
 
     return datos.map(fila => ({
@@ -176,14 +178,22 @@ const TransferenciasRepository = {
   },
 
   /**
-   * Agrega múltiples transferencias (para importación desde IA)
+   * Agrega múltiples transferencias (para importación desde IA o API)
+   * @returns {{exitosos: Array, errores: Array}}
    */
   agregarMultiples: function(transferencias) {
-    const resultados = [];
+    const exitosos = [];
+    const errores = [];
     for (const t of transferencias) {
-      resultados.push(this.agregar(t));
+      try {
+        const resultado = this.agregar(t);
+        exitosos.push(resultado);
+      } catch (e) {
+        Logger.log('Error en agregarMultiples (transferencia): ' + e.message);
+        errores.push({ datos: t, error: e.message });
+      }
     }
-    return resultados;
+    return { exitosos: exitosos, errores: errores };
   },
 
   /**

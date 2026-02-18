@@ -1324,7 +1324,12 @@ function obtenerConfiguracionCompleta() {
       printScale: parseInt(props.getProperty('PRINT_SCALE') || CONFIG.PRINT.SCALE),
       printMargin: parseFloat(props.getProperty('PRINT_MARGIN') || CONFIG.PRINT.MARGIN),
       printFitToWidth: (props.getProperty('PRINT_FIT_TO_WIDTH') || CONFIG.PRINT.FIT_TO_WIDTH.toString()) === 'true',
-      
+      printPageMode: props.getProperty('PRINT_PAGE_MODE') || CONFIG.PRINT.PAGE_MODE,
+      printShowLogo: (props.getProperty('PRINT_SHOW_LOGO') || CONFIG.PRINT.SHOW_LOGO.toString()) !== 'false',
+      printShowCompany: (props.getProperty('PRINT_SHOW_COMPANY') || CONFIG.PRINT.SHOW_COMPANY.toString()) !== 'false',
+      printFooter: props.getProperty('PRINT_FOOTER') || CONFIG.PRINT.FOOTER,
+      printPageBreak: (props.getProperty('PRINT_PAGE_BREAK') || CONFIG.PRINT.PAGE_BREAK.toString()) === 'true',
+
       // Inquilinos
       inquilinos: inquilinosFiltrados
     };
@@ -1491,7 +1496,30 @@ function guardarConfiguracionGeneral(config) {
     if (config.printFitToWidth !== undefined) {
       props.setProperty('PRINT_FIT_TO_WIDTH', config.printFitToWidth.toString());
     }
-    
+
+    if (config.printPageMode !== undefined) {
+      const validModes = ['auto', 'single', 'multi'];
+      if (validModes.includes(config.printPageMode)) {
+        props.setProperty('PRINT_PAGE_MODE', config.printPageMode);
+      }
+    }
+
+    if (config.printShowLogo !== undefined) {
+      props.setProperty('PRINT_SHOW_LOGO', config.printShowLogo.toString());
+    }
+
+    if (config.printShowCompany !== undefined) {
+      props.setProperty('PRINT_SHOW_COMPANY', config.printShowCompany.toString());
+    }
+
+    if (config.printFooter !== undefined) {
+      props.setProperty('PRINT_FOOTER', (config.printFooter || '').substring(0, 200));
+    }
+
+    if (config.printPageBreak !== undefined) {
+      props.setProperty('PRINT_PAGE_BREAK', config.printPageBreak.toString());
+    }
+
     // Inquilinos
     if (config.inquilinos !== undefined) {
       if (Array.isArray(config.inquilinos)) {
