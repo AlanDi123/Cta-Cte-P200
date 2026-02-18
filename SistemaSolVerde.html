@@ -3474,9 +3474,17 @@
           <input type="date" class="form-input" id="transfUnifFecha" required>
         </div>
         <div class="form-group form-group-autocomplete">
-          <label class="form-label">Cliente *</label>
-          <input type="text" class="form-input" id="transfUnifCliente" placeholder="Escriba para buscar cliente..." autocomplete="off" required>
+          <label class="form-label">Cliente / Nombre</label>
+          <input type="text" class="form-input" id="transfUnifCliente" placeholder="Buscar cliente o escribir cualquier nombre..." autocomplete="off">
           <div class="suggestions-list" id="transfUnifClienteSugerencias"></div>
+          <div class="cf-hint" id="transfUnifCfHint" style="display:none;">
+            ⓘ Este nombre no está en la lista de clientes. Se registrará como <strong>Consumidor Final</strong> (Factura B automática).
+          </div>
+          <div style="margin-top: 0.4rem;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="seleccionarCFUnif()" style="font-size: 0.78rem; padding: 0.3rem 0.7rem; min-height: auto;">
+              Consumidor Final rápido
+            </button>
+          </div>
         </div>
         <div id="transfUnifClienteInfo" style="display:none; margin-bottom: 1rem; padding: 0.75rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
           <p style="margin: 0.25rem 0;"><strong>CUIT:</strong> <span id="transfUnifClienteCUIT">-</span></p>
@@ -8493,11 +8501,45 @@
       `).join('');
     }
 
+    // Seleccionar Consumidor Final rápido en formulario unificado
+    function seleccionarCFUnif() {
+      const input = document.getElementById('transfUnifCliente');
+      const cfHint = document.getElementById('transfUnifCfHint');
+      const sugsDiv = document.getElementById('transfUnifClienteSugerencias');
+      const infoDiv = document.getElementById('transfUnifClienteInfo');
+
+      if (input) input.value = 'CONSUMIDOR FINAL';
+      if (sugsDiv) sugsDiv.style.display = 'none';
+      if (cfHint) cfHint.style.display = 'none';
+
+      // Mostrar info del cliente como CF
+      if (infoDiv) {
+        infoDiv.style.display = 'block';
+        document.getElementById('transfUnifClienteCUIT').textContent = 'No requerido';
+        document.getElementById('transfUnifClienteIVA').textContent = 'Consumidor Final';
+        document.getElementById('transfUnifTipoFactura').textContent = 'Factura B (Consumidor Final) - Se facturará automáticamente';
+        document.getElementById('transfUnifTipoFactura').style.color = 'var(--sv-secundario)';
+      }
+
+      EstadoFacturacionUnif.clienteActual = {
+        nombre: 'CONSUMIDOR FINAL',
+        cuit: '',
+        condicionFiscal: 'Consumidor Final'
+      };
+
+      setTimeout(() => {
+        const montoInput = document.getElementById('transfUnifMonto');
+        if (montoInput) montoInput.focus();
+      }, 100);
+    }
+
     // Abrir modal nueva transferencia
     function abrirModalNuevaTransferenciaUnif() {
       document.getElementById('formTransferenciaUnif').reset();
       document.getElementById('transfUnifFecha').value = obtenerFechaLocal();
       document.getElementById('transfUnifClienteInfo').style.display = 'none';
+      const cfHint = document.getElementById('transfUnifCfHint');
+      if (cfHint) cfHint.style.display = 'none';
       EstadoFacturacionUnif.clienteActual = null;
       abrirModal('modalTransferenciaUnif');
     }
@@ -8507,10 +8549,36 @@
       const input = document.getElementById('transfUnifCliente');
       if (input) {
         input.addEventListener('input', debounce(function() {
-          buscarClienteAutocomplete(this.value, 'transfUnifClienteSugerencias', false, function(cliente) {
+          const termino = this.value.trim();
+          const cfHint = document.getElementById('transfUnifCfHint');
+          const infoDiv = document.getElementById('transfUnifClienteInfo');
+
+          if (termino.length >= 2) {
+            const esConocido = (Estado.clientes || []).some(c =>
+              normalizarTexto(c.nombre) === normalizarTexto(termino)
+            );
+            if (cfHint) cfHint.style.display = esConocido ? 'none' : 'block';
+            // Si el texto no coincide con ningún cliente, limpiar la selección actual
+            if (!esConocido) {
+              EstadoFacturacionUnif.clienteActual = null;
+              if (infoDiv) infoDiv.style.display = 'none';
+            }
+          } else {
+            if (cfHint) cfHint.style.display = 'none';
+          }
+
+          buscarClienteAutocomplete(termino, 'transfUnifClienteSugerencias', false, function(cliente) {
             seleccionarClienteTransferenciaUnif(cliente);
           });
         }, 200));
+
+        // Limpiar hint al vaciar campo
+        input.addEventListener('change', function() {
+          if (!this.value.trim()) {
+            const cfHint = document.getElementById('transfUnifCfHint');
+            if (cfHint) cfHint.style.display = 'none';
+          }
+        });
       }
     });
 
@@ -8518,6 +8586,8 @@
       EstadoFacturacionUnif.clienteActual = cliente;
       document.getElementById('transfUnifCliente').value = cliente.nombre;
       document.getElementById('transfUnifClienteSugerencias').style.display = 'none';
+      const cfHint = document.getElementById('transfUnifCfHint');
+      if (cfHint) cfHint.style.display = 'none';
 
       // Mostrar info del cliente
       const infoDiv = document.getElementById('transfUnifClienteInfo');
@@ -8558,9 +8628,19 @@
     function guardarTransferenciaUnif(event) {
       event.preventDefault();
 
+      // Si no hay cliente seleccionado de la lista, tratar como Consumidor Final
       if (!EstadoFacturacionUnif.clienteActual) {
-        mostrarToast('Debe seleccionar un cliente de la lista', 'error');
-        return;
+        const nombreLibre = document.getElementById('transfUnifCliente').value.trim();
+        if (!nombreLibre) {
+          mostrarToast('Ingrese el nombre del cliente o use "Consumidor Final"', 'error');
+          return;
+        }
+        // Nombre libre no registrado → registrar como Consumidor Final
+        EstadoFacturacionUnif.clienteActual = {
+          nombre: 'CONSUMIDOR FINAL',
+          cuit: '',
+          condicionFiscal: 'Consumidor Final'
+        };
       }
 
       const datos = {
