@@ -709,6 +709,152 @@
       to { opacity: 0; transform: scale(0.95); }
     }
 
+    /* ============================================================================
+       ANIMACION DE NAVEGACION ENTRE MODULOS
+       ============================================================================ */
+    @keyframes moduleSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .module-view.active {
+      animation: moduleSlideIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Sidebar - transición mejorada */
+    .sidebar {
+      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    }
+
+    .menu-item {
+      transition: background 0.18s ease, transform 0.12s ease, color 0.18s ease !important;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .menu-item::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--sv-primario);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+    }
+
+    .menu-item:active::after {
+      opacity: 0.08;
+    }
+
+    /* ============================================================================
+       INDICADOR DE TAREAS EN SEGUNDO PLANO
+       ============================================================================ */
+    #bgTaskIndicator {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background: var(--sv-primario-oscuro);
+      color: white;
+      border-radius: 999px;
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      z-index: 500;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      animation: slideUp 0.25s ease;
+    }
+
+    #bgTaskIndicator.visible {
+      display: flex;
+    }
+
+    .bg-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ============================================================================
+       CONTROLES DE ORDENAMIENTO - TRANSFERENCIAS
+       ============================================================================ */
+    .sort-controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      padding: 0.75rem;
+      background: var(--sv-superficie-elevada);
+      border-radius: var(--sv-radius);
+      border: 1px solid var(--sv-borde);
+    }
+
+    .sort-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--sv-texto-secundario);
+      white-space: nowrap;
+    }
+
+    .sort-btn {
+      padding: 0.35rem 0.75rem;
+      border: 1px solid var(--sv-borde);
+      border-radius: 999px;
+      background: var(--sv-superficie);
+      color: var(--sv-texto);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .sort-btn:hover {
+      border-color: var(--sv-primario);
+      color: var(--sv-primario);
+    }
+
+    .sort-btn.active {
+      background: var(--sv-primario);
+      color: white;
+      border-color: var(--sv-primario);
+    }
+
+    /* Indicador de consumidor final en transferencias */
+    .cf-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      background: #E3F2FD;
+      color: #1565C0;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-left: 0.3rem;
+      vertical-align: middle;
+    }
+
+    .cf-hint {
+      font-size: 0.75rem;
+      color: var(--sv-texto-muted);
+      margin-top: 0.4rem;
+      padding: 0.4rem 0.6rem;
+      background: var(--sv-superficie-elevada);
+      border-radius: 4px;
+      border-left: 3px solid var(--sv-info);
+    }
+
     /* Skeleton Loading */
     .skeleton {
       background: linear-gradient(90deg, var(--sv-superficie-elevada) 25%, var(--sv-borde) 50%, var(--sv-superficie-elevada) 75%);
@@ -1059,27 +1205,36 @@
         display: none !important;
       }
 
-      /* ESPECÍFICO: Arqueo de Caja - Impresión mejorada */
+      /* ESPECÍFICO: Arqueo de Caja - Solo resumen al imprimir */
+      .arqueo-form-content {
+        display: none !important;
+      }
+
       #resumenArqueoImpresion {
         padding: 0.5rem;
         background: white !important;
-        max-height: none !important; /* Allow full content to print */
-        overflow: visible !important; /* Show all content including totals */
+        max-height: none !important;
+        overflow: visible !important;
       }
 
       #resumenArqueoImpresion h2 {
-        font-size: 18pt !important;
+        font-size: 20pt !important;
         margin: 0 !important;
       }
 
       #resumenArqueoImpresion table {
         border-collapse: collapse !important;
-        font-size: 9pt !important;
+        font-size: 9.5pt !important;
       }
 
       #resumenArqueoImpresion td {
         border: none !important;
         padding: 3px 6px !important;
+      }
+
+      /* Colores heredados en la sección de arqueo */
+      #resumenArqueoImpresion * {
+        color: inherit !important;
       }
 
       /* Remove scale transform - let content use full page */
@@ -1883,85 +2038,125 @@
 
       <!-- MODULO: ARQUEO DE EFECTIVO -->
       <div class="module-view" id="module-arqueo-efectivo">
-        <h2 style="margin-bottom: 1rem;">Arqueo de Efectivo</h2>
+        <h2 style="margin-bottom: 1rem;" class="no-print">Arqueo de Efectivo</h2>
 
-        <div class="card">
-          <div class="card-title">Billetes</div>
-          <div class="denom-grid" id="gridBilletes"></div>
+        <!-- Formulario de arqueo - solo visible en pantalla, NO en impresión -->
+        <div class="arqueo-form-content">
+          <div class="card">
+            <div class="card-title">Billetes</div>
+            <div class="denom-grid" id="gridBilletes"></div>
 
-          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid var(--sv-borde);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 1.125rem; font-weight: bold;">Total Efectivo:</span>
-              <span style="font-size: 1.5rem; font-weight: bold; color: var(--sv-primario);" id="totalEfectivo">$0</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Pagos a Proveedores</div>
-          <p style="font-size: 0.75rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;">
-            Escribi el nombre para ver sugerencias del historial
-          </p>
-          <div id="listaProveedores"></div>
-          <button class="btn btn-outline" onclick="agregarProveedor()" style="width: 100%;">+ Agregar Proveedor</button>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Gastos Extras</div>
-          <div id="listaGastos"></div>
-          <button class="btn btn-outline" onclick="agregarGasto()" style="width: 100%;">+ Agregar Gasto</button>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Ingresos Adicionales</div>
-          <div id="listaIngresos"></div>
-          <button class="btn btn-outline" onclick="agregarIngreso()" style="width: 100%;">+ Agregar Ingreso</button>
-        </div>
-
-        <div class="card" style="background: var(--sv-primario); color: white;">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-            <div>
-              <div style="font-size: 0.875rem; opacity: 0.9;">Neto del dia</div>
-              <div style="font-size: 2rem; font-weight: bold;" id="netoArqueo">$0</div>
-            </div>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button class="btn" style="background: white; color: var(--sv-primario);" onclick="imprimirResumenArqueo()">
-                🖨️ Imprimir Resumen
-              </button>
-              <button class="btn" style="background: white; color: var(--sv-primario);" onclick="guardarArqueo()">
-                💾 Guardar Cierre
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Resumen de Arqueo para Impresión (oculto en pantalla, visible al imprimir) -->
-        <div id="resumenArqueoImpresion" class="print-only" style="display: none;">
-          <div style="text-align: center; margin-bottom: 1rem; padding: 0.75rem; border-bottom: 3px solid #2E7D32;">
-            <img src="https://i.imgur.com/tStvmV1.png" alt="SistemaSolVerde - Logo Empresa" style="width: 70px; margin: 0 auto 0.5rem; display: block;">
-            <h2 style="margin: 0; color: #2E7D32; font-size: 18pt;">ARQUEO DE CAJA</h2>
-            <p style="margin: 0.5rem 0 0 0; font-size: 11pt; font-weight: bold;" id="resumenArqueoFecha"></p>
-          </div>
-          
-          <div style="background: #f8f9fa; padding: 0.75rem; border-radius: 6px; margin-bottom: 0.75rem;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 10pt;">
-              <tbody id="resumenArqueoDetalle"></tbody>
-            </table>
-          </div>
-          
-          <div style="border-top: 3px solid #333; padding-top: 0.75rem; margin-top: 0.75rem; text-align: center;">
-            <div style="background: #f0f0f0; padding: 1rem; border: 3px solid #333; border-radius: 8px;">
-              <div style="font-size: 12pt; font-weight: bold; margin-bottom: 0.5rem;">RESULTADO FINAL</div>
-              <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; flex-wrap: wrap;">
-                <div style="font-size: 16pt; font-weight: bold;" id="resumenArqueoEstado"></div>
-                <div style="font-size: 22pt; font-weight: bold;" id="resumenArqueoNeto"></div>
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid var(--sv-borde);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 1.125rem; font-weight: bold;">Total Efectivo:</span>
+                <span style="font-size: 1.5rem; font-weight: bold; color: var(--sv-primario);" id="totalEfectivo">$0</span>
               </div>
             </div>
           </div>
-          
-          <div style="margin-top: 1.5rem; text-align: center; font-size: 9pt; color: #666;">
-            <p style="margin: 0.5rem 0; padding-bottom: 0.5rem; border-bottom: 2px solid #333; display: inline-block; min-width: 280px;">&nbsp;</p>
-            <p style="margin: 0.25rem 0;">Firma del Responsable</p>
+
+          <div class="card">
+            <div class="card-title">Pagos a Proveedores</div>
+            <p style="font-size: 0.75rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;">
+              Escribi el nombre para ver sugerencias del historial
+            </p>
+            <div id="listaProveedores"></div>
+            <button class="btn btn-outline" onclick="agregarProveedor()" style="width: 100%;">+ Agregar Proveedor</button>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Gastos Extras</div>
+            <div id="listaGastos"></div>
+            <button class="btn btn-outline" onclick="agregarGasto()" style="width: 100%;">+ Agregar Gasto</button>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Ingresos Adicionales</div>
+            <div id="listaIngresos"></div>
+            <button class="btn btn-outline" onclick="agregarIngreso()" style="width: 100%;">+ Agregar Ingreso</button>
+          </div>
+
+          <div class="card" style="background: var(--sv-primario); color: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+              <div>
+                <div style="font-size: 0.875rem; opacity: 0.9;">Neto del dia</div>
+                <div style="font-size: 2rem; font-weight: bold;" id="netoArqueo">$0</div>
+              </div>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="btn" style="background: white; color: var(--sv-primario);" onclick="imprimirResumenArqueo()">
+                  🖨️ Imprimir Resumen
+                </button>
+                <button class="btn" style="background: white; color: var(--sv-primario);" onclick="guardarArqueo()">
+                  💾 Guardar Cierre
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resumen de Arqueo para Impresión - SOLO visible al imprimir -->
+        <div id="resumenArqueoImpresion" class="print-only" style="display: none;">
+          <!-- Encabezado -->
+          <div style="text-align: center; margin-bottom: 1.2rem; padding-bottom: 1rem; border-bottom: 4px solid #2E7D32;">
+            <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 65px; margin: 0 auto 0.5rem; display: block;">
+            <h2 style="margin: 0; color: #2E7D32; font-size: 20pt; letter-spacing: 1px;">ARQUEO DE CAJA</h2>
+            <p style="margin: 0.4rem 0 0 0; font-size: 11pt; color: #555;" id="resumenArqueoFecha"></p>
+            <p style="margin: 0.2rem 0 0 0; font-size: 9pt; color: #777;" id="resumenArqueoSistema">Sol & Verde - Sistema de Cuenta Corriente</p>
+          </div>
+
+          <!-- Detalle de conceptos -->
+          <div style="margin-bottom: 1rem;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt;">
+              <tbody id="resumenArqueoDetalle"></tbody>
+            </table>
+          </div>
+
+          <!-- Linea de cobranzas y fiados del dia -->
+          <div id="resumenArqueoMovsDia" style="margin-bottom: 1rem; padding: 0.6rem 0.8rem; background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt;">
+              <tr style="background: #e8f4f8;">
+                <td colspan="3" style="padding: 5px 8px; font-weight: bold; font-size: 10pt; color: #1565C0; border-bottom: 2px solid #1565C0;">
+                  📋 MOVIMIENTOS DEL DÍA
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 8px 4px 16px; font-size: 9pt;">Cobrado del día (pagos de clientes)</td>
+                <td></td>
+                <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #2E7D32;" id="resumenCobranzas">$0</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 8px 4px 16px; font-size: 9pt;">Fiado del día (crédito otorgado)</td>
+                <td></td>
+                <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #C62828;" id="resumenFiados">$0</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Resultado final -->
+          <div style="border: 3px solid #2E7D32; border-radius: 8px; overflow: hidden; margin-bottom: 1rem;">
+            <div style="background: #2E7D32; color: white; padding: 0.5rem 0.8rem; font-size: 10pt; font-weight: bold; text-align: center; letter-spacing: 0.5px;">
+              ─── RESULTADO FINAL DEL DÍA ───
+            </div>
+            <div style="padding: 0.8rem; display: grid; grid-template-columns: 1fr auto; gap: 0.4rem; align-items: center; background: #f9fef9;">
+              <span style="font-size: 10pt; font-weight: bold;">RESULTADO NETO DE CAJA</span>
+              <span style="font-size: 14pt; font-weight: bold; text-align: right;" id="resumenArqueoEstado"></span>
+              <span style="font-size: 9pt; color: #555;">Efectivo − Proveedores − Gastos + Ingresos</span>
+              <span style="font-size: 20pt; font-weight: bold; text-align: right;" id="resumenArqueoNeto"></span>
+            </div>
+          </div>
+
+          <!-- Firma -->
+          <div style="margin-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; text-align: center; font-size: 9pt; color: #555;">
+            <div>
+              <div style="border-top: 1.5px solid #333; padding-top: 0.3rem; margin-top: 1.5rem;">Responsable de Caja</div>
+            </div>
+            <div>
+              <div style="border-top: 1.5px solid #333; padding-top: 0.3rem; margin-top: 1.5rem;">Firma y Aclaración</div>
+            </div>
+          </div>
+
+          <!-- Pie -->
+          <div style="margin-top: 1rem; text-align: center; font-size: 7.5pt; color: #aaa; border-top: 1px solid #eee; padding-top: 0.5rem;">
+            Documento generado automáticamente por Sol & Verde Sistema de Cuenta Corriente
           </div>
         </div>
       </div>
@@ -2726,6 +2921,50 @@
                     Aplica restricciones de ancho para evitar desbordamiento horizontal
                   </p>
                 </div>
+
+                <div class="form-group">
+                  <label class="form-label">Modo de páginas</label>
+                  <select class="form-input" id="inputPrintPageMode">
+                    <option value="auto">Automático (el contenido decide)</option>
+                    <option value="single">Forzar página única</option>
+                    <option value="multi">Permitir múltiples páginas</option>
+                  </select>
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    "Página única" escala el contenido para que entre en una sola hoja
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label for="inputPrintShowLogo" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" id="inputPrintShowLogo" checked>
+                    <span class="form-label" style="margin: 0;">Mostrar logo en impresiones</span>
+                  </label>
+                </div>
+
+                <div class="form-group">
+                  <label for="inputPrintShowCompany" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" id="inputPrintShowCompany" checked>
+                    <span class="form-label" style="margin: 0;">Mostrar nombre de empresa en impresiones</span>
+                  </label>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Texto de pie de página personalizado</label>
+                  <input type="text" class="form-input" id="inputPrintFooter" placeholder="Ej: Sol & Verde - Tel: 123-4567" maxlength="120">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Aparecerá al final de cada impresión (dejar vacío para usar el predeterminado)
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label for="inputPrintPageBreak" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" id="inputPrintPageBreak">
+                    <span class="form-label" style="margin: 0;">Forzar salto de página entre secciones</span>
+                  </label>
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Útil cuando cada sección del informe debe estar en una página separada
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -2777,6 +3016,18 @@
             <button class="btn btn-primary" onclick="abrirModalNuevaTransferencia()">+ Nueva Transferencia</button>
             <button class="btn btn-outline" onclick="generarResumenMensual()">📊 Generar Resumen</button>
           </div>
+        </div>
+
+        <!-- Controles de ordenamiento -->
+        <div class="sort-controls no-print">
+          <span class="sort-label">Ordenar:</span>
+          <button class="sort-btn active" id="sortTransfFechaDesc" onclick="ordenarTransferencias('fecha','desc')">📅 Más reciente</button>
+          <button class="sort-btn" id="sortTransfFechaAsc" onclick="ordenarTransferencias('fecha','asc')">📅 Más antiguo</button>
+          <button class="sort-btn" id="sortTransfClienteAsc" onclick="ordenarTransferencias('cliente','asc')">🔤 Nombre A-Z</button>
+          <button class="sort-btn" id="sortTransfClienteDesc" onclick="ordenarTransferencias('cliente','desc')">🔤 Nombre Z-A</button>
+          <button class="sort-btn" id="sortTransfMontoDesc" onclick="ordenarTransferencias('monto','desc')">💰 Mayor monto</button>
+          <button class="sort-btn" id="sortTransfMontoAsc" onclick="ordenarTransferencias('monto','asc')">💰 Menor monto</button>
+          <button class="sort-btn" id="sortTransfPendientes" onclick="ordenarTransferencias('estado','pendiente')">⏳ Pendientes primero</button>
         </div>
 
         <div class="card">
@@ -3112,6 +3363,12 @@
     <div class="loading-spinner"></div>
   </div>
 
+  <!-- Indicador de tareas en segundo plano -->
+  <div id="bgTaskIndicator">
+    <div class="bg-spinner"></div>
+    <span id="bgTaskText">Guardando...</span>
+  </div>
+
   <!-- Modal Nueva Transferencia -->
   <div class="modal" id="modalTransferencia">
     <div class="modal-content">
@@ -3125,9 +3382,17 @@
           <input type="date" class="form-input" id="transfFecha" required>
         </div>
         <div class="form-group form-group-autocomplete">
-          <label class="form-label">Cliente *</label>
-          <input type="text" class="form-input" id="transfCliente" placeholder="Escriba para buscar cliente..." autocomplete="off" required>
+          <label class="form-label">Cliente / Nombre</label>
+          <input type="text" class="form-input" id="transfCliente" placeholder="Buscar cliente o escribir cualquier nombre..." autocomplete="off">
           <div class="suggestions-list" id="transfClienteSugerencias"></div>
+          <div class="cf-hint" id="transfCfHint" style="display:none;">
+            ⓘ Este nombre no está en la lista de clientes. Se registrará como <strong>Consumidor Final</strong>.
+          </div>
+          <div style="margin-top: 0.4rem;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="seleccionarConsumidorFinal()" style="font-size: 0.78rem; padding: 0.3rem 0.7rem; min-height: auto;">
+              Consumidor Final rápido
+            </button>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Monto *</label>
@@ -3625,6 +3890,96 @@
     };
 
     // ============================================================================
+    // COLA DE TAREAS EN SEGUNDO PLANO
+    // Permite que el usuario siga trabajando mientras operaciones se procesan
+    // ============================================================================
+    const ColaTareas = {
+      pendientes: 0,
+      indicador: null,
+      textoEl: null,
+
+      init() {
+        this.indicador = document.getElementById('bgTaskIndicator');
+        this.textoEl = document.getElementById('bgTaskText');
+      },
+
+      iniciar(texto) {
+        this.pendientes++;
+        if (this.textoEl) this.textoEl.textContent = texto || 'Procesando...';
+        if (this.indicador) this.indicador.classList.add('visible');
+      },
+
+      completar() {
+        this.pendientes = Math.max(0, this.pendientes - 1);
+        if (this.pendientes === 0) {
+          setTimeout(() => {
+            if (this.pendientes === 0 && this.indicador) {
+              this.indicador.classList.remove('visible');
+            }
+          }, 800);
+        } else if (this.textoEl && this.pendientes > 1) {
+          this.textoEl.textContent = `${this.pendientes} operaciones en proceso...`;
+        }
+      }
+    };
+
+    // Cola de movimientos para procesamiento en lote en segundo plano
+    const ColaMovimientos = {
+      cola: [],
+      procesando: false,
+      exitosos: 0,
+      fallidos: 0,
+
+      agregar(datos, callbackExito, callbackError) {
+        this.cola.push({ datos, callbackExito, callbackError });
+        if (!this.procesando) this._procesar();
+      },
+
+      _procesar() {
+        if (this.cola.length === 0) {
+          this.procesando = false;
+          if (this.exitosos > 0 || this.fallidos > 0) {
+            const msg = `${this.exitosos} guardado(s)${this.fallidos > 0 ? `, ${this.fallidos} con error` : ''}`;
+            mostrarToast(msg, this.fallidos > 0 ? 'warning' : 'success');
+            this.exitosos = 0;
+            this.fallidos = 0;
+          }
+          ColaTareas.completar();
+          return;
+        }
+
+        this.procesando = true;
+        const item = this.cola.shift();
+        const restantes = this.cola.length;
+
+        ColaTareas.iniciar(restantes > 0
+          ? `Guardando ${restantes + 1} movimientos...`
+          : 'Guardando movimiento...'
+        );
+
+        google.script.run
+          .withSuccessHandler((result) => {
+            if (result && result.success) {
+              this.exitosos++;
+              if (item.callbackExito) item.callbackExito(result);
+            } else {
+              this.fallidos++;
+              const errMsg = (result && result.error) ? result.error : 'Error al guardar';
+              if (item.callbackError) item.callbackError(errMsg);
+            }
+            setTimeout(() => this._procesar(), 80);
+          })
+          .withFailureHandler((err) => {
+            this.fallidos++;
+            const errMsg = (err && err.message) ? err.message : 'Error de red';
+            if (item.callbackError) item.callbackError(errMsg);
+            setTimeout(() => this._procesar(), 300);
+          })
+          .guardarMovimiento(item.datos);
+      }
+    };
+
+    // ============================================================================
     // INICIALIZACION
     // ============================================================================
     // Obtener fecha local en formato YYYY-MM-DD (sin problemas de zona horaria)
@@ -3648,6 +4003,7 @@
       cargarDatosIniciales();
       setupEventos();
       setupNavegacionTeclado();
+      ColaTareas.init();
 
       // Precargar todos los módulos en background cuando el navegador esté idle
       if ('requestIdleCallback' in window) {
@@ -3819,7 +4175,7 @@
         buscarClienteAutocomplete(this.value, 'visorSugerencias', true);
       }, 200));
 
-      // Autocomplete transferencia cliente
+      // Autocomplete transferencia cliente - permite nombres libres
       const inputTransfCliente = document.getElementById('transfCliente');
       if (inputTransfCliente) {
         inputTransfCliente.addEventListener('input', debounce(function() {
@@ -3828,6 +4184,13 @@
         inputTransfCliente.addEventListener('focus', function() {
           if (this.value.length >= 2) {
             buscarClienteAutocompleteTransf(this.value);
+          }
+        });
+        // Ocultar hint al limpiar el campo
+        inputTransfCliente.addEventListener('change', function() {
+          if (!this.value.trim()) {
+            const cfHint = document.getElementById('transfCfHint');
+            if (cfHint) cfHint.style.display = 'none';
           }
         });
       }
@@ -4045,19 +4408,30 @@
     // NAVEGACION
     // ============================================================================
     function navegarA(modulo) {
+      // Verificar que existe el módulo
+      const targetModule = document.getElementById('module-' + modulo);
+      if (!targetModule) {
+        console.warn('Módulo no encontrado:', modulo);
+        return;
+      }
+
       document.querySelectorAll('.module-view').forEach(v => v.classList.remove('active'));
-      document.getElementById('module-' + modulo).classList.add('active');
+      targetModule.classList.add('active');
 
       document.querySelectorAll('.menu-item').forEach(item => {
         item.classList.toggle('active', item.getAttribute('data-module') === modulo);
       });
 
-      // Cerrar sidebar en movil
-      if (window.innerWidth < 768) {
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('sidebar').classList.add('collapsed');
-        document.getElementById('sidebarOverlay').classList.remove('active');
-      }
+      // Cerrar sidebar siempre al navegar (en cualquier pantalla)
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      sidebar.classList.remove('open');
+      sidebar.classList.add('collapsed');
+      overlay.classList.remove('active');
+
+      // Scroll al inicio del contenido
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) mainContent.scrollTo({ top: 0, behavior: 'smooth' });
 
       // Cargar datos del modulo
       if (modulo === 'estadisticas') cargarEstadisticas();
@@ -4139,60 +4513,86 @@
         obs: document.getElementById('movObs').value
       };
 
-      mostrarLoading(true);
+      // Agregar optimistamente a la vista para respuesta inmediata
+      const movTemp = {
+        id: null,
+        fecha: datos.fecha,
+        cliente: datos.cliente,
+        tipo: datos.tipo,
+        monto: datos.monto,
+        saldoPost: 0,
+        obs: datos.obs,
+        _pendiente: true
+      };
+      Estado.movimientos.unshift(movTemp);
+      renderMovimientos();
 
-      google.script.run
-        .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          if (result.success) {
-            mostrarToast(result.mensaje, 'success');
-            Estado.movimientos.unshift(result.movimiento);
-            renderMovimientos();
+      // Limpiar formulario de inmediato para agilizar el trabajo
+      document.getElementById('movCliente').value = '';
+      document.getElementById('movMonto').value = '';
+      document.getElementById('movObs').value = '';
+      document.getElementById('movCliente').focus();
 
-            if (result.cliente) {
-              const idx = Estado.clientes.findIndex(c => c.nombre === result.cliente.nombre);
-              if (idx >= 0) Estado.clientes[idx] = result.cliente;
-            }
-
-            document.getElementById('movCliente').value = '';
-            document.getElementById('movMonto').value = '';
-            document.getElementById('movObs').value = '';
-            document.getElementById('movCliente').focus();
-          } else {
-            mostrarToast(result.error, 'error');
+      // Enviar al servidor en segundo plano
+      ColaMovimientos.agregar(
+        datos,
+        function(result) {
+          // Reemplazar movimiento temporal con el definitivo
+          const idx = Estado.movimientos.findIndex(m => m._pendiente && m.cliente === datos.cliente && m.monto === datos.monto && m.tipo === datos.tipo);
+          if (idx >= 0 && result.movimiento) {
+            Estado.movimientos[idx] = result.movimiento;
+          } else if (idx >= 0) {
+            Estado.movimientos.splice(idx, 1);
           }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .guardarMovimiento(datos);
+
+          // Actualizar saldo del cliente en el estado
+          if (result.cliente) {
+            const clienteIdx = Estado.clientes.findIndex(c => c.nombre === result.cliente.nombre);
+            if (clienteIdx >= 0) Estado.clientes[clienteIdx] = result.cliente;
+          }
+          renderMovimientos();
+          actualizarDatosSistema();
+        },
+        function(errMsg) {
+          // Quitar el movimiento temporal en caso de error
+          const idx = Estado.movimientos.findIndex(m => m._pendiente && m.cliente === datos.cliente && m.monto === datos.monto);
+          if (idx >= 0) Estado.movimientos.splice(idx, 1);
+          renderMovimientos();
+          mostrarToast('Error al guardar movimiento: ' + errMsg, 'error');
+        }
+      );
     }
 
     function renderMovimientos() {
       const tbody = document.getElementById('tbodyMovimientos');
+      if (!tbody) return;
 
       if (!Estado.movimientos || Estado.movimientos.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay movimientos</td></tr>';
         return;
       }
 
-      tbody.innerHTML = Estado.movimientos.slice(0, 50).map(m => `
-        <tr>
+      tbody.innerHTML = Estado.movimientos.slice(0, 50).map(m => {
+        const esPendiente = m._pendiente;
+        const rowStyle = esPendiente ? 'opacity: 0.6; background: var(--sv-superficie-elevada);' : '';
+        const pendienteBadge = esPendiente ? '<span style="font-size:0.65rem;background:#FFF3E0;color:#E65100;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:4px;">guardando...</span>' : '';
+        return `
+        <tr style="${rowStyle}">
           <td data-label="Fecha">${formatearFecha(m.fecha)}</td>
-          <td data-label="Cliente">${escapeHtml(m.cliente)}</td>
-          <td data-label="Tipo"><span class="tag tag-${m.tipo.toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
+          <td data-label="Cliente">${escapeHtml(m.cliente || '')}${pendienteBadge}</td>
+          <td data-label="Tipo"><span class="tag tag-${(m.tipo || '').toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
           <td data-label="Monto">${formatearMonto(m.monto)}</td>
-          <td data-label="Saldo">${formatearMonto(m.saldoPost)}</td>
-          <td data-label="Obs">${escapeHtml(m.obs) || '-'}</td>
+          <td data-label="Saldo">${esPendiente ? '-' : formatearMonto(m.saldoPost)}</td>
+          <td data-label="Obs">${escapeHtml(m.obs || '') || '-'}</td>
           <td data-label="Acciones" class="no-print">
+            ${!esPendiente ? `
             <div class="btn-group">
               <button class="btn btn-outline btn-sm" onclick="abrirEditarMovimiento(${m.id})">✏️</button>
               <button class="btn btn-outline btn-sm" onclick="confirmarEliminarMovimiento(${m.id})" style="color: var(--sv-peligro);">🗑️</button>
-            </div>
+            </div>` : ''}
           </td>
-        </tr>
-      `).join('');
+        </tr>`;
+      }).join('');
     }
 
     // Variable para edición de movimiento
@@ -4361,33 +4761,37 @@
       contenedor.style.display = 'block';
     }
 
-    // Autocompletado para modal de transferencia
+    // Autocompletado para modal de transferencia (permite nombres libres = consumidor final)
     function buscarClienteAutocompleteTransf(termino) {
       const contenedor = document.getElementById('transfClienteSugerencias');
+      const cfHint = document.getElementById('transfCfHint');
 
       if (!termino || termino.length < 2) {
         contenedor.style.display = 'none';
+        if (cfHint) cfHint.style.display = 'none';
         return;
       }
 
-      if (!Estado.clientes || Estado.clientes.length === 0) {
-        contenedor.style.display = 'none';
-        return;
-      }
-
+      // Verificar si coincide exactamente con algún cliente
       const terminoNorm = normalizarTexto(termino);
       const palabras = terminoNorm.split(' ').filter(p => p.length >= 1);
 
-      const matches = Estado.clientes.filter(c => {
+      const matches = (Estado.clientes || []).filter(c => {
         const nombreNorm = normalizarTexto(c.nombre);
         const palabrasNombre = nombreNorm.split(' ');
         if (nombreNorm.includes(terminoNorm)) return true;
-        return palabras.some(palabraBusqueda =>
-          palabrasNombre.some(palabraNombre =>
-            palabraNombre.startsWith(palabraBusqueda) || palabraNombre.includes(palabraBusqueda)
-          )
+        return palabras.some(pb =>
+          palabrasNombre.some(pn => pn.startsWith(pb) || pn.includes(pb))
         );
       }).slice(0, 8);
+
+      // Mostrar/ocultar hint de consumidor final
+      if (cfHint) {
+        const esClienteConocido = (Estado.clientes || []).some(c =>
+          normalizarTexto(c.nombre) === terminoNorm
+        );
+        cfHint.style.display = (!esClienteConocido && termino.length >= 2) ? 'block' : 'none';
+      }
 
       if (matches.length === 0) {
         contenedor.style.display = 'none';
@@ -4407,9 +4811,12 @@
           const nombre = this.dataset.nombre;
           const input = document.getElementById('transfCliente');
           const sugerenciasDiv = document.getElementById('transfClienteSugerencias');
-
-          if (input) input.value = nombre;
+          if (input) {
+            input.value = nombre;
+            input.dispatchEvent(new Event('input'));
+          }
           if (sugerenciasDiv) sugerenciasDiv.style.display = 'none';
+          if (cfHint) cfHint.style.display = 'none';
 
           setTimeout(() => {
             const montoInput = document.getElementById('transfMonto');
@@ -4419,6 +4826,20 @@
       });
 
       contenedor.style.display = 'block';
+    }
+
+    // Seleccionar consumidor final rápido en modal de transferencia
+    function seleccionarConsumidorFinal() {
+      const input = document.getElementById('transfCliente');
+      const sugerenciasDiv = document.getElementById('transfClienteSugerencias');
+      const cfHint = document.getElementById('transfCfHint');
+      if (input) input.value = 'CONSUMIDOR FINAL';
+      if (sugerenciasDiv) sugerenciasDiv.style.display = 'none';
+      if (cfHint) cfHint.style.display = 'none';
+      setTimeout(() => {
+        const montoInput = document.getElementById('transfMonto');
+        if (montoInput) montoInput.focus();
+      }, 100);
     }
 
     // ============================================================================
@@ -5007,11 +5428,29 @@
       }
 
       document.getElementById('resumenArqueoDetalle').innerHTML = html;
-      document.getElementById('resumenArqueoFecha').textContent = formatearFecha(obtenerFechaLocal());
-      // Usar valor absoluto porque el estado (SOBRÓ/FALTÓ/EXACTO) ya indica el signo
-      document.getElementById('resumenArqueoNeto').textContent = formatearMonto(Math.abs(neto)); // Absolute value - sign shown by estado
+      document.getElementById('resumenArqueoFecha').textContent = 'Fecha: ' + formatearFecha(obtenerFechaLocal());
+
+      // Calcular cobranzas y fiados del día actual
+      const hoyStr = obtenerFechaLocal();
+      let totalCobranzasHoy = 0;
+      let totalFiadosHoy = 0;
+      (Estado.movimientos || []).forEach(m => {
+        if (m.fecha && m.fecha.startsWith(hoyStr)) {
+          if (m.tipo === 'HABER') totalCobranzasHoy += Number(m.monto) || 0;
+          else totalFiadosHoy += Number(m.monto) || 0;
+        }
+      });
+      const cobranzasEl = document.getElementById('resumenCobranzas');
+      const fiadosEl = document.getElementById('resumenFiados');
+      const movsDiaEl = document.getElementById('resumenArqueoMovsDia');
+      if (cobranzasEl) cobranzasEl.textContent = formatearMonto(totalCobranzasHoy);
+      if (fiadosEl) fiadosEl.textContent = formatearMonto(totalFiadosHoy);
+      if (movsDiaEl) movsDiaEl.style.display = (totalCobranzasHoy > 0 || totalFiadosHoy > 0) ? 'block' : 'none';
+
+      // Resultado final
+      document.getElementById('resumenArqueoNeto').textContent = formatearMonto(Math.abs(neto));
       document.getElementById('resumenArqueoNeto').style.color = estadoColor;
-      document.getElementById('resumenArqueoEstado').textContent = estadoTexto; // Display status indicator
+      document.getElementById('resumenArqueoEstado').textContent = estadoTexto;
       document.getElementById('resumenArqueoEstado').style.color = estadoColor;
 
       // Mostrar el resumen de impresión
@@ -5023,7 +5462,7 @@
       // Ocultar después de imprimir
       setTimeout(() => {
         document.getElementById('resumenArqueoImpresion').style.display = 'none';
-      }, 1000);
+      }, 1200);
     }
 
     function guardarArqueo() {
@@ -5759,26 +6198,55 @@
      * @param {number} margin - Márgenes de página en cm (0.3-3)
      * @param {boolean} fitToWidth - Si es true, ajusta el contenido al ancho de la página
      */
-    function aplicarConfiguracionImpresion(fontSizeSaldos, fontSizeHeader, orientation, scale, margin, fitToWidth) {
-      // Valores por defecto si no se proporcionan o son nulos
+    function aplicarConfiguracionImpresion(fontSizeSaldos, fontSizeHeader, orientation, scale, margin, fitToWidth, pageMode, showLogo, showCompany, footer, pageBreak) {
+      // Valores por defecto
       if (fontSizeSaldos == null) fontSizeSaldos = 10;
       if (fontSizeHeader == null) fontSizeHeader = 14;
       if (orientation == null) orientation = 'portrait';
       if (scale == null) scale = 100;
       if (margin == null) margin = 0.8;
       if (fitToWidth == null) fitToWidth = false;
-      
-      // Pre-calcular valores para mejor rendimiento
+      if (pageMode == null) pageMode = 'auto';
+      if (showLogo == null) showLogo = true;
+      if (showCompany == null) showCompany = true;
+      if (footer == null) footer = '';
+      if (pageBreak == null) pageBreak = false;
+
       const scaleValue = scale / 100;
       const widthConstraintCss = fitToWidth ? 'width: fit-content; max-width: 100%;' : '';
-      
-      // Eliminar estilo anterior si existe
-      let style = document.getElementById('dynamic-print-style');
-      if (style) {
-        style.remove();
+
+      // Control de página única vs múltiples páginas
+      let pageModeCss = '';
+      if (pageMode === 'single') {
+        pageModeCss = `
+          .module-view.active {
+            max-height: 100vh !important;
+            overflow: hidden !important;
+          }
+        `;
+      } else if (pageMode === 'multi') {
+        pageModeCss = `
+          .module-view.active {
+            max-height: none !important;
+            overflow: visible !important;
+          }
+        `;
       }
-      
-      // Crear nuevo estilo
+
+      // Control de salto de página entre secciones
+      const pageBreakCss = pageBreak
+        ? '.card { page-break-after: always !important; }'
+        : '';
+
+      // Control de logo e imagen
+      const logoCss = !showLogo
+        ? '.print-logo, #resumenArqueoImpresion img { display: none !important; }'
+        : '';
+
+      // Eliminar estilo anterior
+      let style = document.getElementById('dynamic-print-style');
+      if (style) style.remove();
+
       style = document.createElement('style');
       style.id = 'dynamic-print-style';
       style.textContent = `
@@ -5787,29 +6255,37 @@
             size: A4 ${orientation};
             margin: ${margin}cm;
           }
-          
+
           .module-view.active {
-            /* Scale es un porcentaje (ej: 100 = 100%) convertido a decimal */
             transform: scale(${scaleValue});
             transform-origin: top left;
-            /* Restricciones de ancho para evitar desbordamiento horizontal */
             ${widthConstraintCss}
           }
-          
+
           #module-impresion-saldos .table th,
           #module-impresion-saldos .table td,
           #module-hoja-ruta .table th,
           #module-hoja-ruta .table td {
             font-size: ${fontSizeSaldos}pt !important;
           }
-          
+
           #module-impresion-saldos h3,
           #module-hoja-ruta h3 {
             font-size: ${fontSizeHeader}pt !important;
           }
+
+          ${pageModeCss}
+          ${pageBreakCss}
+          ${logoCss}
         }
       `;
       document.head.appendChild(style);
+
+      // Actualizar texto del pie en el resumen de arqueo
+      const sistemaEl = document.getElementById('resumenArqueoSistema');
+      if (sistemaEl && footer) {
+        sistemaEl.textContent = footer;
+      }
     }
 
     function guardarApiKeyConfig() {
@@ -6071,33 +6547,85 @@
       cargarDatosFacturacion();
     }
 
-    // Renderizar tabla de transferencias
+    // Estado de ordenamiento para transferencias
+    const TransfSort = { campo: 'fecha', dir: 'desc' };
+
+    // Ordenar y renderizar transferencias
+    function ordenarTransferencias(campo, dir) {
+      TransfSort.campo = campo;
+      TransfSort.dir = dir;
+
+      // Actualizar botones activos
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      const btnId = 'sortTransf' + campo.charAt(0).toUpperCase() + campo.slice(1) + (dir === 'desc' ? 'Desc' : dir === 'asc' ? 'Asc' : 'Pendientes');
+      const btn = document.getElementById(btnId);
+      if (btn) btn.classList.add('active');
+
+      renderTransferencias();
+    }
+
+    // Renderizar tabla de transferencias con ordenamiento
     function renderTransferencias() {
       const tbody = document.getElementById('tbodyTransferencias');
       if (!tbody) return;
 
-      if (EstadoFacturacion.transferencias.length === 0) {
+      if (!EstadoFacturacion.transferencias || EstadoFacturacion.transferencias.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay transferencias</td></tr>';
         return;
       }
 
-      tbody.innerHTML = EstadoFacturacion.transferencias.map(t => `
+      // Obtener conjunto de nombres de clientes para detectar consumidor final
+      const nombresClientes = new Set((Estado.clientes || []).map(c => normalizarTexto(c.nombre)));
+
+      // Clonar y ordenar
+      let lista = [...EstadoFacturacion.transferencias];
+      const { campo, dir } = TransfSort;
+
+      lista.sort((a, b) => {
+        let va, vb;
+        if (campo === 'fecha') {
+          va = a.fecha || '';
+          vb = b.fecha || '';
+          return dir === 'desc' ? vb.localeCompare(va) : va.localeCompare(vb);
+        } else if (campo === 'cliente') {
+          va = (a.cliente || '').toLowerCase();
+          vb = (b.cliente || '').toLowerCase();
+          return dir === 'desc' ? vb.localeCompare(va) : va.localeCompare(vb);
+        } else if (campo === 'monto') {
+          va = Number(a.monto) || 0;
+          vb = Number(b.monto) || 0;
+          return dir === 'desc' ? vb - va : va - vb;
+        } else if (campo === 'estado') {
+          // Pendientes primero
+          const pa = a.facturada ? 1 : 0;
+          const pb = b.facturada ? 1 : 0;
+          if (pa !== pb) return pa - pb;
+          return (b.fecha || '').localeCompare(a.fecha || '');
+        }
+        return 0;
+      });
+
+      tbody.innerHTML = lista.map(t => {
+        const esClienteConocido = nombresClientes.has(normalizarTexto(t.cliente || ''));
+        const esCF = !esClienteConocido || (t.cliente || '').toUpperCase().includes('CONSUMIDOR FINAL');
+        const cfBadge = esCF ? '<span class="cf-badge">CF</span>' : '';
+        return `
         <tr>
           <td data-label="Fecha">${formatearFecha(t.fecha)}</td>
-          <td data-label="Cliente"><strong>${escapeHtml(t.cliente)}</strong></td>
+          <td data-label="Cliente"><strong>${escapeHtml(t.cliente)}</strong>${cfBadge}</td>
           <td data-label="Monto" style="font-weight: bold;">${formatearMonto(t.monto)}</td>
           <td data-label="Banco">${escapeHtml(t.banco) || '-'}</td>
-          <td data-label="Tipo"><span class="tag ${t.tipoFactura === 'A' ? 'tag-haber' : 'tag-debe'}">${escapeHtml(t.tipoFactura)}</span></td>
-          <td data-label="Estado">${t.facturada ? '<span style="color: var(--sv-exito);">✓ Facturada</span>' : '<span style="color: var(--sv-advertencia);">Pendiente</span>'}</td>
+          <td data-label="Tipo"><span class="tag ${t.tipoFactura === 'A' ? 'tag-haber' : 'tag-debe'}">${escapeHtml(t.tipoFactura || '-')}</span></td>
+          <td data-label="Estado">${t.facturada ? '<span style="color: var(--sv-exito);">✓ Facturada</span>' : '<span style="color: var(--sv-advertencia);">⏳ Pendiente</span>'}</td>
           <td data-label="Acciones">
             <div class="btn-group">
               ${!t.facturada ? `<button class="btn btn-outline btn-sm" onclick="editarTransferencia(${t.id})">✏️</button>` : ''}
-              ${!t.facturada ? `<button class="btn btn-outline btn-sm" onclick="marcarFacturada(${t.id})">✓</button>` : ''}
-              <button class="btn btn-outline btn-sm" onclick="eliminarTransferencia(${t.id})" style="color: var(--sv-peligro);">🗑️</button>
+              ${!t.facturada ? `<button class="btn btn-outline btn-sm" onclick="marcarFacturada(${t.id})" title="Marcar como facturada">✓</button>` : ''}
+              <button class="btn btn-outline btn-sm" onclick="eliminarTransferencia(${t.id})" style="color: var(--sv-peligro);" title="Eliminar">🗑️</button>
             </div>
           </td>
-        </tr>
-      `).join('');
+        </tr>`;
+      }).join('');
     }
 
     // Renderizar tabla de productos
@@ -6202,19 +6730,28 @@
       }
     }
 
-    // Guardar transferencia (nueva o edición)
+    // Guardar transferencia (nueva o edición) - permite nombres libres como consumidor final
     function guardarTransferencia(e) {
       e.preventDefault();
+      const clienteRaw = document.getElementById('transfCliente').value.trim();
+      // Si no hay nombre, usar "CONSUMIDOR FINAL"
+      const clienteNombre = clienteRaw || 'CONSUMIDOR FINAL';
+
       const datos = {
         fecha: document.getElementById('transfFecha').value,
-        cliente: document.getElementById('transfCliente').value.trim(),
+        cliente: clienteNombre,
         monto: parseFloat(document.getElementById('transfMonto').value) || 0,
         banco: document.getElementById('transfBanco').value.trim(),
         obs: document.getElementById('transfObs').value.trim()
       };
 
-      if (!datos.cliente || datos.monto <= 0) {
-        mostrarToast('Complete los campos obligatorios', 'error');
+      if (datos.monto <= 0) {
+        mostrarToast('El monto debe ser mayor a 0', 'error');
+        return;
+      }
+
+      if (!datos.fecha) {
+        mostrarToast('Ingresa una fecha', 'error');
         return;
       }
 
@@ -7688,15 +8225,31 @@
             document.getElementById('inputPrintScale').value = config.printScale || '';
             document.getElementById('inputPrintMargin').value = config.printMargin || '';
             document.getElementById('inputPrintFitToWidth').checked = config.printFitToWidth || false;
-            
+            // Nuevas opciones de impresión
+            const pgMode = document.getElementById('inputPrintPageMode');
+            if (pgMode) pgMode.value = config.printPageMode || 'auto';
+            const showLogo = document.getElementById('inputPrintShowLogo');
+            if (showLogo) showLogo.checked = config.printShowLogo !== false;
+            const showCompany = document.getElementById('inputPrintShowCompany');
+            if (showCompany) showCompany.checked = config.printShowCompany !== false;
+            const footerEl = document.getElementById('inputPrintFooter');
+            if (footerEl) footerEl.value = config.printFooter || '';
+            const pageBreak = document.getElementById('inputPrintPageBreak');
+            if (pageBreak) pageBreak.checked = config.printPageBreak || false;
+
             // Aplicar configuración de impresión
             aplicarConfiguracionImpresion(
-              config.printFontSizeSaldos, 
+              config.printFontSizeSaldos,
               config.printFontSizeHeader,
               config.printOrientation,
               config.printScale,
               config.printMargin,
-              config.printFitToWidth
+              config.printFitToWidth,
+              config.printPageMode,
+              config.printShowLogo,
+              config.printShowCompany,
+              config.printFooter,
+              config.printPageBreak
             );
             
             // Inquilinos
@@ -7741,7 +8294,12 @@
         printOrientation: document.getElementById('inputPrintOrientation').value || 'portrait',
         printScale: parseInt(document.getElementById('inputPrintScale').value) || 100,
         printMargin: parseFloat(document.getElementById('inputPrintMargin').value) || 0.8,
-        printFitToWidth: document.getElementById('inputPrintFitToWidth').checked || false
+        printFitToWidth: document.getElementById('inputPrintFitToWidth').checked || false,
+        printPageMode: (document.getElementById('inputPrintPageMode') || {}).value || 'auto',
+        printShowLogo: document.getElementById('inputPrintShowLogo') ? document.getElementById('inputPrintShowLogo').checked : true,
+        printShowCompany: document.getElementById('inputPrintShowCompany') ? document.getElementById('inputPrintShowCompany').checked : true,
+        printFooter: (document.getElementById('inputPrintFooter') || {}).value || '',
+        printPageBreak: document.getElementById('inputPrintPageBreak') ? document.getElementById('inputPrintPageBreak').checked : false
       };
 
       const estado = document.getElementById('estadoConfigGeneral');
@@ -7765,15 +8323,19 @@
             
             // Aplicar configuración de impresión
             aplicarConfiguracionImpresion(
-              config.printFontSizeSaldos, 
+              config.printFontSizeSaldos,
               config.printFontSizeHeader,
               config.printOrientation,
               config.printScale,
               config.printMargin,
-              config.printFitToWidth
+              config.printFitToWidth,
+              config.printPageMode,
+              config.printShowLogo,
+              config.printShowCompany,
+              config.printFooter,
+              config.printPageBreak
             );
-            
-            // Recargar datos si es necesario
+
             setTimeout(function() {
               estado.innerHTML = '';
             }, 3000);

@@ -169,12 +169,17 @@ const CONFIG = {
 
   // Configuracion de impresion
   PRINT: {
-    FONT_SIZE_SALDOS: 10, // Tamaño de fuente en pt para impresión de saldos
-    FONT_SIZE_HEADER: 14,  // Tamaño de fuente en pt para encabezados de impresión
+    FONT_SIZE_SALDOS: 10,   // Tamaño de fuente en pt para impresión de saldos
+    FONT_SIZE_HEADER: 14,   // Tamaño de fuente en pt para encabezados de impresión
     ORIENTATION: 'portrait', // Orientación de página (portrait/landscape)
-    SCALE: 100, // Escala de impresión (%)
-    MARGIN: 0.8, // Márgenes de página (cm)
-    FIT_TO_WIDTH: false // Ajustar al ancho de página
+    SCALE: 100,             // Escala de impresión (%)
+    MARGIN: 0.8,            // Márgenes de página (cm)
+    FIT_TO_WIDTH: false,    // Ajustar al ancho de página
+    PAGE_MODE: 'auto',      // auto | single | multi
+    SHOW_LOGO: true,        // Mostrar logo en impresiones
+    SHOW_COMPANY: true,     // Mostrar nombre de empresa
+    FOOTER: '',             // Texto de pie de página personalizado
+    PAGE_BREAK: false       // Forzar salto de página entre secciones
   },
 
   /**
@@ -266,7 +271,12 @@ const CONFIG = {
       ORIENTATION: this.get('PRINT_ORIENTATION', this.PRINT.ORIENTATION),
       SCALE: parseInt(this.get('PRINT_SCALE', this.PRINT.SCALE)),
       MARGIN: parseFloat(this.get('PRINT_MARGIN', this.PRINT.MARGIN)),
-      FIT_TO_WIDTH: this.get('PRINT_FIT_TO_WIDTH', this.PRINT.FIT_TO_WIDTH.toString()) === 'true'
+      FIT_TO_WIDTH: this.get('PRINT_FIT_TO_WIDTH', this.PRINT.FIT_TO_WIDTH.toString()) === 'true',
+      PAGE_MODE: this.get('PRINT_PAGE_MODE', this.PRINT.PAGE_MODE),
+      SHOW_LOGO: this.get('PRINT_SHOW_LOGO', this.PRINT.SHOW_LOGO.toString()) !== 'false',
+      SHOW_COMPANY: this.get('PRINT_SHOW_COMPANY', this.PRINT.SHOW_COMPANY.toString()) !== 'false',
+      FOOTER: this.get('PRINT_FOOTER', this.PRINT.FOOTER),
+      PAGE_BREAK: this.get('PRINT_PAGE_BREAK', this.PRINT.PAGE_BREAK.toString()) === 'true'
     };
   }
 };
