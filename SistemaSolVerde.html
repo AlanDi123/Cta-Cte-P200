@@ -2110,27 +2110,6 @@
             </table>
           </div>
 
-          <!-- Linea de cobranzas y fiados del dia -->
-          <div id="resumenArqueoMovsDia" style="margin-bottom: 1rem; padding: 0.6rem 0.8rem; background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt;">
-              <tr style="background: #e8f4f8;">
-                <td colspan="3" style="padding: 5px 8px; font-weight: bold; font-size: 10pt; color: #1565C0; border-bottom: 2px solid #1565C0;">
-                  📋 MOVIMIENTOS DEL DÍA
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 4px 8px 4px 16px; font-size: 9pt;">Cobrado del día (pagos de clientes)</td>
-                <td></td>
-                <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #2E7D32;" id="resumenCobranzas">$0</td>
-              </tr>
-              <tr>
-                <td style="padding: 4px 8px 4px 16px; font-size: 9pt;">Fiado del día (crédito otorgado)</td>
-                <td></td>
-                <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #C62828;" id="resumenFiados">$0</td>
-              </tr>
-            </table>
-          </div>
-
           <!-- Resultado final -->
           <div style="border: 3px solid #2E7D32; border-radius: 8px; overflow: hidden; margin-bottom: 1rem;">
             <div style="background: #2E7D32; color: white; padding: 0.5rem 0.8rem; font-size: 10pt; font-weight: bold; text-align: center; letter-spacing: 0.5px;">
@@ -5430,23 +5409,6 @@
       document.getElementById('resumenArqueoDetalle').innerHTML = html;
       document.getElementById('resumenArqueoFecha').textContent = 'Fecha: ' + formatearFecha(obtenerFechaLocal());
 
-      // Calcular cobranzas y fiados del día actual
-      const hoyStr = obtenerFechaLocal();
-      let totalCobranzasHoy = 0;
-      let totalFiadosHoy = 0;
-      (Estado.movimientos || []).forEach(m => {
-        if (m.fecha && m.fecha.startsWith(hoyStr)) {
-          if (m.tipo === 'HABER') totalCobranzasHoy += Number(m.monto) || 0;
-          else totalFiadosHoy += Number(m.monto) || 0;
-        }
-      });
-      const cobranzasEl = document.getElementById('resumenCobranzas');
-      const fiadosEl = document.getElementById('resumenFiados');
-      const movsDiaEl = document.getElementById('resumenArqueoMovsDia');
-      if (cobranzasEl) cobranzasEl.textContent = formatearMonto(totalCobranzasHoy);
-      if (fiadosEl) fiadosEl.textContent = formatearMonto(totalFiadosHoy);
-      if (movsDiaEl) movsDiaEl.style.display = (totalCobranzasHoy > 0 || totalFiadosHoy > 0) ? 'block' : 'none';
-
       // Resultado final
       document.getElementById('resumenArqueoNeto').textContent = formatearMonto(Math.abs(neto));
       document.getElementById('resumenArqueoNeto').style.color = estadoColor;
@@ -5492,25 +5454,11 @@
         }
       });
 
-      // Calcular totales de cobranzas y fiados del dia
-      const hoy = obtenerFechaLocal();
-      let totalCobranzas = 0;
-      let totalFiados = 0;
-
-      Estado.movimientos.forEach(m => {
-        if (m.fecha && m.fecha.startsWith(hoy)) {
-          if (m.tipo === 'HABER') totalCobranzas += m.monto;
-          else totalFiados += m.monto;
-        }
-      });
-
       const datos = {
         arqueo: Estado.arqueo,
         proveedores: proveedores,
         gastos: gastos,
-        ingresos: ingresos,
-        totalCobranzas: totalCobranzas,
-        totalFiados: totalFiados
+        ingresos: ingresos
       };
 
       mostrarLoading(true);
