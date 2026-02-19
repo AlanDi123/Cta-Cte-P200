@@ -1661,6 +1661,118 @@
       margin-bottom: 1rem;
       opacity: 0.5;
     }
+    /* ======================================================
+     * CONTABILIDAD - CAJA DIARIA
+     * ====================================================== */
+
+    /* Tab strip */
+    .contab-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid var(--sv-borde);
+      margin-bottom: 1rem;
+    }
+    .contab-tab {
+      padding: 0.65rem 1.25rem;
+      border: none;
+      border-bottom: 3px solid transparent;
+      background: none;
+      color: var(--sv-texto-secundario);
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color var(--sv-transition), border-color var(--sv-transition);
+      margin-bottom: -2px;
+    }
+    .contab-tab:hover { color: var(--sv-primario); }
+    .contab-tab.active {
+      color: var(--sv-primario);
+      border-bottom-color: var(--sv-primario);
+      font-weight: 600;
+    }
+
+    /* Panels */
+    .contab-panel { display: none; }
+    .contab-panel.active { display: block; }
+
+    /* Estado badge */
+    .caja-estado-badge {
+      display: inline-block;
+      padding: 0.2rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .caja-estado-badge.abierta {
+      background: #E8F5E9;
+      color: #2E7D32;
+    }
+    .caja-estado-badge.cerrada {
+      background: #FFEBEE;
+      color: #C62828;
+    }
+
+    /* Read-only auto movements row */
+    .mov-auto-row td { color: var(--sv-texto-secundario); font-style: italic; }
+    .mov-auto-row td:last-child { font-weight: 600; }
+
+    /* Resumen grid */
+    .contab-resumen-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.35rem 1rem;
+      align-items: center;
+    }
+    .contab-resumen-grid .label {
+      font-size: 0.875rem;
+      color: var(--sv-texto-secundario);
+    }
+    .contab-resumen-grid .valor {
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-align: right;
+    }
+    .contab-resumen-grid .divisor {
+      grid-column: 1 / -1;
+      border-bottom: 1px solid var(--sv-borde);
+      margin: 0.2rem 0;
+    }
+    .contab-resumen-grid .total-row .label {
+      font-weight: 700;
+      color: var(--sv-texto);
+      font-size: 0.95rem;
+    }
+    .contab-resumen-grid .total-row .valor {
+      font-size: 1.05rem;
+    }
+
+    /* Diferencia alert */
+    .contab-dif-ok {
+      padding: 0.5rem 0.75rem;
+      background: #E8F5E9;
+      color: #2E7D32;
+      border-radius: var(--sv-radius);
+      font-size: 0.875rem;
+      border-left: 3px solid #2E7D32;
+    }
+    .contab-dif-mal {
+      padding: 0.5rem 0.75rem;
+      background: #FFEBEE;
+      color: #C62828;
+      border-radius: var(--sv-radius);
+      font-size: 0.875rem;
+      border-left: 3px solid #C62828;
+    }
+
+    /* Print: show only #contabPrintArea, hide everything else */
+    @media print {
+      #contabPrintArea { display: block !important; }
+      .contab-copy-block { page-break-after: always; }
+      .contab-copy-block:last-child { page-break-after: avoid; }
+    }
+
   </style>
 </head>
 <body>
@@ -1737,6 +1849,10 @@
         <div class="menu-item" data-module="historial-caja">
           <span class="menu-icon">📚</span>
           <span>Historial Caja</span>
+        </div>
+        <div class="menu-item" data-module="contabilidad">
+          <span class="menu-icon">📒</span>
+          <span>Caja Diaria</span>
         </div>
       </div>
 
@@ -3206,7 +3322,287 @@
         </div>
       </div>
 
+      <!-- ================================================================== -->
+      <!-- MÓDULO: CONTABILIDAD - CAJA DIARIA                                  -->
+      <!-- ================================================================== -->
+      <div class="module-view" id="module-contabilidad">
+
+        <!-- Cabecera del módulo -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.25rem;" class="no-print">
+          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <h2 style="margin:0;">📒 Caja Diaria</h2>
+            <span class="caja-estado-badge" id="contabEstadoBadge" style="display:none;"></span>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary" id="btnAbrirCaja" onclick="abrirModalNuevaCaja()">+ Nueva Caja</button>
+          </div>
+        </div>
+
+        <!-- Barra de pestañas -->
+        <div class="contab-tabs no-print">
+          <button class="contab-tab active" onclick="contabCambiarTab('caja')" id="contabTabCaja">Caja Actual</button>
+          <button class="contab-tab" onclick="contabCambiarTab('historial')" id="contabTabHistorial">Historial</button>
+        </div>
+
+        <!-- ── Panel: Caja Actual ── -->
+        <div class="contab-panel active" id="contabPanelCaja">
+
+          <!-- Placeholder cuando no hay caja abierta -->
+          <div id="contabSinCaja" class="card" style="text-align:center; padding:2.5rem 1rem;">
+            <div style="font-size:3rem; margin-bottom:0.75rem;">💼</div>
+            <div style="font-size:1.1rem; font-weight:600; color:var(--sv-texto-secundario); margin-bottom:0.5rem;">No hay una caja abierta</div>
+            <p style="color:var(--sv-texto-muted); margin-bottom:1.25rem;">
+              Abrí una nueva caja para registrar los movimientos del día.
+            </p>
+            <button class="btn btn-primary" onclick="abrirModalNuevaCaja()">+ Abrir Caja</button>
+          </div>
+
+          <!-- Contenido de la caja activa -->
+          <div id="contabCajaContent" style="display:none;">
+
+            <!-- Tarjeta de estado -->
+            <div class="card" id="contabCardEstado">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:0.75rem;">
+                <div>
+                  <div style="font-size:0.75rem; text-transform:uppercase; color:var(--sv-texto-muted); font-weight:600; margin-bottom:0.25rem;">Caja del</div>
+                  <div style="font-size:1.4rem; font-weight:700; color:var(--sv-texto);" id="contabFechaDisplay">—</div>
+                  <div style="margin-top:0.5rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                    <span style="font-size:0.875rem; color:var(--sv-texto-secundario);">Caja inicial:</span>
+                    <span style="font-size:1rem; font-weight:600;" id="contabCajaInicialDisplay">$0</span>
+                    <button class="btn btn-outline btn-sm" id="btnEditarCajaInicial" onclick="contabEditarCajaInicial()" style="display:none; padding:0.2rem 0.6rem; min-height:auto; font-size:0.78rem;">✏️ Editar</button>
+                  </div>
+                  <div id="contabRazonReapertura" style="display:none; margin-top:0.4rem; font-size:0.82rem; color:var(--sv-advertencia);">
+                    ⚠️ Reabierta: <em id="contabRazonReaperturaText"></em>
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  <span class="caja-estado-badge" id="contabCardEstadoBadge"></span>
+                  <div style="margin-top:0.5rem; display:flex; gap:0.5rem; justify-content:flex-end; flex-wrap:wrap;" id="contabAccionesEstado">
+                    <!-- Acciones dinámicas: cerrar / reimprimir / reabrir -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Movimientos Automáticos (solo lectura) -->
+            <div class="card">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                <div class="card-title" style="margin:0;">Movimientos Automáticos</div>
+                <span style="font-size:0.75rem; color:var(--sv-texto-muted);">Solo lectura · Calculados en tiempo real</span>
+              </div>
+              <div class="table-container">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Concepto</th>
+                      <th>Tipo</th>
+                      <th style="text-align:right;">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="contabAutoTbody">
+                    <tr><td colspan="3" style="text-align:center; color:var(--sv-texto-muted);">Sin movimientos automáticos</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Movimientos Manuales -->
+            <div class="card">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                <div class="card-title" style="margin:0;">Movimientos Manuales</div>
+                <button class="btn btn-outline btn-sm" id="btnAgregarMovManual" onclick="abrirModalMovManual()">+ Agregar</button>
+              </div>
+              <div class="table-container">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Descripción</th>
+                      <th>Tipo</th>
+                      <th style="text-align:right;">Monto</th>
+                      <th class="no-print">Acc.</th>
+                    </tr>
+                  </thead>
+                  <tbody id="contabManualTbody">
+                    <tr><td colspan="4" style="text-align:center; color:var(--sv-texto-muted);">Sin movimientos manuales</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Resumen financiero + formulario de cierre -->
+            <div class="card" id="contabCardResumen">
+              <div class="card-title">Resumen del Día</div>
+              <div class="contab-resumen-grid" id="contabResumenGrid">
+                <!-- Populated by renderResumenCaja() -->
+              </div>
+              <!-- Formulario de cierre (solo si ABIERTA) -->
+              <div id="contabFormCierre" style="margin-top:1.25rem; border-top:2px solid var(--sv-borde); padding-top:1rem;">
+                <div style="font-size:0.875rem; font-weight:600; color:var(--sv-primario); margin-bottom:0.75rem;">Cerrar Caja</div>
+                <div class="form-group">
+                  <label class="form-label">Caja Final (conteo físico de efectivo) *</label>
+                  <input type="number" class="form-input" id="contabCajaFinalInput" step="0.01" min="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Caja del día siguiente (opcional)</label>
+                  <input type="number" class="form-input" id="contabCajaSiguienteInput" step="0.01" min="0" placeholder="Dejá en 0 si no querés fijar el inicio de mañana">
+                </div>
+                <div id="contabDiferenciaAlert" style="display:none; margin-bottom:0.75rem;"></div>
+                <div class="form-group" id="contabRazonDiferenciaGroup" style="display:none;">
+                  <label class="form-label">Razón de la diferencia *</label>
+                  <textarea class="form-textarea" id="contabRazonDiferenciaInput" rows="2" placeholder="Explicá el motivo de la diferencia entre el conteo físico y el calculado..."></textarea>
+                </div>
+                <button class="btn btn-primary" id="btnCerrarCaja" onclick="contabSubmitCerrarCaja()" style="width:100%;">🔒 Cerrar Caja</button>
+              </div>
+            </div>
+
+          </div><!-- /contabCajaContent -->
+        </div><!-- /contabPanelCaja -->
+
+        <!-- ── Panel: Historial ── -->
+        <div class="contab-panel" id="contabPanelHistorial">
+
+          <!-- Filtros -->
+          <div class="card no-print">
+            <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
+              <div class="form-group" style="flex:1; min-width:140px; margin-bottom:0;">
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-input" id="contabHistDesde">
+              </div>
+              <div class="form-group" style="flex:1; min-width:140px; margin-bottom:0;">
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-input" id="contabHistHasta">
+              </div>
+              <button class="btn btn-outline" onclick="contabFiltrarHistorial()">🔍 Filtrar</button>
+              <button class="btn btn-outline" onclick="contabFiltrarHistorial(true)">🔄 Ver Todo</button>
+            </div>
+          </div>
+
+          <!-- Tabla del historial -->
+          <div class="card">
+            <div class="card-title">Historial de Cajas</div>
+            <div class="table-container">
+              <table class="table table-responsive-cards">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th style="text-align:right;">C. Inicial</th>
+                    <th style="text-align:right;">C. Final</th>
+                    <th style="text-align:right;">Diferencia</th>
+                    <th class="no-print">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="contabHistorialTbody">
+                  <tr><td colspan="6" style="text-align:center; color:var(--sv-texto-muted);">Cargando historial...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div><!-- /contabPanelHistorial -->
+
+        <!-- ── Área de impresión (solo visible al imprimir) ── -->
+        <div id="contabPrintArea" class="print-only" style="display:none;"></div>
+
+      </div><!-- /module-contabilidad -->
+
     </main>
+  </div>
+
+  <!-- ── Modales del módulo Contabilidad ── -->
+
+  <!-- Modal: Abrir nueva caja -->
+  <div class="modal" id="modalAbrirCaja">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header">
+        <div class="modal-title">Abrir Caja Diaria</div>
+        <button class="modal-close" onclick="cerrarModal('modalAbrirCaja')">&times;</button>
+      </div>
+      <form id="formAbrirCaja" onsubmit="contabSubmitAbrirCaja(event)">
+        <div class="form-group">
+          <label class="form-label">Fecha *</label>
+          <input type="date" class="form-input" id="abrirCajaFecha" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Caja Inicial *</label>
+          <input type="number" class="form-input" id="abrirCajaInicial" step="0.01" min="0" value="0" required>
+          <div id="abrirCajaInicialHint" style="display:none; font-size:0.78rem; margin-top:0.3rem; color:var(--sv-info); padding:0.3rem 0.5rem; background:var(--sv-superficie-elevada); border-radius:4px; border-left:3px solid var(--sv-info);">
+            🔒 Valor fijado por el cierre del día anterior.
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Abrir Caja</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Agregar movimiento manual -->
+  <div class="modal" id="modalMovCaja">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header">
+        <div class="modal-title">Movimiento Manual</div>
+        <button class="modal-close" onclick="cerrarModal('modalMovCaja')">&times;</button>
+      </div>
+      <form id="formMovCaja" onsubmit="contabSubmitMovManual(event)">
+        <div class="form-group">
+          <label class="form-label">Tipo *</label>
+          <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="banco-option" id="movCajaHaber" onclick="contabSelTipoMov('HABER')" style="flex:1;">
+              <span style="font-size:1.4rem;">💰</span>
+              <span>Ingreso (HABER)</span>
+            </button>
+            <button type="button" class="banco-option" id="movCajaDebe" onclick="contabSelTipoMov('DEBE')" style="flex:1;">
+              <span style="font-size:1.4rem;">💸</span>
+              <span>Egreso (DEBE)</span>
+            </button>
+          </div>
+          <input type="hidden" id="movCajaTipo" value="">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción *</label>
+          <input type="text" class="form-input" id="movCajaDesc" placeholder="Ej: Retiro para cambio, pago de limpieza...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monto * <small style="color:var(--sv-texto-muted);">(mayor a 0)</small></label>
+          <input type="number" class="form-input" id="movCajaMonto" step="0.01" min="0.01" placeholder="0">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Agregar Movimiento</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Reabrir caja -->
+  <div class="modal" id="modalReabrirCaja">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header">
+        <div class="modal-title">Reabrir Caja</div>
+        <button class="modal-close" onclick="cerrarModal('modalReabrirCaja')">&times;</button>
+      </div>
+      <div class="alert alert-info" style="margin-bottom:1rem;">
+        ⚠️ Estás reabriendo una caja que ya fue cerrada. Esta acción queda registrada.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Motivo de reapertura * <small style="color:var(--sv-texto-muted);">(min. 3 caracteres)</small></label>
+        <textarea class="form-textarea" id="reabrirCajaRazon" rows="3" placeholder="Describí el motivo por el que necesitás reabrir la caja..."></textarea>
+      </div>
+      <input type="hidden" id="reabrirCajaId" value="">
+      <button class="btn btn-secondary" onclick="contabSubmitReabrirCaja()" style="width:100%;">🔓 Confirmar Reapertura</button>
+    </div>
+  </div>
+
+  <!-- Modal: Detalle de caja (historial, solo lectura) -->
+  <div class="modal" id="modalDetalleCaja">
+    <div class="modal-content" style="max-width:600px;">
+      <div class="modal-header">
+        <div class="modal-title">Detalle de Caja</div>
+        <button class="modal-close" onclick="cerrarModal('modalDetalleCaja')">&times;</button>
+      </div>
+      <div id="modalDetalleCajaBody">
+        <div style="text-align:center; padding:2rem; color:var(--sv-texto-muted);">Cargando...</div>
+      </div>
+      <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:flex-end;" class="no-print">
+        <button class="btn btn-outline" onclick="imprimirCajaDiaria(null, 1)">🖨️ Imprimir</button>
+        <button class="btn btn-outline" onclick="cerrarModal('modalDetalleCaja')">Cerrar</button>
+      </div>
+    </div>
   </div>
 
   <!-- Modal Cliente -->
@@ -4430,6 +4826,7 @@
       if (modulo === 'facturacion-arca') inicializarModuloArca();
       if (modulo === 'historial-facturas') cargarHistorialFacturas();
       if (modulo === 'alquileres') cargarModuloAlquileres();
+      if (modulo === 'contabilidad') cargarContabilidad();
       if (modulo === 'configuracion') {
         // Solo cargar datos del emisor sin verificaciones pesadas
         cargarDatosEmisor();
@@ -9454,6 +9851,1047 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
       const inicioAnio = new Date(hoy.getFullYear(), 0, 1);
       const dias = Math.floor((hoy - inicioAnio) / (24 * 60 * 60 * 1000));
       return Math.ceil((dias + inicioAnio.getDay() + 1) / 7);
+    }
+
+    // ============================================================================
+    // CONTABILIDAD - CAJA DIARIA
+    // Arquitectura: Modelos → Estado → Lógica → Vistas → Impresión → Handlers
+    // ============================================================================
+
+    // ── 1. MODELOS (JSDoc, sin peso en runtime) ──────────────────────────────
+
+    /**
+     * @typedef {Object} Automaticos
+     * @property {number} totalPagos          Suma de HABER en movimientos del día
+     * @property {number} totalFiados         Suma de DEBE en movimientos del día
+     * @property {number} totalTransferencias Suma de todas las transferencias del día
+     * @property {Array}  detallePagos
+     * @property {Array}  detalleFiados
+     * @property {Array}  detalleTransferencias
+     */
+
+    /**
+     * @typedef {Object} MovManual
+     * @property {number} id
+     * @property {number} cajaId
+     * @property {string} tipo          'HABER' | 'DEBE'
+     * @property {string} descripcion
+     * @property {number} monto         Siempre > 0
+     */
+
+    /**
+     * @typedef {Object} Resumen
+     * @property {number} cajaInicial
+     * @property {number} totalPagos
+     * @property {number} totalFiados
+     * @property {number} totalTransferencias
+     * @property {number} manualHaber
+     * @property {number} manualDebe
+     * @property {number} totalIngresos
+     * @property {number} totalEgresos
+     * @property {number} cajaCalculada
+     * @property {number} cajaFinal
+     * @property {number} diferencia
+     * @property {boolean} hayDiferencia
+     */
+
+    /**
+     * @typedef {Object} CajaDiaria
+     * @property {number}  id
+     * @property {string}  fecha
+     * @property {number}  cajaInicial
+     * @property {number}  cajaFinal
+     * @property {string}  estado          'ABIERTA' | 'CERRADA'
+     * @property {number}  cajaSiguiente
+     * @property {string}  razonReapertura
+     * @property {string}  razonDiferencia
+     * @property {boolean} cajaInicialEditable
+     * @property {Array<MovManual>} movManuales
+     * @property {Automaticos}     automaticos
+     * @property {Resumen}         resumen
+     */
+
+    // ── 2. ESTADO DEL MÓDULO ─────────────────────────────────────────────────
+
+    /** Estado centralizado del módulo Contabilidad */
+    const EstadoCajaDiaria = {
+      cargado:            false,   // true después del primer load exitoso
+      cajaActual:         null,    // CajaDiaria hidratada | null
+      historial:          [],      // Array<CajaDiaria> (sin detalle)
+      historialFiltrado:  [],      // Subconjunto del historial aplicando filtros
+      tabActiva:          'caja',  // 'caja' | 'historial'
+      cajaDetalleModal:   null,    // Caja cargada en el modal de detalle
+      imprimiendoId:      null     // ID de caja en proceso de impresión
+    };
+
+    // ── 3. LÓGICA DE PRESENTACIÓN (puras, sin I/O) ───────────────────────────
+
+    const CajaDiariaLogica = {
+      /** Clase CSS para el badge de estado */
+      estadoClase: estado => estado === 'ABIERTA' ? 'abierta' : 'cerrada',
+
+      /** Texto del badge */
+      estadoTexto: estado => estado === 'ABIERTA' ? '● Abierta' : '● Cerrada',
+
+      /** Color del monto según tipo de movimiento */
+      colorTipo: tipo => tipo === 'HABER' ? 'var(--sv-exito)' : 'var(--sv-peligro)',
+
+      /** Símbolo según tipo */
+      simboloTipo: tipo => tipo === 'HABER' ? '+' : '−',
+
+      /** Formatea diferencia con signo y color */
+      formatDiferencia: function(diff) {
+        if (Math.abs(diff) < 0.01) {
+          return { texto: '✓ Sin diferencia', clase: 'contab-dif-ok' };
+        }
+        const signo = diff > 0 ? '+' : '';
+        return {
+          texto: `⚠ Diferencia: ${signo}${formatearMonto(diff)}`,
+          clase: 'contab-dif-mal'
+        };
+      }
+    };
+
+    // ── 4. VISTAS (render functions) ─────────────────────────────────────────
+
+    /**
+     * Carga el módulo contabilidad. Lazy: no recarga si ya tiene datos.
+     * @param {boolean} forzar
+     */
+    function cargarContabilidad(forzar = false) {
+      if (EstadoCajaDiaria.cargado && !forzar) {
+        _contabRefrescarUI();
+        return;
+      }
+
+      // Cargar caja activa e historial en paralelo
+      const cont = document.getElementById('module-contabilidad');
+      if (cont) cont.style.opacity = '0.6';
+
+      let activa = null;
+      let historial = [];
+      let pendientes = 2;
+
+      function onDone() {
+        pendientes--;
+        if (pendientes > 0) return;
+        if (cont) cont.style.opacity = '1';
+
+        EstadoCajaDiaria.cajaActual = activa;
+        EstadoCajaDiaria.historial  = historial;
+        EstadoCajaDiaria.historialFiltrado = historial;
+        EstadoCajaDiaria.cargado    = true;
+        _contabRefrescarUI();
+      }
+
+      google.script.run
+        .withSuccessHandler(function(r) {
+          if (r.success) activa = r.caja;
+          else console.warn('obtenerCajaDiariaActiva:', r.error);
+          onDone();
+        })
+        .withFailureHandler(function(err) {
+          mostrarToast('Error al cargar caja activa: ' + err.message, 'error');
+          onDone();
+        })
+        .obtenerCajaDiariaActiva();
+
+      google.script.run
+        .withSuccessHandler(function(r) {
+          if (r.success) historial = r.cajas || [];
+          else console.warn('obtenerHistorialCajaDiaria:', r.error);
+          onDone();
+        })
+        .withFailureHandler(function(err) {
+          mostrarToast('Error al cargar historial: ' + err.message, 'error');
+          onDone();
+        })
+        .obtenerHistorialCajaDiaria(0);
+    }
+
+    /** Actualiza toda la UI a partir del estado en memoria */
+    function _contabRefrescarUI() {
+      const caja = EstadoCajaDiaria.cajaActual;
+      renderCajaActual(caja);
+      renderHistorialCajaDiaria(EstadoCajaDiaria.historialFiltrado);
+    }
+
+    /**
+     * Renderiza el panel "Caja Actual" con la caja provista.
+     * @param {CajaDiaria|null} caja
+     */
+    function renderCajaActual(caja) {
+      const sinCaja   = document.getElementById('contabSinCaja');
+      const conCaja   = document.getElementById('contabCajaContent');
+      const btnAbrir  = document.getElementById('btnAbrirCaja');
+      const badgeHead = document.getElementById('contabEstadoBadge');
+
+      if (!caja) {
+        // Sin caja activa
+        sinCaja.style.display = '';
+        conCaja.style.display = 'none';
+        if (btnAbrir) { btnAbrir.style.display = ''; btnAbrir.textContent = '+ Nueva Caja'; }
+        if (badgeHead) badgeHead.style.display = 'none';
+        // Ocultar formulario de cierre
+        const fc = document.getElementById('contabFormCierre');
+        if (fc) fc.style.display = 'none';
+        return;
+      }
+
+      // Con caja
+      sinCaja.style.display = 'none';
+      conCaja.style.display = '';
+      if (badgeHead) {
+        badgeHead.style.display = '';
+        badgeHead.className = 'caja-estado-badge ' + CajaDiariaLogica.estadoClase(caja.estado);
+        badgeHead.textContent = CajaDiariaLogica.estadoTexto(caja.estado);
+      }
+
+      // Fecha + cajaInicial
+      const fechaEl = document.getElementById('contabFechaDisplay');
+      if (fechaEl) fechaEl.textContent = formatearFecha(caja.fecha);
+
+      const ciEl = document.getElementById('contabCajaInicialDisplay');
+      if (ciEl) ciEl.textContent = formatearMonto(caja.cajaInicial);
+
+      // Botón editar cajaInicial
+      const btnECI = document.getElementById('btnEditarCajaInicial');
+      if (btnECI) btnECI.style.display = (caja.estado === 'ABIERTA' && caja.cajaInicialEditable) ? '' : 'none';
+
+      // Badge de estado en tarjeta
+      const cb = document.getElementById('contabCardEstadoBadge');
+      if (cb) {
+        cb.className = 'caja-estado-badge ' + CajaDiariaLogica.estadoClase(caja.estado);
+        cb.textContent = CajaDiariaLogica.estadoTexto(caja.estado);
+      }
+
+      // Razón reapertura
+      const rrDiv  = document.getElementById('contabRazonReapertura');
+      const rrText = document.getElementById('contabRazonReaperturaText');
+      if (rrDiv && rrText) {
+        const mostrar = caja.estado === 'ABIERTA' && caja.razonReapertura;
+        rrDiv.style.display = mostrar ? '' : 'none';
+        if (mostrar) rrText.textContent = caja.razonReapertura;
+      }
+
+      // Acciones según estado
+      const accsEl = document.getElementById('contabAccionesEstado');
+      if (accsEl) {
+        if (caja.estado === 'ABIERTA') {
+          accsEl.innerHTML =
+            `<button class="btn btn-outline btn-sm" onclick="imprimirCajaDiaria(${caja.id}, 1)">🖨️ Imprimir</button>`;
+          if (btnAbrir) { btnAbrir.style.display = 'none'; }
+        } else {
+          accsEl.innerHTML =
+            `<button class="btn btn-outline btn-sm" onclick="imprimirCajaDiaria(${caja.id}, 1)">🖨️ Reimprimir</button>` +
+            `<button class="btn btn-outline btn-sm" onclick="contabAbrirModalReabrir(${caja.id})" style="color:var(--sv-secundario);">🔓 Reabrir</button>`;
+          if (btnAbrir) { btnAbrir.style.display = ''; btnAbrir.textContent = '+ Nueva Caja'; }
+        }
+      }
+
+      // Movimientos automáticos
+      renderMovimientosAuto(caja.automaticos);
+
+      // Movimientos manuales
+      renderMovimientosManuales(caja.movManuales || [], caja.estado === 'ABIERTA');
+
+      // Resumen + formulario cierre
+      renderResumenCaja(caja);
+    }
+
+    /**
+     * Renderiza la tabla de movimientos automáticos (read-only).
+     * @param {Automaticos} auto
+     */
+    function renderMovimientosAuto(auto) {
+      const tbody = document.getElementById('contabAutoTbody');
+      if (!tbody) return;
+
+      if (!auto || (auto.totalPagos === 0 && auto.totalFiados === 0 && auto.totalTransferencias === 0)) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--sv-texto-muted); font-style:italic;">Sin movimientos automáticos para la fecha</td></tr>';
+        return;
+      }
+
+      let html = '';
+      if (auto.totalPagos > 0) {
+        html += `<tr class="mov-auto-row">
+          <td data-label="Concepto">Cobros del día (${auto.detallePagos.length} pago${auto.detallePagos.length !== 1 ? 's' : ''})</td>
+          <td data-label="Tipo"><span style="color:var(--sv-exito); font-weight:600;">INGRESO</span></td>
+          <td data-label="Monto" style="text-align:right; color:var(--sv-exito);">+${formatearMonto(auto.totalPagos)}</td>
+        </tr>`;
+      }
+      if (auto.totalTransferencias > 0) {
+        html += `<tr class="mov-auto-row">
+          <td data-label="Concepto">Transferencias del día (${auto.detalleTransferencias.length})</td>
+          <td data-label="Tipo"><span style="color:var(--sv-exito); font-weight:600;">INGRESO</span></td>
+          <td data-label="Monto" style="text-align:right; color:var(--sv-exito);">+${formatearMonto(auto.totalTransferencias)}</td>
+        </tr>`;
+      }
+      if (auto.totalFiados > 0) {
+        html += `<tr class="mov-auto-row">
+          <td data-label="Concepto">Fiados del día (${auto.detalleFiados.length})</td>
+          <td data-label="Tipo"><span style="color:var(--sv-peligro); font-weight:600;">EGRESO</span></td>
+          <td data-label="Monto" style="text-align:right; color:var(--sv-peligro);">−${formatearMonto(auto.totalFiados)}</td>
+        </tr>`;
+      }
+      tbody.innerHTML = html;
+    }
+
+    /**
+     * Renderiza la tabla de movimientos manuales.
+     * @param {Array<MovManual>} manuales
+     * @param {boolean} puedeEditar
+     */
+    function renderMovimientosManuales(manuales, puedeEditar) {
+      const tbody = document.getElementById('contabManualTbody');
+      const btnAg = document.getElementById('btnAgregarMovManual');
+      if (!tbody) return;
+
+      if (btnAg) btnAg.style.display = puedeEditar ? '' : 'none';
+
+      if (!manuales || manuales.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--sv-texto-muted); font-style:italic;">Sin movimientos manuales</td></tr>';
+        return;
+      }
+
+      const cajaId = EstadoCajaDiaria.cajaActual ? EstadoCajaDiaria.cajaActual.id : null;
+      tbody.innerHTML = manuales.map(m => `
+        <tr>
+          <td data-label="Descripción">${escapeHtml(m.descripcion)}</td>
+          <td data-label="Tipo">
+            <span style="color:${CajaDiariaLogica.colorTipo(m.tipo)}; font-weight:600;">${m.tipo === 'HABER' ? 'INGRESO' : 'EGRESO'}</span>
+          </td>
+          <td data-label="Monto" style="text-align:right; font-weight:600; color:${CajaDiariaLogica.colorTipo(m.tipo)};">
+            ${CajaDiariaLogica.simboloTipo(m.tipo)}${formatearMonto(m.monto)}
+          </td>
+          <td data-label="Acc." class="no-print">
+            ${puedeEditar
+              ? `<button class="btn btn-outline btn-sm" onclick="contabEliminarMovManual(${m.id},${cajaId})" style="color:var(--sv-peligro); padding:0.25rem 0.5rem; min-height:auto;">✕</button>`
+              : '—'}
+          </td>
+        </tr>`).join('');
+    }
+
+    /**
+     * Renderiza el resumen financiero del día y gestiona el formulario de cierre.
+     * @param {CajaDiaria} caja
+     */
+    function renderResumenCaja(caja) {
+      const grid    = document.getElementById('contabResumenGrid');
+      const fc      = document.getElementById('contabFormCierre');
+      const difAlert= document.getElementById('contabDiferenciaAlert');
+      const razonGrp= document.getElementById('contabRazonDiferenciaGroup');
+      if (!grid) return;
+
+      const r = caja.resumen;
+
+      const fila = (label, valor, color, esTotal) => `
+        <div class="label ${esTotal ? 'total-row' : ''}" style="padding:0.2rem 0;">${label}</div>
+        <div class="valor ${esTotal ? 'total-row' : ''}" style="color:${color}; padding:0.2rem 0;">${valor}</div>`;
+      const divisor = () => '<div class="divisor"></div><div class="divisor"></div>';
+
+      let html = '';
+      html += fila('Caja Inicial', formatearMonto(r.cajaInicial), 'var(--sv-texto)', false);
+      html += divisor();
+      html += fila('+ Cobros del día (cta. cte.)', formatearMonto(r.totalPagos), 'var(--sv-exito)', false);
+      html += fila('+ Transferencias del día', formatearMonto(r.totalTransferencias), 'var(--sv-exito)', false);
+      html += fila('+ Ingresos manuales', formatearMonto(r.manualHaber), 'var(--sv-exito)', false);
+      html += fila('− Fiados del día', formatearMonto(r.totalFiados), 'var(--sv-peligro)', false);
+      html += fila('− Egresos manuales', formatearMonto(r.manualDebe), 'var(--sv-peligro)', false);
+      html += divisor();
+      html += fila('Total ingresos', formatearMonto(r.totalIngresos), 'var(--sv-exito)', false);
+      html += fila('Total egresos', formatearMonto(r.totalEgresos), 'var(--sv-peligro)', false);
+      html += divisor();
+      html += fila('Caja calculada', formatearMonto(r.cajaCalculada), 'var(--sv-primario)', true);
+
+      if (caja.estado === 'CERRADA') {
+        html += fila('Caja final (físico)', formatearMonto(r.cajaFinal), 'var(--sv-texto)', false);
+        const df = CajaDiariaLogica.formatDiferencia(r.diferencia);
+        html += divisor();
+        html += `<div class="${df.clase}" style="grid-column:1/-1; margin-top:0.25rem;">${df.texto}</div>`;
+        if (caja.razonDiferencia) {
+          html += `<div style="grid-column:1/-1; font-size:0.82rem; color:var(--sv-texto-secundario); font-style:italic;">
+            Razón: "${escapeHtml(caja.razonDiferencia)}"
+          </div>`;
+        }
+      }
+
+      grid.innerHTML = html;
+
+      // Mostrar u ocultar formulario de cierre
+      if (fc) fc.style.display = caja.estado === 'ABIERTA' ? '' : 'none';
+      if (difAlert) difAlert.style.display = 'none';
+      if (razonGrp) razonGrp.style.display = 'none';
+    }
+
+    /**
+     * Renderiza la tabla del historial.
+     * @param {Array} cajas
+     */
+    function renderHistorialCajaDiaria(cajas) {
+      const tbody = document.getElementById('contabHistorialTbody');
+      if (!tbody) return;
+
+      if (!cajas || cajas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--sv-texto-muted);">No hay cajas registradas</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = cajas.map(c => {
+        const dif      = (c.cajaFinal || 0) - 0; // diferencia real calculada en backend
+        const estadoCl = CajaDiariaLogica.estadoClase(c.estado);
+        return `<tr>
+          <td data-label="Fecha">${formatearFecha(c.fecha)}</td>
+          <td data-label="Estado"><span class="caja-estado-badge ${estadoCl}">${CajaDiariaLogica.estadoTexto(c.estado)}</span></td>
+          <td data-label="C. Inicial" style="text-align:right;">${formatearMonto(c.cajaInicial)}</td>
+          <td data-label="C. Final" style="text-align:right;">${c.estado === 'CERRADA' ? formatearMonto(c.cajaFinal) : '—'}</td>
+          <td data-label="Diferencia" style="text-align:right; color:${c.razonDiferencia ? 'var(--sv-advertencia)' : 'inherit'};">
+            ${c.razonDiferencia ? '⚠' : ''} ${c.estado === 'CERRADA' ? '—' : ''}
+          </td>
+          <td data-label="Acciones" class="no-print">
+            <div class="btn-group">
+              <button class="btn btn-outline btn-sm" onclick="contabVerDetalle(${c.id})">👁 Ver</button>
+              <button class="btn btn-outline btn-sm" onclick="imprimirCajaDiaria(${c.id}, 1)">🖨️</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    /**
+     * Renderiza el cuerpo del modal de detalle (historial, solo lectura).
+     * @param {CajaDiaria} caja
+     */
+    function renderDetalleModal(caja) {
+      const body = document.getElementById('modalDetalleCajaBody');
+      if (!body) return;
+      EstadoCajaDiaria.cajaDetalleModal = caja;
+
+      const r = caja.resumen;
+      const a = caja.automaticos;
+
+      const estadoCl = CajaDiariaLogica.estadoClase(caja.estado);
+
+      let html = `
+        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--sv-borde);">
+          <div>
+            <div style="font-size:1.1rem; font-weight:700;">${formatearFecha(caja.fecha)}</div>
+            <div style="font-size:0.82rem; color:var(--sv-texto-muted);">Usuario: ${escapeHtml(caja.usuario || '—')}</div>
+          </div>
+          <span class="caja-estado-badge ${estadoCl}">${CajaDiariaLogica.estadoTexto(caja.estado)}</span>
+        </div>`;
+
+      if (caja.razonReapertura) {
+        html += `<div style="margin-bottom:0.75rem; font-size:0.82rem; color:var(--sv-advertencia); border-left:3px solid var(--sv-advertencia); padding:0.4rem 0.6rem; background:var(--sv-superficie-elevada); border-radius:4px;">
+          ⚠️ Reabierta: "${escapeHtml(caja.razonReapertura)}"
+        </div>`;
+      }
+
+      // Movimientos automáticos
+      html += `<div style="font-size:0.8rem; font-weight:700; text-transform:uppercase; color:var(--sv-texto-muted); margin-bottom:0.4rem;">Automáticos</div>
+        <table style="width:100%; border-collapse:collapse; font-size:0.875rem; margin-bottom:0.75rem;">
+          <tr style="background:var(--sv-superficie-elevada);">
+            <td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Cobros del día</td>
+            <td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-exito);">+${formatearMonto(a.totalPagos)}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Transferencias del día</td>
+            <td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-exito);">+${formatearMonto(a.totalTransferencias)}</td>
+          </tr>
+          <tr style="background:var(--sv-superficie-elevada);">
+            <td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Fiados del día</td>
+            <td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-peligro);">−${formatearMonto(a.totalFiados)}</td>
+          </tr>
+        </table>`;
+
+      // Movimientos manuales
+      if (caja.movManuales && caja.movManuales.length > 0) {
+        html += `<div style="font-size:0.8rem; font-weight:700; text-transform:uppercase; color:var(--sv-texto-muted); margin-bottom:0.4rem;">Manuales</div>
+          <table style="width:100%; border-collapse:collapse; font-size:0.875rem; margin-bottom:0.75rem;">`;
+        caja.movManuales.forEach((m, i) => {
+          html += `<tr style="${i % 2 === 0 ? 'background:var(--sv-superficie-elevada);' : ''}">
+            <td style="padding:5px 8px;">${escapeHtml(m.descripcion)}</td>
+            <td style="padding:5px 8px; text-align:right; font-weight:600; color:${CajaDiariaLogica.colorTipo(m.tipo)};">
+              ${CajaDiariaLogica.simboloTipo(m.tipo)}${formatearMonto(m.monto)}
+            </td>
+          </tr>`;
+        });
+        html += '</table>';
+      }
+
+      // Resumen
+      html += `<div style="border:2px solid var(--sv-primario); border-radius:var(--sv-radius); overflow:hidden;">
+        <div style="background:var(--sv-primario); color:white; padding:0.4rem 0.75rem; font-weight:700; font-size:0.9rem;">Resumen</div>
+        <div style="padding:0.75rem;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+            <span style="color:var(--sv-texto-secundario);">Caja inicial</span>
+            <span style="font-weight:600;">${formatearMonto(r.cajaInicial)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+            <span style="color:var(--sv-exito);">+ Total ingresos</span>
+            <span style="font-weight:600; color:var(--sv-exito);">+${formatearMonto(r.totalIngresos)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid var(--sv-borde);">
+            <span style="color:var(--sv-peligro);">− Total egresos</span>
+            <span style="font-weight:600; color:var(--sv-peligro);">−${formatearMonto(r.totalEgresos)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+            <span style="font-weight:700;">Caja calculada</span>
+            <span style="font-weight:700; font-size:1.05rem; color:var(--sv-primario);">${formatearMonto(r.cajaCalculada)}</span>
+          </div>
+          ${caja.estado === 'CERRADA' ? `
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+            <span>Caja final (físico)</span>
+            <span style="font-weight:600;">${formatearMonto(r.cajaFinal)}</span>
+          </div>
+          <div class="${CajaDiariaLogica.formatDiferencia(r.diferencia).clase}" style="margin-top:0.5rem; font-size:0.875rem;">
+            ${CajaDiariaLogica.formatDiferencia(r.diferencia).texto}
+          </div>
+          ${caja.razonDiferencia ? `<div style="margin-top:0.3rem; font-size:0.8rem; color:var(--sv-texto-muted); font-style:italic;">Razón: "${escapeHtml(caja.razonDiferencia)}"</div>` : ''}
+          ` : ''}
+        </div>
+      </div>`;
+
+      body.innerHTML = html;
+
+      // Actualizar el botón de imprimir del modal con el ID correcto
+      const btnImpMod = body.parentElement.querySelector('button[onclick*="imprimirCajaDiaria"]');
+      if (btnImpMod) btnImpMod.setAttribute('onclick', `imprimirCajaDiaria(${caja.id}, 1)`);
+    }
+
+    // ── 5. IMPRESIÓN — PrintContext (NUNCA desde DOM ni Estado) ─────────────
+
+    const CajaDiariaPrinter = {
+
+      /**
+       * Construye el PrintContext desde datos de backend, nunca desde el DOM.
+       * @param {CajaDiaria} caja   - Datos frescos del backend
+       * @param {Object} cfg        - Config de impresión
+       * @param {number} copies     - Cantidad de copias
+       * @returns {Object} PrintContext
+       */
+      buildContext: function(caja, cfg, copies) {
+        const empresa = Estado.configuracion || {};
+        return {
+          // Datos de la caja (snapshot inmutable)
+          caja: {
+            id:              caja.id,
+            fecha:           caja.fecha,
+            estado:          caja.estado,
+            cajaInicial:     caja.cajaInicial,
+            cajaFinal:       caja.cajaFinal,
+            cajaSiguiente:   caja.cajaSiguiente,
+            razonReapertura: caja.razonReapertura,
+            razonDiferencia: caja.razonDiferencia,
+            usuario:         caja.usuario,
+            timestampCierre: caja.timestampCierre
+          },
+          // Movimientos (snapshots)
+          automaticos: JSON.parse(JSON.stringify(caja.automaticos)),
+          movManuales:  JSON.parse(JSON.stringify(caja.movManuales || [])),
+          resumen:      JSON.parse(JSON.stringify(caja.resumen)),
+          // Empresa
+          empresa: {
+            nombre: empresa.nombreEmisor || empresa.nombre || 'Sol & Verde',
+            logo:   cfg.SHOW_LOGO !== false
+          },
+          // Configuración de impresión
+          config: {
+            copies:    copies || 1,
+            footer:    cfg.FOOTER || '',
+            showLogo:  cfg.SHOW_LOGO !== false
+          },
+          generado: new Date().toISOString()
+        };
+      },
+
+      /**
+       * Genera el HTML de impresión a partir del PrintContext.
+       * @param {Object} ctx - PrintContext
+       * @returns {string}
+       */
+      buildHtml: function(ctx) {
+        const { caja, automaticos: a, movManuales, resumen: r, empresa, config } = ctx;
+        const fechaStr = formatearFecha(caja.fecha);
+        const df = CajaDiariaLogica.formatDiferencia(r.diferencia);
+
+        const copias = ['Original', 'COPIA', 'COPIA 2', 'COPIA 3'].slice(0, config.copies);
+
+        return copias.map((etiqueta, idx) => `
+          <div class="contab-copy-block" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 1.5rem;">
+
+            <!-- Encabezado -->
+            <div style="border-bottom: 3px solid #2E7D32; padding-bottom: 0.75rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                ${config.showLogo ? '<img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width:55px; margin-bottom:0.3rem; display:block;">' : ''}
+                <div style="font-size: 18pt; font-weight: 800; color: #2E7D32;">${escapeHtml(empresa.nombre)}</div>
+                <div style="font-size: 12pt; font-weight: 700; color: #555; margin-top: 0.1rem;">CAJA DIARIA — ${fechaStr}</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 9pt; color: #777;">Estado: <strong style="color:${caja.estado === 'ABIERTA' ? '#2E7D32' : '#C62828'};">${caja.estado}</strong></div>
+                <div style="font-size: 9pt; color: #777; margin-top: 0.2rem;">Usuario: ${escapeHtml(caja.usuario || '—')}</div>
+                ${idx > 0 ? `<div style="margin-top: 0.4rem; font-size: 9pt; color: #999; border: 1px solid #ccc; padding: 0.15rem 0.5rem; border-radius: 3px;">${etiqueta}</div>` : ''}
+              </div>
+            </div>
+
+            ${caja.razonReapertura ? `
+            <div style="margin-bottom: 0.75rem; padding: 0.4rem 0.7rem; background: #FFF8E1; border-left: 3px solid #FBC02D; border-radius: 4px; font-size: 9pt;">
+              ⚠ Reabierta: "${escapeHtml(caja.razonReapertura)}"
+            </div>` : ''}
+
+            <!-- Caja inicial -->
+            <table style="width:100%; border-collapse:collapse; margin-bottom:0.75rem; font-size:10pt;">
+              <tr style="background:#E8F5E9;">
+                <td style="padding:6px 8px; font-weight:700; color:#2E7D32; border-bottom:2px solid #2E7D32;">CAJA INICIAL</td>
+                <td style="padding:6px 8px; text-align:right; font-weight:700; color:#2E7D32; border-bottom:2px solid #2E7D32;">${formatearMonto(caja.cajaInicial)}</td>
+              </tr>
+            </table>
+
+            <!-- Movimientos automáticos -->
+            <div style="font-size:8pt; font-weight:700; text-transform:uppercase; color:#888; margin-bottom:4px;">Movimientos Automáticos</div>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:0.75rem; font-size:9.5pt;">
+              ${a.totalPagos > 0 ? `
+              <tr style="background:#F1F8E9;">
+                <td style="padding:5px 8px; font-style:italic; color:#555;">Cobros del día (${a.detallePagos.length})</td>
+                <td style="padding:5px 8px; text-align:right; font-weight:600; color:#2E7D32;">+${formatearMonto(a.totalPagos)}</td>
+              </tr>` : ''}
+              ${a.totalTransferencias > 0 ? `
+              <tr>
+                <td style="padding:5px 8px; font-style:italic; color:#555;">Transferencias del día (${a.detalleTransferencias.length})</td>
+                <td style="padding:5px 8px; text-align:right; font-weight:600; color:#2E7D32;">+${formatearMonto(a.totalTransferencias)}</td>
+              </tr>` : ''}
+              ${a.totalFiados > 0 ? `
+              <tr style="background:#FFEBEE;">
+                <td style="padding:5px 8px; font-style:italic; color:#555;">Fiados del día (${a.detalleFiados.length})</td>
+                <td style="padding:5px 8px; text-align:right; font-weight:600; color:#C62828;">−${formatearMonto(a.totalFiados)}</td>
+              </tr>` : ''}
+              ${a.totalPagos === 0 && a.totalFiados === 0 && a.totalTransferencias === 0 ? `
+              <tr><td colspan="2" style="padding:5px 8px; color:#aaa; font-style:italic; text-align:center;">Sin movimientos automáticos</td></tr>` : ''}
+            </table>
+
+            <!-- Movimientos manuales -->
+            ${movManuales.length > 0 ? `
+            <div style="font-size:8pt; font-weight:700; text-transform:uppercase; color:#888; margin-bottom:4px;">Movimientos Manuales</div>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:0.75rem; font-size:9.5pt;">
+              ${movManuales.map((m, i) => `
+              <tr style="${i % 2 === 0 ? 'background:#FAFAFA;' : ''}">
+                <td style="padding:5px 8px;">${escapeHtml(m.descripcion)}</td>
+                <td style="padding:5px 8px; text-align:right; font-weight:600; color:${m.tipo === 'HABER' ? '#2E7D32' : '#C62828'};">
+                  ${m.tipo === 'HABER' ? '+' : '−'}${formatearMonto(m.monto)}
+                </td>
+              </tr>`).join('')}
+            </table>` : ''}
+
+            <!-- Resumen final -->
+            <div style="border: 2.5px solid #2E7D32; border-radius: 6px; overflow: hidden; margin-bottom: 0.75rem;">
+              <div style="background: #2E7D32; color: white; padding: 0.4rem 0.75rem; font-weight: 700; font-size: 10pt;">RESUMEN DEL DÍA</div>
+              <div style="padding: 0.75rem; font-size: 9.5pt;">
+                <div style="display:grid; grid-template-columns:1fr auto; gap:0.3rem 1rem; align-items:center;">
+                  <span style="color:#555;">Total ingresos</span><span style="font-weight:600; color:#2E7D32; text-align:right;">+${formatearMonto(r.totalIngresos)}</span>
+                  <span style="color:#555;">Total egresos</span><span style="font-weight:600; color:#C62828; text-align:right;">−${formatearMonto(r.totalEgresos)}</span>
+                  <div style="grid-column:1/-1; border-top:1px solid #ccc; margin:0.2rem 0;"></div>
+                  <span style="font-weight:700; font-size:10.5pt;">Caja calculada</span><span style="font-weight:700; font-size:10.5pt; color:#2E7D32; text-align:right;">${formatearMonto(r.cajaCalculada)}</span>
+                  ${caja.estado === 'CERRADA' ? `
+                  <span style="color:#555;">Caja final (físico)</span><span style="font-weight:600; text-align:right;">${formatearMonto(caja.cajaFinal)}</span>
+                  <div style="grid-column:1/-1; border-top:1px solid #ccc; margin:0.2rem 0;"></div>
+                  <div class="${df.clase}" style="grid-column:1/-1; font-size:9pt;">${df.texto}</div>
+                  ${caja.razonDiferencia ? `<div style="grid-column:1/-1; font-size:8.5pt; color:#777; font-style:italic;">Razón: "${escapeHtml(caja.razonDiferencia)}"</div>` : ''}
+                  ` : ''}
+                </div>
+              </div>
+            </div>
+
+            ${caja.cajaSiguiente > 0 ? `
+            <div style="margin-bottom:0.75rem; padding:0.4rem 0.75rem; background:#E8F5E9; border-radius:4px; font-size:9pt; color:#2E7D32; font-weight:600;">
+              💰 Caja del día siguiente fijada en: ${formatearMonto(caja.cajaSiguiente)}
+            </div>` : ''}
+
+            <!-- Firma -->
+            <div style="margin-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; text-align: center; font-size: 8.5pt; color: #777;">
+              <div><div style="border-top:1.5px solid #555; padding-top:0.3rem; margin-top:1.5rem;">Responsable de Caja</div></div>
+              <div><div style="border-top:1.5px solid #555; padding-top:0.3rem; margin-top:1.5rem;">Firma y Aclaración</div></div>
+            </div>
+
+            <!-- Pie -->
+            <div style="margin-top:0.75rem; text-align:center; font-size:7.5pt; color:#bbb; border-top:1px solid #eee; padding-top:0.4rem;">
+              ${escapeHtml(config.footer || 'Documento generado automáticamente · Sol & Verde Sistema de Cuenta Corriente')}
+            </div>
+
+          </div>`).join('');
+      },
+
+      /**
+       * Imprime la caja: obtiene datos frescos del backend, construye PrintContext
+       * e inyecta el HTML en el área de impresión.
+       *
+       * NUNCA lee del DOM ni de EstadoCajaDiaria para los datos financieros.
+       *
+       * @param {number} cajaId
+       * @param {number} copies
+       */
+      print: function(cajaId, copies) {
+        const printArea = document.getElementById('contabPrintArea');
+        if (!printArea) return;
+
+        mostrarLoading(true);
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            mostrarLoading(false);
+
+            if (!result.success) {
+              mostrarToast('Error al obtener datos para imprimir: ' + result.error, 'error');
+              return;
+            }
+
+            const cfg = (Estado.configuracion && Estado.configuracion.print) || {};
+            const ctx = CajaDiariaPrinter.buildContext(result.caja, cfg, copies || 1);
+            const html = CajaDiariaPrinter.buildHtml(ctx);
+
+            printArea.innerHTML = html;
+            printArea.style.display = 'block';
+
+            setTimeout(function() {
+              window.print();
+              setTimeout(function() {
+                printArea.style.display = 'none';
+                printArea.innerHTML = '';
+              }, 1200);
+            }, 150);
+          })
+          .withFailureHandler(function(error) {
+            mostrarLoading(false);
+            mostrarToast('Error de comunicación al imprimir: ' + error.message, 'error');
+          })
+          .obtenerDetalleCajaDiaria(cajaId);
+      }
+    };
+
+    // ── 6. HANDLERS (funciones llamadas desde la UI) ─────────────────────────
+
+    /** Cambia la pestaña activa del módulo */
+    function contabCambiarTab(tab) {
+      EstadoCajaDiaria.tabActiva = tab;
+      document.querySelectorAll('.contab-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.contab-panel').forEach(p => p.classList.remove('active'));
+
+      const tabEl   = document.getElementById(tab === 'caja' ? 'contabTabCaja' : 'contabTabHistorial');
+      const panelEl = document.getElementById(tab === 'caja' ? 'contabPanelCaja' : 'contabPanelHistorial');
+      if (tabEl)   tabEl.classList.add('active');
+      if (panelEl) panelEl.classList.add('active');
+    }
+
+    /** Abre el modal para una nueva caja */
+    function abrirModalNuevaCaja() {
+      document.getElementById('abrirCajaFecha').value = obtenerFechaLocal();
+      document.getElementById('abrirCajaInicial').value = '0';
+      document.getElementById('abrirCajaInicial').removeAttribute('disabled');
+      document.getElementById('abrirCajaInicialHint').style.display = 'none';
+      abrirModal('modalAbrirCaja');
+    }
+
+    /** Submit del formulario "Abrir Caja" */
+    function contabSubmitAbrirCaja(e) {
+      e.preventDefault();
+      const fecha      = document.getElementById('abrirCajaFecha').value;
+      const cajaInicial = parseFloat(document.getElementById('abrirCajaInicial').value) || 0;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(r) {
+          mostrarLoading(false);
+          if (r.success) {
+            cerrarModal('modalAbrirCaja');
+            mostrarToast(r.mensaje || 'Caja abierta', 'success');
+            // Recargar todo
+            EstadoCajaDiaria.cargado = false;
+            cargarContabilidad(true);
+          } else {
+            mostrarToast(r.error, 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + err.message, 'error');
+        })
+        .abrirCajaDiaria({ fecha, cajaInicial });
+    }
+
+    /** Cierra la caja activa */
+    function contabSubmitCerrarCaja() {
+      const caja = EstadoCajaDiaria.cajaActual;
+      if (!caja || caja.estado !== 'ABIERTA') {
+        mostrarToast('No hay caja abierta para cerrar', 'error');
+        return;
+      }
+
+      const cajaFinal    = parseFloat(document.getElementById('contabCajaFinalInput').value);
+      const cajaSiguiente= parseFloat(document.getElementById('contabCajaSiguienteInput').value) || 0;
+      const razonDif     = document.getElementById('contabRazonDiferenciaInput').value.trim();
+
+      if (isNaN(cajaFinal) || cajaFinal < 0) {
+        mostrarToast('Ingresá el conteo físico de la caja final (puede ser 0)', 'error');
+        return;
+      }
+
+      // Mostrar diferencia en tiempo real antes de enviar
+      const cajaCalculada = caja.resumen ? caja.resumen.cajaCalculada : 0;
+      const diferencia = cajaFinal - cajaCalculada;
+      const hayDif = Math.abs(diferencia) > 0.009;
+      const difAlert = document.getElementById('contabDiferenciaAlert');
+      const razonGrp = document.getElementById('contabRazonDiferenciaGroup');
+
+      if (hayDif && !razonDif) {
+        // Mostrar alerta de diferencia y exigir razón
+        if (difAlert) {
+          const df = CajaDiariaLogica.formatDiferencia(diferencia);
+          difAlert.innerHTML = `<div class="${df.clase}">${df.texto}<br><small>Ingresá el motivo de la diferencia antes de cerrar.</small></div>`;
+          difAlert.style.display = '';
+        }
+        if (razonGrp) razonGrp.style.display = '';
+        return;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(r) {
+          mostrarLoading(false);
+          if (r.success) {
+            mostrarToast(r.mensaje || 'Caja cerrada', 'success');
+            EstadoCajaDiaria.cargado = false;
+            cargarContabilidad(true);
+          } else if (r.requiereRazon) {
+            // Backend también puede pedir la razón
+            const df = CajaDiariaLogica.formatDiferencia(r.diferencia);
+            if (difAlert) {
+              difAlert.innerHTML = `<div class="${df.clase}">${df.texto}</div>`;
+              difAlert.style.display = '';
+            }
+            if (razonGrp) razonGrp.style.display = '';
+            mostrarToast('Ingresá el motivo de la diferencia', 'warning');
+          } else {
+            mostrarToast(r.error, 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + err.message, 'error');
+        })
+        .cerrarCajaDiaria(caja.id, { cajaFinal, cajaSiguiente, razonDiferencia: razonDif });
+    }
+
+    /** Abre el modal de reapertura con el ID de la caja */
+    function contabAbrirModalReabrir(cajaId) {
+      document.getElementById('reabrirCajaId').value = cajaId;
+      document.getElementById('reabrirCajaRazon').value = '';
+      abrirModal('modalReabrirCaja');
+    }
+
+    /** Submit de reapertura de caja */
+    function contabSubmitReabrirCaja() {
+      const id    = parseInt(document.getElementById('reabrirCajaId').value);
+      const razon = document.getElementById('reabrirCajaRazon').value.trim();
+
+      if (!razon || razon.length < 3) {
+        mostrarToast('Ingresá el motivo de reapertura (mínimo 3 caracteres)', 'error');
+        return;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(r) {
+          mostrarLoading(false);
+          if (r.success) {
+            cerrarModal('modalReabrirCaja');
+            mostrarToast(r.mensaje || 'Caja reabierta', 'success');
+            EstadoCajaDiaria.cargado = false;
+            cargarContabilidad(true);
+          } else {
+            mostrarToast(r.error, 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + err.message, 'error');
+        })
+        .reabrirCajaDiaria(id, razon);
+    }
+
+    /** Abre el modal de agregar movimiento manual */
+    function abrirModalMovManual() {
+      const caja = EstadoCajaDiaria.cajaActual;
+      if (!caja || caja.estado !== 'ABIERTA') {
+        mostrarToast('La caja no está abierta', 'error');
+        return;
+      }
+      document.getElementById('movCajaTipo').value = '';
+      document.getElementById('movCajaDesc').value = '';
+      document.getElementById('movCajaMonto').value = '';
+      document.querySelectorAll('#modalMovCaja .banco-option').forEach(b => b.classList.remove('selected'));
+      abrirModal('modalMovCaja');
+    }
+
+    /** Selecciona el tipo de movimiento manual (HABER | DEBE) */
+    function contabSelTipoMov(tipo) {
+      document.getElementById('movCajaTipo').value = tipo;
+      document.getElementById('movCajaHaber').classList.toggle('selected', tipo === 'HABER');
+      document.getElementById('movCajaDebe').classList.toggle('selected', tipo === 'DEBE');
+    }
+
+    /** Submit de agregar movimiento manual */
+    function contabSubmitMovManual(e) {
+      e.preventDefault();
+      const caja = EstadoCajaDiaria.cajaActual;
+      if (!caja) return;
+
+      const tipo  = document.getElementById('movCajaTipo').value;
+      const desc  = document.getElementById('movCajaDesc').value.trim();
+      const monto = parseFloat(document.getElementById('movCajaMonto').value);
+
+      // Validaciones en frontend
+      if (!tipo) {
+        mostrarToast('Seleccioná el tipo de movimiento (Ingreso o Egreso)', 'error');
+        return;
+      }
+      if (!desc) {
+        mostrarToast('La descripción es obligatoria', 'error');
+        return;
+      }
+      if (isNaN(monto) || monto <= 0) {
+        mostrarToast('El monto debe ser mayor a cero. Los importes negativos están prohibidos.', 'error');
+        return;
+      }
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(r) {
+          mostrarLoading(false);
+          if (r.success) {
+            cerrarModal('modalMovCaja');
+            mostrarToast('Movimiento agregado', 'success');
+            EstadoCajaDiaria.cargado = false;
+            cargarContabilidad(true);
+          } else {
+            mostrarToast(r.error, 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + err.message, 'error');
+        })
+        .agregarMovimientoCajaDiaria(caja.id, { tipo, descripcion: desc, monto });
+    }
+
+    /** Elimina un movimiento manual */
+    function contabEliminarMovManual(movId, cajaId) {
+      if (!confirm('¿Eliminar este movimiento?')) return;
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(r) {
+          mostrarLoading(false);
+          if (r.success) {
+            mostrarToast('Movimiento eliminado', 'success');
+            EstadoCajaDiaria.cargado = false;
+            cargarContabilidad(true);
+          } else {
+            mostrarToast(r.error, 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + err.message, 'error');
+        })
+        .eliminarMovimientoCajaDiaria(movId, cajaId);
+    }
+
+    /** Editar cajaInicial inline */
+    function contabEditarCajaInicial() {
+      const caja = EstadoCajaDiaria.cajaActual;
+      if (!caja) return;
+      const actual = caja.cajaInicial;
+      const nuevo = parseFloat(prompt('Nuevo valor de Caja Inicial:', actual));
+      if (isNaN(nuevo) || nuevo < 0) {
+        mostrarToast('Valor inválido', 'error');
+        return;
+      }
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(r) {
+          mostrarLoading(false);
+          if (r.success) {
+            mostrarToast('Caja inicial actualizada', 'success');
+            EstadoCajaDiaria.cargado = false;
+            cargarContabilidad(true);
+          } else {
+            mostrarToast(r.error, 'error');
+          }
+        })
+        .withFailureHandler(function(err) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + err.message, 'error');
+        })
+        .actualizarCajaInicial(caja.id, nuevo);
+    }
+
+    /**
+     * Carga el detalle de una caja del historial y abre el modal.
+     * @param {number} id
+     */
+    function contabVerDetalle(id) {
+      document.getElementById('modalDetalleCajaBody').innerHTML =
+        '<div style="text-align:center; padding:2rem; color:var(--sv-texto-muted);">Cargando...</div>';
+      abrirModal('modalDetalleCaja');
+
+      google.script.run
+        .withSuccessHandler(function(r) {
+          if (r.success) {
+            renderDetalleModal(r.caja);
+          } else {
+            document.getElementById('modalDetalleCajaBody').innerHTML =
+              `<div style="color:var(--sv-peligro); padding:1rem;">Error: ${escapeHtml(r.error)}</div>`;
+          }
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('modalDetalleCajaBody').innerHTML =
+            `<div style="color:var(--sv-peligro); padding:1rem;">Error de comunicación: ${escapeHtml(err.message)}</div>`;
+        })
+        .obtenerDetalleCajaDiaria(id);
+    }
+
+    /**
+     * Filtra el historial por rango de fechas.
+     * @param {boolean} [limpiar] - Si true, muestra todo
+     */
+    function contabFiltrarHistorial(limpiar) {
+      if (limpiar) {
+        EstadoCajaDiaria.historialFiltrado = EstadoCajaDiaria.historial;
+        renderHistorialCajaDiaria(EstadoCajaDiaria.historialFiltrado);
+        return;
+      }
+      const desde = document.getElementById('contabHistDesde').value;
+      const hasta = document.getElementById('contabHistHasta').value;
+
+      EstadoCajaDiaria.historialFiltrado = EstadoCajaDiaria.historial.filter(c => {
+        if (desde && c.fecha < desde) return false;
+        if (hasta && c.fecha > hasta) return false;
+        return true;
+      });
+      renderHistorialCajaDiaria(EstadoCajaDiaria.historialFiltrado);
+    }
+
+    /**
+     * Punto de entrada principal para imprimir.
+     * Usa CajaDiariaPrinter.print() que NO depende del DOM.
+     * @param {number} id
+     * @param {number} copies
+     */
+    function imprimirCajaDiaria(id, copies) {
+      const cajaId = id || (EstadoCajaDiaria.cajaActual ? EstadoCajaDiaria.cajaActual.id : null);
+      if (!cajaId) {
+        mostrarToast('No hay caja para imprimir', 'error');
+        return;
+      }
+      CajaDiariaPrinter.print(cajaId, copies || 1);
     }
 
   </script>

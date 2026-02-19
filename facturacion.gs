@@ -127,6 +127,16 @@ const TransferenciasRepository = {
   },
 
   /**
+   * Obtiene todas las transferencias de una fecha exacta (YYYY-MM-DD).
+   * Usado por CajaDiariaService para calcular automáticos.
+   * @param {string} fecha - Formato YYYY-MM-DD
+   * @returns {Array<Object>}
+   */
+  obtenerPorFecha: function(fecha) {
+    return this.obtenerTodas(0).filter(t => t.fecha === fecha);
+  },
+
+  /**
    * Agrega una nueva transferencia
    */
   agregar: function(datos) {
