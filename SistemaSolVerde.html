@@ -4233,7 +4233,7 @@
       // Si ya viene como YYYY-MM-DD (desde backend corregido), parsearlo como local
       if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
         const [anio, mes, dia] = fecha.split('-');
-        return `${dia}/${mes}/${anio}`;
+        return dia + '/' + mes + '/' + anio;
       }
 
       // Fallback para otros formatos
@@ -4301,7 +4301,7 @@
             }
           }, 800);
         } else if (this.textoEl && this.pendientes > 1) {
-          this.textoEl.textContent = `${this.pendientes} operaciones en proceso...`;
+          this.textoEl.textContent = this.pendientes + ' operaciones en proceso...';
         }
       }
     };
@@ -4322,7 +4322,7 @@
         if (this.cola.length === 0) {
           this.procesando = false;
           if (this.exitosos > 0 || this.fallidos > 0) {
-            const msg = `${this.exitosos} guardado(s)${this.fallidos > 0 ? `, ${this.fallidos} con error` : ''}`;
+            const msg = this.exitosos + ' guardado(s)' + (this.fallidos > 0 ? ', ' + this.fallidos + ' con error' : '');
             mostrarToast(msg, this.fallidos > 0 ? 'warning' : 'success');
             this.exitosos = 0;
             this.fallidos = 0;
@@ -4336,7 +4336,7 @@
         const restantes = this.cola.length;
 
         ColaTareas.iniciar(restantes > 0
-          ? `Guardando ${restantes + 1} movimientos...`
+          ? 'Guardando ' + (restantes + 1) + ' movimientos...'
           : 'Guardando movimiento...'
         );
 
@@ -4371,7 +4371,7 @@
       const año = hoy.getFullYear();
       const mes = String(hoy.getMonth() + 1).padStart(2, '0');
       const dia = String(hoy.getDate()).padStart(2, '0');
-      return `${año}-${mes}-${dia}`;
+      return año + '-' + mes + '-' + dia;
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -4873,14 +4873,13 @@
 
     function mostrarModalConfirmarPago(cliente, monto) {
       const diferencia = monto - cliente.saldo;
-      document.getElementById('confirmarPagoContenido').innerHTML = `
-        <div class="alert alert-warning">
-          <p><strong>${escapeHtml(cliente.nombre)}</strong> debe <strong>${formatearMonto(cliente.saldo)}</strong></p>
-          <p>Estas registrando un pago de <strong>${formatearMonto(monto)}</strong></p>
-          <p>Quedaria con <strong>${formatearMonto(-diferencia)}</strong> a favor.</p>
-        </div>
-        <p>¿Estas seguro de continuar?</p>
-      `;
+      document.getElementById('confirmarPagoContenido').innerHTML =
+        '<div class="alert alert-warning">' +
+          '<p><strong>' + escapeHtml(cliente.nombre) + '</strong> debe <strong>' + formatearMonto(cliente.saldo) + '</strong></p>' +
+          '<p>Estas registrando un pago de <strong>' + formatearMonto(monto) + '</strong></p>' +
+          '<p>Quedaria con <strong>' + formatearMonto(-diferencia) + '</strong> a favor.</p>' +
+        '</div>' +
+        '<p>¿Estas seguro de continuar?</p>';
       document.getElementById('btnConfirmarPago').onclick = function() {
         cerrarModal('modalConfirmarPago');
         ejecutarGuardarMovimiento();
@@ -4960,22 +4959,20 @@
         const esPendiente = m._pendiente;
         const rowStyle = esPendiente ? 'opacity: 0.6; background: var(--sv-superficie-elevada);' : '';
         const pendienteBadge = esPendiente ? '<span style="font-size:0.65rem;background:#FFF3E0;color:#E65100;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:4px;">guardando...</span>' : '';
-        return `
-        <tr style="${rowStyle}">
-          <td data-label="Fecha">${formatearFecha(m.fecha)}</td>
-          <td data-label="Cliente">${escapeHtml(m.cliente || '')}${pendienteBadge}</td>
-          <td data-label="Tipo"><span class="tag tag-${(m.tipo || '').toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
-          <td data-label="Monto">${formatearMonto(m.monto)}</td>
-          <td data-label="Saldo">${esPendiente ? '-' : formatearMonto(m.saldoPost)}</td>
-          <td data-label="Obs">${escapeHtml(m.obs || '') || '-'}</td>
-          <td data-label="Acciones" class="no-print">
-            ${!esPendiente ? `
-            <div class="btn-group">
-              <button class="btn btn-outline btn-sm" onclick="abrirEditarMovimiento(${m.id})">✏️</button>
-              <button class="btn btn-outline btn-sm" onclick="confirmarEliminarMovimiento(${m.id})" style="color: var(--sv-peligro);">🗑️</button>
-            </div>` : ''}
-          </td>
-        </tr>`;
+        return '<tr style="' + rowStyle + '">' +
+          '<td data-label="Fecha">' + formatearFecha(m.fecha) + '</td>' +
+          '<td data-label="Cliente">' + escapeHtml(m.cliente || '') + pendienteBadge + '</td>' +
+          '<td data-label="Tipo"><span class="tag tag-' + (m.tipo || '').toLowerCase() + '">' + (m.tipo === 'DEBE' ? 'FIADO' : 'PAGO') + '</span></td>' +
+          '<td data-label="Monto">' + formatearMonto(m.monto) + '</td>' +
+          '<td data-label="Saldo">' + (esPendiente ? '-' : formatearMonto(m.saldoPost)) + '</td>' +
+          '<td data-label="Obs">' + (escapeHtml(m.obs || '') || '-') + '</td>' +
+          '<td data-label="Acciones" class="no-print">' +
+            (!esPendiente ? '<div class="btn-group">' +
+              '<button class="btn btn-outline btn-sm" onclick="abrirEditarMovimiento(' + m.id + ')">&#9999;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarMovimiento(' + m.id + ')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
+            '</div>' : '') +
+          '</td>' +
+        '</tr>';
       }).join('');
     }
 
@@ -5041,7 +5038,7 @@
         return;
       }
 
-      const confirmMsg = `¿Eliminar este movimiento?\n\nCliente: ${movimiento.cliente}\nTipo: ${movimiento.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}\nMonto: ${formatearMonto(movimiento.monto)}\n\nEsto recalculará el saldo del cliente.`;
+      const confirmMsg = '¿Eliminar este movimiento?\n\nCliente: ' + movimiento.cliente + '\nTipo: ' + (movimiento.tipo === 'DEBE' ? 'FIADO' : 'PAGO') + '\nMonto: ' + formatearMonto(movimiento.monto) + '\n\nEsto recalculará el saldo del cliente.';
 
       if (!confirm(confirmMsg)) return;
 
@@ -5115,12 +5112,12 @@
         return;
       }
 
-      contenedor.innerHTML = matches.map(c => `
-        <div class="suggestion-item" data-nombre="${escapeHtml(c.nombre)}" data-visor="${esVisor}">
-          <strong>${escapeHtml(c.nombre)}</strong>
-          <span style="color: var(--sv-texto-muted);">${formatearMonto(c.saldo)}</span>
-        </div>
-      `).join('');
+      contenedor.innerHTML = matches.map(function(c) {
+        return '<div class="suggestion-item" data-nombre="' + escapeHtml(c.nombre) + '" data-visor="' + esVisor + '">' +
+          '<strong>' + escapeHtml(c.nombre) + '</strong>' +
+          '<span style="color: var(--sv-texto-muted);">' + formatearMonto(c.saldo) + '</span>' +
+        '</div>';
+      }).join('');
 
       contenedor.querySelectorAll('.suggestion-item').forEach(item => {
         item.addEventListener('click', function() {
@@ -5182,12 +5179,12 @@
         return;
       }
 
-      contenedor.innerHTML = matches.map(c => `
-        <div class="suggestion-item" data-nombre="${escapeHtml(c.nombre)}">
-          <strong>${escapeHtml(c.nombre)}</strong>
-          <span style="color: var(--sv-texto-muted);">${c.cuit || 'Sin CUIT'}</span>
-        </div>
-      `).join('');
+      contenedor.innerHTML = matches.map(function(c) {
+        return '<div class="suggestion-item" data-nombre="' + escapeHtml(c.nombre) + '">' +
+          '<strong>' + escapeHtml(c.nombre) + '</strong>' +
+          '<span style="color: var(--sv-texto-muted);">' + (c.cuit || 'Sin CUIT') + '</span>' +
+        '</div>';
+      }).join('');
 
       contenedor.querySelectorAll('.suggestion-item').forEach(item => {
         item.addEventListener('click', function(e) {
@@ -5244,15 +5241,15 @@
             document.getElementById('visorAlta').textContent = c.alta ? formatearFecha(c.alta) : '-';
             document.getElementById('visorClienteNombre').textContent = escapeHtml(c.nombre);
 
-            document.getElementById('visorHistorial').innerHTML = result.movimientos.map(m => `
-              <tr>
-                <td data-label="Fecha">${formatearFecha(m.fecha)}</td>
-                <td data-label="Tipo"><span class="tag tag-${m.tipo.toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
-                <td data-label="Monto">${formatearMonto(m.monto)}</td>
-                <td data-label="Saldo">${formatearMonto(m.saldoPost)}</td>
-                <td data-label="Obs">${escapeHtml(m.obs) || '-'}</td>
-              </tr>
-            `).join('');
+            document.getElementById('visorHistorial').innerHTML = result.movimientos.map(function(m) {
+              return '<tr>' +
+                '<td data-label="Fecha">' + formatearFecha(m.fecha) + '</td>' +
+                '<td data-label="Tipo"><span class="tag tag-' + m.tipo.toLowerCase() + '">' + (m.tipo === 'DEBE' ? 'FIADO' : 'PAGO') + '</span></td>' +
+                '<td data-label="Monto">' + formatearMonto(m.monto) + '</td>' +
+                '<td data-label="Saldo">' + formatearMonto(m.saldoPost) + '</td>' +
+                '<td data-label="Obs">' + (escapeHtml(m.obs) || '-') + '</td>' +
+              '</tr>';
+            }).join('');
 
             document.getElementById('visorResultado').style.display = 'block';
           } else {
@@ -5304,13 +5301,13 @@
       document.getElementById('statTotalDeuda').textContent = formatearMonto(result.totalAdeudado);
       document.getElementById('statMovimientos').textContent = result.movimientos.totalMovimientos;
 
-      document.getElementById('topDeudores').innerHTML = result.topDeudores.map((d, i) => `
-        <tr>
-          <td data-label="#">${i + 1}</td>
-          <td data-label="Cliente">${escapeHtml(d.nombre)}</td>
-          <td data-label="Saldo" style="font-weight: bold; color: var(--sv-peligro);">${formatearMonto(d.saldo)}</td>
-        </tr>
-      `).join('');
+      document.getElementById('topDeudores').innerHTML = result.topDeudores.map(function(d, i) {
+        return '<tr>' +
+          '<td data-label="#">' + (i + 1) + '</td>' +
+          '<td data-label="Cliente">' + escapeHtml(d.nombre) + '</td>' +
+          '<td data-label="Saldo" style="font-weight: bold; color: var(--sv-peligro);">' + formatearMonto(d.saldo) + '</td>' +
+        '</tr>';
+      }).join('');
     }
 
     // ============================================================================
@@ -5327,14 +5324,14 @@
             if (result.deudores.length === 0) {
               document.getElementById('tbodySaldos').innerHTML = '<tr><td colspan="4" class="empty-state">No hay deudores</td></tr>';
             } else {
-              document.getElementById('tbodySaldos').innerHTML = result.deudores.map(d => `
-                <tr>
-                  <td>${escapeHtml(d.nombre)}</td>
-                  <td style="text-align: right; color: var(--sv-peligro);">${d.fiadosDia > 0 ? formatearMonto(d.fiadosDia) : '-'}</td>
-                  <td style="text-align: right; color: var(--sv-exito);">${d.pagosDia > 0 ? formatearMonto(d.pagosDia) : '-'}</td>
-                  <td style="text-align: right; font-weight: bold;">${formatearMonto(d.saldo)}</td>
-                </tr>
-              `).join('');
+              document.getElementById('tbodySaldos').innerHTML = result.deudores.map(function(d) {
+                return '<tr>' +
+                  '<td>' + escapeHtml(d.nombre) + '</td>' +
+                  '<td style="text-align: right; color: var(--sv-peligro);">' + (d.fiadosDia > 0 ? formatearMonto(d.fiadosDia) : '-') + '</td>' +
+                  '<td style="text-align: right; color: var(--sv-exito);">' + (d.pagosDia > 0 ? formatearMonto(d.pagosDia) : '-') + '</td>' +
+                  '<td style="text-align: right; font-weight: bold;">' + formatearMonto(d.saldo) + '</td>' +
+                '</tr>';
+              }).join('');
             }
 
             document.getElementById('totalFiadosDia').textContent = formatearMonto(result.totalFiadosDia || 0);
@@ -5428,26 +5425,23 @@
     function renderMovimientosVR() {
       const tbody = document.getElementById('vrMovimientos');
 
-      tbody.innerHTML = Estado.vrMovimientos.map((m, i) => `
-        <tr>
-          <td>
-            ${m.valido ? escapeHtml(m.cliente) : `
-              <select class="form-input" onchange="seleccionarClienteVR(${i}, this.value)" style="padding: 0.5rem;">
-                <option value="">${escapeHtml(m.clienteOriginal)} (no encontrado)</option>
-                ${(m.sugerencias || []).map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
-              </select>
-            `}
-          </td>
-          <td><span class="tag tag-${m.tipo.toLowerCase()}">${m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'}</span></td>
-          <td>
-            <input type="number" class="form-input" value="${m.monto}" onchange="actualizarMontoVR(${i}, this.value)" style="width: 100px; padding: 0.5rem;" inputmode="numeric">
-          </td>
-          <td>${m.valido ? '✓' : (m.sugerencias && m.sugerencias.length ? '⚠️' : '✗')}</td>
-          <td>
-            <button class="btn btn-outline btn-sm" onclick="eliminarMovVR(${i})">✗</button>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = Estado.vrMovimientos.map(function(m, i) {
+        var clienteCell = m.valido ? escapeHtml(m.cliente) :
+          '<select class="form-input" onchange="seleccionarClienteVR(' + i + ', this.value)" style="padding: 0.5rem;">' +
+            '<option value="">' + escapeHtml(m.clienteOriginal) + ' (no encontrado)</option>' +
+            (m.sugerencias || []).map(function(s) {
+              return '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>';
+            }).join('') +
+          '</select>';
+        var estadoCell = m.valido ? '&#10003;' : (m.sugerencias && m.sugerencias.length ? '&#9888;&#65039;' : '&#10007;');
+        return '<tr>' +
+          '<td>' + clienteCell + '</td>' +
+          '<td><span class="tag tag-' + m.tipo.toLowerCase() + '">' + (m.tipo === 'DEBE' ? 'FIADO' : 'PAGO') + '</span></td>' +
+          '<td><input type="number" class="form-input" value="' + m.monto + '" onchange="actualizarMontoVR(' + i + ', this.value)" style="width: 100px; padding: 0.5rem;" inputmode="numeric"></td>' +
+          '<td>' + estadoCell + '</td>' +
+          '<td><button class="btn btn-outline btn-sm" onclick="eliminarMovVR(' + i + ')">&#10007;</button></td>' +
+        '</tr>';
+      }).join('');
     }
 
     function seleccionarClienteVR(index, cliente) {
@@ -5504,13 +5498,13 @@
       if (!Estado.configuracion) return;
 
       const grid = document.getElementById('gridBilletes');
-      grid.innerHTML = Estado.configuracion.denominaciones.BILLETES.map(d => `
-        <div class="denom-item">
-          <span class="denom-label">${escapeHtml(d.nombre)}</span>
-          <input type="number" class="denom-input" min="0" value="0" data-tipo="${d.tipo}" data-valor="${d.valor}" onchange="calcularTotalEfectivo()" inputmode="numeric">
-          <span class="denom-total" data-total="${d.tipo}">$0</span>
-        </div>
-      `).join('');
+      grid.innerHTML = Estado.configuracion.denominaciones.BILLETES.map(function(d) {
+        return '<div class="denom-item">' +
+          '<span class="denom-label">' + escapeHtml(d.nombre) + '</span>' +
+          '<input type="number" class="denom-input" min="0" value="0" data-tipo="' + d.tipo + '" data-valor="' + d.valor + '" onchange="calcularTotalEfectivo()" inputmode="numeric">' +
+          '<span class="denom-total" data-total="' + d.tipo + '">$0</span>' +
+        '</div>';
+      }).join('');
     }
 
     function calcularTotalEfectivo() {
@@ -5526,7 +5520,7 @@
         Estado.arqueo[tipo] = cantidad;
         total += subtotal;
 
-        const totalSpan = document.querySelector(`[data-total="${tipo}"]`);
+        const totalSpan = document.querySelector('[data-total="' + tipo + '"]');
         if (totalSpan) totalSpan.textContent = formatearMonto(subtotal);
       });
 
@@ -5542,14 +5536,13 @@
 
       const itemId = 'prov-' + Date.now();
 
-      item.innerHTML = `
-        <div class="form-group-autocomplete" style="flex: 1; min-width: 150px; position: relative; margin: 0;">
-          <input type="text" class="form-input prov-desc" placeholder="Proveedor" id="${itemId}" autocomplete="off" oninput="buscarProveedorAutocomplete(this)" onfocus="buscarProveedorAutocomplete(this)">
-          <div class="suggestions-list prov-sugerencias" style="display: none;"></div>
-        </div>
-        <input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">
-        <button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">✗</button>
-      `;
+      item.innerHTML =
+        '<div class="form-group-autocomplete" style="flex: 1; min-width: 150px; position: relative; margin: 0;">' +
+          '<input type="text" class="form-input prov-desc" placeholder="Proveedor" id="' + itemId + '" autocomplete="off" oninput="buscarProveedorAutocomplete(this)" onfocus="buscarProveedorAutocomplete(this)">' +
+          '<div class="suggestions-list prov-sugerencias" style="display: none;"></div>' +
+        '</div>' +
+        '<input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
+        '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
       lista.appendChild(item);
       item.querySelector('.prov-desc').focus();
     }
@@ -5559,9 +5552,10 @@
       const termino = input.value.toLowerCase();
 
       if (termino.length === 0 && Estado.proveedoresHistorial.length > 0) {
-        sugerenciasDiv.innerHTML = Estado.proveedoresHistorial.slice(0, 5).map(p => `
-          <div class="suggestion-item" data-nombre="${escapeHtml(p)}" data-input="${input.id}">${escapeHtml(p)}</div>
-        `).join('');
+        var inputId = input.id;
+        sugerenciasDiv.innerHTML = Estado.proveedoresHistorial.slice(0, 5).map(function(p) {
+          return '<div class="suggestion-item" data-nombre="' + escapeHtml(p) + '" data-input="' + inputId + '">' + escapeHtml(p) + '</div>';
+        }).join('');
         attachProveedorListeners(sugerenciasDiv);
         sugerenciasDiv.style.display = 'block';
         return;
@@ -5574,9 +5568,10 @@
         return;
       }
 
-      sugerenciasDiv.innerHTML = matches.map(p => `
-        <div class="suggestion-item" data-nombre="${escapeHtml(p)}" data-input="${input.id}">${escapeHtml(p)}</div>
-      `).join('');
+      var _inputId = input.id;
+      sugerenciasDiv.innerHTML = matches.map(function(p) {
+        return '<div class="suggestion-item" data-nombre="' + escapeHtml(p) + '" data-input="' + _inputId + '">' + escapeHtml(p) + '</div>';
+      }).join('');
       attachProveedorListeners(sugerenciasDiv);
       sugerenciasDiv.style.display = 'block';
     }
@@ -5618,11 +5613,10 @@
       const lista = document.getElementById('listaGastos');
       const item = document.createElement('div');
       item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;';
-      item.innerHTML = `
-        <input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">
-        <input type="number" class="form-input gasto-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">
-        <button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">✗</button>
-      `;
+      item.innerHTML =
+        '<input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
+        '<input type="number" class="form-input gasto-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
+        '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
       lista.appendChild(item);
     }
 
@@ -5630,11 +5624,10 @@
       const lista = document.getElementById('listaIngresos');
       const item = document.createElement('div');
       item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;';
-      item.innerHTML = `
-        <input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">
-        <input type="number" class="form-input ingreso-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">
-        <button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">✗</button>
-      `;
+      item.innerHTML =
+        '<input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
+        '<input type="number" class="form-input ingreso-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
+        '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
       lista.appendChild(item);
     }
 
@@ -5736,79 +5729,63 @@
       
       // 1. DETALLE DE BILLETES (solo si hay billetes)
       if (billetesList.length > 0) {
-        html += `<tr style="background: #e8f5e9;">
-          <td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #2E7D32; border-bottom: 2px solid #2E7D32;">
-            💵 DETALLE DE EFECTIVO
-          </td>
-        </tr>`;
-        billetesList.forEach(b => {
-          html += `<tr>
-            <td style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">${escapeHtml(b.nombre)}</td>
-            <td style="padding: 4px 8px; text-align: center; font-size: 9pt; border-bottom: 1px solid #eee;">${b.cantidad} x ${formatearMonto(b.valor)}</td>
-            <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #2E7D32; border-bottom: 1px solid #eee;">${formatearMonto(b.total)}</td>
-          </tr>`;
+        html += '<tr style="background: #e8f5e9;"><td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #2E7D32; border-bottom: 2px solid #2E7D32;">&#128181; DETALLE DE EFECTIVO</td></tr>';
+        billetesList.forEach(function(b) {
+          html += '<tr>' +
+            '<td style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">' + escapeHtml(b.nombre) + '</td>' +
+            '<td style="padding: 4px 8px; text-align: center; font-size: 9pt; border-bottom: 1px solid #eee;">' + b.cantidad + ' x ' + formatearMonto(b.valor) + '</td>' +
+            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #2E7D32; border-bottom: 1px solid #eee;">' + formatearMonto(b.total) + '</td>' +
+          '</tr>';
         });
-        html += `<tr style="background: #c8e6c9;">
-          <td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL EFECTIVO</td>
-          <td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 11pt; color: #2E7D32;">${formatearMonto(efectivo)}</td>
-        </tr>`;
+        html += '<tr style="background: #c8e6c9;">' +
+          '<td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL EFECTIVO</td>' +
+          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 11pt; color: #2E7D32;">' + formatearMonto(efectivo) + '</td>' +
+        '</tr>';
       }
 
       // 2. PROVEEDORES
       if (proveedoresList.length > 0) {
-        html += `<tr style="background: #ffebee;">
-          <td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #C62828; border-top: 2px solid #ddd; border-bottom: 2px solid #C62828;">
-            📦 PROVEEDORES
-          </td>
-        </tr>`;
-        proveedoresList.forEach(p => {
-          html += `<tr>
-            <td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">${escapeHtml(p.nombre)}</td>
-            <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #C62828; border-bottom: 1px solid #eee;">-${formatearMonto(p.monto)}</td>
-          </tr>`;
+        html += '<tr style="background: #ffebee;"><td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #C62828; border-top: 2px solid #ddd; border-bottom: 2px solid #C62828;">&#128230; PROVEEDORES</td></tr>';
+        proveedoresList.forEach(function(p) {
+          html += '<tr>' +
+            '<td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">' + escapeHtml(p.nombre) + '</td>' +
+            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #C62828; border-bottom: 1px solid #eee;">-' + formatearMonto(p.monto) + '</td>' +
+          '</tr>';
         });
-        html += `<tr style="background: #ffcdd2;">
-          <td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL PROVEEDORES</td>
-          <td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #C62828;">-${formatearMonto(totalProveedores)}</td>
-        </tr>`;
+        html += '<tr style="background: #ffcdd2;">' +
+          '<td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL PROVEEDORES</td>' +
+          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #C62828;">-' + formatearMonto(totalProveedores) + '</td>' +
+        '</tr>';
       }
 
       // 3. GASTOS EXTRAS
       if (gastosList.length > 0) {
-        html += `<tr style="background: #fff3e0;">
-          <td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #F57C00; border-top: 2px solid #ddd; border-bottom: 2px solid #F57C00;">
-            💸 GASTOS EXTRAS
-          </td>
-        </tr>`;
-        gastosList.forEach(g => {
-          html += `<tr>
-            <td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">${escapeHtml(g.nombre)}</td>
-            <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #F57C00; border-bottom: 1px solid #eee;">-${formatearMonto(g.monto)}</td>
-          </tr>`;
+        html += '<tr style="background: #fff3e0;"><td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #F57C00; border-top: 2px solid #ddd; border-bottom: 2px solid #F57C00;">&#128184; GASTOS EXTRAS</td></tr>';
+        gastosList.forEach(function(g) {
+          html += '<tr>' +
+            '<td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">' + escapeHtml(g.nombre) + '</td>' +
+            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #F57C00; border-bottom: 1px solid #eee;">-' + formatearMonto(g.monto) + '</td>' +
+          '</tr>';
         });
-        html += `<tr style="background: #ffe0b2;">
-          <td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL GASTOS</td>
-          <td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #F57C00;">-${formatearMonto(totalGastos)}</td>
-        </tr>`;
+        html += '<tr style="background: #ffe0b2;">' +
+          '<td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL GASTOS</td>' +
+          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #F57C00;">-' + formatearMonto(totalGastos) + '</td>' +
+        '</tr>';
       }
 
       // 4. INGRESOS ADICIONALES
       if (ingresosList.length > 0) {
-        html += `<tr style="background: #e3f2fd;">
-          <td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #1976D2; border-top: 2px solid #ddd; border-bottom: 2px solid #1976D2;">
-            💰 INGRESOS ADICIONALES
-          </td>
-        </tr>`;
-        ingresosList.forEach(i => {
-          html += `<tr>
-            <td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">${escapeHtml(i.nombre)}</td>
-            <td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #1976D2; border-bottom: 1px solid #eee;">+${formatearMonto(i.monto)}</td>
-          </tr>`;
+        html += '<tr style="background: #e3f2fd;"><td colspan="3" style="padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #1976D2; border-top: 2px solid #ddd; border-bottom: 2px solid #1976D2;">&#128176; INGRESOS ADICIONALES</td></tr>';
+        ingresosList.forEach(function(itm) {
+          html += '<tr>' +
+            '<td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">' + escapeHtml(itm.nombre) + '</td>' +
+            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #1976D2; border-bottom: 1px solid #eee;">+' + formatearMonto(itm.monto) + '</td>' +
+          '</tr>';
         });
-        html += `<tr style="background: #bbdefb;">
-          <td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL INGRESOS</td>
-          <td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #1976D2;">+${formatearMonto(totalIngresos)}</td>
-        </tr>`;
+        html += '<tr style="background: #bbdefb;">' +
+          '<td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL INGRESOS</td>' +
+          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #1976D2;">+' + formatearMonto(totalIngresos) + '</td>' +
+        '</tr>';
       }
 
       document.getElementById('resumenArqueoDetalle').innerHTML = html;
@@ -5932,12 +5909,12 @@
 
       // Renderizar Proveedores
       document.getElementById('hojaRutaProveedores').innerHTML = proveedores.length ?
-        proveedores.map(p => `<tr><td>${escapeHtml(p.nombre)}</td><td>${formatearMonto(p.monto)}</td></tr>`).join('') :
+        proveedores.map(function(p) { return '<tr><td>' + escapeHtml(p.nombre) + '</td><td>' + formatearMonto(p.monto) + '</td></tr>'; }).join('') :
         '<tr><td colspan="2" class="empty-state">Sin proveedores cargados</td></tr>';
 
       // Renderizar Gastos Extras
       document.getElementById('hojaRutaGastos').innerHTML = gastos.length ?
-        gastos.map(g => `<tr><td>${escapeHtml(g.descripcion)}</td><td>${formatearMonto(g.monto)}</td></tr>`).join('') :
+        gastos.map(function(g) { return '<tr><td>' + escapeHtml(g.descripcion) + '</td><td>' + formatearMonto(g.monto) + '</td></tr>'; }).join('') :
         '<tr><td colspan="2" class="empty-state">Sin gastos extras cargados</td></tr>';
 
       // Calcular totales
@@ -6036,21 +6013,21 @@
       }
 
       // Lista editable (no se imprime)
-      listContainer.innerHTML = liquidacionesPendientes.map(l => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--sv-superficie); border-radius: var(--sv-radius); margin-bottom: 0.5rem;">
-          <span>${escapeHtml(l.descripcion)}</span>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-weight: bold;">${formatearMonto(l.monto)}</span>
-            <button class="btn btn-outline btn-sm" onclick="eliminarLiquidacionPendiente(${l.id})" style="color: var(--sv-peligro);">✕</button>
-          </div>
-        </div>
-      `).join('');
+      listContainer.innerHTML = liquidacionesPendientes.map(function(l) {
+        return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--sv-superficie); border-radius: var(--sv-radius); margin-bottom: 0.5rem;">' +
+          '<span>' + escapeHtml(l.descripcion) + '</span>' +
+          '<div style="display: flex; align-items: center; gap: 0.5rem;">' +
+            '<span style="font-weight: bold;">' + formatearMonto(l.monto) + '</span>' +
+            '<button class="btn btn-outline btn-sm" onclick="eliminarLiquidacionPendiente(' + l.id + ')" style="color: var(--sv-peligro);">&#10005;</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
 
       // Tabla para impresion
       printSection.style.display = 'block';
-      printTbody.innerHTML = liquidacionesPendientes.map(l =>
-        `<tr><td>${escapeHtml(l.descripcion)}</td><td>${formatearMonto(l.monto)}</td></tr>`
-      ).join('');
+      printTbody.innerHTML = liquidacionesPendientes.map(function(l) {
+        return '<tr><td>' + escapeHtml(l.descripcion) + '</td><td>' + formatearMonto(l.monto) + '</td></tr>';
+      }).join('');
 
       const totalLiqPendientes = liquidacionesPendientes.reduce((sum, l) => sum + l.monto, 0);
       totalEl.textContent = formatearMonto(totalLiqPendientes);
@@ -6110,16 +6087,16 @@
 
       result.sesiones.forEach(s => Estado.sesionesCache[s.sesionId] = s);
 
-      document.getElementById('historialCajaTbody').innerHTML = result.sesiones.map(s => `
-        <tr>
-          <td data-label="Fecha">${formatearFecha(s.fecha)}</td>
-          <td data-label="Efectivo">${formatearMonto(s.totales.efectivo)}</td>
-          <td data-label="Proveedores" style="color: var(--sv-peligro);">-${formatearMonto(s.totales.proveedores)}</td>
-          <td data-label="Gastos" style="color: var(--sv-peligro);">-${formatearMonto(s.totales.gastos)}</td>
-          <td data-label="Neto" style="font-weight: bold;">${formatearMonto(s.totales.neto)}</td>
-          <td data-label=""><button class="btn btn-outline btn-sm" onclick="verDetalleSesion('${escapeHtml(s.sesionId)}')">Ver</button></td>
-        </tr>
-      `).join('');
+      document.getElementById('historialCajaTbody').innerHTML = result.sesiones.map(function(s) {
+        return '<tr>' +
+          '<td data-label="Fecha">' + formatearFecha(s.fecha) + '</td>' +
+          '<td data-label="Efectivo">' + formatearMonto(s.totales.efectivo) + '</td>' +
+          '<td data-label="Proveedores" style="color: var(--sv-peligro);">-' + formatearMonto(s.totales.proveedores) + '</td>' +
+          '<td data-label="Gastos" style="color: var(--sv-peligro);">-' + formatearMonto(s.totales.gastos) + '</td>' +
+          '<td data-label="Neto" style="font-weight: bold;">' + formatearMonto(s.totales.neto) + '</td>' +
+          '<td data-label=""><button class="btn btn-outline btn-sm" onclick="verDetalleSesion(\'' + escapeHtml(s.sesionId) + '\')">Ver</button></td>' +
+        '</tr>';
+      }).join('');
     }
 
     function verDetalleSesion(sesionId) {
@@ -6130,54 +6107,51 @@
         return;
       }
 
-      let html = `
-        <div style="margin-bottom: 1rem;">
-          <strong>Fecha:</strong> ${formatearFecha(sesion.fecha)}<br>
-          <strong>Sesion:</strong> ${escapeHtml(sesionId)}
-        </div>
-
-        <div style="margin-bottom: 1rem; padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span>Efectivo:</span>
-            <strong>${formatearMonto(sesion.totales.efectivo)}</strong>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span>Proveedores:</span>
-            <strong style="color: var(--sv-peligro);">-${formatearMonto(sesion.totales.proveedores)}</strong>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span>Gastos:</span>
-            <strong style="color: var(--sv-peligro);">-${formatearMonto(sesion.totales.gastos)}</strong>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span>Ingresos:</span>
-            <strong style="color: var(--sv-exito);">+${formatearMonto(sesion.totales.ingresos || 0)}</strong>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding-top: 0.5rem; border-top: 1px solid var(--sv-borde);">
-            <span>NETO:</span>
-            <strong style="font-size: 1.25rem;">${formatearMonto(sesion.totales.neto)}</strong>
-          </div>
-        </div>
-      `;
+      var html =
+        '<div style="margin-bottom: 1rem;">' +
+          '<strong>Fecha:</strong> ' + formatearFecha(sesion.fecha) + '<br>' +
+          '<strong>Sesion:</strong> ' + escapeHtml(sesionId) +
+        '</div>' +
+        '<div style="margin-bottom: 1rem; padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">' +
+          '<div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">' +
+            '<span>Efectivo:</span>' +
+            '<strong>' + formatearMonto(sesion.totales.efectivo) + '</strong>' +
+          '</div>' +
+          '<div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">' +
+            '<span>Proveedores:</span>' +
+            '<strong style="color: var(--sv-peligro);">-' + formatearMonto(sesion.totales.proveedores) + '</strong>' +
+          '</div>' +
+          '<div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">' +
+            '<span>Gastos:</span>' +
+            '<strong style="color: var(--sv-peligro);">-' + formatearMonto(sesion.totales.gastos) + '</strong>' +
+          '</div>' +
+          '<div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">' +
+            '<span>Ingresos:</span>' +
+            '<strong style="color: var(--sv-exito);">+' + formatearMonto(sesion.totales.ingresos || 0) + '</strong>' +
+          '</div>' +
+          '<div style="display: flex; justify-content: space-between; padding-top: 0.5rem; border-top: 1px solid var(--sv-borde);">' +
+            '<span>NETO:</span>' +
+            '<strong style="font-size: 1.25rem;">' + formatearMonto(sesion.totales.neto) + '</strong>' +
+          '</div>' +
+        '</div>';
 
       if (sesion.registros && sesion.registros.length > 0) {
-        html += `<div class="card-title" style="margin-top: 1rem;">Detalles</div>`;
-        html += sesion.registros.map(d => `
-          <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--sv-borde);">
-            <span>${escapeHtml(d.tipo)}: ${escapeHtml(d.descripcion || '-')}</span>
-            <strong>${formatearMonto(d.monto)}</strong>
-          </div>
-        `).join('');
+        html += '<div class="card-title" style="margin-top: 1rem;">Detalles</div>';
+        html += sesion.registros.map(function(d) {
+          return '<div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--sv-borde);">' +
+            '<span>' + escapeHtml(d.tipo) + ': ' + escapeHtml(d.descripcion || '-') + '</span>' +
+            '<strong>' + formatearMonto(d.monto) + '</strong>' +
+          '</div>';
+        }).join('');
       }
 
-      // Botón para cargar sesión al formulario
-      html += `
-        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--sv-borde);">
-          <button class="btn btn-primary" style="width: 100%;" onclick="cargarSesionAlFormulario('${escapeHtml(sesionId)}')">
-            📥 Cargar al Formulario de Arqueo
-          </button>
-        </div>
-      `;
+      // Boton para cargar sesion al formulario
+      html +=
+        '<div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--sv-borde);">' +
+          '<button class="btn btn-primary" style="width: 100%;" onclick="cargarSesionAlFormulario(\'' + escapeHtml(sesionId) + '\')">' +
+            '&#128229; Cargar al Formulario de Arqueo' +
+          '</button>' +
+        '</div>';
 
       document.getElementById('detalleSesionContenido').innerHTML = html;
       abrirModal('modalDetalleSesion');
@@ -6210,7 +6184,7 @@
             const valorBillete = obtenerValorBillete(d.tipo);
             if (valorBillete > 0) {
               const cantidad = Math.round(d.monto / valorBillete);
-              const input = document.querySelector(`[data-tipo="${d.tipo}"]`);
+              const input = document.querySelector('[data-tipo="' + d.tipo + '"]');
               if (input) {
                 input.value = cantidad;
                 Estado.arqueo[d.tipo] = cantidad;
@@ -6292,20 +6266,20 @@
       const clientesOrdenados = [...Estado.clientes].sort((a, b) =>
         a.nombre.localeCompare(b.nombre, 'es'));
 
-      tbody.innerHTML = clientesOrdenados.map(c => `
-        <tr>
-          <td data-label="Nombre"><strong>${escapeHtml(c.nombre)}</strong></td>
-          <td data-label="Telefono">${escapeHtml(c.tel) || '-'}</td>
-          <td data-label="Saldo" style="font-weight: bold; color: ${c.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)'};">${formatearMonto(c.saldo)}</td>
-          <td data-label="Movs">${c.totalMovs}</td>
-          <td data-label="Acciones">
-            <div class="btn-group">
-              <button class="btn btn-outline btn-sm" onclick="editarCliente('${escapeHtml(c.nombre)}')">✏️</button>
-              <button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm('${escapeHtml(c.nombre)}')" style="color: var(--sv-peligro);">🗑️</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = clientesOrdenados.map(function(c) {
+        return '<tr>' +
+          '<td data-label="Nombre"><strong>' + escapeHtml(c.nombre) + '</strong></td>' +
+          '<td data-label="Telefono">' + (escapeHtml(c.tel) || '-') + '</td>' +
+          '<td data-label="Saldo" style="font-weight: bold; color: ' + (c.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';">' + formatearMonto(c.saldo) + '</td>' +
+          '<td data-label="Movs">' + c.totalMovs + '</td>' +
+          '<td data-label="Acciones">' +
+            '<div class="btn-group">' +
+              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escapeHtml(c.nombre) + '\')">&#9999;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escapeHtml(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
     }
 
     const filtrarClientesDebounce = debounce(function() {
@@ -6323,20 +6297,20 @@
         return;
       }
 
-      tbody.innerHTML = clientesFiltrados.map(c => `
-        <tr>
-          <td data-label="Nombre"><strong>${escapeHtml(c.nombre)}</strong></td>
-          <td data-label="Telefono">${escapeHtml(c.tel) || '-'}</td>
-          <td data-label="Saldo" style="font-weight: bold; color: ${c.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)'};">${formatearMonto(c.saldo)}</td>
-          <td data-label="Movs">${c.totalMovs}</td>
-          <td data-label="Acciones">
-            <div class="btn-group">
-              <button class="btn btn-outline btn-sm" onclick="editarCliente('${escapeHtml(c.nombre)}')">✏️</button>
-              <button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm('${escapeHtml(c.nombre)}')" style="color: var(--sv-peligro);">🗑️</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = clientesFiltrados.map(function(c) {
+        return '<tr>' +
+          '<td data-label="Nombre"><strong>' + escapeHtml(c.nombre) + '</strong></td>' +
+          '<td data-label="Telefono">' + (escapeHtml(c.tel) || '-') + '</td>' +
+          '<td data-label="Saldo" style="font-weight: bold; color: ' + (c.saldo > 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';">' + formatearMonto(c.saldo) + '</td>' +
+          '<td data-label="Movs">' + c.totalMovs + '</td>' +
+          '<td data-label="Acciones">' +
+            '<div class="btn-group">' +
+              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escapeHtml(c.nombre) + '\')">&#9999;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escapeHtml(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
     }, 300);
 
     function abrirModalNuevoCliente() {
@@ -6571,19 +6545,9 @@
       // Control de página única vs múltiples páginas
       let pageModeCss = '';
       if (pageMode === 'single') {
-        pageModeCss = `
-          .module-view.active {
-            max-height: 100vh !important;
-            overflow: hidden !important;
-          }
-        `;
+        pageModeCss = '.module-view.active { max-height: 100vh !important; overflow: hidden !important; }';
       } else if (pageMode === 'multi') {
-        pageModeCss = `
-          .module-view.active {
-            max-height: none !important;
-            overflow: visible !important;
-          }
-        `;
+        pageModeCss = '.module-view.active { max-height: none !important; overflow: visible !important; }';
       }
 
       // Control de salto de página entre secciones
@@ -6602,36 +6566,17 @@
 
       style = document.createElement('style');
       style.id = 'dynamic-print-style';
-      style.textContent = `
-        @media print {
-          @page {
-            size: A4 ${orientation};
-            margin: ${margin}cm;
-          }
-
-          .module-view.active {
-            transform: scale(${scaleValue});
-            transform-origin: top left;
-            ${widthConstraintCss}
-          }
-
-          #module-impresion-saldos .table th,
-          #module-impresion-saldos .table td,
-          #module-hoja-ruta .table th,
-          #module-hoja-ruta .table td {
-            font-size: ${fontSizeSaldos}pt !important;
-          }
-
-          #module-impresion-saldos h3,
-          #module-hoja-ruta h3 {
-            font-size: ${fontSizeHeader}pt !important;
-          }
-
-          ${pageModeCss}
-          ${pageBreakCss}
-          ${logoCss}
-        }
-      `;
+      style.textContent =
+        '@media print {' +
+          '@page { size: A4 ' + orientation + '; margin: ' + margin + 'cm; }' +
+          '.module-view.active { transform: scale(' + scaleValue + '); transform-origin: top left; ' + widthConstraintCss + ' }' +
+          '#module-impresion-saldos .table th, #module-impresion-saldos .table td,' +
+          '#module-hoja-ruta .table th, #module-hoja-ruta .table td { font-size: ' + fontSizeSaldos + 'pt !important; }' +
+          '#module-impresion-saldos h3, #module-hoja-ruta h3 { font-size: ' + fontSizeHeader + 'pt !important; }' +
+          pageModeCss +
+          pageBreakCss +
+          logoCss +
+        '}';
       document.head.appendChild(style);
 
       // Actualizar texto del pie en el resumen de arqueo
@@ -6702,7 +6647,7 @@
             // Generar CSV de clientes
             let csv = 'Nombre,Telefono,Email,Saldo,Limite,Movimientos,CUIT,CondicionFiscal\n';
             clientes.forEach(c => {
-              csv += `"${(c.nombre || '').replace(/"/g, '""')}","${c.tel || ''}","${c.email || ''}",${c.saldo || 0},${c.limite || 0},${c.totalMovs || 0},"${c.cuit || ''}","${c.condicionFiscal || ''}"\n`;
+              csv += '"' + (c.nombre || '').replace(/"/g, '""') + '","' + (c.tel || '') + '","' + (c.email || '') + '",' + (c.saldo || 0) + ',' + (c.limite || 0) + ',' + (c.totalMovs || 0) + ',"' + (c.cuit || '') + '","' + (c.condicionFiscal || '') + '"\n';
             });
 
             // Descargar
@@ -6712,7 +6657,7 @@
             link.download = 'clientes_sol_verde_' + obtenerFechaLocal() + '.csv';
             link.click();
 
-            mostrarToast(`${clientes.length} clientes exportados a CSV`, 'success');
+            mostrarToast(clientes.length + ' clientes exportados a CSV', 'success');
           } else {
             mostrarToast('Error al exportar: ' + result.error, 'error');
           }
@@ -6962,22 +6907,21 @@
         const esClienteConocido = nombresClientes.has(normalizarTexto(t.cliente || ''));
         const esCF = !esClienteConocido || (t.cliente || '').toUpperCase().includes('CONSUMIDOR FINAL');
         const cfBadge = esCF ? '<span class="cf-badge">CF</span>' : '';
-        return `
-        <tr>
-          <td data-label="Fecha">${formatearFecha(t.fecha)}</td>
-          <td data-label="Cliente"><strong>${escapeHtml(t.cliente)}</strong>${cfBadge}</td>
-          <td data-label="Monto" style="font-weight: bold;">${formatearMonto(t.monto)}</td>
-          <td data-label="Banco">${escapeHtml(t.banco) || '-'}</td>
-          <td data-label="Tipo"><span class="tag ${t.tipoFactura === 'A' ? 'tag-haber' : 'tag-debe'}">${escapeHtml(t.tipoFactura || '-')}</span></td>
-          <td data-label="Estado">${t.facturada ? '<span style="color: var(--sv-exito);">✓ Facturada</span>' : '<span style="color: var(--sv-advertencia);">⏳ Pendiente</span>'}</td>
-          <td data-label="Acciones">
-            <div class="btn-group">
-              ${!t.facturada ? `<button class="btn btn-outline btn-sm" onclick="editarTransferencia(${t.id})">✏️</button>` : ''}
-              ${!t.facturada ? `<button class="btn btn-outline btn-sm" onclick="marcarFacturada(${t.id})" title="Marcar como facturada">✓</button>` : ''}
-              <button class="btn btn-outline btn-sm" onclick="eliminarTransferencia(${t.id})" style="color: var(--sv-peligro);" title="Eliminar">🗑️</button>
-            </div>
-          </td>
-        </tr>`;
+        return '<tr>' +
+          '<td data-label="Fecha">' + formatearFecha(t.fecha) + '</td>' +
+          '<td data-label="Cliente"><strong>' + escapeHtml(t.cliente) + '</strong>' + cfBadge + '</td>' +
+          '<td data-label="Monto" style="font-weight: bold;">' + formatearMonto(t.monto) + '</td>' +
+          '<td data-label="Banco">' + (escapeHtml(t.banco) || '-') + '</td>' +
+          '<td data-label="Tipo"><span class="tag ' + (t.tipoFactura === 'A' ? 'tag-haber' : 'tag-debe') + '">' + escapeHtml(t.tipoFactura || '-') + '</span></td>' +
+          '<td data-label="Estado">' + (t.facturada ? '<span style="color: var(--sv-exito);">&#10003; Facturada</span>' : '<span style="color: var(--sv-advertencia);">&#9203; Pendiente</span>') + '</td>' +
+          '<td data-label="Acciones">' +
+            '<div class="btn-group">' +
+              (!t.facturada ? '<button class="btn btn-outline btn-sm" onclick="editarTransferencia(' + t.id + ')">&#9999;&#65039;</button>' : '') +
+              (!t.facturada ? '<button class="btn btn-outline btn-sm" onclick="marcarFacturada(' + t.id + ')" title="Marcar como facturada">&#10003;</button>' : '') +
+              '<button class="btn btn-outline btn-sm" onclick="eliminarTransferencia(' + t.id + ')" style="color: var(--sv-peligro);" title="Eliminar">&#128465;&#65039;</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
       }).join('');
     }
 
@@ -6997,20 +6941,20 @@
         return;
       }
 
-      tbody.innerHTML = EstadoFacturacion.productos.map(p => `
-        <tr>
-          <td data-label="Producto"><strong>${escapeHtml(p.nombre)}</strong></td>
-          <td data-label="Precio">${formatearMonto(p.precio)}</td>
-          <td data-label="Stock">${p.stock === 999999 ? '∞' : p.stock}</td>
-          <td data-label="Estado">${p.activo ? '<span style="color: var(--sv-exito);">Activo</span>' : '<span style="color: var(--sv-texto-muted);">Inactivo</span>'}</td>
-          <td data-label="Acciones">
-            <div class="btn-group">
-              <button class="btn btn-outline btn-sm" onclick="editarProducto(${p.id})">✏️</button>
-              <button class="btn btn-outline btn-sm" onclick="eliminarProductoConfirm(${p.id})" style="color: var(--sv-peligro);">🗑️</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = EstadoFacturacion.productos.map(function(p) {
+        return '<tr>' +
+          '<td data-label="Producto"><strong>' + escapeHtml(p.nombre) + '</strong></td>' +
+          '<td data-label="Precio">' + formatearMonto(p.precio) + '</td>' +
+          '<td data-label="Stock">' + (p.stock === 999999 ? '&#8734;' : p.stock) + '</td>' +
+          '<td data-label="Estado">' + (p.activo ? '<span style="color: var(--sv-exito);">Activo</span>' : '<span style="color: var(--sv-texto-muted);">Inactivo</span>') + '</td>' +
+          '<td data-label="Acciones">' +
+            '<div class="btn-group">' +
+              '<button class="btn btn-outline btn-sm" onclick="editarProducto(' + p.id + ')">&#9999;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="eliminarProductoConfirm(' + p.id + ')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
 
       console.log('✅ Productos renderizados exitosamente');
     }
@@ -7300,23 +7244,23 @@
           if (nombre && !isNaN(precio) && precio > 0) {
             productos.push({ nombre, precio, stock: 999999 });
           } else {
-            errores.push(`Linea ${idx + 1}: formato invalido`);
+            errores.push('Linea ' + (idx + 1) + ': formato invalido');
           }
         } else {
-          errores.push(`Linea ${idx + 1}: faltan datos`);
+          errores.push('Linea ' + (idx + 1) + ': faltan datos');
         }
       });
 
-      let html = `<div style="padding: 0.5rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">`;
-      html += `<strong>${productos.length} productos validos</strong>`;
+      var html = '<div style="padding: 0.5rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">';
+      html += '<strong>' + productos.length + ' productos validos</strong>';
       if (errores.length > 0) {
-        html += `<span style="color: var(--sv-peligro);"> (${errores.length} errores)</span>`;
+        html += '<span style="color: var(--sv-peligro);"> (' + errores.length + ' errores)</span>';
       }
-      html += `<div style="max-height: 150px; overflow-y: auto; margin-top: 0.5rem; font-size: 0.875rem;">`;
-      productos.forEach(p => {
-        html += `<div>${escapeHtml(p.nombre)} - ${formatearMonto(p.precio)}</div>`;
+      html += '<div style="max-height: 150px; overflow-y: auto; margin-top: 0.5rem; font-size: 0.875rem;">';
+      productos.forEach(function(p) {
+        html += '<div>' + escapeHtml(p.nombre) + ' - ' + formatearMonto(p.precio) + '</div>';
       });
-      html += `</div></div>`;
+      html += '</div></div>';
 
       document.getElementById('previewCargaMasiva').innerHTML = html;
     }
@@ -7347,7 +7291,7 @@
         return;
       }
 
-      if (!confirm(`¿Guardar ${productos.length} productos?`)) return;
+      if (!confirm('¿Guardar ' + productos.length + ' productos?')) return;
 
       mostrarLoading(true);
       google.script.run
@@ -7356,7 +7300,7 @@
           if (result.success) {
             cerrarModal('modalCargaMasiva');
             cargarDatosFacturacion();
-            mostrarToast(`${result.agregados} productos agregados`, 'success');
+            mostrarToast(result.agregados + ' productos agregados', 'success');
           } else {
             mostrarToast(result.error, 'error');
           }
@@ -7385,30 +7329,26 @@
       // Renderizar lista Facturas A
       document.getElementById('tbodyFacturasA').innerHTML = facturasA.length === 0 ?
         '<tr><td colspan="4" class="empty-state">Sin transferencias pendientes</td></tr>' :
-        facturasA.map(t => `
-          <tr>
-            <td>${formatearFecha(t.fecha)}</td>
-            <td><strong>${escapeHtml(t.cliente)}</strong></td>
-            <td>${formatearMonto(t.monto)}</td>
-            <td>
-              <button class="btn btn-outline btn-sm" onclick="seleccionarTransferencia(${t.id})">Asignar</button>
-            </td>
-          </tr>
-        `).join('');
+        facturasA.map(function(t) {
+          return '<tr>' +
+            '<td>' + formatearFecha(t.fecha) + '</td>' +
+            '<td><strong>' + escapeHtml(t.cliente) + '</strong></td>' +
+            '<td>' + formatearMonto(t.monto) + '</td>' +
+            '<td><button class="btn btn-outline btn-sm" onclick="seleccionarTransferencia(' + t.id + ')">Asignar</button></td>' +
+          '</tr>';
+        }).join('');
 
       // Renderizar lista Consumidor Final
       document.getElementById('tbodyFacturasCF').innerHTML = facturasCF.length === 0 ?
         '<tr><td colspan="4" class="empty-state">Sin transferencias pendientes</td></tr>' :
-        facturasCF.map(t => `
-          <tr>
-            <td>${formatearFecha(t.fecha)}</td>
-            <td><strong>${escapeHtml(t.cliente)}</strong></td>
-            <td>${formatearMonto(t.monto)}</td>
-            <td>
-              <button class="btn btn-outline btn-sm" onclick="seleccionarTransferencia(${t.id})">Asignar</button>
-            </td>
-          </tr>
-        `).join('');
+        facturasCF.map(function(t) {
+          return '<tr>' +
+            '<td>' + formatearFecha(t.fecha) + '</td>' +
+            '<td><strong>' + escapeHtml(t.cliente) + '</strong></td>' +
+            '<td>' + formatearMonto(t.monto) + '</td>' +
+            '<td><button class="btn btn-outline btn-sm" onclick="seleccionarTransferencia(' + t.id + ')">Asignar</button></td>' +
+          '</tr>';
+        }).join('');
 
       // Calcular totales
       const totalA = facturasA.reduce((sum, t) => sum + t.monto, 0);
@@ -7420,7 +7360,7 @@
       const select = document.getElementById('selectProductoAsignar');
       select.innerHTML = '<option value="">Seleccione producto...</option>' +
         EstadoFacturacion.productos.filter(p => p.activo && p.stock > 0).map(p =>
-          `<option value="${p.id}" data-precio="${p.precio}" data-stock="${p.stock}">${escapeHtml(p.nombre)} - ${formatearMonto(p.precio)} (Stock: ${p.stock === 999999 ? '∞' : p.stock})</option>`
+          '<option value="' + p.id + '" data-precio="' + p.precio + '" data-stock="' + p.stock + '">' + escapeHtml(p.nombre) + ' - ' + formatearMonto(p.precio) + ' (Stock: ' + (p.stock === 999999 ? '&#8734;' : p.stock) + ')</option>'
         ).join('');
     }
 
@@ -7432,7 +7372,7 @@
       productosParaAsignar = [];
 
       document.getElementById('transfSeleccionadaInfo').innerHTML =
-        `<strong>${escapeHtml(transf.cliente)}</strong> - ${formatearMonto(transf.monto)} (${formatearFecha(transf.fecha)})`;
+        '<strong>' + escapeHtml(transf.cliente) + '</strong> - ' + formatearMonto(transf.monto) + ' (' + formatearFecha(transf.fecha) + ')';
 
       document.getElementById('asignacionProductos').style.display = 'block';
       document.getElementById('sinTransferenciaSeleccionada').style.display = 'none';
@@ -7456,7 +7396,7 @@
       // Verificar stock disponible
       const yaAsignado = productosParaAsignar.filter(p => p.id === producto.id).reduce((sum, p) => sum + p.cantidad, 0);
       if (producto.stock !== 999999 && (yaAsignado + cantidad) > producto.stock) {
-        mostrarToast(`Stock insuficiente. Disponible: ${producto.stock - yaAsignado}`, 'error');
+        mostrarToast('Stock insuficiente. Disponible: ' + (producto.stock - yaAsignado), 'error');
         return;
       }
 
@@ -7481,26 +7421,21 @@
 
       const total = productosParaAsignar.reduce((sum, p) => sum + p.subtotal, 0);
 
-      container.innerHTML = `
-        <table class="table" style="font-size: 0.875rem;">
-          <thead>
-            <tr><th>Producto</th><th>Cant.</th><th>Subtotal</th><th></th></tr>
-          </thead>
-          <tbody>
-            ${productosParaAsignar.map((p, idx) => `
-              <tr>
-                <td>${escapeHtml(p.nombre)}</td>
-                <td>${p.cantidad}</td>
-                <td>${formatearMonto(p.subtotal)}</td>
-                <td><button class="btn btn-outline btn-sm" onclick="quitarProductoAsignado(${idx})" style="color: var(--sv-peligro);">✕</button></td>
-              </tr>
-            `).join('')}
-          </tbody>
-          <tfoot>
-            <tr><td colspan="2"><strong>Total:</strong></td><td colspan="2"><strong>${formatearMonto(total)}</strong></td></tr>
-          </tfoot>
-        </table>
-      `;
+      container.innerHTML =
+        '<table class="table" style="font-size: 0.875rem;">' +
+          '<thead><tr><th>Producto</th><th>Cant.</th><th>Subtotal</th><th></th></tr></thead>' +
+          '<tbody>' +
+            productosParaAsignar.map(function(p, idx) {
+              return '<tr>' +
+                '<td>' + escapeHtml(p.nombre) + '</td>' +
+                '<td>' + p.cantidad + '</td>' +
+                '<td>' + formatearMonto(p.subtotal) + '</td>' +
+                '<td><button class="btn btn-outline btn-sm" onclick="quitarProductoAsignado(' + idx + ')" style="color: var(--sv-peligro);">&#10005;</button></td>' +
+              '</tr>';
+            }).join('') +
+          '</tbody>' +
+          '<tfoot><tr><td colspan="2"><strong>Total:</strong></td><td colspan="2"><strong>' + formatearMonto(total) + '</strong></td></tr></tfoot>' +
+        '</table>';
     }
 
     function quitarProductoAsignado(idx) {
@@ -7549,7 +7484,7 @@
       const mesActual = new Date().getMonth() + 1;
       const anioActual = new Date().getFullYear();
 
-      if (!confirm(`¿Generar resumen de facturas para ${mesActual}/${anioActual}?\n\nSe crearan hojas separadas para Facturas A y Consumidores Finales.`)) {
+      if (!confirm('¿Generar resumen de facturas para ' + mesActual + '/' + anioActual + '?\n\nSe crearan hojas separadas para Facturas A y Consumidores Finales.')) {
         return;
       }
 
@@ -7640,14 +7575,14 @@
       const tbody = document.getElementById('tbodyResultadosIA');
       if (!tbody) return;
 
-      tbody.innerHTML = EstadoFacturacion.resultadosIA.map((item, idx) => `
-        <tr>
-          <td><input type="text" class="form-input" value="${escapeHtml(item.nombre)}" onchange="EstadoFacturacion.resultadosIA[${idx}].nombre = this.value"></td>
-          <td><input type="number" class="form-input" value="${item.monto}" step="0.01" onchange="EstadoFacturacion.resultadosIA[${idx}].monto = parseFloat(this.value)"></td>
-          <td><input type="text" class="form-input" value="${escapeHtml(item.banco || '')}" onchange="EstadoFacturacion.resultadosIA[${idx}].banco = this.value"></td>
-          <td><button class="btn btn-outline btn-sm" onclick="eliminarResultadoIA(${idx})" style="color: var(--sv-peligro);">✕</button></td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = EstadoFacturacion.resultadosIA.map(function(item, idx) {
+        return '<tr>' +
+          '<td><input type="text" class="form-input" value="' + escapeHtml(item.nombre) + '" onchange="EstadoFacturacion.resultadosIA[' + idx + '].nombre = this.value"></td>' +
+          '<td><input type="number" class="form-input" value="' + item.monto + '" step="0.01" onchange="EstadoFacturacion.resultadosIA[' + idx + '].monto = parseFloat(this.value)"></td>' +
+          '<td><input type="text" class="form-input" value="' + escapeHtml(item.banco || '') + '" onchange="EstadoFacturacion.resultadosIA[' + idx + '].banco = this.value"></td>' +
+          '<td><button class="btn btn-outline btn-sm" onclick="eliminarResultadoIA(' + idx + ')" style="color: var(--sv-peligro);">&#10005;</button></td>' +
+          '</tr>';
+      }).join('');
     }
 
     // Eliminar resultado de IA
@@ -8865,37 +8800,25 @@
         return;
       }
 
-      tbody.innerHTML = transferencias.map(t => `
-        <tr style="animation: fadeIn 0.3s ease;">
-          <td data-label="Fecha">${formatearFecha(t.fecha)}</td>
-          <td data-label="Cliente"><strong>${escapeHtml(t.cliente)}</strong></td>
-          <td data-label="Monto" style="font-weight: bold; color: var(--sv-primario);">${formatearMonto(t.monto)}</td>
-          <td data-label="Banco">${escapeHtml(t.banco) || '-'}</td>
-          <td data-label="Tipo">
-            <span class="tag ${t.tipoFactura === 'A' ? 'tag-haber' : 'tag-debe'}">
-              Factura ${escapeHtml(t.tipoFactura || '?')}
-            </span>
-          </td>
-          <td data-label="Estado">
-            ${t.facturada ?
-              '<span style="color: var(--sv-exito); font-weight: bold;">✓ Facturada</span>' :
-              '<span style="color: var(--sv-advertencia); font-weight: bold;">⏳ Pendiente</span>'}
-          </td>
-          <td data-label="Acciones">
-            <div class="btn-group">
-              ${!t.facturada ? `
-                <button class="btn btn-primary btn-sm" onclick="iniciarFacturacionDesdeTransferencia(${t.id})" title="Facturar en ARCA">
-                  📋 Facturar
-                </button>
-              ` : ''}
-              <button class="btn btn-outline btn-sm" onclick="verDetalleTransferenciaUnif(${t.id})" title="Ver detalle">👁️</button>
-              ${!t.facturada ? `
-                <button class="btn btn-outline btn-sm" onclick="eliminarTransferenciaUnif(${t.id})" style="color: var(--sv-peligro);" title="Eliminar">🗑️</button>
-              ` : ''}
-            </div>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = transferencias.map(function(t) {
+        return '<tr style="animation: fadeIn 0.3s ease;">' +
+          '<td data-label="Fecha">' + formatearFecha(t.fecha) + '</td>' +
+          '<td data-label="Cliente"><strong>' + escapeHtml(t.cliente) + '</strong></td>' +
+          '<td data-label="Monto" style="font-weight: bold; color: var(--sv-primario);">' + formatearMonto(t.monto) + '</td>' +
+          '<td data-label="Banco">' + (escapeHtml(t.banco) || '-') + '</td>' +
+          '<td data-label="Tipo"><span class="tag ' + (t.tipoFactura === 'A' ? 'tag-haber' : 'tag-debe') + '">Factura ' + escapeHtml(t.tipoFactura || '?') + '</span></td>' +
+          '<td data-label="Estado">' + (t.facturada ?
+            '<span style="color: var(--sv-exito); font-weight: bold;">&#10003; Facturada</span>' :
+            '<span style="color: var(--sv-advertencia); font-weight: bold;">&#9203; Pendiente</span>') + '</td>' +
+          '<td data-label="Acciones">' +
+            '<div class="btn-group">' +
+              (!t.facturada ? '<button class="btn btn-primary btn-sm" onclick="iniciarFacturacionDesdeTransferencia(' + t.id + ')" title="Facturar en ARCA">&#128203; Facturar</button>' : '') +
+              '<button class="btn btn-outline btn-sm" onclick="verDetalleTransferenciaUnif(' + t.id + ')" title="Ver detalle">&#128065;&#65039;</button>' +
+              (!t.facturada ? '<button class="btn btn-outline btn-sm" onclick="eliminarTransferenciaUnif(' + t.id + ')" style="color: var(--sv-peligro);" title="Eliminar">&#128465;&#65039;</button>' : '') +
+            '</div>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
     }
 
     // Seleccionar Consumidor Final rápido en formulario unificado
@@ -9238,9 +9161,9 @@
       // Cargar productos en select
       const select = document.getElementById('facturaAProducto');
       select.innerHTML = '<option value="">Seleccionar...</option>' +
-        EstadoFacturacionUnif.productos.map(p =>
-          `<option value="${p.id}">${escapeHtml(p.nombre)} - ${formatearMonto(p.precio)}</option>`
-        ).join('');
+        EstadoFacturacionUnif.productos.map(function(p) {
+          return '<option value="' + p.id + '">' + escapeHtml(p.nombre) + ' - ' + formatearMonto(p.precio) + '</option>';
+        }).join('');
 
       // Listener para autocompletar precio
       select.onchange = function() {
@@ -9320,17 +9243,15 @@
       }
 
       emptyDiv.style.display = 'none';
-      tbody.innerHTML = EstadoFacturacionUnif.itemsFacturaA.map((item, i) => `
-        <tr>
-          <td>${item.cantidad}</td>
-          <td>${escapeHtml(item.descripcion)}</td>
-          <td style="text-align:right">${formatearMonto(item.precioUnitario)}</td>
-          <td style="text-align:right"><strong>${formatearMonto(item.subtotal)}</strong></td>
-          <td>
-            <button class="btn btn-outline" style="padding:2px 8px;font-size:0.7rem;" onclick="eliminarItemFacturaA(${i})">X</button>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = EstadoFacturacionUnif.itemsFacturaA.map(function(item, i) {
+        return '<tr>' +
+          '<td>' + item.cantidad + '</td>' +
+          '<td>' + escapeHtml(item.descripcion) + '</td>' +
+          '<td style="text-align:right">' + formatearMonto(item.precioUnitario) + '</td>' +
+          '<td style="text-align:right"><strong>' + formatearMonto(item.subtotal) + '</strong></td>' +
+          '<td><button class="btn btn-outline" style="padding:2px 8px;font-size:0.7rem;" onclick="eliminarItemFacturaA(' + i + ')">X</button></td>' +
+          '</tr>';
+      }).join('');
     }
 
     function actualizarVistaPreviaFacturaA() {
@@ -9487,16 +9408,16 @@
       const transferencia = EstadoFacturacionUnif.transferencias.find(t => t.id === id);
       if (!transferencia) return;
 
-      const detalle = `
-Fecha: ${formatearFecha(transferencia.fecha)}
-Cliente: ${transferencia.cliente}
-Monto: ${formatearMonto(transferencia.monto)}
-Banco: ${transferencia.banco || '-'}
-Tipo de Factura: ${transferencia.tipoFactura}
-Estado: ${transferencia.facturada ? 'Facturada' : 'Pendiente'}
-${transferencia.facturada ? 'Fecha Factura: ' + formatearFecha(transferencia.fechaFactura) : ''}
-${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
-      `;
+      var detalle =
+        '\nFecha: ' + formatearFecha(transferencia.fecha) +
+        '\nCliente: ' + transferencia.cliente +
+        '\nMonto: ' + formatearMonto(transferencia.monto) +
+        '\nBanco: ' + (transferencia.banco || '-') +
+        '\nTipo de Factura: ' + transferencia.tipoFactura +
+        '\nEstado: ' + (transferencia.facturada ? 'Facturada' : 'Pendiente') +
+        (transferencia.facturada ? '\nFecha Factura: ' + formatearFecha(transferencia.fechaFactura) : '') +
+        (transferencia.obs ? '\nObservaciones: ' + transferencia.obs : '') +
+        '\n      ';
 
       alert(detalle);
     }
@@ -9583,57 +9504,43 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
             const saldoIcono = inq.saldo < 0 ? '⚠️' : '✅';
             const inquilinoId = inq.inquilino.replace(/\s/g, '-');
 
-            return `
-              <div class="inquilino-card">
-                <h3>${escapeHtml(inq.inquilino)}</h3>
-                <div class="inquilino-info">
-                  <div class="inquilino-info-item">
-                    <span class="inquilino-info-label">💰 Monto Semanal</span>
-                    <span class="inquilino-info-value">$${formatearNumero(inq.montoSemanal)}</span>
-                  </div>
-                  <div class="inquilino-info-item">
-                    <span class="inquilino-info-label">🔧 Ajuste Obra</span>
-                    <span class="inquilino-info-value">+$${formatearNumero(inq.ajusteObra)}</span>
-                  </div>
-                  <div class="inquilino-info-item">
-                    <span class="inquilino-info-label">📦 Ajuste Mercadería</span>
-                    <span class="inquilino-info-value">-$${formatearNumero(inq.ajusteMercaderia)}</span>
-                  </div>
-                  <div class="inquilino-info-item">
-                    <span class="inquilino-info-label">💵 Monto Efectivo</span>
-                    <span class="inquilino-info-value"><strong>$${formatearNumero(inq.montoEfectivo)}</strong></span>
-                  </div>
-                  <div class="inquilino-info-item">
-                    <span class="inquilino-info-label">${saldoIcono} Saldo</span>
-                    <span class="inquilino-info-value ${saldoClase}">
-                      $${formatearNumero(inq.saldo)}
-                    </span>
-                  </div>
-                </div>
-                <div class="inquilino-acciones">
-                  <button class="btn btn-primary btn-sm" onclick="abrirModalPagoAlquiler('${escapeHtml(inq.inquilino)}')">
-                    💸 Pago
-                  </button>
-                  <button class="btn btn-outline btn-sm" onclick="abrirModalFacturaAlquiler('${escapeHtml(inq.inquilino)}')">
-                    📄 Factura
-                  </button>
-                  <button class="btn btn-outline btn-sm" onclick="abrirModalConfigAlquiler('${escapeHtml(inq.inquilino)}')">
-                    ⚙️ Config
-                  </button>
-                </div>
-                <div class="alquileres-calendario">
-                  <div class="calendario-header">
-                    <h4>📅 Calendario 2026</h4>
-                    <button class="btn btn-outline btn-sm" onclick="cargarCalendarioAlquiler('${escapeHtml(inq.inquilino)}', 2026)">
-                      Ver Calendario
-                    </button>
-                  </div>
-                  <div id="calendario-${inquilinoId}" class="calendario-grid">
-                    <!-- Se carga dinámicamente -->
-                  </div>
-                </div>
-              </div>
-            `;
+            return '<div class="inquilino-card">' +
+              '<h3>' + escapeHtml(inq.inquilino) + '</h3>' +
+              '<div class="inquilino-info">' +
+                '<div class="inquilino-info-item">' +
+                  '<span class="inquilino-info-label">&#128176; Monto Semanal</span>' +
+                  '<span class="inquilino-info-value">$' + formatearNumero(inq.montoSemanal) + '</span>' +
+                '</div>' +
+                '<div class="inquilino-info-item">' +
+                  '<span class="inquilino-info-label">&#128295; Ajuste Obra</span>' +
+                  '<span class="inquilino-info-value">+$' + formatearNumero(inq.ajusteObra) + '</span>' +
+                '</div>' +
+                '<div class="inquilino-info-item">' +
+                  '<span class="inquilino-info-label">&#128230; Ajuste Mercader&#237;a</span>' +
+                  '<span class="inquilino-info-value">-$' + formatearNumero(inq.ajusteMercaderia) + '</span>' +
+                '</div>' +
+                '<div class="inquilino-info-item">' +
+                  '<span class="inquilino-info-label">&#128181; Monto Efectivo</span>' +
+                  '<span class="inquilino-info-value"><strong>$' + formatearNumero(inq.montoEfectivo) + '</strong></span>' +
+                '</div>' +
+                '<div class="inquilino-info-item">' +
+                  '<span class="inquilino-info-label">' + saldoIcono + ' Saldo</span>' +
+                  '<span class="inquilino-info-value ' + saldoClase + '">$' + formatearNumero(inq.saldo) + '</span>' +
+                '</div>' +
+              '</div>' +
+              '<div class="inquilino-acciones">' +
+                '<button class="btn btn-primary btn-sm" onclick="abrirModalPagoAlquiler(\'' + escapeHtml(inq.inquilino) + '\')">&#128184; Pago</button>' +
+                '<button class="btn btn-outline btn-sm" onclick="abrirModalFacturaAlquiler(\'' + escapeHtml(inq.inquilino) + '\')">&#128196; Factura</button>' +
+                '<button class="btn btn-outline btn-sm" onclick="abrirModalConfigAlquiler(\'' + escapeHtml(inq.inquilino) + '\')">&#9881;&#65039; Config</button>' +
+              '</div>' +
+              '<div class="alquileres-calendario">' +
+                '<div class="calendario-header">' +
+                  '<h4>&#128197; Calendario 2026</h4>' +
+                  '<button class="btn btn-outline btn-sm" onclick="cargarCalendarioAlquiler(\'' + escapeHtml(inq.inquilino) + '\', 2026)">Ver Calendario</button>' +
+                '</div>' +
+                '<div id="calendario-' + inquilinoId + '" class="calendario-grid"></div>' +
+              '</div>' +
+            '</div>';
           }).join('');
 
           document.getElementById('listaInquilinos').innerHTML = html;
@@ -9669,7 +9576,7 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
             else if (estado === 'parcial') clase += 'parcial';
             else clase += 'impaga';
 
-            html += `<div class="${clase}" title="Semana ${i}: ${estado}">S${i}</div>`;
+            html += '<div class="' + clase + '" title="Semana ' + i + ': ' + estado + '">S' + i + '</div>';
           }
 
           document.getElementById(containerId).innerHTML = html;
@@ -9946,7 +9853,7 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
         }
         const signo = diff > 0 ? '+' : '';
         return {
-          texto: `⚠ Diferencia: ${signo}${formatearMonto(diff)}`,
+          texto: '&#9888; Diferencia: ' + signo + formatearMonto(diff),
           clase: 'contab-dif-mal'
         };
       }
@@ -10079,12 +9986,12 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
       if (accsEl) {
         if (caja.estado === 'ABIERTA') {
           accsEl.innerHTML =
-            `<button class="btn btn-outline btn-sm" onclick="imprimirCajaDiaria(${caja.id}, 1)">🖨️ Imprimir</button>`;
+            '<button class="btn btn-outline btn-sm" onclick="imprimirCajaDiaria(' + caja.id + ', 1)">&#128424;&#65039; Imprimir</button>';
           if (btnAbrir) { btnAbrir.style.display = 'none'; }
         } else {
           accsEl.innerHTML =
-            `<button class="btn btn-outline btn-sm" onclick="imprimirCajaDiaria(${caja.id}, 1)">🖨️ Reimprimir</button>` +
-            `<button class="btn btn-outline btn-sm" onclick="contabAbrirModalReabrir(${caja.id})" style="color:var(--sv-secundario);">🔓 Reabrir</button>`;
+            '<button class="btn btn-outline btn-sm" onclick="imprimirCajaDiaria(' + caja.id + ', 1)">&#128424;&#65039; Reimprimir</button>' +
+            '<button class="btn btn-outline btn-sm" onclick="contabAbrirModalReabrir(' + caja.id + ')" style="color:var(--sv-secundario);">&#128275; Reabrir</button>';
           if (btnAbrir) { btnAbrir.style.display = ''; btnAbrir.textContent = '+ Nueva Caja'; }
         }
       }
@@ -10114,25 +10021,25 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
 
       let html = '';
       if (auto.totalPagos > 0) {
-        html += `<tr class="mov-auto-row">
-          <td data-label="Concepto">Cobros del día (${auto.detallePagos.length} pago${auto.detallePagos.length !== 1 ? 's' : ''})</td>
-          <td data-label="Tipo"><span style="color:var(--sv-exito); font-weight:600;">INGRESO</span></td>
-          <td data-label="Monto" style="text-align:right; color:var(--sv-exito);">+${formatearMonto(auto.totalPagos)}</td>
-        </tr>`;
+        html += '<tr class="mov-auto-row">' +
+          '<td data-label="Concepto">Cobros del d&iacute;a (' + auto.detallePagos.length + ' pago' + (auto.detallePagos.length !== 1 ? 's' : '') + ')</td>' +
+          '<td data-label="Tipo"><span style="color:var(--sv-exito); font-weight:600;">INGRESO</span></td>' +
+          '<td data-label="Monto" style="text-align:right; color:var(--sv-exito);">+' + formatearMonto(auto.totalPagos) + '</td>' +
+        '</tr>';
       }
       if (auto.totalTransferencias > 0) {
-        html += `<tr class="mov-auto-row">
-          <td data-label="Concepto">Transferencias del día (${auto.detalleTransferencias.length})</td>
-          <td data-label="Tipo"><span style="color:var(--sv-exito); font-weight:600;">INGRESO</span></td>
-          <td data-label="Monto" style="text-align:right; color:var(--sv-exito);">+${formatearMonto(auto.totalTransferencias)}</td>
-        </tr>`;
+        html += '<tr class="mov-auto-row">' +
+          '<td data-label="Concepto">Transferencias del d&iacute;a (' + auto.detalleTransferencias.length + ')</td>' +
+          '<td data-label="Tipo"><span style="color:var(--sv-exito); font-weight:600;">INGRESO</span></td>' +
+          '<td data-label="Monto" style="text-align:right; color:var(--sv-exito);">+' + formatearMonto(auto.totalTransferencias) + '</td>' +
+        '</tr>';
       }
       if (auto.totalFiados > 0) {
-        html += `<tr class="mov-auto-row">
-          <td data-label="Concepto">Fiados del día (${auto.detalleFiados.length})</td>
-          <td data-label="Tipo"><span style="color:var(--sv-peligro); font-weight:600;">EGRESO</span></td>
-          <td data-label="Monto" style="text-align:right; color:var(--sv-peligro);">−${formatearMonto(auto.totalFiados)}</td>
-        </tr>`;
+        html += '<tr class="mov-auto-row">' +
+          '<td data-label="Concepto">Fiados del d&iacute;a (' + auto.detalleFiados.length + ')</td>' +
+          '<td data-label="Tipo"><span style="color:var(--sv-peligro); font-weight:600;">EGRESO</span></td>' +
+          '<td data-label="Monto" style="text-align:right; color:var(--sv-peligro);">&minus;' + formatearMonto(auto.totalFiados) + '</td>' +
+        '</tr>';
       }
       tbody.innerHTML = html;
     }
@@ -10155,21 +10062,18 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
       }
 
       const cajaId = EstadoCajaDiaria.cajaActual ? EstadoCajaDiaria.cajaActual.id : null;
-      tbody.innerHTML = manuales.map(m => `
-        <tr>
-          <td data-label="Descripción">${escapeHtml(m.descripcion)}</td>
-          <td data-label="Tipo">
-            <span style="color:${CajaDiariaLogica.colorTipo(m.tipo)}; font-weight:600;">${m.tipo === 'HABER' ? 'INGRESO' : 'EGRESO'}</span>
-          </td>
-          <td data-label="Monto" style="text-align:right; font-weight:600; color:${CajaDiariaLogica.colorTipo(m.tipo)};">
-            ${CajaDiariaLogica.simboloTipo(m.tipo)}${formatearMonto(m.monto)}
-          </td>
-          <td data-label="Acc." class="no-print">
-            ${puedeEditar
-              ? `<button class="btn btn-outline btn-sm" onclick="contabEliminarMovManual(${m.id},${cajaId})" style="color:var(--sv-peligro); padding:0.25rem 0.5rem; min-height:auto;">✕</button>`
-              : '—'}
-          </td>
-        </tr>`).join('');
+      tbody.innerHTML = manuales.map(function(m) {
+        return '<tr>' +
+          '<td data-label="Descripci&oacute;n">' + escapeHtml(m.descripcion) + '</td>' +
+          '<td data-label="Tipo"><span style="color:' + CajaDiariaLogica.colorTipo(m.tipo) + '; font-weight:600;">' + (m.tipo === 'HABER' ? 'INGRESO' : 'EGRESO') + '</span></td>' +
+          '<td data-label="Monto" style="text-align:right; font-weight:600; color:' + CajaDiariaLogica.colorTipo(m.tipo) + ';">' + CajaDiariaLogica.simboloTipo(m.tipo) + formatearMonto(m.monto) + '</td>' +
+          '<td data-label="Acc." class="no-print">' +
+            (puedeEditar
+              ? '<button class="btn btn-outline btn-sm" onclick="contabEliminarMovManual(' + m.id + ',' + cajaId + ')" style="color:var(--sv-peligro); padding:0.25rem 0.5rem; min-height:auto;">&#10005;</button>'
+              : '&mdash;') +
+          '</td>' +
+        '</tr>';
+      }).join('');
     }
 
     /**
@@ -10185,9 +10089,10 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
 
       const r = caja.resumen;
 
-      const fila = (label, valor, color, esTotal) => `
-        <div class="label ${esTotal ? 'total-row' : ''}" style="padding:0.2rem 0;">${label}</div>
-        <div class="valor ${esTotal ? 'total-row' : ''}" style="color:${color}; padding:0.2rem 0;">${valor}</div>`;
+      const fila = function(label, valor, color, esTotal) {
+        return '<div class="label ' + (esTotal ? 'total-row' : '') + '" style="padding:0.2rem 0;">' + label + '</div>' +
+          '<div class="valor ' + (esTotal ? 'total-row' : '') + '" style="color:' + color + '; padding:0.2rem 0;">' + valor + '</div>';
+      };
       const divisor = () => '<div class="divisor"></div><div class="divisor"></div>';
 
       let html = '';
@@ -10208,11 +10113,9 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
         html += fila('Caja final (físico)', formatearMonto(r.cajaFinal), 'var(--sv-texto)', false);
         const df = CajaDiariaLogica.formatDiferencia(r.diferencia);
         html += divisor();
-        html += `<div class="${df.clase}" style="grid-column:1/-1; margin-top:0.25rem;">${df.texto}</div>`;
+        html += '<div class="' + df.clase + '" style="grid-column:1/-1; margin-top:0.25rem;">' + df.texto + '</div>';
         if (caja.razonDiferencia) {
-          html += `<div style="grid-column:1/-1; font-size:0.82rem; color:var(--sv-texto-secundario); font-style:italic;">
-            Razón: "${escapeHtml(caja.razonDiferencia)}"
-          </div>`;
+          html += '<div style="grid-column:1/-1; font-size:0.82rem; color:var(--sv-texto-secundario); font-style:italic;">Raz&oacute;n: &quot;' + escapeHtml(caja.razonDiferencia) + '&quot;</div>';
         }
       }
 
@@ -10240,21 +10143,21 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
       tbody.innerHTML = cajas.map(c => {
         const dif      = (c.cajaFinal || 0) - 0; // diferencia real calculada en backend
         const estadoCl = CajaDiariaLogica.estadoClase(c.estado);
-        return `<tr>
-          <td data-label="Fecha">${formatearFecha(c.fecha)}</td>
-          <td data-label="Estado"><span class="caja-estado-badge ${estadoCl}">${CajaDiariaLogica.estadoTexto(c.estado)}</span></td>
-          <td data-label="C. Inicial" style="text-align:right;">${formatearMonto(c.cajaInicial)}</td>
-          <td data-label="C. Final" style="text-align:right;">${c.estado === 'CERRADA' ? formatearMonto(c.cajaFinal) : '—'}</td>
-          <td data-label="Diferencia" style="text-align:right; color:${c.razonDiferencia ? 'var(--sv-advertencia)' : 'inherit'};">
-            ${c.razonDiferencia ? '⚠' : ''} ${c.estado === 'CERRADA' ? '—' : ''}
-          </td>
-          <td data-label="Acciones" class="no-print">
-            <div class="btn-group">
-              <button class="btn btn-outline btn-sm" onclick="contabVerDetalle(${c.id})">👁 Ver</button>
-              <button class="btn btn-outline btn-sm" onclick="imprimirCajaDiaria(${c.id}, 1)">🖨️</button>
-            </div>
-          </td>
-        </tr>`;
+        return '<tr>' +
+          '<td data-label="Fecha">' + formatearFecha(c.fecha) + '</td>' +
+          '<td data-label="Estado"><span class="caja-estado-badge ' + estadoCl + '">' + CajaDiariaLogica.estadoTexto(c.estado) + '</span></td>' +
+          '<td data-label="C. Inicial" style="text-align:right;">' + formatearMonto(c.cajaInicial) + '</td>' +
+          '<td data-label="C. Final" style="text-align:right;">' + (c.estado === 'CERRADA' ? formatearMonto(c.cajaFinal) : '&mdash;') + '</td>' +
+          '<td data-label="Diferencia" style="text-align:right; color:' + (c.razonDiferencia ? 'var(--sv-advertencia)' : 'inherit') + ';">' +
+            (c.razonDiferencia ? '&#9888;' : '') + ' ' + (c.estado === 'CERRADA' ? '&mdash;' : '') +
+          '</td>' +
+          '<td data-label="Acciones" class="no-print">' +
+            '<div class="btn-group">' +
+              '<button class="btn btn-outline btn-sm" onclick="contabVerDetalle(' + c.id + ')">&#128065; Ver</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="imprimirCajaDiaria(' + c.id + ', 1)">&#128424;&#65039;</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
       }).join('');
     }
 
@@ -10272,91 +10175,92 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
 
       const estadoCl = CajaDiariaLogica.estadoClase(caja.estado);
 
-      let html = `
-        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--sv-borde);">
-          <div>
-            <div style="font-size:1.1rem; font-weight:700;">${formatearFecha(caja.fecha)}</div>
-            <div style="font-size:0.82rem; color:var(--sv-texto-muted);">Usuario: ${escapeHtml(caja.usuario || '—')}</div>
-          </div>
-          <span class="caja-estado-badge ${estadoCl}">${CajaDiariaLogica.estadoTexto(caja.estado)}</span>
-        </div>`;
+      var html =
+        '<div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--sv-borde);">' +
+          '<div>' +
+            '<div style="font-size:1.1rem; font-weight:700;">' + formatearFecha(caja.fecha) + '</div>' +
+            '<div style="font-size:0.82rem; color:var(--sv-texto-muted);">Usuario: ' + escapeHtml(caja.usuario || '&mdash;') + '</div>' +
+          '</div>' +
+          '<span class="caja-estado-badge ' + estadoCl + '">' + CajaDiariaLogica.estadoTexto(caja.estado) + '</span>' +
+        '</div>';
 
       if (caja.razonReapertura) {
-        html += `<div style="margin-bottom:0.75rem; font-size:0.82rem; color:var(--sv-advertencia); border-left:3px solid var(--sv-advertencia); padding:0.4rem 0.6rem; background:var(--sv-superficie-elevada); border-radius:4px;">
-          ⚠️ Reabierta: "${escapeHtml(caja.razonReapertura)}"
-        </div>`;
+        html += '<div style="margin-bottom:0.75rem; font-size:0.82rem; color:var(--sv-advertencia); border-left:3px solid var(--sv-advertencia); padding:0.4rem 0.6rem; background:var(--sv-superficie-elevada); border-radius:4px;">' +
+          '&#9888;&#65039; Reabierta: &quot;' + escapeHtml(caja.razonReapertura) + '&quot;</div>';
       }
 
       // Movimientos automáticos
-      html += `<div style="font-size:0.8rem; font-weight:700; text-transform:uppercase; color:var(--sv-texto-muted); margin-bottom:0.4rem;">Automáticos</div>
-        <table style="width:100%; border-collapse:collapse; font-size:0.875rem; margin-bottom:0.75rem;">
-          <tr style="background:var(--sv-superficie-elevada);">
-            <td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Cobros del día</td>
-            <td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-exito);">+${formatearMonto(a.totalPagos)}</td>
-          </tr>
-          <tr>
-            <td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Transferencias del día</td>
-            <td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-exito);">+${formatearMonto(a.totalTransferencias)}</td>
-          </tr>
-          <tr style="background:var(--sv-superficie-elevada);">
-            <td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Fiados del día</td>
-            <td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-peligro);">−${formatearMonto(a.totalFiados)}</td>
-          </tr>
-        </table>`;
+      html +=
+        '<div style="font-size:0.8rem; font-weight:700; text-transform:uppercase; color:var(--sv-texto-muted); margin-bottom:0.4rem;">Autom&#225;ticos</div>' +
+        '<table style="width:100%; border-collapse:collapse; font-size:0.875rem; margin-bottom:0.75rem;">' +
+          '<tr style="background:var(--sv-superficie-elevada);">' +
+            '<td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Cobros del d&#237;a</td>' +
+            '<td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-exito);">+' + formatearMonto(a.totalPagos) + '</td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Transferencias del d&#237;a</td>' +
+            '<td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-exito);">+' + formatearMonto(a.totalTransferencias) + '</td>' +
+          '</tr>' +
+          '<tr style="background:var(--sv-superficie-elevada);">' +
+            '<td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Fiados del d&#237;a</td>' +
+            '<td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-peligro);">&minus;' + formatearMonto(a.totalFiados) + '</td>' +
+          '</tr>' +
+        '</table>';
 
       // Movimientos manuales
       if (caja.movManuales && caja.movManuales.length > 0) {
-        html += `<div style="font-size:0.8rem; font-weight:700; text-transform:uppercase; color:var(--sv-texto-muted); margin-bottom:0.4rem;">Manuales</div>
-          <table style="width:100%; border-collapse:collapse; font-size:0.875rem; margin-bottom:0.75rem;">`;
-        caja.movManuales.forEach((m, i) => {
-          html += `<tr style="${i % 2 === 0 ? 'background:var(--sv-superficie-elevada);' : ''}">
-            <td style="padding:5px 8px;">${escapeHtml(m.descripcion)}</td>
-            <td style="padding:5px 8px; text-align:right; font-weight:600; color:${CajaDiariaLogica.colorTipo(m.tipo)};">
-              ${CajaDiariaLogica.simboloTipo(m.tipo)}${formatearMonto(m.monto)}
-            </td>
-          </tr>`;
+        html +=
+          '<div style="font-size:0.8rem; font-weight:700; text-transform:uppercase; color:var(--sv-texto-muted); margin-bottom:0.4rem;">Manuales</div>' +
+          '<table style="width:100%; border-collapse:collapse; font-size:0.875rem; margin-bottom:0.75rem;">';
+        caja.movManuales.forEach(function(m, i) {
+          html += '<tr style="' + (i % 2 === 0 ? 'background:var(--sv-superficie-elevada);' : '') + '">' +
+            '<td style="padding:5px 8px;">' + escapeHtml(m.descripcion) + '</td>' +
+            '<td style="padding:5px 8px; text-align:right; font-weight:600; color:' + CajaDiariaLogica.colorTipo(m.tipo) + ';">' +
+              CajaDiariaLogica.simboloTipo(m.tipo) + formatearMonto(m.monto) +
+            '</td>' +
+          '</tr>';
         });
         html += '</table>';
       }
 
       // Resumen
-      html += `<div style="border:2px solid var(--sv-primario); border-radius:var(--sv-radius); overflow:hidden;">
-        <div style="background:var(--sv-primario); color:white; padding:0.4rem 0.75rem; font-weight:700; font-size:0.9rem;">Resumen</div>
-        <div style="padding:0.75rem;">
-          <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
-            <span style="color:var(--sv-texto-secundario);">Caja inicial</span>
-            <span style="font-weight:600;">${formatearMonto(r.cajaInicial)}</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
-            <span style="color:var(--sv-exito);">+ Total ingresos</span>
-            <span style="font-weight:600; color:var(--sv-exito);">+${formatearMonto(r.totalIngresos)}</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid var(--sv-borde);">
-            <span style="color:var(--sv-peligro);">− Total egresos</span>
-            <span style="font-weight:600; color:var(--sv-peligro);">−${formatearMonto(r.totalEgresos)}</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
-            <span style="font-weight:700;">Caja calculada</span>
-            <span style="font-weight:700; font-size:1.05rem; color:var(--sv-primario);">${formatearMonto(r.cajaCalculada)}</span>
-          </div>
-          ${caja.estado === 'CERRADA' ? `
-          <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
-            <span>Caja final (físico)</span>
-            <span style="font-weight:600;">${formatearMonto(r.cajaFinal)}</span>
-          </div>
-          <div class="${CajaDiariaLogica.formatDiferencia(r.diferencia).clase}" style="margin-top:0.5rem; font-size:0.875rem;">
-            ${CajaDiariaLogica.formatDiferencia(r.diferencia).texto}
-          </div>
-          ${caja.razonDiferencia ? `<div style="margin-top:0.3rem; font-size:0.8rem; color:var(--sv-texto-muted); font-style:italic;">Razón: "${escapeHtml(caja.razonDiferencia)}"</div>` : ''}
-          ` : ''}
-        </div>
-      </div>`;
+      var _df = CajaDiariaLogica.formatDiferencia(r.diferencia);
+      html +=
+        '<div style="border:2px solid var(--sv-primario); border-radius:var(--sv-radius); overflow:hidden;">' +
+          '<div style="background:var(--sv-primario); color:white; padding:0.4rem 0.75rem; font-weight:700; font-size:0.9rem;">Resumen</div>' +
+          '<div style="padding:0.75rem;">' +
+            '<div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">' +
+              '<span style="color:var(--sv-texto-secundario);">Caja inicial</span>' +
+              '<span style="font-weight:600;">' + formatearMonto(r.cajaInicial) + '</span>' +
+            '</div>' +
+            '<div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">' +
+              '<span style="color:var(--sv-exito);">+ Total ingresos</span>' +
+              '<span style="font-weight:600; color:var(--sv-exito);">+' + formatearMonto(r.totalIngresos) + '</span>' +
+            '</div>' +
+            '<div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid var(--sv-borde);">' +
+              '<span style="color:var(--sv-peligro);">&minus; Total egresos</span>' +
+              '<span style="font-weight:600; color:var(--sv-peligro);">&minus;' + formatearMonto(r.totalEgresos) + '</span>' +
+            '</div>' +
+            '<div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">' +
+              '<span style="font-weight:700;">Caja calculada</span>' +
+              '<span style="font-weight:700; font-size:1.05rem; color:var(--sv-primario);">' + formatearMonto(r.cajaCalculada) + '</span>' +
+            '</div>' +
+            (caja.estado === 'CERRADA' ?
+              '<div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">' +
+                '<span>Caja final (f&#237;sico)</span>' +
+                '<span style="font-weight:600;">' + formatearMonto(r.cajaFinal) + '</span>' +
+              '</div>' +
+              '<div class="' + _df.clase + '" style="margin-top:0.5rem; font-size:0.875rem;">' + _df.texto + '</div>' +
+              (caja.razonDiferencia ? '<div style="margin-top:0.3rem; font-size:0.8rem; color:var(--sv-texto-muted); font-style:italic;">Raz&#243;n: &quot;' + escapeHtml(caja.razonDiferencia) + '&quot;</div>' : '')
+            : '') +
+          '</div>' +
+        '</div>';
 
       body.innerHTML = html;
 
       // Actualizar el botón de imprimir del modal con el ID correcto
       const btnImpMod = body.parentElement.querySelector('button[onclick*="imprimirCajaDiaria"]');
-      if (btnImpMod) btnImpMod.setAttribute('onclick', `imprimirCajaDiaria(${caja.id}, 1)`);
+      if (btnImpMod) btnImpMod.setAttribute('onclick', 'imprimirCajaDiaria(' + caja.id + ', 1)');
     }
 
     // ── 5. IMPRESIÓN — PrintContext (NUNCA desde DOM ni Estado) ─────────────
@@ -10417,107 +10321,98 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
 
         const copias = ['Original', 'COPIA', 'COPIA 2', 'COPIA 3'].slice(0, config.copies);
 
-        return copias.map((etiqueta, idx) => `
-          <div class="contab-copy-block" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 1.5rem;">
-
-            <!-- Encabezado -->
-            <div style="border-bottom: 3px solid #2E7D32; padding-bottom: 0.75rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
-              <div>
-                ${config.showLogo ? '<img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width:55px; margin-bottom:0.3rem; display:block;">' : ''}
-                <div style="font-size: 18pt; font-weight: 800; color: #2E7D32;">${escapeHtml(empresa.nombre)}</div>
-                <div style="font-size: 12pt; font-weight: 700; color: #555; margin-top: 0.1rem;">CAJA DIARIA — ${fechaStr}</div>
-              </div>
-              <div style="text-align: right;">
-                <div style="font-size: 9pt; color: #777;">Estado: <strong style="color:${caja.estado === 'ABIERTA' ? '#2E7D32' : '#C62828'};">${caja.estado}</strong></div>
-                <div style="font-size: 9pt; color: #777; margin-top: 0.2rem;">Usuario: ${escapeHtml(caja.usuario || '—')}</div>
-                ${idx > 0 ? `<div style="margin-top: 0.4rem; font-size: 9pt; color: #999; border: 1px solid #ccc; padding: 0.15rem 0.5rem; border-radius: 3px;">${etiqueta}</div>` : ''}
-              </div>
-            </div>
-
-            ${caja.razonReapertura ? `
-            <div style="margin-bottom: 0.75rem; padding: 0.4rem 0.7rem; background: #FFF8E1; border-left: 3px solid #FBC02D; border-radius: 4px; font-size: 9pt;">
-              ⚠ Reabierta: "${escapeHtml(caja.razonReapertura)}"
-            </div>` : ''}
-
-            <!-- Caja inicial -->
-            <table style="width:100%; border-collapse:collapse; margin-bottom:0.75rem; font-size:10pt;">
-              <tr style="background:#E8F5E9;">
-                <td style="padding:6px 8px; font-weight:700; color:#2E7D32; border-bottom:2px solid #2E7D32;">CAJA INICIAL</td>
-                <td style="padding:6px 8px; text-align:right; font-weight:700; color:#2E7D32; border-bottom:2px solid #2E7D32;">${formatearMonto(caja.cajaInicial)}</td>
-              </tr>
-            </table>
-
-            <!-- Movimientos automáticos -->
-            <div style="font-size:8pt; font-weight:700; text-transform:uppercase; color:#888; margin-bottom:4px;">Movimientos Automáticos</div>
-            <table style="width:100%; border-collapse:collapse; margin-bottom:0.75rem; font-size:9.5pt;">
-              ${a.totalPagos > 0 ? `
-              <tr style="background:#F1F8E9;">
-                <td style="padding:5px 8px; font-style:italic; color:#555;">Cobros del día (${a.detallePagos.length})</td>
-                <td style="padding:5px 8px; text-align:right; font-weight:600; color:#2E7D32;">+${formatearMonto(a.totalPagos)}</td>
-              </tr>` : ''}
-              ${a.totalTransferencias > 0 ? `
-              <tr>
-                <td style="padding:5px 8px; font-style:italic; color:#555;">Transferencias del día (${a.detalleTransferencias.length})</td>
-                <td style="padding:5px 8px; text-align:right; font-weight:600; color:#2E7D32;">+${formatearMonto(a.totalTransferencias)}</td>
-              </tr>` : ''}
-              ${a.totalFiados > 0 ? `
-              <tr style="background:#FFEBEE;">
-                <td style="padding:5px 8px; font-style:italic; color:#555;">Fiados del día (${a.detalleFiados.length})</td>
-                <td style="padding:5px 8px; text-align:right; font-weight:600; color:#C62828;">−${formatearMonto(a.totalFiados)}</td>
-              </tr>` : ''}
-              ${a.totalPagos === 0 && a.totalFiados === 0 && a.totalTransferencias === 0 ? `
-              <tr><td colspan="2" style="padding:5px 8px; color:#aaa; font-style:italic; text-align:center;">Sin movimientos automáticos</td></tr>` : ''}
-            </table>
-
-            <!-- Movimientos manuales -->
-            ${movManuales.length > 0 ? `
-            <div style="font-size:8pt; font-weight:700; text-transform:uppercase; color:#888; margin-bottom:4px;">Movimientos Manuales</div>
-            <table style="width:100%; border-collapse:collapse; margin-bottom:0.75rem; font-size:9.5pt;">
-              ${movManuales.map((m, i) => `
-              <tr style="${i % 2 === 0 ? 'background:#FAFAFA;' : ''}">
-                <td style="padding:5px 8px;">${escapeHtml(m.descripcion)}</td>
-                <td style="padding:5px 8px; text-align:right; font-weight:600; color:${m.tipo === 'HABER' ? '#2E7D32' : '#C62828'};">
-                  ${m.tipo === 'HABER' ? '+' : '−'}${formatearMonto(m.monto)}
-                </td>
-              </tr>`).join('')}
-            </table>` : ''}
-
-            <!-- Resumen final -->
-            <div style="border: 2.5px solid #2E7D32; border-radius: 6px; overflow: hidden; margin-bottom: 0.75rem;">
-              <div style="background: #2E7D32; color: white; padding: 0.4rem 0.75rem; font-weight: 700; font-size: 10pt;">RESUMEN DEL DÍA</div>
-              <div style="padding: 0.75rem; font-size: 9.5pt;">
-                <div style="display:grid; grid-template-columns:1fr auto; gap:0.3rem 1rem; align-items:center;">
-                  <span style="color:#555;">Total ingresos</span><span style="font-weight:600; color:#2E7D32; text-align:right;">+${formatearMonto(r.totalIngresos)}</span>
-                  <span style="color:#555;">Total egresos</span><span style="font-weight:600; color:#C62828; text-align:right;">−${formatearMonto(r.totalEgresos)}</span>
-                  <div style="grid-column:1/-1; border-top:1px solid #ccc; margin:0.2rem 0;"></div>
-                  <span style="font-weight:700; font-size:10.5pt;">Caja calculada</span><span style="font-weight:700; font-size:10.5pt; color:#2E7D32; text-align:right;">${formatearMonto(r.cajaCalculada)}</span>
-                  ${caja.estado === 'CERRADA' ? `
-                  <span style="color:#555;">Caja final (físico)</span><span style="font-weight:600; text-align:right;">${formatearMonto(caja.cajaFinal)}</span>
-                  <div style="grid-column:1/-1; border-top:1px solid #ccc; margin:0.2rem 0;"></div>
-                  <div class="${df.clase}" style="grid-column:1/-1; font-size:9pt;">${df.texto}</div>
-                  ${caja.razonDiferencia ? `<div style="grid-column:1/-1; font-size:8.5pt; color:#777; font-style:italic;">Razón: "${escapeHtml(caja.razonDiferencia)}"</div>` : ''}
-                  ` : ''}
-                </div>
-              </div>
-            </div>
-
-            ${caja.cajaSiguiente > 0 ? `
-            <div style="margin-bottom:0.75rem; padding:0.4rem 0.75rem; background:#E8F5E9; border-radius:4px; font-size:9pt; color:#2E7D32; font-weight:600;">
-              💰 Caja del día siguiente fijada en: ${formatearMonto(caja.cajaSiguiente)}
-            </div>` : ''}
-
-            <!-- Firma -->
-            <div style="margin-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; text-align: center; font-size: 8.5pt; color: #777;">
-              <div><div style="border-top:1.5px solid #555; padding-top:0.3rem; margin-top:1.5rem;">Responsable de Caja</div></div>
-              <div><div style="border-top:1.5px solid #555; padding-top:0.3rem; margin-top:1.5rem;">Firma y Aclaración</div></div>
-            </div>
-
-            <!-- Pie -->
-            <div style="margin-top:0.75rem; text-align:center; font-size:7.5pt; color:#bbb; border-top:1px solid #eee; padding-top:0.4rem;">
-              ${escapeHtml(config.footer || 'Documento generado automáticamente · Sol & Verde Sistema de Cuenta Corriente')}
-            </div>
-
-          </div>`).join('');
+        return copias.map(function(etiqueta, idx) {
+          return '<div class="contab-copy-block" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 1.5rem;">' +
+            '<div style="border-bottom: 3px solid #2E7D32; padding-bottom: 0.75rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">' +
+              '<div>' +
+                (config.showLogo ? '<img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width:55px; margin-bottom:0.3rem; display:block;">' : '') +
+                '<div style="font-size: 18pt; font-weight: 800; color: #2E7D32;">' + escapeHtml(empresa.nombre) + '</div>' +
+                '<div style="font-size: 12pt; font-weight: 700; color: #555; margin-top: 0.1rem;">CAJA DIARIA &mdash; ' + fechaStr + '</div>' +
+              '</div>' +
+              '<div style="text-align: right;">' +
+                '<div style="font-size: 9pt; color: #777;">Estado: <strong style="color:' + (caja.estado === 'ABIERTA' ? '#2E7D32' : '#C62828') + ';">' + caja.estado + '</strong></div>' +
+                '<div style="font-size: 9pt; color: #777; margin-top: 0.2rem;">Usuario: ' + escapeHtml(caja.usuario || '&mdash;') + '</div>' +
+                (idx > 0 ? '<div style="margin-top: 0.4rem; font-size: 9pt; color: #999; border: 1px solid #ccc; padding: 0.15rem 0.5rem; border-radius: 3px;">' + etiqueta + '</div>' : '') +
+              '</div>' +
+            '</div>' +
+            (caja.razonReapertura ?
+              '<div style="margin-bottom: 0.75rem; padding: 0.4rem 0.7rem; background: #FFF8E1; border-left: 3px solid #FBC02D; border-radius: 4px; font-size: 9pt;">' +
+                '&#9888; Reabierta: &quot;' + escapeHtml(caja.razonReapertura) + '&quot;</div>'
+            : '') +
+            '<table style="width:100%; border-collapse:collapse; margin-bottom:0.75rem; font-size:10pt;">' +
+              '<tr style="background:#E8F5E9;">' +
+                '<td style="padding:6px 8px; font-weight:700; color:#2E7D32; border-bottom:2px solid #2E7D32;">CAJA INICIAL</td>' +
+                '<td style="padding:6px 8px; text-align:right; font-weight:700; color:#2E7D32; border-bottom:2px solid #2E7D32;">' + formatearMonto(caja.cajaInicial) + '</td>' +
+              '</tr>' +
+            '</table>' +
+            '<div style="font-size:8pt; font-weight:700; text-transform:uppercase; color:#888; margin-bottom:4px;">Movimientos Autom&#225;ticos</div>' +
+            '<table style="width:100%; border-collapse:collapse; margin-bottom:0.75rem; font-size:9.5pt;">' +
+              (a.totalPagos > 0 ?
+                '<tr style="background:#F1F8E9;">' +
+                  '<td style="padding:5px 8px; font-style:italic; color:#555;">Cobros del d&#237;a (' + a.detallePagos.length + ')</td>' +
+                  '<td style="padding:5px 8px; text-align:right; font-weight:600; color:#2E7D32;">+' + formatearMonto(a.totalPagos) + '</td>' +
+                '</tr>'
+              : '') +
+              (a.totalTransferencias > 0 ?
+                '<tr>' +
+                  '<td style="padding:5px 8px; font-style:italic; color:#555;">Transferencias del d&#237;a (' + a.detalleTransferencias.length + ')</td>' +
+                  '<td style="padding:5px 8px; text-align:right; font-weight:600; color:#2E7D32;">+' + formatearMonto(a.totalTransferencias) + '</td>' +
+                '</tr>'
+              : '') +
+              (a.totalFiados > 0 ?
+                '<tr style="background:#FFEBEE;">' +
+                  '<td style="padding:5px 8px; font-style:italic; color:#555;">Fiados del d&#237;a (' + a.detalleFiados.length + ')</td>' +
+                  '<td style="padding:5px 8px; text-align:right; font-weight:600; color:#C62828;">&minus;' + formatearMonto(a.totalFiados) + '</td>' +
+                '</tr>'
+              : '') +
+              (a.totalPagos === 0 && a.totalFiados === 0 && a.totalTransferencias === 0 ?
+                '<tr><td colspan="2" style="padding:5px 8px; color:#aaa; font-style:italic; text-align:center;">Sin movimientos autom&#225;ticos</td></tr>'
+              : '') +
+            '</table>' +
+            (movManuales.length > 0 ?
+              '<div style="font-size:8pt; font-weight:700; text-transform:uppercase; color:#888; margin-bottom:4px;">Movimientos Manuales</div>' +
+              '<table style="width:100%; border-collapse:collapse; margin-bottom:0.75rem; font-size:9.5pt;">' +
+                movManuales.map(function(m, i) {
+                  return '<tr style="' + (i % 2 === 0 ? 'background:#FAFAFA;' : '') + '">' +
+                    '<td style="padding:5px 8px;">' + escapeHtml(m.descripcion) + '</td>' +
+                    '<td style="padding:5px 8px; text-align:right; font-weight:600; color:' + (m.tipo === 'HABER' ? '#2E7D32' : '#C62828') + ';">' +
+                      (m.tipo === 'HABER' ? '+' : '&minus;') + formatearMonto(m.monto) +
+                    '</td>' +
+                  '</tr>';
+                }).join('') +
+              '</table>'
+            : '') +
+            '<div style="border: 2.5px solid #2E7D32; border-radius: 6px; overflow: hidden; margin-bottom: 0.75rem;">' +
+              '<div style="background: #2E7D32; color: white; padding: 0.4rem 0.75rem; font-weight: 700; font-size: 10pt;">RESUMEN DEL D&#205;A</div>' +
+              '<div style="padding: 0.75rem; font-size: 9.5pt;">' +
+                '<div style="display:grid; grid-template-columns:1fr auto; gap:0.3rem 1rem; align-items:center;">' +
+                  '<span style="color:#555;">Total ingresos</span><span style="font-weight:600; color:#2E7D32; text-align:right;">+' + formatearMonto(r.totalIngresos) + '</span>' +
+                  '<span style="color:#555;">Total egresos</span><span style="font-weight:600; color:#C62828; text-align:right;">&minus;' + formatearMonto(r.totalEgresos) + '</span>' +
+                  '<div style="grid-column:1/-1; border-top:1px solid #ccc; margin:0.2rem 0;"></div>' +
+                  '<span style="font-weight:700; font-size:10.5pt;">Caja calculada</span><span style="font-weight:700; font-size:10.5pt; color:#2E7D32; text-align:right;">' + formatearMonto(r.cajaCalculada) + '</span>' +
+                  (caja.estado === 'CERRADA' ?
+                    '<span style="color:#555;">Caja final (f&#237;sico)</span><span style="font-weight:600; text-align:right;">' + formatearMonto(caja.cajaFinal) + '</span>' +
+                    '<div style="grid-column:1/-1; border-top:1px solid #ccc; margin:0.2rem 0;"></div>' +
+                    '<div class="' + df.clase + '" style="grid-column:1/-1; font-size:9pt;">' + df.texto + '</div>' +
+                    (caja.razonDiferencia ? '<div style="grid-column:1/-1; font-size:8.5pt; color:#777; font-style:italic;">Raz&#243;n: &quot;' + escapeHtml(caja.razonDiferencia) + '&quot;</div>' : '')
+                  : '') +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            (caja.cajaSiguiente > 0 ?
+              '<div style="margin-bottom:0.75rem; padding:0.4rem 0.75rem; background:#E8F5E9; border-radius:4px; font-size:9pt; color:#2E7D32; font-weight:600;">' +
+                '&#128176; Caja del d&#237;a siguiente fijada en: ' + formatearMonto(caja.cajaSiguiente) +
+              '</div>'
+            : '') +
+            '<div style="margin-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; text-align: center; font-size: 8.5pt; color: #777;">' +
+              '<div><div style="border-top:1.5px solid #555; padding-top:0.3rem; margin-top:1.5rem;">Responsable de Caja</div></div>' +
+              '<div><div style="border-top:1.5px solid #555; padding-top:0.3rem; margin-top:1.5rem;">Firma y Aclaraci&#243;n</div></div>' +
+            '</div>' +
+            '<div style="margin-top:0.75rem; text-align:center; font-size:7.5pt; color:#bbb; border-top:1px solid #eee; padding-top:0.4rem;">' +
+              escapeHtml(config.footer || 'Documento generado autom&#225;ticamente &middot; Sol &amp; Verde Sistema de Cuenta Corriente') +
+            '</div>' +
+          '</div>';
+        }).join('');
       },
 
       /**
@@ -10645,7 +10540,7 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
         // Mostrar alerta de diferencia y exigir razón
         if (difAlert) {
           const df = CajaDiariaLogica.formatDiferencia(diferencia);
-          difAlert.innerHTML = `<div class="${df.clase}">${df.texto}<br><small>Ingresá el motivo de la diferencia antes de cerrar.</small></div>`;
+          difAlert.innerHTML = '<div class="' + df.clase + '">' + df.texto + '<br><small>Ingres&#225; el motivo de la diferencia antes de cerrar.</small></div>';
           difAlert.style.display = '';
         }
         if (razonGrp) razonGrp.style.display = '';
@@ -10664,7 +10559,7 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
             // Backend también puede pedir la razón
             const df = CajaDiariaLogica.formatDiferencia(r.diferencia);
             if (difAlert) {
-              difAlert.innerHTML = `<div class="${df.clase}">${df.texto}</div>`;
+              difAlert.innerHTML = '<div class="' + df.clase + '">' + df.texto + '</div>';
               difAlert.style.display = '';
             }
             if (razonGrp) razonGrp.style.display = '';
@@ -10848,12 +10743,12 @@ ${transferencia.obs ? 'Observaciones: ' + transferencia.obs : ''}
             renderDetalleModal(r.caja);
           } else {
             document.getElementById('modalDetalleCajaBody').innerHTML =
-              `<div style="color:var(--sv-peligro); padding:1rem;">Error: ${escapeHtml(r.error)}</div>`;
+              '<div style="color:var(--sv-peligro); padding:1rem;">Error: ' + escapeHtml(r.error) + '</div>';
           }
         })
         .withFailureHandler(function(err) {
           document.getElementById('modalDetalleCajaBody').innerHTML =
-            `<div style="color:var(--sv-peligro); padding:1rem;">Error de comunicación: ${escapeHtml(err.message)}</div>`;
+            '<div style="color:var(--sv-peligro); padding:1rem;">Error de comunicaci&#243;n: ' + escapeHtml(err.message) + '</div>';
         })
         .obtenerDetalleCajaDiaria(id);
     }
