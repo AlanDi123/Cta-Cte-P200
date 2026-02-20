@@ -21,7 +21,10 @@ const CONFIG = {
     CAJA_ARQUEOS: 'CAJA_ARQUEOS',
     CONFIGURACION: 'CONFIGURACION',
     ALQUILERES: 'ALQUILERES',
-    ALQUILERES_CONFIG: 'ALQUILERES_CONFIG'
+    ALQUILERES_CONFIG: 'ALQUILERES_CONFIG',
+    // Contabilidad - Caja Diaria
+    CAJA_DIARIA: 'CAJA_DIARIA',
+    CAJA_MOV_MANUAL: 'CAJA_MOV_MANUAL'
   },
 
   // Indices de columnas para CLIENTES (0-based)
@@ -63,6 +66,38 @@ const CONFIG = {
     MONTO: 5,       // F: Number
     USUARIO: 6,     // G: Email
     TIMESTAMP: 7    // H: DateTime
+  },
+
+  // Indices de columnas para CAJA_DIARIA (0-based)
+  COLS_CAJA_DIARIA: {
+    ID: 0,                // A: Number autoincremental
+    FECHA: 1,             // B: Date
+    CAJA_INICIAL: 2,      // C: Number (saldo al abrir)
+    CAJA_FINAL: 3,        // D: Number (saldo físico al cerrar)
+    ESTADO: 4,            // E: 'ABIERTA' | 'CERRADA'
+    CAJA_SIGUIENTE: 5,    // F: Number (propuesto para la caja del dia siguiente)
+    RAZON_REAPERTURA: 6,  // G: String (motivo de reapertura, obligatorio)
+    RAZON_DIFERENCIA: 7,  // H: String (motivo de diferencia al cerrar)
+    USUARIO: 8,           // I: Email del usuario que opera
+    TIMESTAMP_APERTURA: 9,  // J: DateTime
+    TIMESTAMP_CIERRE: 10    // K: DateTime
+  },
+
+  // Indices de columnas para CAJA_MOV_MANUAL (0-based)
+  COLS_CAJA_MOV: {
+    ID: 0,           // A: Number autoincremental
+    CAJA_ID: 1,      // B: FK a CAJA_DIARIA.ID
+    TIPO: 2,         // C: 'HABER' (ingreso) | 'DEBE' (egreso)
+    DESCRIPCION: 3,  // D: String
+    MONTO: 4,        // E: Number positivo (monto negativo = prohibido)
+    USUARIO: 5,      // F: Email
+    TIMESTAMP: 6     // G: DateTime
+  },
+
+  // Estados posibles de una Caja Diaria
+  ESTADOS_CAJA: {
+    ABIERTA: 'ABIERTA',
+    CERRADA: 'CERRADA'
   },
 
   // Indices de columnas para ALQUILERES (0-based)

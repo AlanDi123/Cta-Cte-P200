@@ -150,14 +150,14 @@ Responde SOLO con JSON valido (sin markdown ni explicaciones):
       contentType: 'application/json',
       headers: {
         'x-api-key': apiKey,
-        'anthropic-version': claudeConfig.VERSION
+        'anthropic-version': CONFIG.CLAUDE.VERSION
       },
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     };
 
     try {
-      const response = UrlFetchApp.fetch(claudeConfig.API_URL, options);
+      const response = UrlFetchApp.fetch(CONFIG.CLAUDE.API_URL, options);
       const responseCode = response.getResponseCode();
       const responseText = response.getContentText();
 
