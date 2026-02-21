@@ -329,3 +329,34 @@ const DENOMINACIONES = {
   ],
   MONEDAS: [] // Sin monedas segun requerimiento
 };
+
+// ============================================================================
+// FASE 5: CONFIGURACIÓN VISUAL (colores personalizados + módulos ocultos)
+// ============================================================================
+
+/**
+ * Obtiene la configuración visual guardada (colores CSS y módulos ocultos).
+ * @returns {{ success: boolean, config: Object|null }}
+ */
+function obtenerConfiguracionVisual() {
+  try {
+    const raw = PropertiesService.getScriptProperties().getProperty('sv_config_visual');
+    return { success: true, config: raw ? JSON.parse(raw) : null };
+  } catch (e) {
+    return { success: false, config: null };
+  }
+}
+
+/**
+ * Guarda la configuración visual (colores y módulos visibles).
+ * @param {string} configJSON - JSON stringificado con { colores, modulosOcultos }
+ * @returns {{ success: boolean }}
+ */
+function guardarConfiguracionVisualBackend(configJSON) {
+  try {
+    PropertiesService.getScriptProperties().setProperty('sv_config_visual', configJSON);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}

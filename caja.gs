@@ -486,3 +486,53 @@ function generarResumenArqueo(sesionId) {
     }
   };
 }
+
+// ============================================================================
+// FASE 2: BORRADORES EN LA NUBE POR USUARIO
+// ============================================================================
+
+/**
+ * Guarda un borrador del estado de caja para un usuario específico.
+ * @param {string} usuarioId
+ * @param {string} datosJSON
+ * @returns {{ success: boolean }}
+ */
+function guardarBorradorCaja(usuarioId, datosJSON) {
+  try {
+    PropertiesService.getScriptProperties()
+      .setProperty('borrador_caja_' + usuarioId, datosJSON);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Obtiene el borrador guardado del estado de caja para un usuario.
+ * @param {string} usuarioId
+ * @returns {{ success: boolean, datos: string|null }}
+ */
+function obtenerBorradorCaja(usuarioId) {
+  try {
+    const datos = PropertiesService.getScriptProperties()
+      .getProperty('borrador_caja_' + usuarioId);
+    return { success: true, datos: datos || null };
+  } catch (e) {
+    return { success: false, datos: null };
+  }
+}
+
+/**
+ * Elimina el borrador guardado del estado de caja para un usuario.
+ * @param {string} usuarioId
+ * @returns {{ success: boolean }}
+ */
+function eliminarBorradorCaja(usuarioId) {
+  try {
+    PropertiesService.getScriptProperties()
+      .deleteProperty('borrador_caja_' + usuarioId);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}

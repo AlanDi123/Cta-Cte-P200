@@ -1570,7 +1570,7 @@ function restaurarConfiguracionPorDefecto() {
     }
     
     Logger.log('Configuración restaurada a valores por defecto');
-    
+
     return {
       success: true,
       mensaje: 'Configuración restaurada a valores por defecto. Se mantuvieron las credenciales.'
@@ -1581,5 +1581,120 @@ function restaurarConfiguracionPorDefecto() {
       success: false,
       error: error.message
     };
+  }
+}
+
+// ============================================================================
+// FASE 1: AUTENTICACIÓN POR PIN Y GESTIÓN DE EMPLEADOS
+// ============================================================================
+
+/**
+ * Verifica un PIN contra PropertiesService.
+ * PIN por defecto: Dueño = 4646 (si no hay usuarios creados).
+ * @param {string} pin
+ * @returns {{ success: boolean, rol: string, id: string, nombre: string, token: string }}
+ */
+function verificarPIN(pin) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const usuariosJSON = props.getProperty('sv_usuarios');
+    let usuarios = usuariosJSON ? JSON.parse(usuariosJSON) : [];
+
+    // Usuario por defecto si no hay ninguno
+    if (usuarios.length === 0) {
+      usuarios = [{ id: 'owner', nombre: 'Dueño', pin: '4646', rol: 'Dueño' }];
+    }
+
+    const usuario = usuarios.find(function(u) { return u.pin === String(pin); });
+    if (!usuario) {
+      return { success: false, error: 'PIN incorrecto' };
+    }
+
+    const token = Utilities.getUuid();
+    props.setProperty('sv_token_' + usuario.id, token);
+
+    return {
+      success: true,
+      rol: usuario.rol,
+      id: usuario.id,
+      nombre: usuario.nombre,
+      token: token
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Obtiene la lista de usuarios (sin exponer PINs al frontend).
+ * @returns {{ success: boolean, usuarios: Array }}
+ */
+function obtenerUsuarios() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const usuariosJSON = props.getProperty('sv_usuarios');
+    let usuarios = usuariosJSON ? JSON.parse(usuariosJSON) : [];
+    if (usuarios.length === 0) {
+      usuarios = [{ id: 'owner', nombre: 'Dueño', pin: '4646', rol: 'Dueño' }];
+    }
+    return {
+      success: true,
+      usuarios: usuarios.map(function(u) { return { id: u.id, nombre: u.nombre, rol: u.rol }; })
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Crea o actualiza un usuario/empleado.
+ * @param {{ id?: string, nombre: string, pin: string, rol: string }} datos
+ * @returns {{ success: boolean }}
+ */
+function guardarUsuario(datos) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const usuariosJSON = props.getProperty('sv_usuarios');
+    let usuarios = usuariosJSON ? JSON.parse(usuariosJSON) : [
+      { id: 'owner', nombre: 'Dueño', pin: '4646', rol: 'Dueño' }
+    ];
+
+    if (datos.id) {
+      var idx = -1;
+      for (var i = 0; i < usuarios.length; i++) {
+        if (usuarios[i].id === datos.id) { idx = i; break; }
+      }
+      if (idx === -1) return { success: false, error: 'Usuario no encontrado' };
+      usuarios[idx].nombre = datos.nombre;
+      usuarios[idx].pin = datos.pin;
+      usuarios[idx].rol = datos.rol;
+    } else {
+      datos.id = 'emp_' + Date.now();
+      usuarios.push({ id: datos.id, nombre: datos.nombre, pin: datos.pin, rol: datos.rol });
+    }
+
+    props.setProperty('sv_usuarios', JSON.stringify(usuarios));
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Elimina un empleado (no puede eliminar al Dueño con id='owner').
+ * @param {string} id
+ * @returns {{ success: boolean }}
+ */
+function eliminarUsuario(id) {
+  try {
+    if (id === 'owner') return { success: false, error: 'No se puede eliminar al Dueño' };
+    const props = PropertiesService.getScriptProperties();
+    const usuariosJSON = props.getProperty('sv_usuarios');
+    let usuarios = usuariosJSON ? JSON.parse(usuariosJSON) : [];
+    usuarios = usuarios.filter(function(u) { return u.id !== id; });
+    props.setProperty('sv_usuarios', JSON.stringify(usuarios));
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 }

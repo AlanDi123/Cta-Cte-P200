@@ -656,6 +656,7 @@
       padding: 1rem;
       box-shadow: 0 4px 12px var(--sv-sombra);
       animation: slideIn 0.3s ease;
+      will-change: transform, opacity; /* FASE 4: Hardware acceleration */
       pointer-events: auto;
     }
 
@@ -665,6 +666,19 @@
     .toast-info { border-left: 4px solid var(--sv-info); }
 
     /* Animaciones Mejoradas */
+    /* FASE 1: PIN KEYPAD BUTTONS */
+    .pin-btn {
+      width: 72px; height: 72px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.08);
+      color: #fff; font-size: 1.5rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s, transform 0.1s;
+      will-change: transform;
+    }
+    .pin-btn:active { background: rgba(255,255,255,0.25); transform: scale(0.92); }
+    .pin-btn-clear { background: rgba(255,100,100,0.2); border-color: rgba(255,100,100,0.5); }
+    .pin-btn-ok { background: rgba(76,175,80,0.3); border-color: rgba(76,175,80,0.6); }
+
     @keyframes slideIn {
       from { transform: translateX(100%); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
@@ -725,6 +739,7 @@
 
     .module-view.active {
       animation: moduleSlideIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform, opacity; /* FASE 4: Hardware acceleration */
     }
 
     /* Sidebar - transición mejorada */
@@ -962,6 +977,7 @@
       max-height: 90vh;
       overflow-y: auto;
       animation: scaleIn 0.25s ease;
+      will-change: transform, opacity; /* FASE 4: Hardware acceleration */
     }
 
     .modal-header {
@@ -1024,12 +1040,18 @@
         print-color-adjust: exact;
       }
 
+      /* FASE 3: CORRECCIÓN IMPRESIÓN MULTIPÁGINA */
       html, body {
         width: 100%;
-        height: 100%;
+        height: auto !important;
         margin: 0;
         padding: 0;
-        overflow: hidden;
+        overflow: visible !important;
+      }
+
+      .main-content, .module-view.active {
+        height: auto !important;
+        overflow: visible !important;
       }
 
       body {
@@ -1039,11 +1061,11 @@
         line-height: 1.3;
       }
 
-      /* CRÍTICO: Limitar altura del módulo activo a 1 página */
+      /* CRÍTICO: Módulo activo visible y con altura automática para múltiples páginas */
       .module-view.active {
         display: block !important;
         background: white !important;
-        max-height: none !important; /* Allow full page height */
+        max-height: none !important;
         height: auto !important;
         overflow: visible !important;
         page-break-after: avoid !important;
@@ -1777,6 +1799,46 @@
 </head>
 <body>
   <!-- Splash Screen -->
+  <!-- FASE 1: MODAL DE BLOQUEO / LOGIN PIN -->
+  <div id="login-modal" style="
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.92);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1.5rem;
+  ">
+    <div style="color: #fff; font-size: 1.8rem; font-weight: 700; letter-spacing: 2px;">
+      ☘️ Sol & Verde
+    </div>
+    <div style="color: rgba(255,255,255,0.6); font-size: 0.95rem;">Ingresa tu PIN para continuar</div>
+
+    <div id="pin-display" style="
+      font-size: 2.5rem; letter-spacing: 0.8rem; color: #fff;
+      min-height: 3rem; text-align: center;
+    ">——</div>
+
+    <input id="pin-input" type="password" maxlength="8"
+      style="position:absolute; opacity:0; pointer-events:none;"
+      autocomplete="off" inputmode="numeric">
+
+    <div id="pin-error" style="color: #ff6b6b; font-size: 0.875rem; min-height: 1.2rem;"></div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, 72px); gap: 12px;">
+      <button class="pin-btn" onclick="pinPresionar('1')">1</button>
+      <button class="pin-btn" onclick="pinPresionar('2')">2</button>
+      <button class="pin-btn" onclick="pinPresionar('3')">3</button>
+      <button class="pin-btn" onclick="pinPresionar('4')">4</button>
+      <button class="pin-btn" onclick="pinPresionar('5')">5</button>
+      <button class="pin-btn" onclick="pinPresionar('6')">6</button>
+      <button class="pin-btn" onclick="pinPresionar('7')">7</button>
+      <button class="pin-btn" onclick="pinPresionar('8')">8</button>
+      <button class="pin-btn" onclick="pinPresionar('9')">9</button>
+      <button class="pin-btn pin-btn-clear" onclick="pinLimpiar()" style="grid-column: 1;">C</button>
+      <button class="pin-btn" onclick="pinPresionar('0')">0</button>
+      <button class="pin-btn pin-btn-ok" onclick="pinConfirmar()">OK</button>
+    </div>
+  </div>
+
   <div id="splashScreen">
     <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px;">
     <div class="splash-logo">Sol & Verde</div>
@@ -2203,6 +2265,11 @@
                 </button>
                 <button class="btn" style="background: white; color: var(--sv-primario);" onclick="guardarArqueo()">
                   💾 Guardar Cierre
+                </button>
+                <!-- FASE 2: Botón descartar borrador -->
+                <button class="btn no-print" style="background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.4);"
+                  onclick="descartarBorradorCaja()" title="Limpiar borrador guardado en la nube">
+                  🗑️ Descartar Borrador
                 </button>
               </div>
             </div>
@@ -2722,6 +2789,37 @@
                   <span>Habilitar animaciones</span>
                 </label>
               </div>
+
+              <!-- FASE 5: COLOR PICKERS PERSONALIZACIÓN -->
+              <div style="margin-top: 1rem; border-top: 1px solid var(--sv-borde); padding-top: 1rem;">
+                <div class="form-label" style="margin-bottom: 0.75rem; font-weight: 600;">Colores del Sistema</div>
+                <div class="form-group" style="display:flex; align-items:center; gap: 0.75rem;">
+                  <label style="flex:1;">Color Primario</label>
+                  <input type="color" id="colorPrimario" value="#2E7D32"
+                    oninput="aplicarColorTemporal('--sv-primario', this.value)">
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap: 0.75rem;">
+                  <label style="flex:1;">Color Secundario</label>
+                  <input type="color" id="colorSecundario" value="#FF6F00"
+                    oninput="aplicarColorTemporal('--sv-secundario', this.value)">
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap: 0.75rem;">
+                  <label style="flex:1;">Color Acento</label>
+                  <input type="color" id="colorAcento" value="#00ACC1"
+                    oninput="aplicarColorTemporal('--sv-acento', this.value)">
+                </div>
+                <button class="btn btn-primary" onclick="guardarConfiguracionVisual()" style="width:100%; margin-top:0.5rem;">
+                  💾 Guardar Colores
+                </button>
+              </div>
+
+              <!-- FASE 5: TOGGLES DE MÓDULOS EN SIDEBAR -->
+              <div style="margin-top: 1rem; border-top: 1px solid var(--sv-borde); padding-top: 1rem;">
+                <div class="form-label" style="margin-bottom: 0.75rem; font-weight: 600;">Módulos Visibles en Menú</div>
+                <div id="toggleModulos">
+                  <!-- Renderizado por JS con renderToggleModulos() -->
+                </div>
+              </div>
             </div>
           </div>
 
@@ -3094,6 +3192,40 @@
               💾 Guardar Inquilinos
             </button>
             <p id="estadoInquilinos" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
+          </div>
+        </div>
+
+        <!-- FASE 1: GESTIÓN DE EMPLEADOS (solo visible para Dueño) -->
+        <div id="seccion-gestion-usuarios" style="display:none; margin-top: 2rem;">
+          <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">👥 Gestión de Empleados y PINs</h3>
+          <div class="card">
+            <p style="color: var(--sv-texto-secundario); font-size: 0.875rem; margin-bottom: 1rem;">
+              Solo el Dueño puede administrar empleados. Los PINs deben ser numéricos (4-8 dígitos).
+            </p>
+
+            <div id="listaUsuariosAdmin" style="margin-bottom: 1rem;"></div>
+
+            <input type="hidden" id="adminUserId">
+            <div class="grid grid-2" style="gap: 0.75rem;">
+              <div class="form-group">
+                <label class="form-label">Nombre</label>
+                <input type="text" class="form-input" id="adminUserNombre" placeholder="Nombre del empleado">
+              </div>
+              <div class="form-group">
+                <label class="form-label">PIN (numérico)</label>
+                <input type="password" class="form-input" id="adminUserPin" placeholder="4-8 dígitos" maxlength="8" inputmode="numeric">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Rol</label>
+              <select class="form-input" id="adminUserRol">
+                <option value="Empleado">Empleado</option>
+                <option value="Dueño">Dueño</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="guardarUsuarioAdmin()" style="width:100%;">
+              💾 Guardar Empleado
+            </button>
           </div>
         </div>
       </div>
@@ -4262,7 +4394,8 @@
       configuracion: null,
       arqueo: {},
       proveedoresHistorial: JSON.parse(localStorage.getItem('proveedoresHistorial') || '[]'),
-      sesionesCache: {}
+      sesionesCache: {},
+      sesionActual: null // FASE 1: sesión activa del usuario con PIN
     };
 
     // Sistema de caché para módulos con carga en segundo plano
@@ -4387,6 +4520,11 @@
       setupEventos();
       setupNavegacionTeclado();
       ColaTareas.init();
+
+      // FASE 1: Verificar sesión al cargar la app
+      verificarSesionActiva();
+      // FASE 5: Aplicar configuración visual guardada al cargar
+      cargarYAplicarConfigVisual();
 
       // Precargar todos los módulos en background cuando el navegador esté idle
       if ('requestIdleCallback' in window) {
@@ -4611,6 +4749,416 @@
     }
 
     // ============================================================================
+    // ============================================================================
+    // FASE 5: AUDIO FEEDBACK - SIN DEPENDENCIAS EXTERNAS
+    // ============================================================================
+    class SoundPlayer {
+      static _ctx = null;
+
+      static _getCtx() {
+        if (!SoundPlayer._ctx) {
+          SoundPlayer._ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return SoundPlayer._ctx;
+      }
+
+      static _beep(freq, duration, gain = 0.3, type = 'sine') {
+        try {
+          const ctx = SoundPlayer._getCtx();
+          const osc = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          osc.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          gainNode.gain.setValueAtTime(gain, ctx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + duration);
+        } catch (e) { /* Silenciar errores de audio */ }
+      }
+
+      static playSuccess() {
+        SoundPlayer._beep(880, 0.12, 0.25, 'sine');
+        setTimeout(() => SoundPlayer._beep(1100, 0.15, 0.2, 'sine'), 100);
+      }
+
+      static playError() {
+        SoundPlayer._beep(300, 0.15, 0.3, 'square');
+        setTimeout(() => SoundPlayer._beep(250, 0.18, 0.3, 'square'), 160);
+      }
+    }
+
+    // ============================================================================
+    // FASE 1: AUTENTICACIÓN, SESIONES Y GESTIÓN DE EMPLEADOS
+    // ============================================================================
+
+    const SV_SESSION_KEY = 'sv_sesion';
+    const SV_SESSION_TTL = 4 * 60 * 60 * 1000; // 4 horas en ms
+    let _pinBuffer = '';
+
+    function verificarSesionActiva() {
+      const raw = localStorage.getItem(SV_SESSION_KEY);
+      if (!raw) { mostrarLoginModal(); return; }
+      try {
+        const sesion = JSON.parse(raw);
+        if ((Date.now() - sesion.timestamp) > SV_SESSION_TTL) {
+          localStorage.removeItem(SV_SESSION_KEY);
+          mostrarLoginModal();
+        } else {
+          Estado.sesionActual = sesion;
+          ocultarLoginModal();
+          aplicarPermisosPorRol(sesion.rol);
+        }
+      } catch (e) {
+        mostrarLoginModal();
+      }
+    }
+
+    function mostrarLoginModal() {
+      document.getElementById('login-modal').style.display = 'flex';
+      _pinBuffer = '';
+      actualizarPinDisplay();
+    }
+
+    function ocultarLoginModal() {
+      document.getElementById('login-modal').style.display = 'none';
+    }
+
+    function pinPresionar(digito) {
+      if (_pinBuffer.length >= 8) return;
+      _pinBuffer += digito;
+      actualizarPinDisplay();
+      if (_pinBuffer.length >= 4) pinConfirmar(); // auto-confirm at 4 digits
+    }
+
+    function pinLimpiar() {
+      _pinBuffer = '';
+      actualizarPinDisplay();
+      document.getElementById('pin-error').textContent = '';
+    }
+
+    function actualizarPinDisplay() {
+      const display = document.getElementById('pin-display');
+      display.textContent = _pinBuffer.length > 0
+        ? '●'.repeat(_pinBuffer.length)
+        : '——';
+    }
+
+    function pinConfirmar() {
+      if (_pinBuffer.length === 0) return;
+      const pin = _pinBuffer;
+      _pinBuffer = '';
+      actualizarPinDisplay();
+      document.getElementById('pin-error').textContent = '';
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success) {
+            const sesion = {
+              token: res.token,
+              id: res.id,
+              nombre: res.nombre,
+              rol: res.rol,
+              timestamp: Date.now()
+            };
+            localStorage.setItem(SV_SESSION_KEY, JSON.stringify(sesion));
+            Estado.sesionActual = sesion;
+            ocultarLoginModal();
+            aplicarPermisosPorRol(res.rol);
+            SoundPlayer.playSuccess();
+          } else {
+            document.getElementById('pin-error').textContent = 'PIN incorrecto. Intenta de nuevo.';
+            SoundPlayer.playError();
+            pinLimpiar();
+          }
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('pin-error').textContent = 'Error: ' + err.message;
+          SoundPlayer.playError();
+        })
+        .verificarPIN(pin);
+    }
+
+    function bloquearPantalla() {
+      localStorage.removeItem(SV_SESSION_KEY);
+      Estado.sesionActual = null;
+      mostrarLoginModal();
+    }
+
+    function aplicarPermisosPorRol(rol) {
+      const seccionGestionUsuarios = document.getElementById('seccion-gestion-usuarios');
+      if (seccionGestionUsuarios) {
+        seccionGestionUsuarios.style.display = (rol === 'Dueño') ? 'block' : 'none';
+      }
+    }
+
+    function cargarListaUsuarios() {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res.success) return;
+          const lista = document.getElementById('listaUsuariosAdmin');
+          if (!lista) return;
+          lista.innerHTML = res.usuarios.map(u => `
+            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--sv-borde);">
+              <span style="flex:1;font-weight:600;">${escapeHtml(u.nombre)}</span>
+              <span class="badge" style="background:var(--sv-primario-claro);color:white;padding:2px 8px;border-radius:4px;">${escapeHtml(u.rol)}</span>
+              <button class="btn btn-outline btn-sm" onclick="abrirModalEditarUsuario('${u.id}','${escapeHtml(u.nombre)}','${u.rol}')">Editar</button>
+              ${u.id !== 'owner' ? `<button class="btn btn-outline btn-sm" style="color:var(--sv-peligro);" onclick="eliminarUsuarioAdmin('${u.id}')">Eliminar</button>` : ''}
+            </div>
+          `).join('');
+        })
+        .obtenerUsuarios();
+    }
+
+    function guardarUsuarioAdmin() {
+      const id = document.getElementById('adminUserId').value || null;
+      const nombre = document.getElementById('adminUserNombre').value.trim();
+      const pin = document.getElementById('adminUserPin').value.trim();
+      const rol = document.getElementById('adminUserRol').value;
+      if (!nombre || !pin || pin.length < 4) {
+        mostrarToast('Nombre y PIN (mín. 4 dígitos) requeridos', 'error');
+        return;
+      }
+      const datos = { nombre, pin, rol };
+      if (id) datos.id = id;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success) {
+            mostrarToast('Usuario guardado', 'success');
+            cargarListaUsuarios();
+            document.getElementById('adminUserNombre').value = '';
+            document.getElementById('adminUserPin').value = '';
+            document.getElementById('adminUserId').value = '';
+          } else {
+            mostrarToast('Error: ' + res.error, 'error');
+          }
+        })
+        .guardarUsuario(datos);
+    }
+
+    function eliminarUsuarioAdmin(id) {
+      if (!confirm('¿Eliminar este empleado?')) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success) { mostrarToast('Empleado eliminado', 'success'); cargarListaUsuarios(); }
+          else mostrarToast(res.error, 'error');
+        })
+        .eliminarUsuario(id);
+    }
+
+    function abrirModalEditarUsuario(id, nombre, rol) {
+      document.getElementById('adminUserId').value = id;
+      document.getElementById('adminUserNombre').value = nombre;
+      document.getElementById('adminUserPin').value = '';
+      document.getElementById('adminUserRol').value = rol;
+      document.getElementById('adminUserPin').focus();
+    }
+
+    // ============================================================================
+    // FASE 2: BORRADORES EN LA NUBE - AUTO-SAVE
+    // ============================================================================
+
+    function _serializarEstadoCaja() {
+      const billetes = {};
+      document.querySelectorAll('.denom-input').forEach(input => {
+        billetes[input.dataset.denom] = input.value;
+      });
+
+      const proveedores = [];
+      document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
+        const desc = item.querySelector('.prov-desc');
+        const monto = item.querySelector('.prov-monto');
+        proveedores.push({ descripcion: desc ? desc.value : '', monto: monto ? monto.value : '' });
+      });
+
+      const gastos = [];
+      document.querySelectorAll('#listaGastos > div').forEach(item => {
+        const inputs = item.querySelectorAll('input');
+        gastos.push({ descripcion: inputs[0] ? inputs[0].value : '', monto: inputs[1] ? inputs[1].value : '' });
+      });
+
+      const ingresos = [];
+      document.querySelectorAll('#listaIngresos > div').forEach(item => {
+        const inputs = item.querySelectorAll('input');
+        ingresos.push({ descripcion: inputs[0] ? inputs[0].value : '', monto: inputs[1] ? inputs[1].value : '' });
+      });
+
+      return JSON.stringify({ billetes, proveedores, gastos, ingresos, ts: Date.now() });
+    }
+
+    function _restaurarEstadoCaja(datosJSON) {
+      try {
+        const datos = JSON.parse(datosJSON);
+        if (!datos) return;
+
+        if (datos.billetes) {
+          Object.entries(datos.billetes).forEach(([denom, val]) => {
+            const input = document.querySelector(`.denom-input[data-denom="${denom}"]`);
+            if (input) { input.value = val; }
+          });
+          calcularTotalEfectivo();
+        }
+
+        if (datos.gastos && datos.gastos.length > 0) {
+          document.getElementById('listaGastos').innerHTML = '';
+          datos.gastos.forEach(g => {
+            agregarGasto();
+            const divs = document.querySelectorAll('#listaGastos > div');
+            const ultimo = divs[divs.length - 1];
+            if (ultimo) {
+              const inputs = ultimo.querySelectorAll('input');
+              if (inputs[0]) inputs[0].value = g.descripcion;
+              if (inputs[1]) inputs[1].value = g.monto;
+            }
+          });
+        }
+
+        if (datos.ingresos && datos.ingresos.length > 0) {
+          document.getElementById('listaIngresos').innerHTML = '';
+          datos.ingresos.forEach(ing => {
+            agregarIngreso();
+            const divs = document.querySelectorAll('#listaIngresos > div');
+            const ultimo = divs[divs.length - 1];
+            if (ultimo) {
+              const inputs = ultimo.querySelectorAll('input');
+              if (inputs[0]) inputs[0].value = ing.descripcion;
+              if (inputs[1]) inputs[1].value = ing.monto;
+            }
+          });
+        }
+
+        mostrarToast('Borrador restaurado desde la nube', 'info');
+      } catch (e) {
+        console.error('Error restaurando borrador', e);
+      }
+    }
+
+    const _autoSaveBorradorFn = debounce(function() {
+      const sesion = Estado.sesionActual;
+      if (!sesion) return;
+      const datosJSON = _serializarEstadoCaja();
+      google.script.run
+        .withFailureHandler(function(e) { console.warn('AutoSave borrador falló:', e.message); })
+        .guardarBorradorCaja(sesion.id, datosJSON);
+    }, 2500);
+
+    function _inicializarAutoSaveCaja() {
+      const contenedor = document.getElementById('module-arqueo-efectivo');
+      if (!contenedor || contenedor._autoSaveInited) return;
+      contenedor._autoSaveInited = true;
+      contenedor.addEventListener('input', _autoSaveBorradorFn);
+      contenedor.addEventListener('change', _autoSaveBorradorFn);
+    }
+
+    function _cargarBorradorNube() {
+      const sesion = Estado.sesionActual;
+      if (!sesion) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success && res.datos) {
+            _restaurarEstadoCaja(res.datos);
+          }
+        })
+        .obtenerBorradorCaja(sesion.id);
+    }
+
+    function descartarBorradorCaja() {
+      const sesion = Estado.sesionActual;
+      if (!sesion) return;
+      google.script.run
+        .withSuccessHandler(function() { mostrarToast('Borrador descartado', 'info'); })
+        .eliminarBorradorCaja(sesion.id);
+    }
+
+    // ============================================================================
+    // FASE 5: PERSONALIZACIÓN VISUAL
+    // ============================================================================
+
+    const MODULOS_CONFIGURABLES = [
+      { key: 'visual-reasoning', label: 'Visual Reasoning' },
+      { key: 'estadisticas', label: 'Estadísticas' },
+      { key: 'impresion-saldos', label: 'Imprimir Saldos' },
+      { key: 'hoja-ruta', label: 'Hoja de Ruta' },
+      { key: 'contabilidad', label: 'Caja Diaria' },
+      { key: 'facturacion-unificada', label: 'Facturación y Transferencias' },
+      { key: 'productos', label: 'Productos' },
+      { key: 'escanear', label: 'Escanear IA' },
+      { key: 'historial-facturas', label: 'Historial ARCA' },
+      { key: 'alquileres', label: 'Alquiler de Puestos' },
+    ];
+
+    function aplicarColorTemporal(variable, valor) {
+      document.documentElement.style.setProperty(variable, valor);
+    }
+
+    function aplicarConfiguracionVisual(config) {
+      if (!config) return;
+      if (config.colores) {
+        Object.entries(config.colores).forEach(([variable, valor]) => {
+          document.documentElement.style.setProperty(variable, valor);
+        });
+      }
+      if (config.modulosOcultos) {
+        config.modulosOcultos.forEach(key => {
+          const item = document.querySelector(`.menu-item[data-module="${key}"]`);
+          if (item) item.style.display = 'none';
+        });
+      }
+    }
+
+    function guardarConfiguracionVisual() {
+      const colores = {
+        '--sv-primario': document.getElementById('colorPrimario').value,
+        '--sv-secundario': document.getElementById('colorSecundario').value,
+        '--sv-acento': document.getElementById('colorAcento').value,
+      };
+      const modulosOcultos = [];
+      document.querySelectorAll('#toggleModulos input[type="checkbox"]').forEach(cb => {
+        if (!cb.checked) modulosOcultos.push(cb.dataset.modulo);
+      });
+      const config = { colores, modulosOcultos };
+      aplicarConfiguracionVisual(config);
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success) mostrarToast('Configuración visual guardada', 'success');
+          else mostrarToast(res.error, 'error');
+        })
+        .guardarConfiguracionVisualBackend(JSON.stringify(config));
+    }
+
+    function renderToggleModulos() {
+      const contenedor = document.getElementById('toggleModulos');
+      if (!contenedor) return;
+      contenedor.innerHTML = MODULOS_CONFIGURABLES.map(m => `
+        <label style="display:flex; align-items:center; gap:0.5rem; min-height:var(--sv-touch-target); cursor:pointer;">
+          <input type="checkbox" data-modulo="${m.key}" checked
+            style="width:20px; height:20px;"
+            onchange="document.querySelector('.menu-item[data-module=\\'${m.key}\\']').style.display = this.checked ? '' : 'none'">
+          <span>${m.label}</span>
+        </label>
+      `).join('');
+    }
+
+    function cargarYAplicarConfigVisual() {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success && res.config) {
+            aplicarConfiguracionVisual(res.config);
+            if (res.config.colores) {
+              const cp = document.getElementById('colorPrimario');
+              const cs = document.getElementById('colorSecundario');
+              const ca = document.getElementById('colorAcento');
+              if (cp && res.config.colores['--sv-primario']) cp.value = res.config.colores['--sv-primario'];
+              if (cs && res.config.colores['--sv-secundario']) cs.value = res.config.colores['--sv-secundario'];
+              if (ca && res.config.colores['--sv-acento']) ca.value = res.config.colores['--sv-acento'];
+            }
+          }
+        })
+        .obtenerConfiguracionVisual();
+    }
+
     // NAVEGACION CON TECLADO
     // ============================================================================
     function setupNavegacionTeclado() {
@@ -4747,7 +5295,40 @@
             navegarA(modulos[e.key]);
           }
         }
+
+        // FASE 4: F2 = Nueva Transferencia, F4 = Caja
+        if (e.key === 'F2' && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          if (typeof abrirModalNuevaTransferenciaUnif === 'function') abrirModalNuevaTransferenciaUnif();
+          else if (typeof abrirModalNuevaCaja === 'function') abrirModalNuevaCaja();
+        }
+        if (e.key === 'F4' && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          navegarA('arqueo-efectivo');
+        }
       });
+
+      // FASE 4: Salto con Enter en módulo Arqueo Efectivo (delegado)
+      const modArqueo = document.getElementById('module-arqueo-efectivo');
+      if (modArqueo) {
+        modArqueo.addEventListener('keydown', function(e) {
+          if (e.key !== 'Enter') return;
+          const tag = e.target.tagName;
+          if (tag !== 'INPUT' && tag !== 'TEXTAREA') return;
+          e.preventDefault();
+
+          // Obtener todos los inputs visibles dentro del módulo
+          const inputs = Array.from(
+            modArqueo.querySelectorAll('input[type="number"], input[type="text"]')
+          ).filter(function(el) { return !el.disabled && el.offsetParent !== null; });
+
+          const idx = inputs.indexOf(e.target);
+          if (idx !== -1 && idx < inputs.length - 1) {
+            inputs[idx + 1].focus();
+            inputs[idx + 1].select();
+          }
+        }, true);
+      }
     }
 
     function handleTipoKeydown(event, tipo) {
@@ -4767,6 +5348,10 @@
     }
 
     function mostrarToast(mensaje, tipo = 'info') {
+      // FASE 5: Feedback auditivo
+      if (tipo === 'success') SoundPlayer.playSuccess();
+      else if (tipo === 'error') SoundPlayer.playError();
+
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
       toast.className = 'toast toast-' + tipo;
@@ -4830,6 +5415,15 @@
       if (modulo === 'configuracion') {
         // Solo cargar datos del emisor sin verificaciones pesadas
         cargarDatosEmisor();
+        // FASE 1: Cargar lista de usuarios (solo visible para Dueño)
+        cargarListaUsuarios();
+        // FASE 5: Renderizar toggles de módulos
+        renderToggleModulos();
+      }
+      // FASE 2: Cargar borrador al navegar a caja
+      if (modulo === 'arqueo-efectivo') {
+        _inicializarAutoSaveCaja();
+        _cargarBorradorNube();
       }
     }
 
@@ -5855,6 +6449,10 @@
             document.getElementById('listaGastos').innerHTML = '';
             document.getElementById('listaIngresos').innerHTML = '';
             calcularTotalEfectivo();
+            // FASE 2: Limpiar borrador al guardar exitosamente
+            if (Estado.sesionActual) {
+              google.script.run.eliminarBorradorCaja(Estado.sesionActual.id);
+            }
           } else {
             mostrarToast(result.error, 'error');
           }
