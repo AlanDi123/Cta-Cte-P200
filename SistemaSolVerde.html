@@ -1802,7 +1802,7 @@
   <!-- FASE 1: MODAL DE BLOQUEO / LOGIN PIN -->
   <div id="login-modal" style="
     position: fixed; inset: 0; z-index: 9999;
-    background: rgba(0,0,0,0.92);
+    background: #0d1f0e;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 1.5rem;
@@ -2271,10 +2271,10 @@
                 <button class="btn" style="background: white; color: var(--sv-primario);" onclick="guardarArqueo()">
                   💾 Guardar Cierre
                 </button>
-                <!-- FASE 2: Botón descartar borrador -->
+                <!-- BUG F FIX: Botón Nuevo Arqueo limpia formulario completo -->
                 <button class="btn no-print" style="background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.4);"
-                  onclick="descartarBorradorCaja()" title="Limpiar borrador guardado en la nube">
-                  🗑️ Descartar Borrador
+                  onclick="limpiarArqueoCompleto()" title="Limpiar todos los datos y comenzar un arqueo nuevo">
+                  🗑️ Nuevo Arqueo
                 </button>
               </div>
             </div>
@@ -4526,10 +4526,28 @@
       setupNavegacionTeclado();
       ColaTareas.init();
 
+      // BUG A FIX: Aplicar config visual desde localStorage SINCRÓNICAMENTE
+      // antes de mostrar nada, para evitar el flash de módulos que deben estar ocultos
+      (function() {
+        try {
+          const _cfgLocal = localStorage.getItem('sv_config_visual');
+          if (_cfgLocal) {
+            const _cfg = JSON.parse(_cfgLocal);
+            aplicarConfiguracionVisual(_cfg);
+            renderToggleModulos(_cfg.modulosOcultos || []);
+          }
+        } catch(e) {}
+      })();
+
       // FASE 1: Verificar sesión al cargar la app
       verificarSesionActiva();
-      // FASE 5: Aplicar configuración visual guardada al cargar
+      // FASE 5: Aplicar configuración visual desde la nube (actualiza localStorage si cambió)
       cargarYAplicarConfigVisual();
+
+      // BUGFIX D4: Pre-cargar borrador en background para que esté listo al navegar a Caja
+      setTimeout(function() {
+        if (Estado.sesionActual) _cargarBorradorNube();
+      }, 800);
 
       // Precargar todos los módulos en background cuando el navegador esté idle
       if ('requestIdleCallback' in window) {
@@ -4823,12 +4841,23 @@
 
     function mostrarLoginModal() {
       document.getElementById('login-modal').style.display = 'flex';
+      // BUG E FIX: ocultar completamente el app para que no sea accesible ni visible
+      const app = document.getElementById('appContainer');
+      if (app) app.style.visibility = 'hidden';
       _pinBuffer = '';
       actualizarPinDisplay();
+      // Enfocar el input oculto para capturar teclado físico en mobile
+      setTimeout(function() {
+        const inp = document.getElementById('pin-input');
+        if (inp) inp.focus();
+      }, 50);
     }
 
     function ocultarLoginModal() {
       document.getElementById('login-modal').style.display = 'none';
+      // BUG E FIX: restaurar visibilidad del app
+      const app = document.getElementById('appContainer');
+      if (app) app.style.visibility = 'visible';
     }
 
     function pinPresionar(digito) {
@@ -4983,8 +5012,9 @@
 
     function _serializarEstadoCaja() {
       const billetes = {};
+      // BUGFIX D1: era input.dataset.denom (undefined); el atributo real es data-tipo
       document.querySelectorAll('.denom-input').forEach(input => {
-        billetes[input.dataset.denom] = input.value;
+        billetes[input.dataset.tipo] = input.value;
       });
 
       const proveedores = [];
@@ -5014,17 +5044,37 @@
         const datos = JSON.parse(datosJSON);
         if (!datos) return;
 
+        // BUGFIX D2: era [data-denom=...] (no existe); el atributo real es data-tipo
         if (datos.billetes) {
-          Object.entries(datos.billetes).forEach(([denom, val]) => {
-            const input = document.querySelector(`.denom-input[data-denom="${denom}"]`);
+          Object.entries(datos.billetes).forEach(([tipo, val]) => {
+            if (!val || val === '0') return;
+            const input = document.querySelector(`.denom-input[data-tipo="${tipo}"]`);
             if (input) { input.value = val; }
           });
           calcularTotalEfectivo();
         }
 
+        // BUGFIX D3: proveedores se serializaban pero nunca se restauraban
+        if (datos.proveedores && datos.proveedores.length > 0) {
+          document.getElementById('listaProveedores').innerHTML = '';
+          datos.proveedores.forEach(p => {
+            if (!p.monto) return;
+            agregarProveedor();
+            const items = document.querySelectorAll('#listaProveedores .proveedor-item');
+            const ultimo = items[items.length - 1];
+            if (ultimo) {
+              const descInput = ultimo.querySelector('.prov-desc');
+              const montoInput = ultimo.querySelector('.prov-monto');
+              if (descInput) descInput.value = p.descripcion || '';
+              if (montoInput) montoInput.value = p.monto || '';
+            }
+          });
+        }
+
         if (datos.gastos && datos.gastos.length > 0) {
           document.getElementById('listaGastos').innerHTML = '';
           datos.gastos.forEach(g => {
+            if (!g.monto) return;
             agregarGasto();
             const divs = document.querySelectorAll('#listaGastos > div');
             const ultimo = divs[divs.length - 1];
@@ -5039,6 +5089,7 @@
         if (datos.ingresos && datos.ingresos.length > 0) {
           document.getElementById('listaIngresos').innerHTML = '';
           datos.ingresos.forEach(ing => {
+            if (!ing.monto) return;
             agregarIngreso();
             const divs = document.querySelectorAll('#listaIngresos > div');
             const ultimo = divs[divs.length - 1];
@@ -5050,6 +5101,7 @@
           });
         }
 
+        calcularNetoArqueo();
         mostrarToast('Borrador restaurado desde la nube', 'info');
       } catch (e) {
         console.error('Error restaurando borrador', e);
@@ -5091,6 +5143,21 @@
       google.script.run
         .withSuccessHandler(function() { mostrarToast('Borrador descartado', 'info'); })
         .eliminarBorradorCaja(sesion.id);
+    }
+
+    // BUG F FIX: limpia TODOS los campos del arqueo y el borrador en la nube
+    function limpiarArqueoCompleto() {
+      if (!confirm('¿Limpiar todos los datos del arqueo para comenzar uno nuevo?\n\nSe borrarán billetes, proveedores, gastos e ingresos.')) return;
+      document.querySelectorAll('.denom-input').forEach(function(i) { i.value = 0; });
+      document.getElementById('listaProveedores').innerHTML = '';
+      document.getElementById('listaGastos').innerHTML = '';
+      document.getElementById('listaIngresos').innerHTML = '';
+      Estado.arqueo = {};
+      calcularTotalEfectivo();
+      mostrarToast('Arqueo limpiado. Listo para comenzar nuevo registro.', 'info');
+      if (Estado.sesionActual) {
+        google.script.run.eliminarBorradorCaja(Estado.sesionActual.id);
+      }
     }
 
     // ============================================================================
@@ -5141,6 +5208,8 @@
       });
       const config = { colores, modulosOcultos };
       aplicarConfiguracionVisual(config);
+      // BUG A FIX: guardar en localStorage para restauración sincrónica al recargar
+      localStorage.setItem('sv_config_visual', JSON.stringify(config));
 
       google.script.run
         .withSuccessHandler(function(res) {
@@ -5173,9 +5242,9 @@
         .withSuccessHandler(function(res) {
           if (res.success && res.config) {
             aplicarConfiguracionVisual(res.config);
-            // BUGFIX: sincronizar checkboxes con el estado guardado en la nube
-            // para que al recargar la página los toggles reflejen correctamente qué módulos están ocultos
             renderToggleModulos(res.config.modulosOcultos || []);
+            // BUG A FIX: mantener localStorage sincronizado con la nube
+            localStorage.setItem('sv_config_visual', JSON.stringify(res.config));
             if (res.config.colores) {
               const cp = document.getElementById('colorPrimario');
               const cs = document.getElementById('colorSecundario');
@@ -5359,6 +5428,27 @@
           }
         }, true);
       }
+
+      // BUG E FIX: Soporte de teclado físico para el modal de PIN
+      // Captura dígitos, Backspace y Enter cuando el modal está visible
+      document.addEventListener('keydown', function(e) {
+        const modal = document.getElementById('login-modal');
+        if (!modal || modal.style.display === 'none') return;
+        if (e.key >= '0' && e.key <= '9') {
+          e.preventDefault();
+          pinPresionar(e.key);
+        } else if (e.key === 'Backspace' || e.key === 'Delete') {
+          e.preventDefault();
+          _pinBuffer = _pinBuffer.slice(0, -1);
+          actualizarPinDisplay();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          pinConfirmar();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          pinLimpiar();
+        }
+      });
     }
 
     function handleTipoKeydown(event, tipo) {
@@ -6375,12 +6465,12 @@
         proveedoresList.forEach(function(p) {
           html += '<tr>' +
             '<td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">' + escapeHtml(p.nombre) + '</td>' +
-            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #C62828; border-bottom: 1px solid #eee;">-' + formatearMonto(p.monto) + '</td>' +
+            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #C62828; border-bottom: 1px solid #eee;">' + formatearMonto(p.monto) + '</td>' +
           '</tr>';
         });
         html += '<tr style="background: #ffcdd2;">' +
           '<td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL PROVEEDORES</td>' +
-          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #C62828;">-' + formatearMonto(totalProveedores) + '</td>' +
+          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #C62828;">' + formatearMonto(totalProveedores) + '</td>' +
         '</tr>';
       }
 
@@ -6390,12 +6480,12 @@
         gastosList.forEach(function(g) {
           html += '<tr>' +
             '<td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">' + escapeHtml(g.nombre) + '</td>' +
-            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #F57C00; border-bottom: 1px solid #eee;">-' + formatearMonto(g.monto) + '</td>' +
+            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #F57C00; border-bottom: 1px solid #eee;">' + formatearMonto(g.monto) + '</td>' +
           '</tr>';
         });
         html += '<tr style="background: #ffe0b2;">' +
           '<td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL GASTOS</td>' +
-          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #F57C00;">-' + formatearMonto(totalGastos) + '</td>' +
+          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #F57C00;">' + formatearMonto(totalGastos) + '</td>' +
         '</tr>';
       }
 
@@ -6836,7 +6926,8 @@
               const descInput = ultimo.querySelector('.prov-desc');
               const montoInput = ultimo.querySelector('.prov-monto');
               if (descInput) descInput.value = d.descripcion || '';
-              if (montoInput) montoInput.value = d.monto || 0;
+              // BUGFIX B: d.monto es negativo en la hoja (-500); el input espera positivo
+              if (montoInput) montoInput.value = Math.abs(d.monto) || 0;
             }
           }
           // Cargar gastos
@@ -6847,7 +6938,8 @@
             if (ultimo) {
               const inputs = ultimo.querySelectorAll('input');
               if (inputs[0]) inputs[0].value = d.descripcion || '';
-              if (inputs[1]) inputs[1].value = d.monto || 0;
+              // BUGFIX B: d.monto es negativo en la hoja; el input espera positivo
+              if (inputs[1]) inputs[1].value = Math.abs(d.monto) || 0;
             }
           }
           // Cargar ingresos
@@ -6858,7 +6950,7 @@
             if (ultimo) {
               const inputs = ultimo.querySelectorAll('input');
               if (inputs[0]) inputs[0].value = d.descripcion || '';
-              if (inputs[1]) inputs[1].value = d.monto || 0;
+              if (inputs[1]) inputs[1].value = Math.abs(d.monto) || 0;
             }
           }
         });
