@@ -1854,6 +1854,11 @@
         <img src="https://i.imgur.com/tStvmV1.png" alt="Sol & Verde" class="header-logo-img">
         <span class="header-logo-text">Sol & Verde</span>
       </div>
+      <!-- FASE 1 / BUGFIX: Display del usuario logueado y botón de cerrar sesión -->
+      <div id="headerSesionInfo" style="display:none; align-items:center; gap:0.5rem; margin-left:auto; margin-right:0.5rem;">
+        <span id="headerUserName" style="font-size:0.8rem; opacity:0.92; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis;"></span>
+        <button class="header-btn" id="btnCerrarSesion" onclick="bloquearPantalla()" title="Cerrar sesión" aria-label="Cerrar sesión" style="font-size:1.1rem;">🚪</button>
+      </div>
       <button class="header-btn" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">🌙</button>
     </header>
 
@@ -4809,6 +4814,7 @@
           Estado.sesionActual = sesion;
           ocultarLoginModal();
           aplicarPermisosPorRol(sesion.rol);
+          actualizarDisplayUsuario(); // muestra nombre en header al restaurar sesión
         }
       } catch (e) {
         mostrarLoginModal();
@@ -4866,6 +4872,7 @@
             Estado.sesionActual = sesion;
             ocultarLoginModal();
             aplicarPermisosPorRol(res.rol);
+            actualizarDisplayUsuario(); // muestra nombre en header tras login con PIN
             SoundPlayer.playSuccess();
           } else {
             document.getElementById('pin-error').textContent = 'PIN incorrecto. Intenta de nuevo.';
@@ -4883,7 +4890,22 @@
     function bloquearPantalla() {
       localStorage.removeItem(SV_SESSION_KEY);
       Estado.sesionActual = null;
+      actualizarDisplayUsuario();
       mostrarLoginModal();
+    }
+
+    // Actualiza el nombre y botón de logout en el header según la sesión activa
+    function actualizarDisplayUsuario() {
+      const infoEl = document.getElementById('headerSesionInfo');
+      const nameEl = document.getElementById('headerUserName');
+      if (!infoEl || !nameEl) return;
+      if (Estado.sesionActual && Estado.sesionActual.nombre) {
+        nameEl.textContent = '👤 ' + Estado.sesionActual.nombre;
+        infoEl.style.display = 'flex';
+      } else {
+        infoEl.style.display = 'none';
+        nameEl.textContent = '';
+      }
     }
 
     function aplicarPermisosPorRol(rol) {
@@ -5128,17 +5150,22 @@
         .guardarConfiguracionVisualBackend(JSON.stringify(config));
     }
 
-    function renderToggleModulos() {
+    // BUGFIX: renderToggleModulos ahora acepta la lista de módulos ocultos guardada
+    // para inicializar correctamente el estado checked/unchecked al recargar la página
+    function renderToggleModulos(modulosOcultos) {
+      const ocultos = Array.isArray(modulosOcultos) ? modulosOcultos : [];
       const contenedor = document.getElementById('toggleModulos');
       if (!contenedor) return;
-      contenedor.innerHTML = MODULOS_CONFIGURABLES.map(m => `
+      contenedor.innerHTML = MODULOS_CONFIGURABLES.map(m => {
+        const estaOculto = ocultos.includes(m.key);
+        return `
         <label style="display:flex; align-items:center; gap:0.5rem; min-height:var(--sv-touch-target); cursor:pointer;">
-          <input type="checkbox" data-modulo="${m.key}" checked
+          <input type="checkbox" data-modulo="${m.key}" ${estaOculto ? '' : 'checked'}
             style="width:20px; height:20px;"
             onchange="document.querySelector('.menu-item[data-module=\\'${m.key}\\']').style.display = this.checked ? '' : 'none'">
           <span>${m.label}</span>
-        </label>
-      `).join('');
+        </label>`;
+      }).join('');
     }
 
     function cargarYAplicarConfigVisual() {
@@ -5146,6 +5173,9 @@
         .withSuccessHandler(function(res) {
           if (res.success && res.config) {
             aplicarConfiguracionVisual(res.config);
+            // BUGFIX: sincronizar checkboxes con el estado guardado en la nube
+            // para que al recargar la página los toggles reflejen correctamente qué módulos están ocultos
+            renderToggleModulos(res.config.modulosOcultos || []);
             if (res.config.colores) {
               const cp = document.getElementById('colorPrimario');
               const cs = document.getElementById('colorSecundario');
@@ -6208,7 +6238,8 @@
       const item = document.createElement('div');
       item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;';
       item.innerHTML =
-        '<input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
+        // BUGFIX: clase gasto-desc agregada para que imprimirResumenArqueo() pueda leerla
+        '<input type="text" class="form-input gasto-desc" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
         '<input type="number" class="form-input gasto-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
         '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
       lista.appendChild(item);
@@ -6219,7 +6250,8 @@
       const item = document.createElement('div');
       item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;';
       item.innerHTML =
-        '<input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
+        // BUGFIX: clase ingreso-desc agregada para que imprimirResumenArqueo() pueda leerla
+        '<input type="text" class="form-input ingreso-desc" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
         '<input type="number" class="form-input ingreso-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
         '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
       lista.appendChild(item);
@@ -6736,9 +6768,15 @@
       if (sesion.registros && sesion.registros.length > 0) {
         html += '<div class="card-title" style="margin-top: 1rem;">Detalles</div>';
         html += sesion.registros.map(function(d) {
+          // BUGFIX: montos negativos (proveedores/gastos) se almacenan como negativos en la hoja
+          // formatearMonto(-500) producía "$-500"; ahora mostramos correctamente "-$500"
+          var montoAbs = Math.abs(d.monto || 0);
+          var esNeg = (d.monto || 0) < 0;
+          var montoFmt = (esNeg ? '-' : '') + formatearMonto(montoAbs);
+          var colorMonto = esNeg ? 'var(--sv-peligro)' : 'inherit';
           return '<div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--sv-borde);">' +
             '<span>' + escapeHtml(d.tipo) + ': ' + escapeHtml(d.descripcion || '-') + '</span>' +
-            '<strong>' + formatearMonto(d.monto) + '</strong>' +
+            '<strong style="color:' + colorMonto + ';">' + montoFmt + '</strong>' +
           '</div>';
         }).join('');
       }
