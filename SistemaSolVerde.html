@@ -666,19 +666,6 @@
     .toast-info { border-left: 4px solid var(--sv-info); }
 
     /* Animaciones Mejoradas */
-    /* FASE 1: PIN KEYPAD BUTTONS */
-    .pin-btn {
-      width: 72px; height: 72px; border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.3);
-      background: rgba(255,255,255,0.08);
-      color: #fff; font-size: 1.5rem; font-weight: 600;
-      cursor: pointer; transition: background 0.15s, transform 0.1s;
-      will-change: transform;
-    }
-    .pin-btn:active { background: rgba(255,255,255,0.25); transform: scale(0.92); }
-    .pin-btn-clear { background: rgba(255,100,100,0.2); border-color: rgba(255,100,100,0.5); }
-    .pin-btn-ok { background: rgba(76,175,80,0.3); border-color: rgba(76,175,80,0.6); }
-
     @keyframes slideIn {
       from { transform: translateX(100%); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
@@ -1799,46 +1786,6 @@
 </head>
 <body>
   <!-- Splash Screen -->
-  <!-- FASE 1: MODAL DE BLOQUEO / LOGIN PIN -->
-  <div id="login-modal" style="
-    position: fixed; inset: 0; z-index: 9999;
-    background: #0d1f0e;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 1.5rem;
-  ">
-    <div style="color: #fff; font-size: 1.8rem; font-weight: 700; letter-spacing: 2px;">
-      ☘️ Sol & Verde
-    </div>
-    <div style="color: rgba(255,255,255,0.6); font-size: 0.95rem;">Ingresa tu PIN para continuar</div>
-
-    <div id="pin-display" style="
-      font-size: 2.5rem; letter-spacing: 0.8rem; color: #fff;
-      min-height: 3rem; text-align: center;
-    ">——</div>
-
-    <input id="pin-input" type="password" maxlength="8"
-      style="position:absolute; opacity:0; pointer-events:none;"
-      autocomplete="off" inputmode="numeric">
-
-    <div id="pin-error" style="color: #ff6b6b; font-size: 0.875rem; min-height: 1.2rem;"></div>
-
-    <div style="display: grid; grid-template-columns: repeat(3, 72px); gap: 12px;">
-      <button class="pin-btn" onclick="pinPresionar('1')">1</button>
-      <button class="pin-btn" onclick="pinPresionar('2')">2</button>
-      <button class="pin-btn" onclick="pinPresionar('3')">3</button>
-      <button class="pin-btn" onclick="pinPresionar('4')">4</button>
-      <button class="pin-btn" onclick="pinPresionar('5')">5</button>
-      <button class="pin-btn" onclick="pinPresionar('6')">6</button>
-      <button class="pin-btn" onclick="pinPresionar('7')">7</button>
-      <button class="pin-btn" onclick="pinPresionar('8')">8</button>
-      <button class="pin-btn" onclick="pinPresionar('9')">9</button>
-      <button class="pin-btn pin-btn-clear" onclick="pinLimpiar()" style="grid-column: 1;">C</button>
-      <button class="pin-btn" onclick="pinPresionar('0')">0</button>
-      <button class="pin-btn pin-btn-ok" onclick="pinConfirmar()">OK</button>
-    </div>
-  </div>
-
   <div id="splashScreen">
     <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px;">
     <div class="splash-logo">Sol & Verde</div>
@@ -1853,11 +1800,6 @@
       <div class="header-logo" onclick="navegarA('dashboard')" title="Ir al inicio">
         <img src="https://i.imgur.com/tStvmV1.png" alt="Sol & Verde" class="header-logo-img">
         <span class="header-logo-text">Sol & Verde</span>
-      </div>
-      <!-- FASE 1 / BUGFIX: Display del usuario logueado y botón de cerrar sesión -->
-      <div id="headerSesionInfo" style="display:none; align-items:center; gap:0.5rem; margin-left:auto; margin-right:0.5rem;">
-        <span id="headerUserName" style="font-size:0.8rem; opacity:0.92; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis;"></span>
-        <button class="header-btn" id="btnCerrarSesion" onclick="bloquearPantalla()" title="Cerrar sesión" aria-label="Cerrar sesión" style="font-size:1.1rem;">🚪</button>
       </div>
       <button class="header-btn" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">🌙</button>
     </header>
@@ -3200,39 +3142,6 @@
           </div>
         </div>
 
-        <!-- FASE 1: GESTIÓN DE EMPLEADOS (solo visible para Dueño) -->
-        <div id="seccion-gestion-usuarios" style="display:none; margin-top: 2rem;">
-          <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">👥 Gestión de Empleados y PINs</h3>
-          <div class="card">
-            <p style="color: var(--sv-texto-secundario); font-size: 0.875rem; margin-bottom: 1rem;">
-              Solo el Dueño puede administrar empleados. Los PINs deben ser numéricos (4-8 dígitos).
-            </p>
-
-            <div id="listaUsuariosAdmin" style="margin-bottom: 1rem;"></div>
-
-            <input type="hidden" id="adminUserId">
-            <div class="grid grid-2" style="gap: 0.75rem;">
-              <div class="form-group">
-                <label class="form-label">Nombre</label>
-                <input type="text" class="form-input" id="adminUserNombre" placeholder="Nombre del empleado">
-              </div>
-              <div class="form-group">
-                <label class="form-label">PIN (numérico)</label>
-                <input type="password" class="form-input" id="adminUserPin" placeholder="4-8 dígitos" maxlength="8" inputmode="numeric">
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Rol</label>
-              <select class="form-input" id="adminUserRol">
-                <option value="Empleado">Empleado</option>
-                <option value="Dueño">Dueño</option>
-              </select>
-            </div>
-            <button class="btn btn-primary" onclick="guardarUsuarioAdmin()" style="width:100%;">
-              💾 Guardar Empleado
-            </button>
-          </div>
-        </div>
       </div>
 
       <!-- MODULO: FACTURACION - TRANSFERENCIAS -->
@@ -4386,6 +4295,15 @@
       };
     }
 
+    // Fire-and-forget: llama a una función GAS en background sin bloquear la UI
+    function _gasFireAndForget(fnName) {
+      var args = Array.prototype.slice.call(arguments, 1);
+      var runner = google.script.run
+        .withSuccessHandler(function() {})
+        .withFailureHandler(function(e) { console.warn('[BG] ' + fnName + ' falló:', e.message); });
+      runner[fnName].apply(runner, args);
+    }
+
     // ============================================================================
     // ESTADO GLOBAL
     // ============================================================================
@@ -4399,8 +4317,7 @@
       configuracion: null,
       arqueo: {},
       proveedoresHistorial: JSON.parse(localStorage.getItem('proveedoresHistorial') || '[]'),
-      sesionesCache: {},
-      sesionActual: null // FASE 1: sesión activa del usuario con PIN
+      sesionesCache: {}
     };
 
     // Sistema de caché para módulos con carga en segundo plano
@@ -4539,14 +4456,12 @@
         } catch(e) {}
       })();
 
-      // FASE 1: Verificar sesión al cargar la app
-      verificarSesionActiva();
       // FASE 5: Aplicar configuración visual desde la nube (actualiza localStorage si cambió)
       cargarYAplicarConfigVisual();
 
-      // BUGFIX D4: Pre-cargar borrador en background para que esté listo al navegar a Caja
+      // Pre-cargar borrador en background para que esté listo al navegar a Caja
       setTimeout(function() {
-        if (Estado.sesionActual) _cargarBorradorNube();
+        _cargarBorradorNube();
       }, 800);
 
       // Precargar todos los módulos en background cuando el navegador esté idle
@@ -4571,7 +4486,7 @@
       // Intentar cargar datos del cache primero para inicio rápido
       const cacheKey = 'sv_datos_cache';
       const cacheTimeKey = 'sv_datos_cache_time';
-      const cacheMaxAge = 5 * 60 * 1000; // 5 minutos
+      const cacheMaxAge = 15 * 60 * 1000; // 15 minutos
 
       // Si hay cache válido y no se fuerza recarga, mostrar datos cacheados primero
       if (!forzarRecarga) {
@@ -4813,200 +4728,6 @@
     }
 
     // ============================================================================
-    // FASE 1: AUTENTICACIÓN, SESIONES Y GESTIÓN DE EMPLEADOS
-    // ============================================================================
-
-    const SV_SESSION_KEY = 'sv_sesion';
-    const SV_SESSION_TTL = 4 * 60 * 60 * 1000; // 4 horas en ms
-    let _pinBuffer = '';
-
-    function verificarSesionActiva() {
-      const raw = localStorage.getItem(SV_SESSION_KEY);
-      if (!raw) { mostrarLoginModal(); return; }
-      try {
-        const sesion = JSON.parse(raw);
-        if ((Date.now() - sesion.timestamp) > SV_SESSION_TTL) {
-          localStorage.removeItem(SV_SESSION_KEY);
-          mostrarLoginModal();
-        } else {
-          Estado.sesionActual = sesion;
-          ocultarLoginModal();
-          aplicarPermisosPorRol(sesion.rol);
-          actualizarDisplayUsuario(); // muestra nombre en header al restaurar sesión
-        }
-      } catch (e) {
-        mostrarLoginModal();
-      }
-    }
-
-    function mostrarLoginModal() {
-      document.getElementById('login-modal').style.display = 'flex';
-      // BUG E FIX: ocultar completamente el app para que no sea accesible ni visible
-      const app = document.getElementById('appContainer');
-      if (app) app.style.visibility = 'hidden';
-      _pinBuffer = '';
-      actualizarPinDisplay();
-      // Enfocar el input oculto para capturar teclado físico en mobile
-      setTimeout(function() {
-        const inp = document.getElementById('pin-input');
-        if (inp) inp.focus();
-      }, 50);
-    }
-
-    function ocultarLoginModal() {
-      document.getElementById('login-modal').style.display = 'none';
-      // BUG E FIX: restaurar visibilidad del app
-      const app = document.getElementById('appContainer');
-      if (app) app.style.visibility = 'visible';
-    }
-
-    function pinPresionar(digito) {
-      if (_pinBuffer.length >= 8) return;
-      _pinBuffer += digito;
-      actualizarPinDisplay();
-      if (_pinBuffer.length >= 4) pinConfirmar(); // auto-confirm at 4 digits
-    }
-
-    function pinLimpiar() {
-      _pinBuffer = '';
-      actualizarPinDisplay();
-      document.getElementById('pin-error').textContent = '';
-    }
-
-    function actualizarPinDisplay() {
-      const display = document.getElementById('pin-display');
-      display.textContent = _pinBuffer.length > 0
-        ? '●'.repeat(_pinBuffer.length)
-        : '——';
-    }
-
-    function pinConfirmar() {
-      if (_pinBuffer.length === 0) return;
-      const pin = _pinBuffer;
-      _pinBuffer = '';
-      actualizarPinDisplay();
-      document.getElementById('pin-error').textContent = '';
-
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (res.success) {
-            const sesion = {
-              token: res.token,
-              id: res.id,
-              nombre: res.nombre,
-              rol: res.rol,
-              timestamp: Date.now()
-            };
-            localStorage.setItem(SV_SESSION_KEY, JSON.stringify(sesion));
-            Estado.sesionActual = sesion;
-            ocultarLoginModal();
-            aplicarPermisosPorRol(res.rol);
-            actualizarDisplayUsuario(); // muestra nombre en header tras login con PIN
-            SoundPlayer.playSuccess();
-          } else {
-            document.getElementById('pin-error').textContent = 'PIN incorrecto. Intenta de nuevo.';
-            SoundPlayer.playError();
-            pinLimpiar();
-          }
-        })
-        .withFailureHandler(function(err) {
-          document.getElementById('pin-error').textContent = 'Error: ' + err.message;
-          SoundPlayer.playError();
-        })
-        .verificarPIN(pin);
-    }
-
-    function bloquearPantalla() {
-      localStorage.removeItem(SV_SESSION_KEY);
-      Estado.sesionActual = null;
-      actualizarDisplayUsuario();
-      mostrarLoginModal();
-    }
-
-    // Actualiza el nombre y botón de logout en el header según la sesión activa
-    function actualizarDisplayUsuario() {
-      const infoEl = document.getElementById('headerSesionInfo');
-      const nameEl = document.getElementById('headerUserName');
-      if (!infoEl || !nameEl) return;
-      if (Estado.sesionActual && Estado.sesionActual.nombre) {
-        nameEl.textContent = '👤 ' + Estado.sesionActual.nombre;
-        infoEl.style.display = 'flex';
-      } else {
-        infoEl.style.display = 'none';
-        nameEl.textContent = '';
-      }
-    }
-
-    function aplicarPermisosPorRol(rol) {
-      const seccionGestionUsuarios = document.getElementById('seccion-gestion-usuarios');
-      if (seccionGestionUsuarios) {
-        seccionGestionUsuarios.style.display = (rol === 'Dueño') ? 'block' : 'none';
-      }
-    }
-
-    function cargarListaUsuarios() {
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (!res.success) return;
-          const lista = document.getElementById('listaUsuariosAdmin');
-          if (!lista) return;
-          lista.innerHTML = res.usuarios.map(u => `
-            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--sv-borde);">
-              <span style="flex:1;font-weight:600;">${escapeHtml(u.nombre)}</span>
-              <span class="badge" style="background:var(--sv-primario-claro);color:white;padding:2px 8px;border-radius:4px;">${escapeHtml(u.rol)}</span>
-              <button class="btn btn-outline btn-sm" onclick="abrirModalEditarUsuario('${u.id}','${escapeHtml(u.nombre)}','${u.rol}')">Editar</button>
-              ${u.id !== 'owner' ? `<button class="btn btn-outline btn-sm" style="color:var(--sv-peligro);" onclick="eliminarUsuarioAdmin('${u.id}')">Eliminar</button>` : ''}
-            </div>
-          `).join('');
-        })
-        .obtenerUsuarios();
-    }
-
-    function guardarUsuarioAdmin() {
-      const id = document.getElementById('adminUserId').value || null;
-      const nombre = document.getElementById('adminUserNombre').value.trim();
-      const pin = document.getElementById('adminUserPin').value.trim();
-      const rol = document.getElementById('adminUserRol').value;
-      if (!nombre || !pin || pin.length < 4) {
-        mostrarToast('Nombre y PIN (mín. 4 dígitos) requeridos', 'error');
-        return;
-      }
-      const datos = { nombre, pin, rol };
-      if (id) datos.id = id;
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (res.success) {
-            mostrarToast('Usuario guardado', 'success');
-            cargarListaUsuarios();
-            document.getElementById('adminUserNombre').value = '';
-            document.getElementById('adminUserPin').value = '';
-            document.getElementById('adminUserId').value = '';
-          } else {
-            mostrarToast('Error: ' + res.error, 'error');
-          }
-        })
-        .guardarUsuario(datos);
-    }
-
-    function eliminarUsuarioAdmin(id) {
-      if (!confirm('¿Eliminar este empleado?')) return;
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (res.success) { mostrarToast('Empleado eliminado', 'success'); cargarListaUsuarios(); }
-          else mostrarToast(res.error, 'error');
-        })
-        .eliminarUsuario(id);
-    }
-
-    function abrirModalEditarUsuario(id, nombre, rol) {
-      document.getElementById('adminUserId').value = id;
-      document.getElementById('adminUserNombre').value = nombre;
-      document.getElementById('adminUserPin').value = '';
-      document.getElementById('adminUserRol').value = rol;
-      document.getElementById('adminUserPin').focus();
-    }
-
-    // ============================================================================
     // FASE 2: BORRADORES EN LA NUBE - AUTO-SAVE
     // ============================================================================
 
@@ -5109,12 +4830,11 @@
     }
 
     const _autoSaveBorradorFn = debounce(function() {
-      const sesion = Estado.sesionActual;
-      if (!sesion) return;
       const datosJSON = _serializarEstadoCaja();
       google.script.run
+        .withSuccessHandler(function() {})
         .withFailureHandler(function(e) { console.warn('AutoSave borrador falló:', e.message); })
-        .guardarBorradorCaja(sesion.id, datosJSON);
+        .guardarBorradorCaja('local', datosJSON);
     }, 2500);
 
     function _inicializarAutoSaveCaja() {
@@ -5126,23 +4846,21 @@
     }
 
     function _cargarBorradorNube() {
-      const sesion = Estado.sesionActual;
-      if (!sesion) return;
       google.script.run
         .withSuccessHandler(function(res) {
           if (res.success && res.datos) {
             _restaurarEstadoCaja(res.datos);
           }
         })
-        .obtenerBorradorCaja(sesion.id);
+        .withFailureHandler(function(e) { console.warn('Cargar borrador falló:', e.message); })
+        .obtenerBorradorCaja('local');
     }
 
     function descartarBorradorCaja() {
-      const sesion = Estado.sesionActual;
-      if (!sesion) return;
       google.script.run
         .withSuccessHandler(function() { mostrarToast('Borrador descartado', 'info'); })
-        .eliminarBorradorCaja(sesion.id);
+        .withFailureHandler(function(e) { console.warn('Eliminar borrador falló:', e.message); })
+        .eliminarBorradorCaja('local');
     }
 
     // BUG F FIX: limpia TODOS los campos del arqueo y el borrador en la nube
@@ -5155,9 +4873,10 @@
       Estado.arqueo = {};
       calcularTotalEfectivo();
       mostrarToast('Arqueo limpiado. Listo para comenzar nuevo registro.', 'info');
-      if (Estado.sesionActual) {
-        google.script.run.eliminarBorradorCaja(Estado.sesionActual.id);
-      }
+      google.script.run
+        .withSuccessHandler(function() {})
+        .withFailureHandler(function(e) { console.warn('Eliminar borrador falló:', e.message); })
+        .eliminarBorradorCaja('local');
     }
 
     // ============================================================================
@@ -5208,14 +4927,14 @@
       });
       const config = { colores, modulosOcultos };
       aplicarConfiguracionVisual(config);
-      // BUG A FIX: guardar en localStorage para restauración sincrónica al recargar
+      // Guardar en localStorage para restauración sincrónica al recargar
       localStorage.setItem('sv_config_visual', JSON.stringify(config));
-
+      // Feedback inmediato al usuario (no esperar a GAS)
+      mostrarToast('Configuración visual guardada', 'success');
+      // Guardar en la nube en background (fire-and-forget)
       google.script.run
-        .withSuccessHandler(function(res) {
-          if (res.success) mostrarToast('Configuración visual guardada', 'success');
-          else mostrarToast(res.error, 'error');
-        })
+        .withSuccessHandler(function() {})
+        .withFailureHandler(function(e) { console.warn('Config visual: fallo sync nube', e.message); })
         .guardarConfiguracionVisualBackend(JSON.stringify(config));
     }
 
@@ -5429,26 +5148,6 @@
         }, true);
       }
 
-      // BUG E FIX: Soporte de teclado físico para el modal de PIN
-      // Captura dígitos, Backspace y Enter cuando el modal está visible
-      document.addEventListener('keydown', function(e) {
-        const modal = document.getElementById('login-modal');
-        if (!modal || modal.style.display === 'none') return;
-        if (e.key >= '0' && e.key <= '9') {
-          e.preventDefault();
-          pinPresionar(e.key);
-        } else if (e.key === 'Backspace' || e.key === 'Delete') {
-          e.preventDefault();
-          _pinBuffer = _pinBuffer.slice(0, -1);
-          actualizarPinDisplay();
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          pinConfirmar();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          pinLimpiar();
-        }
-      });
     }
 
     function handleTipoKeydown(event, tipo) {
@@ -5533,12 +5232,11 @@
       if (modulo === 'alquileres') cargarModuloAlquileres();
       if (modulo === 'contabilidad') cargarContabilidad();
       if (modulo === 'configuracion') {
-        // Solo cargar datos del emisor sin verificaciones pesadas
         cargarDatosEmisor();
-        // FASE 1: Cargar lista de usuarios (solo visible para Dueño)
-        cargarListaUsuarios();
-        // FASE 5: Renderizar toggles de módulos
-        renderToggleModulos();
+        // Renderizar toggles con el estado guardado en localStorage (fix definitivo)
+        var _cfgVis = {};
+        try { _cfgVis = JSON.parse(localStorage.getItem('sv_config_visual') || '{}'); } catch(e) {}
+        renderToggleModulos(_cfgVis.modulosOcultos || []);
       }
       // FASE 2: Cargar borrador al navegar a caja
       if (modulo === 'arqueo-efectivo') {
@@ -6571,10 +6269,11 @@
             document.getElementById('listaGastos').innerHTML = '';
             document.getElementById('listaIngresos').innerHTML = '';
             calcularTotalEfectivo();
-            // FASE 2: Limpiar borrador al guardar exitosamente
-            if (Estado.sesionActual) {
-              google.script.run.eliminarBorradorCaja(Estado.sesionActual.id);
-            }
+            // Limpiar borrador al guardar exitosamente
+            google.script.run
+              .withSuccessHandler(function() {})
+              .withFailureHandler(function() {})
+              .eliminarBorradorCaja('local');
           } else {
             mostrarToast(result.error, 'error');
           }
