@@ -539,9 +539,18 @@ const AfipService = {
 
     try {
       const result = this._fetch('/requests', payload);
-      const persona = result.personaReturn || result.persona || result;
+      Logger.log('Respuesta padron ARCA para CUIT ' + cuitLimpio + ': ' + JSON.stringify(result).substring(0, 800));
 
-      if (!persona) {
+      // afipsdk puede devolver { personaReturn: {...} } o { persona: {...} }
+      const personaReturn = result.personaReturn || result.persona || null;
+
+      // datosGenerales debe existir y tener idPersona para ser un resultado válido
+      const datosGenerales = personaReturn && personaReturn.datosGenerales
+        ? personaReturn.datosGenerales
+        : null;
+
+      if (!datosGenerales || !datosGenerales.idPersona) {
+        Logger.log('CUIT ' + cuitLimpio + ' no encontrado en padron. personaReturn: ' + JSON.stringify(personaReturn).substring(0, 300));
         return { encontrado: false, error: 'CUIT no encontrado en padrón ARCA' };
       }
 
@@ -549,45 +558,50 @@ const AfipService = {
       var condicionIVA = 'CF'; // Default: Consumidor Final
       var condicionTexto = 'Consumidor Final';
 
-      // Buscar en datosGenerales o en la estructura de impuestos
-      var impuestos = persona.datosRegimenGeneral && persona.datosRegimenGeneral.impuesto
-        ? persona.datosRegimenGeneral.impuesto
-        : (persona.impuestos || []);
+      // Buscar en datosRegimenGeneral - el impuesto puede ser array o un único objeto
+      var impuestosRaw = personaReturn.datosRegimenGeneral && personaReturn.datosRegimenGeneral.impuesto
+        ? personaReturn.datosRegimenGeneral.impuesto
+        : null;
+      var impuestos = impuestosRaw
+        ? (Array.isArray(impuestosRaw) ? impuestosRaw : [impuestosRaw])
+        : [];
 
-      // Si es array, buscar IVA (código 30 o 32)
-      if (Array.isArray(impuestos)) {
-        for (var i = 0; i < impuestos.length; i++) {
-          var imp = impuestos[i];
-          var idImp = imp.idImpuesto || imp.id;
-          if (idImp === 30 || idImp === 32) {
-            condicionIVA = 'RI';
-            condicionTexto = 'Responsable Inscripto';
-            break;
-          }
-          if (idImp === 20) {
-            condicionIVA = 'M';
-            condicionTexto = 'Monotributo';
-            break;
-          }
+      for (var i = 0; i < impuestos.length; i++) {
+        var imp = impuestos[i];
+        var idImp = Number(imp.idImpuesto || imp.id || 0);
+        if (idImp === 30 || idImp === 32) {
+          condicionIVA = 'RI';
+          condicionTexto = 'Responsable Inscripto';
+          break;
+        }
+        if (idImp === 20) {
+          condicionIVA = 'M';
+          condicionTexto = 'Monotributo';
+          break;
         }
       }
 
-      // Buscar en categorías/actividades
-      var categorias = persona.datosMonotributo || persona.categorias || null;
-      if (categorias && condicionIVA === 'CF') {
+      // Monotributo por datosMonotributo (cuando no viene en impuestos)
+      if (condicionIVA === 'CF' && (personaReturn.datosMonotributo || personaReturn.categorias)) {
         condicionIVA = 'M';
         condicionTexto = 'Monotributo';
       }
 
-      var razonSocial = persona.datosGenerales
-        ? (persona.datosGenerales.razonSocial ||
-           ((persona.datosGenerales.apellido || '') + ' ' + (persona.datosGenerales.nombre || '')).trim())
-        : (persona.razonSocial || persona.nombre || '');
+      // Razón social: para JURIDICA viene razonSocial, para FISICA viene apellido + nombre
+      var razonSocial = datosGenerales.razonSocial ||
+        ((datosGenerales.apellido || '') + ' ' + (datosGenerales.nombre || '')).trim() ||
+        '';
 
+      // Domicilio: filtrar partes vacías para evitar ", , " cuando faltan campos
       var domicilio = '';
-      if (persona.datosGenerales && persona.datosGenerales.domicilioFiscal) {
-        var dom = persona.datosGenerales.domicilioFiscal;
-        domicilio = (dom.direccion || '') + ', ' + (dom.localidad || '') + ', ' + (dom.descripcionProvincia || '');
+      var domFiscal = datosGenerales.domicilioFiscal || personaReturn.domicilioFiscal || null;
+      if (domFiscal) {
+        var partesDom = [
+          domFiscal.direccion || '',
+          domFiscal.localidad || '',
+          domFiscal.descripcionProvincia || ''
+        ].filter(function(p) { return p.trim() !== ''; });
+        domicilio = partesDom.join(', ');
       }
 
       return {
@@ -597,7 +611,7 @@ const AfipService = {
         condicionIVA: condicionIVA,
         condicionTexto: condicionTexto,
         domicilio: domicilio,
-        tipoPersona: persona.datosGenerales ? persona.datosGenerales.tipoPersona : ''
+        tipoPersona: datosGenerales.tipoPersona || ''
       };
     } catch (error) {
       // Si falla la consulta de padrón, no es un error crítico

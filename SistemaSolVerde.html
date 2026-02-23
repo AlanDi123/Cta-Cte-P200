@@ -3711,20 +3711,23 @@
           <input type="email" class="form-input" id="clienteEmail" inputmode="email">
         </div>
 
+        <input type="hidden" id="clienteCondicionFiscal" value="">
+
         <div class="form-group">
-          <label class="form-label">CUIT (solo para Responsables Inscriptos)</label>
+          <label class="form-label">CUIT (para Responsables Inscriptos y Monotributo)</label>
           <div style="display: flex; gap: 0.5rem;">
             <input type="text" class="form-input" id="clienteCuit" placeholder="XX-XXXXXXXX-X" inputmode="numeric" style="flex: 1;">
             <button type="button" class="btn btn-outline btn-sm" onclick="verificarCuitCliente()" title="Verificar en ARCA" id="btnVerificarCuit">
               🔍
             </button>
           </div>
-          <small style="color: var(--sv-texto-muted); font-size: 0.75rem;">Si no tiene CUIT, se considera Consumidor Final</small>
+          <small style="color: var(--sv-texto-muted); font-size: 0.75rem;">Si no tiene CUIT, se considera Consumidor Final. Hacé click en 🔍 para buscar datos en ARCA.</small>
+          <div id="cuitCondicionInfo" style="display:none; margin-top: 0.25rem; font-size: 0.8rem; color: var(--sv-exito);"></div>
         </div>
 
         <div class="form-group" id="groupRazonSocial" style="display: none;">
-          <label class="form-label">Razón Social (autocompletado desde ARCA)</label>
-          <input type="text" class="form-input" id="clienteRazonSocial" readonly style="background: var(--sv-superficie-elevada);">
+          <label class="form-label">Razón Social</label>
+          <input type="text" class="form-input" id="clienteRazonSocial" placeholder="Se autocompleta desde ARCA o ingresá manualmente">
         </div>
 
         <div class="form-group" id="groupDomicilioFiscal" style="display: none;">
@@ -6751,6 +6754,8 @@
       document.getElementById('groupDomicilioFiscal').style.display = 'none';
       document.getElementById('clienteRazonSocial').value = '';
       document.getElementById('clienteDomicilioFiscal').value = '';
+      document.getElementById('clienteCondicionFiscal').value = '';
+      document.getElementById('cuitCondicionInfo').style.display = 'none';
 
       abrirModal('modalCliente');
     }
@@ -6774,9 +6779,21 @@
         document.getElementById('groupDomicilioFiscal').style.display = 'block';
         document.getElementById('clienteRazonSocial').value = cliente.razonSocial || '';
         document.getElementById('clienteDomicilioFiscal').value = cliente.domicilioFiscal || '';
+        var condicionExistente = cliente.condicionFiscal || '';
+        document.getElementById('clienteCondicionFiscal').value = condicionExistente;
+        var infoEl = document.getElementById('cuitCondicionInfo');
+        if (condicionExistente) {
+          infoEl.textContent = 'Condición: ' + condicionExistente;
+          infoEl.style.color = 'var(--sv-texto-muted)';
+          infoEl.style.display = 'block';
+        } else {
+          infoEl.style.display = 'none';
+        }
       } else {
         document.getElementById('groupRazonSocial').style.display = 'none';
         document.getElementById('groupDomicilioFiscal').style.display = 'none';
+        document.getElementById('clienteCondicionFiscal').value = '';
+        document.getElementById('cuitCondicionInfo').style.display = 'none';
       }
 
       abrirModal('modalCliente');
@@ -6808,12 +6825,20 @@
             document.getElementById('clienteRazonSocial').value = result.razonSocial || '';
             document.getElementById('clienteDomicilioFiscal').value = result.domicilio || '';
 
-            mostrarToast('✓ Datos verificados en ARCA', 'success');
+            // Guardar y mostrar condición fiscal
+            var condicion = result.condicionTexto || 'Responsable Inscripto';
+            document.getElementById('clienteCondicionFiscal').value = condicion;
+            var infoEl = document.getElementById('cuitCondicionInfo');
+            infoEl.textContent = '✓ ARCA: ' + condicion + (result.tipoPersona ? ' (' + result.tipoPersona + ')' : '');
+            infoEl.style.display = 'block';
+
+            mostrarToast('✓ Datos verificados en ARCA: ' + condicion, 'success');
           } else {
-            mostrarToast('CUIT no encontrado en padrón ARCA', 'warning');
+            mostrarToast((result && result.error) || 'CUIT no encontrado en padrón ARCA', 'warning');
             // Igual mostrar los campos para que se puedan ingresar manualmente
             document.getElementById('groupRazonSocial').style.display = 'block';
             document.getElementById('groupDomicilioFiscal').style.display = 'block';
+            document.getElementById('cuitCondicionInfo').style.display = 'none';
           }
         })
         .withFailureHandler(function(error) {
@@ -6829,12 +6854,13 @@
 
       const editando = document.getElementById('clienteEditando').value;
       const cuitVal = document.getElementById('clienteCuit').value.trim();
+      const condicionGuardada = document.getElementById('clienteCondicionFiscal').value.trim();
       const datos = {
         nombre: document.getElementById('clienteNombre').value.trim(),
         tel: document.getElementById('clienteTel').value,
         email: document.getElementById('clienteEmail').value,
         cuit: cuitVal,
-        condicionFiscal: cuitVal ? 'Responsable Inscripto' : 'Consumidor Final',
+        condicionFiscal: condicionGuardada || (cuitVal ? 'Responsable Inscripto' : 'Consumidor Final'),
         razonSocial: document.getElementById('clienteRazonSocial').value.trim(),
         domicilioFiscal: document.getElementById('clienteDomicilioFiscal').value.trim(),
         limite: parseFloat(document.getElementById('clienteLimite').value) || 100000,
