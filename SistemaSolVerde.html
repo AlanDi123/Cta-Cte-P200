@@ -1648,6 +1648,82 @@
       border-color: var(--sv-advertencia);
     }
 
+    /* ── Calendario día a día ─────────────────────────── */
+    .cal-leyenda {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .cal-dia-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .cal-dia-badge.pagado  { background: var(--sv-exito);      color: white; }
+    .cal-dia-badge.impago  { background: var(--sv-peligro);    color: white; }
+    .cal-dia-badge.parcial { background: var(--sv-advertencia);color: var(--sv-texto); }
+    .cal-dia-badge.futuro  { background: var(--sv-superficie-elevada); color: var(--sv-texto-secundario); border: 1px solid var(--sv-borde); }
+
+    .cal-meses-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .cal-mes {
+      min-width: 168px;
+      flex: 1 1 168px;
+    }
+
+    .cal-mes-nombre {
+      font-weight: 600;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: var(--sv-texto);
+      text-align: center;
+    }
+
+    .cal-mes-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .cal-dia-header {
+      text-align: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--sv-texto-secundario);
+      padding: 2px 0;
+    }
+
+    .cal-dia {
+      text-align: center;
+      font-size: 0.72rem;
+      padding: 3px 1px;
+      border-radius: 3px;
+      cursor: default;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .cal-dia:hover {
+      opacity: 0.8;
+      transform: scale(1.15);
+      z-index: 1;
+      position: relative;
+    }
+
+    .cal-dia.pagado  { background: var(--sv-exito);      color: white; }
+    .cal-dia.impago  { background: var(--sv-peligro);    color: white; }
+    .cal-dia.parcial { background: var(--sv-advertencia);color: var(--sv-texto); }
+    .cal-dia.futuro  { background: var(--sv-superficie-elevada); color: var(--sv-texto-secundario); border: 1px solid var(--sv-borde); }
+
     .alquileres-empty {
       text-align: center;
       padding: 3rem 1rem;
@@ -4111,11 +4187,11 @@
       <div class="modal-body">
         <input type="hidden" id="pagoAlquiler_inquilino">
         <div class="form-group">
-          <label class="form-label">Fecha</label>
-          <input type="date" id="pagoAlquiler_fecha" class="form-input">
+          <label class="form-label">Fecha de pago</label>
+          <input type="date" id="pagoAlquiler_fecha" class="form-input" onchange="actualizarInfoSemana()">
         </div>
         <div class="form-group">
-          <label class="form-label">Semana ISO</label>
+          <label class="form-label">Semana que cubre <small id="pagoAlquiler_semana_info" style="color:var(--sv-texto-secundario);font-weight:normal;font-size:0.8rem;"></small></label>
           <input type="number" id="pagoAlquiler_semana" class="form-input" min="1" max="53">
         </div>
         <div class="form-group">
@@ -9535,15 +9611,21 @@
               '</div>' +
               '<div class="alquileres-calendario">' +
                 '<div class="calendario-header">' +
-                  '<h4>&#128197; Calendario 2026</h4>' +
-                  '<button class="btn btn-outline btn-sm" onclick="cargarCalendarioAlquiler(\'' + escapeHtml(inq.inquilino) + '\', 2026)">Ver Calendario</button>' +
+                  '<h4>&#128197; Calendario ' + new Date().getFullYear() + '</h4>' +
+                  '<button class="btn btn-outline btn-sm" onclick="cargarCalendarioAlquiler(\'' + escapeHtml(inq.inquilino) + '\', ' + new Date().getFullYear() + ')">&#8635; Actualizar</button>' +
                 '</div>' +
-                '<div id="calendario-' + inquilinoId + '" class="calendario-grid"></div>' +
+                '<div id="calendario-' + inquilinoId + '"></div>' +
               '</div>' +
             '</div>';
           }).join('');
 
           document.getElementById('listaInquilinos').innerHTML = html;
+
+          // Auto-cargar calendarios para cada inquilino
+          var anioActual = new Date().getFullYear();
+          inquilinos.forEach(function(inq) {
+            cargarCalendarioAlquiler(inq.inquilino, anioActual);
+          });
         })
         .withFailureHandler(function(error) {
           mostrarToast('Error de conexión: ' + error.message, 'error');
@@ -9553,36 +9635,96 @@
     }
 
     /**
-     * Carga el calendario de alquiler para un inquilino
+     * Carga el calendario de alquiler para un inquilino (vista día a día)
      */
     function cargarCalendarioAlquiler(inquilino, anio) {
       const containerId = 'calendario-' + inquilino.replace(/\s/g, '-');
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = '<div style="text-align:center;padding:0.5rem;color:var(--sv-texto-secundario);font-size:0.8rem;">Cargando...</div>';
 
       google.script.run
         .withSuccessHandler(function(result) {
           if (!result.success) {
             mostrarToast('Error cargando calendario', 'error');
+            container.innerHTML = '';
             return;
           }
 
-          const semanas = result.calendario;
-          let html = '';
+          const cal = result.calendario;
+          const meses = cal.meses;
 
-          for (let i = 1; i <= 53; i++) {
-            const estado = semanas[i] || 'impaga';
-            let clase = 'semana-cell ';
-            if (estado === 'pagada') clase += 'pagada';
-            else if (estado === 'facturada') clase += 'pagada';
-            else if (estado === 'parcial') clase += 'parcial';
-            else clase += 'impaga';
+          // Mapa: semana ISO → {estado, montoPagado, montoEsperado, fechaInicio, fechaFin}
+          const weekMap = {};
+          meses.forEach(function(m) {
+            m.semanas.forEach(function(s) {
+              weekMap[s.semana] = s;
+            });
+          });
 
-            html += '<div class="' + clase + '" title="Semana ' + i + ': ' + estado + '">S' + i + '</div>';
-          }
+          const diasHeader = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
 
-          document.getElementById(containerId).innerHTML = html;
+          let html = '<div class="cal-leyenda">' +
+            '<span class="cal-dia-badge pagado">&#10003; Pagado</span>' +
+            '<span class="cal-dia-badge impago">&#10007; Impago</span>' +
+            '<span class="cal-dia-badge parcial">&#9650; Parcial</span>' +
+            '<span class="cal-dia-badge futuro">&#9632; Futuro</span>' +
+            '</div>';
+
+          html += '<div class="cal-meses-wrapper">';
+
+          meses.forEach(function(m) {
+            const mesNum = m.mes;
+            const primerDia = new Date(anio, mesNum - 1, 1);
+            const ultimoDia = new Date(anio, mesNum, 0).getDate();
+            // Offset: Lu=0, Ma=1, ... Do=6
+            const primerDiaSemana = (primerDia.getDay() + 6) % 7;
+
+            html += '<div class="cal-mes">';
+            html += '<div class="cal-mes-nombre">' + m.nombre + '</div>';
+            html += '<div class="cal-mes-grid">';
+
+            // Cabecera días de semana
+            diasHeader.forEach(function(d) {
+              html += '<div class="cal-dia-header">' + d + '</div>';
+            });
+
+            // Celdas vacías iniciales
+            for (let i = 0; i < primerDiaSemana; i++) {
+              html += '<div></div>';
+            }
+
+            // Días del mes
+            for (let dia = 1; dia <= ultimoDia; dia++) {
+              const fecha = new Date(anio, mesNum - 1, dia);
+              const semana = obtenerSemanaISODeDate(fecha);
+              const info = weekMap[semana];
+              const estado = info ? info.estado : 'futuro';
+
+              let tooltip = dia + '/' + mesNum + '/' + anio;
+              if (info) {
+                const fi = new Date(info.fechaInicio);
+                const ff = new Date(info.fechaFin);
+                tooltip += ' | Sem ' + semana + ': ' +
+                  fi.getDate() + '/' + (fi.getMonth() + 1) + ' - ' +
+                  ff.getDate() + '/' + (ff.getMonth() + 1);
+                if (info.montoPagado > 0) {
+                  tooltip += ' ($' + formatearNumero(info.montoPagado) + ')';
+                }
+              }
+
+              html += '<div class="cal-dia ' + estado + '" title="' + tooltip + '">' + dia + '</div>';
+            }
+
+            html += '</div></div>';
+          });
+
+          html += '</div>';
+          container.innerHTML = html;
         })
         .withFailureHandler(function(error) {
           mostrarToast('Error cargando calendario: ' + error.message, 'error');
+          container.innerHTML = '';
         })
         .obtenerCalendarioAlquiler(inquilino, anio);
     }
@@ -9592,10 +9734,10 @@
      */
     function abrirModalPagoAlquiler(inquilino) {
       document.getElementById('pagoAlquiler_inquilino').value = inquilino;
-      document.getElementById('pagoAlquiler_fecha').value = obtenerFechaHoy();
-      document.getElementById('pagoAlquiler_semana').value = obtenerSemanaISO();
+      document.getElementById('pagoAlquiler_fecha').value = obtenerFechaLocal();
       document.getElementById('pagoAlquiler_monto').value = '';
       document.getElementById('pagoAlquiler_obs').value = '';
+      actualizarInfoSemana();
       abrirModal('modalPagoAlquiler');
     }
 
@@ -9642,7 +9784,7 @@
     function abrirModalFacturaAlquiler(inquilino) {
       const hoy = new Date();
       document.getElementById('facturaAlquiler_inquilino').value = inquilino;
-      document.getElementById('facturaAlquiler_fecha').value = obtenerFechaHoy();
+      document.getElementById('facturaAlquiler_fecha').value = obtenerFechaLocal();
       document.getElementById('facturaAlquiler_mes').value = hoy.getMonth() + 1;
       document.getElementById('facturaAlquiler_anio').value = hoy.getFullYear();
       document.getElementById('facturaAlquiler_semanas').value = '';
@@ -9748,6 +9890,52 @@
           mostrarLoading(false);
         })
         .actualizarConfigAlquiler(inquilino, datos);
+    }
+
+    /**
+     * Calcula el número de semana ISO para una fecha dada
+     */
+    function obtenerSemanaISODeDate(fecha) {
+      var temp = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+      temp.setUTCDate(temp.getUTCDate() + 4 - (temp.getUTCDay() || 7));
+      var yearStart = new Date(Date.UTC(temp.getUTCFullYear(), 0, 1));
+      return Math.ceil((((temp - yearStart) / 86400000) + 1) / 7);
+    }
+
+    /**
+     * Devuelve el rango de fechas (lunes–domingo) de una semana ISO
+     */
+    function obtenerRangoSemana(anio, semana) {
+      var jan4 = new Date(anio, 0, 4);
+      var dayOfWeek = jan4.getDay() || 7;
+      var firstMonday = new Date(anio, 0, 4 - dayOfWeek + 1);
+      var inicio = new Date(firstMonday);
+      inicio.setDate(inicio.getDate() + (semana - 1) * 7);
+      var fin = new Date(inicio);
+      fin.setDate(fin.getDate() + 6);
+      return { inicio: inicio, fin: fin };
+    }
+
+    /**
+     * Actualiza el campo "semana" y su descripción de rango al cambiar la fecha
+     */
+    function actualizarInfoSemana() {
+      var fechaVal = document.getElementById('pagoAlquiler_fecha').value;
+      var infoSpan = document.getElementById('pagoAlquiler_semana_info');
+      if (!fechaVal) {
+        if (infoSpan) infoSpan.textContent = '';
+        return;
+      }
+      var partes = fechaVal.split('-');
+      var fecha = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+      var semana = obtenerSemanaISODeDate(fecha);
+      document.getElementById('pagoAlquiler_semana').value = semana;
+      if (infoSpan) {
+        var rango = obtenerRangoSemana(fecha.getFullYear(), semana);
+        infoSpan.textContent = '(' +
+          rango.inicio.getDate() + '/' + (rango.inicio.getMonth() + 1) + ' al ' +
+          rango.fin.getDate() + '/' + (rango.fin.getMonth() + 1) + ')';
+      }
     }
 
     /**

@@ -435,6 +435,26 @@ function guardarPagoAlquiler(datos) {
   }
 }
 
+function guardarFacturaMensual(datos) {
+  try {
+    if (!datos.inquilino) throw new Error('Inquilino requerido');
+    if (!datos.monto || datos.monto <= 0) throw new Error('Monto invalido');
+
+    var resultado = AlquileresRepository.registrarFacturaMensual(datos);
+    var config = AlquileresRepository.obtenerConfigInquilino(datos.inquilino);
+
+    return {
+      success: true,
+      movimiento: serializarParaWeb(resultado),
+      config: serializarParaWeb(config),
+      mensaje: 'Factura mensual registrada'
+    };
+  } catch (error) {
+    Logger.log('Error en guardarFacturaMensual: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 function actualizarConfigAlquiler(inquilino, datos) {
   try {
     var config = AlquileresRepository.actualizarConfigInquilino(inquilino, datos);
