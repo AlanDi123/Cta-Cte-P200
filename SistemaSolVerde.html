@@ -656,6 +656,7 @@
       padding: 1rem;
       box-shadow: 0 4px 12px var(--sv-sombra);
       animation: slideIn 0.3s ease;
+      will-change: transform, opacity; /* FASE 4: Hardware acceleration */
       pointer-events: auto;
     }
 
@@ -725,6 +726,7 @@
 
     .module-view.active {
       animation: moduleSlideIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform, opacity; /* FASE 4: Hardware acceleration */
     }
 
     /* Sidebar - transición mejorada */
@@ -962,6 +964,7 @@
       max-height: 90vh;
       overflow-y: auto;
       animation: scaleIn 0.25s ease;
+      will-change: transform, opacity; /* FASE 4: Hardware acceleration */
     }
 
     .modal-header {
@@ -1024,12 +1027,18 @@
         print-color-adjust: exact;
       }
 
+      /* FASE 3: CORRECCIÓN IMPRESIÓN MULTIPÁGINA */
       html, body {
         width: 100%;
-        height: 100%;
+        height: auto !important;
         margin: 0;
         padding: 0;
-        overflow: hidden;
+        overflow: visible !important;
+      }
+
+      .main-content, .module-view.active {
+        height: auto !important;
+        overflow: visible !important;
       }
 
       body {
@@ -1039,11 +1048,11 @@
         line-height: 1.3;
       }
 
-      /* CRÍTICO: Limitar altura del módulo activo a 1 página */
+      /* CRÍTICO: Módulo activo visible y con altura automática para múltiples páginas */
       .module-view.active {
         display: block !important;
         background: white !important;
-        max-height: none !important; /* Allow full page height */
+        max-height: none !important;
         height: auto !important;
         overflow: visible !important;
         page-break-after: avoid !important;
@@ -1661,6 +1670,66 @@
       margin-bottom: 1rem;
       opacity: 0.5;
     }
+
+    /* Calendario día por día */
+    .calendario-meses {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .calendario-mes {
+      flex: 1 1 180px;
+      min-width: 160px;
+    }
+
+    .mes-nombre {
+      font-weight: 600;
+      text-align: center;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: var(--sv-texto);
+    }
+
+    .dias-cabecera {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      margin-bottom: 2px;
+    }
+
+    .dia-cabecera {
+      text-align: center;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--sv-texto-secundario);
+    }
+
+    .dias-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .dia-vacio { aspect-ratio: 1; }
+
+    .dia-cell {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      border-radius: 3px;
+      cursor: default;
+    }
+
+    .dia-cell.pagado  { background: var(--sv-exito);              color: white; }
+    .dia-cell.impago  { background: var(--sv-peligro);            color: white; }
+    .dia-cell.parcial { background: var(--sv-advertencia);        color: var(--sv-texto); }
+    .dia-cell.futuro  { background: var(--sv-superficie-elevada); color: var(--sv-texto-secundario); border: 1px solid var(--sv-borde); }
+    .dia-cell.hoy     { outline: 2px solid var(--sv-primario);    outline-offset: 1px; font-weight: 700; }
+
     /* ======================================================
      * CONTABILIDAD - CAJA DIARIA
      * ====================================================== */
@@ -2204,6 +2273,11 @@
                 <button class="btn" style="background: white; color: var(--sv-primario);" onclick="guardarArqueo()">
                   💾 Guardar Cierre
                 </button>
+                <!-- BUG F FIX: Botón Nuevo Arqueo limpia formulario completo -->
+                <button class="btn no-print" style="background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.4);"
+                  onclick="limpiarArqueoCompleto()" title="Limpiar todos los datos y comenzar un arqueo nuevo">
+                  🗑️ Nuevo Arqueo
+                </button>
               </div>
             </div>
           </div>
@@ -2722,6 +2796,37 @@
                   <span>Habilitar animaciones</span>
                 </label>
               </div>
+
+              <!-- FASE 5: COLOR PICKERS PERSONALIZACIÓN -->
+              <div style="margin-top: 1rem; border-top: 1px solid var(--sv-borde); padding-top: 1rem;">
+                <div class="form-label" style="margin-bottom: 0.75rem; font-weight: 600;">Colores del Sistema</div>
+                <div class="form-group" style="display:flex; align-items:center; gap: 0.75rem;">
+                  <label style="flex:1;">Color Primario</label>
+                  <input type="color" id="colorPrimario" value="#2E7D32"
+                    oninput="aplicarColorTemporal('--sv-primario', this.value)">
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap: 0.75rem;">
+                  <label style="flex:1;">Color Secundario</label>
+                  <input type="color" id="colorSecundario" value="#FF6F00"
+                    oninput="aplicarColorTemporal('--sv-secundario', this.value)">
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap: 0.75rem;">
+                  <label style="flex:1;">Color Acento</label>
+                  <input type="color" id="colorAcento" value="#00ACC1"
+                    oninput="aplicarColorTemporal('--sv-acento', this.value)">
+                </div>
+                <button class="btn btn-primary" onclick="guardarConfiguracionVisual()" style="width:100%; margin-top:0.5rem;">
+                  💾 Guardar Colores
+                </button>
+              </div>
+
+              <!-- FASE 5: TOGGLES DE MÓDULOS EN SIDEBAR -->
+              <div style="margin-top: 1rem; border-top: 1px solid var(--sv-borde); padding-top: 1rem;">
+                <div class="form-label" style="margin-bottom: 0.75rem; font-weight: 600;">Módulos Visibles en Menú</div>
+                <div id="toggleModulos">
+                  <!-- Renderizado por JS con renderToggleModulos() -->
+                </div>
+              </div>
             </div>
           </div>
 
@@ -3096,6 +3201,7 @@
             <p id="estadoInquilinos" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
           </div>
         </div>
+
       </div>
 
       <!-- MODULO: FACTURACION - TRANSFERENCIAS -->
@@ -3665,20 +3771,23 @@
           <input type="email" class="form-input" id="clienteEmail" inputmode="email">
         </div>
 
+        <input type="hidden" id="clienteCondicionFiscal" value="">
+
         <div class="form-group">
-          <label class="form-label">CUIT (solo para Responsables Inscriptos)</label>
+          <label class="form-label">CUIT (para Responsables Inscriptos y Monotributo)</label>
           <div style="display: flex; gap: 0.5rem;">
             <input type="text" class="form-input" id="clienteCuit" placeholder="XX-XXXXXXXX-X" inputmode="numeric" style="flex: 1;">
             <button type="button" class="btn btn-outline btn-sm" onclick="verificarCuitCliente()" title="Verificar en ARCA" id="btnVerificarCuit">
               🔍
             </button>
           </div>
-          <small style="color: var(--sv-texto-muted); font-size: 0.75rem;">Si no tiene CUIT, se considera Consumidor Final</small>
+          <small style="color: var(--sv-texto-muted); font-size: 0.75rem;">Si no tiene CUIT, se considera Consumidor Final. Hacé click en 🔍 para buscar datos en ARCA.</small>
+          <div id="cuitCondicionInfo" style="display:none; margin-top: 0.25rem; font-size: 0.8rem; color: var(--sv-exito);"></div>
         </div>
 
         <div class="form-group" id="groupRazonSocial" style="display: none;">
-          <label class="form-label">Razón Social (autocompletado desde ARCA)</label>
-          <input type="text" class="form-input" id="clienteRazonSocial" readonly style="background: var(--sv-superficie-elevada);">
+          <label class="form-label">Razón Social</label>
+          <input type="text" class="form-input" id="clienteRazonSocial" placeholder="Se autocompleta desde ARCA o ingresá manualmente">
         </div>
 
         <div class="form-group" id="groupDomicilioFiscal" style="display: none;">
@@ -4112,11 +4221,11 @@
         <input type="hidden" id="pagoAlquiler_inquilino">
         <div class="form-group">
           <label class="form-label">Fecha</label>
-          <input type="date" id="pagoAlquiler_fecha" class="form-input">
+          <input type="date" id="pagoAlquiler_fecha" class="form-input" onchange="actualizarSemanaDesde(this.value)">
         </div>
         <div class="form-group">
-          <label class="form-label">Semana ISO</label>
-          <input type="number" id="pagoAlquiler_semana" class="form-input" min="1" max="53">
+          <label class="form-label">Semana ISO (se calcula automáticamente)</label>
+          <input type="number" id="pagoAlquiler_semana" class="form-input" min="1" max="53" readonly style="background:var(--sv-superficie-elevada);cursor:default;">
         </div>
         <div class="form-group">
           <label class="form-label">Monto</label>
@@ -4247,6 +4356,15 @@
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
       };
+    }
+
+    // Fire-and-forget: llama a una función GAS en background sin bloquear la UI
+    function _gasFireAndForget(fnName) {
+      var args = Array.prototype.slice.call(arguments, 1);
+      var runner = google.script.run
+        .withSuccessHandler(function() {})
+        .withFailureHandler(function(e) { console.warn('[BG] ' + fnName + ' falló:', e.message); });
+      runner[fnName].apply(runner, args);
     }
 
     // ============================================================================
@@ -4388,6 +4506,27 @@
       setupNavegacionTeclado();
       ColaTareas.init();
 
+      // BUG A FIX: Aplicar config visual desde localStorage SINCRÓNICAMENTE
+      // antes de mostrar nada, para evitar el flash de módulos que deben estar ocultos
+      (function() {
+        try {
+          const _cfgLocal = localStorage.getItem('sv_config_visual');
+          if (_cfgLocal) {
+            const _cfg = JSON.parse(_cfgLocal);
+            aplicarConfiguracionVisual(_cfg);
+            renderToggleModulos(_cfg.modulosOcultos || []);
+          }
+        } catch(e) {}
+      })();
+
+      // FASE 5: Aplicar configuración visual desde la nube (actualiza localStorage si cambió)
+      cargarYAplicarConfigVisual();
+
+      // Pre-cargar borrador en background para que esté listo al navegar a Caja
+      setTimeout(function() {
+        _cargarBorradorNube();
+      }, 800);
+
       // Precargar todos los módulos en background cuando el navegador esté idle
       if ('requestIdleCallback' in window) {
         requestIdleCallback(() => {
@@ -4410,7 +4549,7 @@
       // Intentar cargar datos del cache primero para inicio rápido
       const cacheKey = 'sv_datos_cache';
       const cacheTimeKey = 'sv_datos_cache_time';
-      const cacheMaxAge = 5 * 60 * 1000; // 5 minutos
+      const cacheMaxAge = 15 * 60 * 1000; // 15 minutos
 
       // Si hay cache válido y no se fuerza recarga, mostrar datos cacheados primero
       if (!forzarRecarga) {
@@ -4611,6 +4750,296 @@
     }
 
     // ============================================================================
+    // ============================================================================
+    // FASE 5: AUDIO FEEDBACK - SIN DEPENDENCIAS EXTERNAS
+    // ============================================================================
+    class SoundPlayer {
+      static _ctx = null;
+
+      static _getCtx() {
+        if (!SoundPlayer._ctx) {
+          SoundPlayer._ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return SoundPlayer._ctx;
+      }
+
+      static _beep(freq, duration, gain = 0.3, type = 'sine') {
+        try {
+          const ctx = SoundPlayer._getCtx();
+          const osc = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          osc.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          gainNode.gain.setValueAtTime(gain, ctx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + duration);
+        } catch (e) { /* Silenciar errores de audio */ }
+      }
+
+      static playSuccess() {
+        SoundPlayer._beep(880, 0.12, 0.25, 'sine');
+        setTimeout(() => SoundPlayer._beep(1100, 0.15, 0.2, 'sine'), 100);
+      }
+
+      static playError() {
+        SoundPlayer._beep(300, 0.15, 0.3, 'square');
+        setTimeout(() => SoundPlayer._beep(250, 0.18, 0.3, 'square'), 160);
+      }
+    }
+
+    // ============================================================================
+    // FASE 2: BORRADORES EN LA NUBE - AUTO-SAVE
+    // ============================================================================
+
+    function _serializarEstadoCaja() {
+      const billetes = {};
+      // BUGFIX D1: era input.dataset.denom (undefined); el atributo real es data-tipo
+      document.querySelectorAll('.denom-input').forEach(input => {
+        billetes[input.dataset.tipo] = input.value;
+      });
+
+      const proveedores = [];
+      document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
+        const desc = item.querySelector('.prov-desc');
+        const monto = item.querySelector('.prov-monto');
+        proveedores.push({ descripcion: desc ? desc.value : '', monto: monto ? monto.value : '' });
+      });
+
+      const gastos = [];
+      document.querySelectorAll('#listaGastos > div').forEach(item => {
+        const inputs = item.querySelectorAll('input');
+        gastos.push({ descripcion: inputs[0] ? inputs[0].value : '', monto: inputs[1] ? inputs[1].value : '' });
+      });
+
+      const ingresos = [];
+      document.querySelectorAll('#listaIngresos > div').forEach(item => {
+        const inputs = item.querySelectorAll('input');
+        ingresos.push({ descripcion: inputs[0] ? inputs[0].value : '', monto: inputs[1] ? inputs[1].value : '' });
+      });
+
+      return JSON.stringify({ billetes, proveedores, gastos, ingresos, ts: Date.now() });
+    }
+
+    function _restaurarEstadoCaja(datosJSON) {
+      try {
+        const datos = JSON.parse(datosJSON);
+        if (!datos) return;
+
+        // BUGFIX D2: era [data-denom=...] (no existe); el atributo real es data-tipo
+        if (datos.billetes) {
+          Object.entries(datos.billetes).forEach(([tipo, val]) => {
+            if (!val || val === '0') return;
+            const input = document.querySelector(`.denom-input[data-tipo="${tipo}"]`);
+            if (input) { input.value = val; }
+          });
+          calcularTotalEfectivo();
+        }
+
+        // BUGFIX D3: proveedores se serializaban pero nunca se restauraban
+        if (datos.proveedores && datos.proveedores.length > 0) {
+          document.getElementById('listaProveedores').innerHTML = '';
+          datos.proveedores.forEach(p => {
+            if (!p.monto) return;
+            agregarProveedor();
+            const items = document.querySelectorAll('#listaProveedores .proveedor-item');
+            const ultimo = items[items.length - 1];
+            if (ultimo) {
+              const descInput = ultimo.querySelector('.prov-desc');
+              const montoInput = ultimo.querySelector('.prov-monto');
+              if (descInput) descInput.value = p.descripcion || '';
+              if (montoInput) montoInput.value = p.monto || '';
+            }
+          });
+        }
+
+        if (datos.gastos && datos.gastos.length > 0) {
+          document.getElementById('listaGastos').innerHTML = '';
+          datos.gastos.forEach(g => {
+            if (!g.monto) return;
+            agregarGasto();
+            const divs = document.querySelectorAll('#listaGastos > div');
+            const ultimo = divs[divs.length - 1];
+            if (ultimo) {
+              const inputs = ultimo.querySelectorAll('input');
+              if (inputs[0]) inputs[0].value = g.descripcion;
+              if (inputs[1]) inputs[1].value = g.monto;
+            }
+          });
+        }
+
+        if (datos.ingresos && datos.ingresos.length > 0) {
+          document.getElementById('listaIngresos').innerHTML = '';
+          datos.ingresos.forEach(ing => {
+            if (!ing.monto) return;
+            agregarIngreso();
+            const divs = document.querySelectorAll('#listaIngresos > div');
+            const ultimo = divs[divs.length - 1];
+            if (ultimo) {
+              const inputs = ultimo.querySelectorAll('input');
+              if (inputs[0]) inputs[0].value = ing.descripcion;
+              if (inputs[1]) inputs[1].value = ing.monto;
+            }
+          });
+        }
+
+        calcularNetoArqueo();
+        mostrarToast('Borrador restaurado desde la nube', 'info');
+      } catch (e) {
+        console.error('Error restaurando borrador', e);
+      }
+    }
+
+    const _autoSaveBorradorFn = debounce(function() {
+      const datosJSON = _serializarEstadoCaja();
+      google.script.run
+        .withSuccessHandler(function() {})
+        .withFailureHandler(function(e) { console.warn('AutoSave borrador falló:', e.message); })
+        .guardarBorradorCaja('local', datosJSON);
+    }, 2500);
+
+    function _inicializarAutoSaveCaja() {
+      const contenedor = document.getElementById('module-arqueo-efectivo');
+      if (!contenedor || contenedor._autoSaveInited) return;
+      contenedor._autoSaveInited = true;
+      contenedor.addEventListener('input', _autoSaveBorradorFn);
+      contenedor.addEventListener('change', _autoSaveBorradorFn);
+    }
+
+    function _cargarBorradorNube() {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success && res.datos) {
+            _restaurarEstadoCaja(res.datos);
+          }
+        })
+        .withFailureHandler(function(e) { console.warn('Cargar borrador falló:', e.message); })
+        .obtenerBorradorCaja('local');
+    }
+
+    function descartarBorradorCaja() {
+      google.script.run
+        .withSuccessHandler(function() { mostrarToast('Borrador descartado', 'info'); })
+        .withFailureHandler(function(e) { console.warn('Eliminar borrador falló:', e.message); })
+        .eliminarBorradorCaja('local');
+    }
+
+    // BUG F FIX: limpia TODOS los campos del arqueo y el borrador en la nube
+    function limpiarArqueoCompleto() {
+      if (!confirm('¿Limpiar todos los datos del arqueo para comenzar uno nuevo?\n\nSe borrarán billetes, proveedores, gastos e ingresos.')) return;
+      document.querySelectorAll('.denom-input').forEach(function(i) { i.value = 0; });
+      document.getElementById('listaProveedores').innerHTML = '';
+      document.getElementById('listaGastos').innerHTML = '';
+      document.getElementById('listaIngresos').innerHTML = '';
+      Estado.arqueo = {};
+      calcularTotalEfectivo();
+      mostrarToast('Arqueo limpiado. Listo para comenzar nuevo registro.', 'info');
+      google.script.run
+        .withSuccessHandler(function() {})
+        .withFailureHandler(function(e) { console.warn('Eliminar borrador falló:', e.message); })
+        .eliminarBorradorCaja('local');
+    }
+
+    // ============================================================================
+    // FASE 5: PERSONALIZACIÓN VISUAL
+    // ============================================================================
+
+    const MODULOS_CONFIGURABLES = [
+      { key: 'visual-reasoning', label: 'Visual Reasoning' },
+      { key: 'estadisticas', label: 'Estadísticas' },
+      { key: 'impresion-saldos', label: 'Imprimir Saldos' },
+      { key: 'hoja-ruta', label: 'Hoja de Ruta' },
+      { key: 'contabilidad', label: 'Caja Diaria' },
+      { key: 'facturacion-unificada', label: 'Facturación y Transferencias' },
+      { key: 'productos', label: 'Productos' },
+      { key: 'escanear', label: 'Escanear IA' },
+      { key: 'historial-facturas', label: 'Historial ARCA' },
+      { key: 'alquileres', label: 'Alquiler de Puestos' },
+    ];
+
+    function aplicarColorTemporal(variable, valor) {
+      document.documentElement.style.setProperty(variable, valor);
+    }
+
+    function aplicarConfiguracionVisual(config) {
+      if (!config) return;
+      if (config.colores) {
+        Object.entries(config.colores).forEach(([variable, valor]) => {
+          document.documentElement.style.setProperty(variable, valor);
+        });
+      }
+      if (config.modulosOcultos) {
+        config.modulosOcultos.forEach(key => {
+          const item = document.querySelector(`.menu-item[data-module="${key}"]`);
+          if (item) item.style.display = 'none';
+        });
+      }
+    }
+
+    function guardarConfiguracionVisual() {
+      const colores = {
+        '--sv-primario': document.getElementById('colorPrimario').value,
+        '--sv-secundario': document.getElementById('colorSecundario').value,
+        '--sv-acento': document.getElementById('colorAcento').value,
+      };
+      const modulosOcultos = [];
+      document.querySelectorAll('#toggleModulos input[type="checkbox"]').forEach(cb => {
+        if (!cb.checked) modulosOcultos.push(cb.dataset.modulo);
+      });
+      const config = { colores, modulosOcultos };
+      aplicarConfiguracionVisual(config);
+      // Guardar en localStorage para restauración sincrónica al recargar
+      localStorage.setItem('sv_config_visual', JSON.stringify(config));
+      // Feedback inmediato al usuario (no esperar a GAS)
+      mostrarToast('Configuración visual guardada', 'success');
+      // Guardar en la nube en background (fire-and-forget)
+      google.script.run
+        .withSuccessHandler(function() {})
+        .withFailureHandler(function(e) { console.warn('Config visual: fallo sync nube', e.message); })
+        .guardarConfiguracionVisualBackend(JSON.stringify(config));
+    }
+
+    // BUGFIX: renderToggleModulos ahora acepta la lista de módulos ocultos guardada
+    // para inicializar correctamente el estado checked/unchecked al recargar la página
+    function renderToggleModulos(modulosOcultos) {
+      const ocultos = Array.isArray(modulosOcultos) ? modulosOcultos : [];
+      const contenedor = document.getElementById('toggleModulos');
+      if (!contenedor) return;
+      contenedor.innerHTML = MODULOS_CONFIGURABLES.map(m => {
+        const estaOculto = ocultos.includes(m.key);
+        return `
+        <label style="display:flex; align-items:center; gap:0.5rem; min-height:var(--sv-touch-target); cursor:pointer;">
+          <input type="checkbox" data-modulo="${m.key}" ${estaOculto ? '' : 'checked'}
+            style="width:20px; height:20px;"
+            onchange="document.querySelector('.menu-item[data-module=\\'${m.key}\\']').style.display = this.checked ? '' : 'none'">
+          <span>${m.label}</span>
+        </label>`;
+      }).join('');
+    }
+
+    function cargarYAplicarConfigVisual() {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success && res.config) {
+            aplicarConfiguracionVisual(res.config);
+            renderToggleModulos(res.config.modulosOcultos || []);
+            // BUG A FIX: mantener localStorage sincronizado con la nube
+            localStorage.setItem('sv_config_visual', JSON.stringify(res.config));
+            if (res.config.colores) {
+              const cp = document.getElementById('colorPrimario');
+              const cs = document.getElementById('colorSecundario');
+              const ca = document.getElementById('colorAcento');
+              if (cp && res.config.colores['--sv-primario']) cp.value = res.config.colores['--sv-primario'];
+              if (cs && res.config.colores['--sv-secundario']) cs.value = res.config.colores['--sv-secundario'];
+              if (ca && res.config.colores['--sv-acento']) ca.value = res.config.colores['--sv-acento'];
+            }
+          }
+        })
+        .obtenerConfiguracionVisual();
+    }
+
     // NAVEGACION CON TECLADO
     // ============================================================================
     function setupNavegacionTeclado() {
@@ -4747,7 +5176,41 @@
             navegarA(modulos[e.key]);
           }
         }
+
+        // FASE 4: F2 = Nueva Transferencia, F4 = Caja
+        if (e.key === 'F2' && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          if (typeof abrirModalNuevaTransferenciaUnif === 'function') abrirModalNuevaTransferenciaUnif();
+          else if (typeof abrirModalNuevaCaja === 'function') abrirModalNuevaCaja();
+        }
+        if (e.key === 'F4' && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          navegarA('arqueo-efectivo');
+        }
       });
+
+      // FASE 4: Salto con Enter en módulo Arqueo Efectivo (delegado)
+      const modArqueo = document.getElementById('module-arqueo-efectivo');
+      if (modArqueo) {
+        modArqueo.addEventListener('keydown', function(e) {
+          if (e.key !== 'Enter') return;
+          const tag = e.target.tagName;
+          if (tag !== 'INPUT' && tag !== 'TEXTAREA') return;
+          e.preventDefault();
+
+          // Obtener todos los inputs visibles dentro del módulo
+          const inputs = Array.from(
+            modArqueo.querySelectorAll('input[type="number"], input[type="text"]')
+          ).filter(function(el) { return !el.disabled && el.offsetParent !== null; });
+
+          const idx = inputs.indexOf(e.target);
+          if (idx !== -1 && idx < inputs.length - 1) {
+            inputs[idx + 1].focus();
+            inputs[idx + 1].select();
+          }
+        }, true);
+      }
+
     }
 
     function handleTipoKeydown(event, tipo) {
@@ -4767,6 +5230,10 @@
     }
 
     function mostrarToast(mensaje, tipo = 'info') {
+      // FASE 5: Feedback auditivo
+      if (tipo === 'success') SoundPlayer.playSuccess();
+      else if (tipo === 'error') SoundPlayer.playError();
+
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
       toast.className = 'toast toast-' + tipo;
@@ -4828,8 +5295,16 @@
       if (modulo === 'alquileres') cargarModuloAlquileres();
       if (modulo === 'contabilidad') cargarContabilidad();
       if (modulo === 'configuracion') {
-        // Solo cargar datos del emisor sin verificaciones pesadas
         cargarDatosEmisor();
+        // Renderizar toggles con el estado guardado en localStorage (fix definitivo)
+        var _cfgVis = {};
+        try { _cfgVis = JSON.parse(localStorage.getItem('sv_config_visual') || '{}'); } catch(e) {}
+        renderToggleModulos(_cfgVis.modulosOcultos || []);
+      }
+      // FASE 2: Cargar borrador al navegar a caja
+      if (modulo === 'arqueo-efectivo') {
+        _inicializarAutoSaveCaja();
+        _cargarBorradorNube();
       }
     }
 
@@ -5614,7 +6089,8 @@
       const item = document.createElement('div');
       item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;';
       item.innerHTML =
-        '<input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
+        // BUGFIX: clase gasto-desc agregada para que imprimirResumenArqueo() pueda leerla
+        '<input type="text" class="form-input gasto-desc" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
         '<input type="number" class="form-input gasto-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
         '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
       lista.appendChild(item);
@@ -5625,7 +6101,8 @@
       const item = document.createElement('div');
       item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;';
       item.innerHTML =
-        '<input type="text" class="form-input" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
+        // BUGFIX: clase ingreso-desc agregada para que imprimirResumenArqueo() pueda leerla
+        '<input type="text" class="form-input ingreso-desc" placeholder="Descripcion" style="flex: 1; min-width: 150px;">' +
         '<input type="number" class="form-input ingreso-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
         '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
       lista.appendChild(item);
@@ -5749,12 +6226,12 @@
         proveedoresList.forEach(function(p) {
           html += '<tr>' +
             '<td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">' + escapeHtml(p.nombre) + '</td>' +
-            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #C62828; border-bottom: 1px solid #eee;">-' + formatearMonto(p.monto) + '</td>' +
+            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #C62828; border-bottom: 1px solid #eee;">' + formatearMonto(p.monto) + '</td>' +
           '</tr>';
         });
         html += '<tr style="background: #ffcdd2;">' +
           '<td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL PROVEEDORES</td>' +
-          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #C62828;">-' + formatearMonto(totalProveedores) + '</td>' +
+          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #C62828;">' + formatearMonto(totalProveedores) + '</td>' +
         '</tr>';
       }
 
@@ -5764,12 +6241,12 @@
         gastosList.forEach(function(g) {
           html += '<tr>' +
             '<td colspan="2" style="padding: 4px 8px 4px 16px; font-size: 9pt; border-bottom: 1px solid #eee;">' + escapeHtml(g.nombre) + '</td>' +
-            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #F57C00; border-bottom: 1px solid #eee;">-' + formatearMonto(g.monto) + '</td>' +
+            '<td style="padding: 4px 8px; text-align: right; font-size: 9pt; font-weight: bold; color: #F57C00; border-bottom: 1px solid #eee;">' + formatearMonto(g.monto) + '</td>' +
           '</tr>';
         });
         html += '<tr style="background: #ffe0b2;">' +
           '<td colspan="2" style="padding: 5px 8px; font-weight: bold; font-size: 10pt;">TOTAL GASTOS</td>' +
-          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #F57C00;">-' + formatearMonto(totalGastos) + '</td>' +
+          '<td style="padding: 5px 8px; text-align: right; font-weight: bold; font-size: 10pt; color: #F57C00;">' + formatearMonto(totalGastos) + '</td>' +
         '</tr>';
       }
 
@@ -5855,6 +6332,11 @@
             document.getElementById('listaGastos').innerHTML = '';
             document.getElementById('listaIngresos').innerHTML = '';
             calcularTotalEfectivo();
+            // Limpiar borrador al guardar exitosamente
+            google.script.run
+              .withSuccessHandler(function() {})
+              .withFailureHandler(function() {})
+              .eliminarBorradorCaja('local');
           } else {
             mostrarToast(result.error, 'error');
           }
@@ -6138,9 +6620,15 @@
       if (sesion.registros && sesion.registros.length > 0) {
         html += '<div class="card-title" style="margin-top: 1rem;">Detalles</div>';
         html += sesion.registros.map(function(d) {
+          // BUGFIX: montos negativos (proveedores/gastos) se almacenan como negativos en la hoja
+          // formatearMonto(-500) producía "$-500"; ahora mostramos correctamente "-$500"
+          var montoAbs = Math.abs(d.monto || 0);
+          var esNeg = (d.monto || 0) < 0;
+          var montoFmt = (esNeg ? '-' : '') + formatearMonto(montoAbs);
+          var colorMonto = esNeg ? 'var(--sv-peligro)' : 'inherit';
           return '<div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--sv-borde);">' +
             '<span>' + escapeHtml(d.tipo) + ': ' + escapeHtml(d.descripcion || '-') + '</span>' +
-            '<strong>' + formatearMonto(d.monto) + '</strong>' +
+            '<strong style="color:' + colorMonto + ';">' + montoFmt + '</strong>' +
           '</div>';
         }).join('');
       }
@@ -6200,7 +6688,8 @@
               const descInput = ultimo.querySelector('.prov-desc');
               const montoInput = ultimo.querySelector('.prov-monto');
               if (descInput) descInput.value = d.descripcion || '';
-              if (montoInput) montoInput.value = d.monto || 0;
+              // BUGFIX B: d.monto es negativo en la hoja (-500); el input espera positivo
+              if (montoInput) montoInput.value = Math.abs(d.monto) || 0;
             }
           }
           // Cargar gastos
@@ -6211,7 +6700,8 @@
             if (ultimo) {
               const inputs = ultimo.querySelectorAll('input');
               if (inputs[0]) inputs[0].value = d.descripcion || '';
-              if (inputs[1]) inputs[1].value = d.monto || 0;
+              // BUGFIX B: d.monto es negativo en la hoja; el input espera positivo
+              if (inputs[1]) inputs[1].value = Math.abs(d.monto) || 0;
             }
           }
           // Cargar ingresos
@@ -6222,7 +6712,7 @@
             if (ultimo) {
               const inputs = ultimo.querySelectorAll('input');
               if (inputs[0]) inputs[0].value = d.descripcion || '';
-              if (inputs[1]) inputs[1].value = d.monto || 0;
+              if (inputs[1]) inputs[1].value = Math.abs(d.monto) || 0;
             }
           }
         });
@@ -6324,6 +6814,8 @@
       document.getElementById('groupDomicilioFiscal').style.display = 'none';
       document.getElementById('clienteRazonSocial').value = '';
       document.getElementById('clienteDomicilioFiscal').value = '';
+      document.getElementById('clienteCondicionFiscal').value = '';
+      document.getElementById('cuitCondicionInfo').style.display = 'none';
 
       abrirModal('modalCliente');
     }
@@ -6347,9 +6839,21 @@
         document.getElementById('groupDomicilioFiscal').style.display = 'block';
         document.getElementById('clienteRazonSocial').value = cliente.razonSocial || '';
         document.getElementById('clienteDomicilioFiscal').value = cliente.domicilioFiscal || '';
+        var condicionExistente = cliente.condicionFiscal || '';
+        document.getElementById('clienteCondicionFiscal').value = condicionExistente;
+        var infoEl = document.getElementById('cuitCondicionInfo');
+        if (condicionExistente) {
+          infoEl.textContent = 'Condición: ' + condicionExistente;
+          infoEl.style.color = 'var(--sv-texto-muted)';
+          infoEl.style.display = 'block';
+        } else {
+          infoEl.style.display = 'none';
+        }
       } else {
         document.getElementById('groupRazonSocial').style.display = 'none';
         document.getElementById('groupDomicilioFiscal').style.display = 'none';
+        document.getElementById('clienteCondicionFiscal').value = '';
+        document.getElementById('cuitCondicionInfo').style.display = 'none';
       }
 
       abrirModal('modalCliente');
@@ -6381,12 +6885,20 @@
             document.getElementById('clienteRazonSocial').value = result.razonSocial || '';
             document.getElementById('clienteDomicilioFiscal').value = result.domicilio || '';
 
-            mostrarToast('✓ Datos verificados en ARCA', 'success');
+            // Guardar y mostrar condición fiscal
+            var condicion = result.condicionTexto || 'Responsable Inscripto';
+            document.getElementById('clienteCondicionFiscal').value = condicion;
+            var infoEl = document.getElementById('cuitCondicionInfo');
+            infoEl.textContent = '✓ ARCA: ' + condicion + (result.tipoPersona ? ' (' + result.tipoPersona + ')' : '');
+            infoEl.style.display = 'block';
+
+            mostrarToast('✓ Datos verificados en ARCA: ' + condicion, 'success');
           } else {
-            mostrarToast('CUIT no encontrado en padrón ARCA', 'warning');
+            mostrarToast((result && result.error) || 'CUIT no encontrado en padrón ARCA', 'warning');
             // Igual mostrar los campos para que se puedan ingresar manualmente
             document.getElementById('groupRazonSocial').style.display = 'block';
             document.getElementById('groupDomicilioFiscal').style.display = 'block';
+            document.getElementById('cuitCondicionInfo').style.display = 'none';
           }
         })
         .withFailureHandler(function(error) {
@@ -6402,12 +6914,13 @@
 
       const editando = document.getElementById('clienteEditando').value;
       const cuitVal = document.getElementById('clienteCuit').value.trim();
+      const condicionGuardada = document.getElementById('clienteCondicionFiscal').value.trim();
       const datos = {
         nombre: document.getElementById('clienteNombre').value.trim(),
         tel: document.getElementById('clienteTel').value,
         email: document.getElementById('clienteEmail').value,
         cuit: cuitVal,
-        condicionFiscal: cuitVal ? 'Responsable Inscripto' : 'Consumidor Final',
+        condicionFiscal: condicionGuardada || (cuitVal ? 'Responsable Inscripto' : 'Consumidor Final'),
         razonSocial: document.getElementById('clienteRazonSocial').value.trim(),
         domicilioFiscal: document.getElementById('clienteDomicilioFiscal').value.trim(),
         limite: parseFloat(document.getElementById('clienteLimite').value) || 100000,
@@ -9553,10 +10066,12 @@
     }
 
     /**
-     * Carga el calendario de alquiler para un inquilino
+     * Carga el calendario de alquiler para un inquilino (vista día por día)
      */
     function cargarCalendarioAlquiler(inquilino, anio) {
       const containerId = 'calendario-' + inquilino.replace(/\s/g, '-');
+      document.getElementById(containerId).innerHTML =
+        '<div style="padding:.5rem;text-align:center;color:var(--sv-texto-secundario);font-size:.8rem">Cargando...</div>';
 
       google.script.run
         .withSuccessHandler(function(result) {
@@ -9565,20 +10080,60 @@
             return;
           }
 
-          const semanas = result.calendario;
-          let html = '';
+          const meses = result.calendario.meses;
 
-          for (let i = 1; i <= 53; i++) {
-            const estado = semanas[i] || 'impaga';
-            let clase = 'semana-cell ';
-            if (estado === 'pagada') clase += 'pagada';
-            else if (estado === 'facturada') clase += 'pagada';
-            else if (estado === 'parcial') clase += 'parcial';
-            else clase += 'impaga';
-
-            html += '<div class="' + clase + '" title="Semana ' + i + ': ' + estado + '">S' + i + '</div>';
+          // Construir mapa fecha (YYYY-MM-DD) → estado desde los rangos de semanas
+          const estadosPorFecha = {};
+          for (let m = 0; m < meses.length; m++) {
+            const sems = meses[m].semanas;
+            for (let s = 0; s < sems.length; s++) {
+              const sem = sems[s];
+              const cur = new Date(sem.fechaInicio);
+              const fin = new Date(sem.fechaFin);
+              while (cur <= fin) {
+                const key = cur.getFullYear() + '-' +
+                  String(cur.getMonth() + 1).padStart(2, '0') + '-' +
+                  String(cur.getDate()).padStart(2, '0');
+                estadosPorFecha[key] = sem.estado;
+                cur.setDate(cur.getDate() + 1);
+              }
+            }
           }
 
+          const hoyDate = new Date();
+          const cabecera = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+          let html = '<div class="calendario-meses">';
+
+          for (let m = 0; m < meses.length; m++) {
+            const mes = meses[m];
+            html += '<div class="calendario-mes">';
+            html += '<div class="mes-nombre">' + mes.nombre + '</div>';
+            html += '<div class="dias-cabecera">';
+            for (let d = 0; d < cabecera.length; d++) {
+              html += '<div class="dia-cabecera">' + cabecera[d] + '</div>';
+            }
+            html += '</div><div class="dias-grid">';
+
+            // Desplazamiento inicial: Lun=0 … Dom=6
+            let dow = new Date(anio, mes.mes - 1, 1).getDay();
+            if (dow === 0) dow = 7;
+            for (let e = 1; e < dow; e++) html += '<div class="dia-vacio"></div>';
+
+            const totalDias = new Date(anio, mes.mes, 0).getDate();
+            for (let d = 1; d <= totalDias; d++) {
+              const f = anio + '-' + String(mes.mes).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+              const estado = estadosPorFecha[f] || 'futuro';
+              const esHoy = d === hoyDate.getDate() &&
+                (mes.mes - 1) === hoyDate.getMonth() &&
+                anio === hoyDate.getFullYear();
+              html += '<div class="dia-cell ' + estado + (esHoy ? ' hoy' : '') +
+                '" title="' + f + ': ' + estado + '">' + d + '</div>';
+            }
+
+            html += '</div></div>';
+          }
+
+          html += '</div>';
           document.getElementById(containerId).innerHTML = html;
         })
         .withFailureHandler(function(error) {
@@ -9751,6 +10306,16 @@
     }
 
     /**
+     * Retorna la fecha de hoy en formato YYYY-MM-DD (cliente-side)
+     */
+    function obtenerFechaHoy() {
+      const hoy = new Date();
+      return hoy.getFullYear() + '-' +
+        String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+        String(hoy.getDate()).padStart(2, '0');
+    }
+
+    /**
      * Obtiene la semana ISO actual
      */
     function obtenerSemanaISO() {
@@ -9758,6 +10323,18 @@
       const inicioAnio = new Date(hoy.getFullYear(), 0, 1);
       const dias = Math.floor((hoy - inicioAnio) / (24 * 60 * 60 * 1000));
       return Math.ceil((dias + inicioAnio.getDay() + 1) / 7);
+    }
+
+    /**
+     * Actualiza el campo semana del modal pago al cambiar la fecha
+     */
+    function actualizarSemanaDesde(fechaStr) {
+      if (!fechaStr) return;
+      const f = new Date(fechaStr + 'T12:00:00');
+      const inicio = new Date(f.getFullYear(), 0, 1);
+      const dias = Math.floor((f - inicio) / 86400000);
+      const semana = Math.ceil((dias + inicio.getDay() + 1) / 7);
+      document.getElementById('pagoAlquiler_semana').value = semana;
     }
 
     // ============================================================================

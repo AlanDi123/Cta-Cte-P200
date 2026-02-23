@@ -1570,7 +1570,7 @@ function restaurarConfiguracionPorDefecto() {
     }
     
     Logger.log('Configuración restaurada a valores por defecto');
-    
+
     return {
       success: true,
       mensaje: 'Configuración restaurada a valores por defecto. Se mantuvieron las credenciales.'
@@ -1583,3 +1583,4 @@ function restaurarConfiguracionPorDefecto() {
     };
   }
 }
+
