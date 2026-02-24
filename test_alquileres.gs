@@ -172,3 +172,32 @@ function testAPIRapido() {
     Logger.log('Stack: ' + error.stack);
   }
 }
+
+/**
+ * Verifica que obtenerDatosAlquileresCompletos funcione correctamente.
+ * Retorna config + calendario + movimientos para todos los inquilinos en una sola llamada.
+ */
+function testObtenerDatosCompletos() {
+  Logger.log('Test obtenerDatosAlquileresCompletos...');
+  try {
+    var anio = new Date().getFullYear();
+    var result = obtenerDatosAlquileresCompletos(anio);
+    Logger.log('Success: ' + result.success);
+    if (!result.success) {
+      Logger.log('Error: ' + result.error);
+      return;
+    }
+    Logger.log('Año: ' + result.anio);
+    Logger.log('Cantidad de inquilinos: ' + result.inquilinos.length);
+    result.inquilinos.forEach(function(d) {
+      Logger.log('  Inquilino: ' + d.config.inquilino);
+      Logger.log('    Movimientos: ' + d.movimientos.length);
+      Logger.log('    Meses en calendario: ' + d.calendario.meses.length);
+      Logger.log('    Semanas impagas: ' + d.semanasImpagas.length);
+    });
+    Logger.log('✅ obtenerDatosAlquileresCompletos OK');
+  } catch (error) {
+    Logger.log('❌ EXCEPTION: ' + error.message);
+    Logger.log('Stack: ' + error.stack);
+  }
+}

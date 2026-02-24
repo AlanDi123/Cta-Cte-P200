@@ -450,3 +450,48 @@ function actualizarConfigAlquiler(inquilino, datos) {
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Alias para compatibilidad: registra una factura mensual.
+ * El frontend llama a guardarFacturaMensual pero guardarPagoAlquiler
+ * ya maneja FACTURA_MENSUAL cuando datos.tipo lo indica.
+ */
+function guardarFacturaMensual(datos) {
+  if (!datos.tipo) datos.tipo = CONFIG.TIPOS_ALQUILER.FACTURA_MENSUAL;
+  return guardarPagoAlquiler(datos);
+}
+
+/**
+ * Devuelve en una sola llamada todos los datos necesarios para la vista
+ * completa de alquileres: config + movimientos + calendario de cada inquilino.
+ */
+function obtenerDatosAlquileresCompletos(anio) {
+  try {
+    var inquilinos = AlquileresRepository.obtenerTodosInquilinos();
+    var anioConsulta = anio || new Date().getFullYear();
+    var resultado = [];
+
+    for (var i = 0; i < inquilinos.length; i++) {
+      var inq = inquilinos[i];
+      var calendario = AlquileresRepository.obtenerEstadoCalendario(inq.inquilino, anioConsulta);
+      var movimientos = AlquileresRepository.obtenerMovimientos(inq.inquilino, anioConsulta);
+      var semanasImpagas = AlquileresRepository.obtenerSemanasImpagas(inq.inquilino, anioConsulta);
+
+      resultado.push({
+        config: inq,
+        calendario: calendario,
+        movimientos: movimientos,
+        semanasImpagas: semanasImpagas
+      });
+    }
+
+    return {
+      success: true,
+      anio: anioConsulta,
+      inquilinos: serializarParaWeb(resultado)
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerDatosAlquileresCompletos: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
