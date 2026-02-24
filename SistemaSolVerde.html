@@ -1725,10 +1725,27 @@
     }
 
     .dia-cell.pagado  { background: var(--sv-exito);              color: white; }
-    .dia-cell.impago  { background: var(--sv-peligro);            color: white; }
+    .dia-cell.impago  { background: var(--sv-peligro);            color: white; font-weight: 600; }
     .dia-cell.parcial { background: var(--sv-advertencia);        color: var(--sv-texto); }
     .dia-cell.futuro  { background: var(--sv-superficie-elevada); color: var(--sv-texto-secundario); border: 1px solid var(--sv-borde); }
     .dia-cell.hoy     { outline: 2px solid var(--sv-primario);    outline-offset: 1px; font-weight: 700; }
+
+    /* Leyenda calendario */
+    .calendario-leyenda {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .leyenda-item {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    .leyenda-item.pagado  { background: var(--sv-exito);      color: white; }
+    .leyenda-item.impago  { background: var(--sv-peligro);    color: white; }
+    .leyenda-item.parcial { background: var(--sv-advertencia); color: var(--sv-texto); }
 
     /* ======================================================
      * CONTABILIDAD - CAJA DIARIA
@@ -4348,6 +4365,30 @@
       // Fallback para otros formatos
       const d = new Date(fecha);
       return d.toLocaleDateString('es-AR');
+    }
+
+    // Funciones de fecha - definidas aquí arriba para garantizar disponibilidad global
+    function obtenerFechaHoy() {
+      var hoy = new Date();
+      return hoy.getFullYear() + '-' +
+        String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
+        String(hoy.getDate()).padStart(2, '0');
+    }
+
+    function obtenerSemanaISO() {
+      var hoy = new Date();
+      var inicioAnio = new Date(hoy.getFullYear(), 0, 1);
+      var dias = Math.floor((hoy - inicioAnio) / (24 * 60 * 60 * 1000));
+      return Math.ceil((dias + inicioAnio.getDay() + 1) / 7);
+    }
+
+    function actualizarSemanaDesde(fechaStr) {
+      if (!fechaStr) return;
+      var f = new Date(fechaStr + 'T12:00:00');
+      var inicio = new Date(f.getFullYear(), 0, 1);
+      var dias = Math.floor((f - inicio) / 86400000);
+      var semana = Math.ceil((dias + inicio.getDay() + 1) / 7);
+      document.getElementById('pagoAlquiler_semana').value = semana;
     }
 
     function debounce(func, wait) {
@@ -10069,7 +10110,7 @@
      * Carga el calendario de alquiler para un inquilino (vista día por día)
      */
     function cargarCalendarioAlquiler(inquilino, anio) {
-      const containerId = 'calendario-' + inquilino.replace(/\s/g, '-');
+      var containerId = 'calendario-' + inquilino.replace(/\s/g, '-');
       document.getElementById(containerId).innerHTML =
         '<div style="padding:.5rem;text-align:center;color:var(--sv-texto-secundario);font-size:.8rem">Cargando...</div>';
 
@@ -10080,54 +10121,72 @@
             return;
           }
 
-          const meses = result.calendario.meses;
+          var meses = result.calendario.meses;
 
-          // Construir mapa fecha (YYYY-MM-DD) → estado desde los rangos de semanas
-          const estadosPorFecha = {};
-          for (let m = 0; m < meses.length; m++) {
-            const sems = meses[m].semanas;
-            for (let s = 0; s < sems.length; s++) {
-              const sem = sems[s];
-              const cur = new Date(sem.fechaInicio);
-              const fin = new Date(sem.fechaFin);
+          // Construir mapa fecha (YYYY-MM-DD) → {estado, semana}
+          // IMPORTANTE: usar T12:00:00 (hora local) para evitar desfase UTC en Argentina (UTC-3)
+          var estadosPorFecha = {};
+          for (var m = 0; m < meses.length; m++) {
+            var sems = meses[m].semanas;
+            for (var s = 0; s < sems.length; s++) {
+              var sem = sems[s];
+              var inicioStr = sem.fechaInicio.substring(0, 10);
+              var finStr    = sem.fechaFin.substring(0, 10);
+              var cur = new Date(inicioStr + 'T12:00:00');
+              var fin = new Date(finStr    + 'T12:00:00');
               while (cur <= fin) {
-                const key = cur.getFullYear() + '-' +
+                var key = cur.getFullYear() + '-' +
                   String(cur.getMonth() + 1).padStart(2, '0') + '-' +
                   String(cur.getDate()).padStart(2, '0');
-                estadosPorFecha[key] = sem.estado;
+                estadosPorFecha[key] = { estado: sem.estado, semana: sem.semana };
                 cur.setDate(cur.getDate() + 1);
               }
             }
           }
 
-          const hoyDate = new Date();
-          const cabecera = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-          let html = '<div class="calendario-meses">';
+          var hoyDate = new Date();
+          var hoyKey  = hoyDate.getFullYear() + '-' +
+            String(hoyDate.getMonth() + 1).padStart(2, '0') + '-' +
+            String(hoyDate.getDate()).padStart(2, '0');
 
-          for (let m = 0; m < meses.length; m++) {
-            const mes = meses[m];
+          var cabecera = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
+          var nombresEstado = { pagado: 'Pagado', impago: 'IMPAGO', parcial: 'Pago parcial', futuro: '' };
+
+          // Leyenda de colores
+          var html = '<div class="calendario-leyenda">' +
+            '<span class="leyenda-item pagado">Pagado</span>' +
+            '<span class="leyenda-item impago">Impago</span>' +
+            '<span class="leyenda-item parcial">Parcial</span>' +
+            '</div>';
+          html += '<div class="calendario-meses">';
+
+          for (var mi = 0; mi < meses.length; mi++) {
+            var mes = meses[mi];
             html += '<div class="calendario-mes">';
-            html += '<div class="mes-nombre">' + mes.nombre + '</div>';
+            html += '<div class="mes-nombre">' + mes.nombre + ' ' + anio + '</div>';
             html += '<div class="dias-cabecera">';
-            for (let d = 0; d < cabecera.length; d++) {
-              html += '<div class="dia-cabecera">' + cabecera[d] + '</div>';
+            for (var di = 0; di < cabecera.length; di++) {
+              html += '<div class="dia-cabecera">' + cabecera[di] + '</div>';
             }
             html += '</div><div class="dias-grid">';
 
-            // Desplazamiento inicial: Lun=0 … Dom=6
-            let dow = new Date(anio, mes.mes - 1, 1).getDay();
-            if (dow === 0) dow = 7;
-            for (let e = 1; e < dow; e++) html += '<div class="dia-vacio"></div>';
+            // Desplazamiento inicial: getDay() → 0=Dom,1=Lun…6=Sab → convertir a Lu=0…Do=6
+            var dow = new Date(anio, mes.mes - 1, 1).getDay();
+            var offset = (dow === 0) ? 6 : dow - 1;
+            for (var e = 0; e < offset; e++) html += '<div class="dia-vacio"></div>';
 
-            const totalDias = new Date(anio, mes.mes, 0).getDate();
-            for (let d = 1; d <= totalDias; d++) {
-              const f = anio + '-' + String(mes.mes).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-              const estado = estadosPorFecha[f] || 'futuro';
-              const esHoy = d === hoyDate.getDate() &&
-                (mes.mes - 1) === hoyDate.getMonth() &&
-                anio === hoyDate.getFullYear();
+            var totalDias = new Date(anio, mes.mes, 0).getDate();
+            for (var d = 1; d <= totalDias; d++) {
+              var f = anio + '-' + String(mes.mes).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+              var info = estadosPorFecha[f];
+              // Si no hay info: futuro si es fecha futura, impago si es pasada
+              var estado = info ? info.estado : (f > hoyKey ? 'futuro' : 'impago');
+              var esHoy  = (f === hoyKey);
+              var titulo = f;
+              if (info && info.semana) titulo += ' \u2022 Sem.' + info.semana;
+              if (nombresEstado[estado]) titulo += ' \u2022 ' + nombresEstado[estado];
               html += '<div class="dia-cell ' + estado + (esHoy ? ' hoy' : '') +
-                '" title="' + f + ': ' + estado + '">' + d + '</div>';
+                '" title="' + titulo + '">' + d + '</div>';
             }
 
             html += '</div></div>';
@@ -10303,38 +10362,6 @@
           mostrarLoading(false);
         })
         .actualizarConfigAlquiler(inquilino, datos);
-    }
-
-    /**
-     * Retorna la fecha de hoy en formato YYYY-MM-DD (cliente-side)
-     */
-    function obtenerFechaHoy() {
-      const hoy = new Date();
-      return hoy.getFullYear() + '-' +
-        String(hoy.getMonth() + 1).padStart(2, '0') + '-' +
-        String(hoy.getDate()).padStart(2, '0');
-    }
-
-    /**
-     * Obtiene la semana ISO actual
-     */
-    function obtenerSemanaISO() {
-      const hoy = new Date();
-      const inicioAnio = new Date(hoy.getFullYear(), 0, 1);
-      const dias = Math.floor((hoy - inicioAnio) / (24 * 60 * 60 * 1000));
-      return Math.ceil((dias + inicioAnio.getDay() + 1) / 7);
-    }
-
-    /**
-     * Actualiza el campo semana del modal pago al cambiar la fecha
-     */
-    function actualizarSemanaDesde(fechaStr) {
-      if (!fechaStr) return;
-      const f = new Date(fechaStr + 'T12:00:00');
-      const inicio = new Date(f.getFullYear(), 0, 1);
-      const dias = Math.floor((f - inicio) / 86400000);
-      const semana = Math.ceil((dias + inicio.getDay() + 1) / 7);
-      document.getElementById('pagoAlquiler_semana').value = semana;
     }
 
     // ============================================================================

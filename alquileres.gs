@@ -334,13 +334,15 @@ const AlquileresRepository = {
         }
 
         var fechas = this.obtenerFechasDeSemana(anio, s);
+        // Usar formato YYYY-MM-DD en zona horaria local para evitar desfase UTC en el cliente
+        var tz = Session.getScriptTimeZone();
         semanasDelMes.push({
           semana: s,
           estado: estado,
           montoPagado: pagado,
           montoEsperado: montoSemanal,
-          fechaInicio: fechas.inicio.toISOString(),
-          fechaFin: fechas.fin.toISOString()
+          fechaInicio: Utilities.formatDate(fechas.inicio, tz, 'yyyy-MM-dd'),
+          fechaFin:    Utilities.formatDate(fechas.fin,    tz, 'yyyy-MM-dd')
         });
       }
 
