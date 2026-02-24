@@ -10135,6 +10135,23 @@
     // Estado en memoria para acceso rápido sin recargas
     var _alqDatos = null;  // { anio, inquilinos: [...] }
     var _alqTabActiva = 0; // Índice del tab activo
+    var _ALQ_MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    /** Convierte Date.getDay() (Dom=0…Sáb=6) a desplazamiento Lunes=0…Dom=6 */
+    function alqOffsetLunes(dow) { return (dow === 0) ? 6 : dow - 1; }
+
+    /** Filtra movimientos de movsPorFecha que pertenezcan al mes dado */
+    function alqMovsEnMes(movsPorFecha, anio, mes) {
+      var resultado = [];
+      var prefijo = anio + '-' + String(mes).padStart(2, '0') + '-';
+      for (var k in movsPorFecha) {
+        if (k.indexOf(prefijo) === 0) {
+          movsPorFecha[k].forEach(function(mv) { resultado.push(mv); });
+        }
+      }
+      return resultado;
+    }
 
     /**
      * Carga el módulo de alquileres (punto de entrada desde navegación).
@@ -10466,7 +10483,7 @@
         html += '</div><div class="dias-grid">';
 
         var dow = new Date(anio, mes.mes - 1, 1).getDay();
-        var offset = (dow === 0) ? 6 : dow - 1;
+        var offset = alqOffsetLunes(dow);
         for (var e = 0; e < offset; e++) html += '<div class="dia-vacio"></div>';
 
         var totalDias = new Date(anio, mes.mes, 0).getDate();
@@ -10504,14 +10521,7 @@
 
     /** Mini-lista de movimientos registrados en el mes. */
     function alqMovsDelMes(movsPorFecha, anio, mes) {
-      var movsDelMes = [];
-      var mesStr = String(mes).padStart(2, '0');
-      var prefijo = anio + '-' + mesStr + '-';
-      for (var key in movsPorFecha) {
-        if (key.indexOf(prefijo) === 0) {
-          movsPorFecha[key].forEach(function(mv) { movsDelMes.push(mv); });
-        }
-      }
+      var movsDelMes = alqMovsEnMes(movsPorFecha, anio, mes);
       if (movsDelMes.length === 0) return '';
 
       var filas = movsDelMes.map(function(mv) {
@@ -10793,9 +10803,6 @@
       }
       var cfg     = inqData.config;
       var meses   = inqData.calendario.meses;
-      var NOMBRES_MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
       var estadosPorFecha = alqBuildEstadosPorFecha(meses, anio);
       var movsPorFecha    = alqBuildMovsPorFecha(inqData.movimientos || []);
 
@@ -10803,7 +10810,7 @@
       var mesStr = String(mes).padStart(2, '0');
       var totalDias = new Date(anio, mes, 0).getDate();
       var dow = new Date(anio, mes - 1, 1).getDay();
-      var offset = (dow === 0) ? 6 : dow - 1;
+      var offset = alqOffsetLunes(dow);
 
       // Armar semanas
       var semanas = [], semActual = [];
@@ -10857,17 +10864,11 @@
       tablasHtml += '</tbody></table>';
 
       // Lista movimientos del mes
-      var movsDelMes = [];
-      var prefijo = anio + '-' + mesStr + '-';
-      for (var k in movsPorFecha) {
-        if (k.indexOf(prefijo) === 0) {
-          movsPorFecha[k].forEach(function(mv) { movsDelMes.push(mv); });
-        }
-      }
+      var movsDelMes = alqMovsEnMes(movsPorFecha, anio, mes);
 
       var listaMovsHtml = '';
       if (movsDelMes.length > 0) {
-        listaMovsHtml = '<h3 style="margin:1rem 0 .5rem;">Detalle de Movimientos \u2013 ' + NOMBRES_MESES[mes] + ' ' + anio + '</h3>' +
+        listaMovsHtml = '<h3 style="margin:1rem 0 .5rem;">Detalle de Movimientos \u2013 ' + _ALQ_MESES[mes] + ' ' + anio + '</h3>' +
           '<table class="mov-print-table"><thead><tr>' +
             '<th>Fecha</th><th>Tipo</th><th>Semana(s)</th><th>Monto</th><th>Observaciones</th>' +
           '</tr></thead><tbody>';
@@ -10876,7 +10877,7 @@
           listaMovsHtml += '<tr>' +
             '<td>' + alqFormatFecha(mv.fecha) + '</td>' +
             '<td>' + tipoLabel + '</td>' +
-            '<td>' + (mv.semana || mv.semanasCubiertas || '\u2014') + '</td>' +
+            '<td>' + escapeHtml(String(mv.semana || mv.semanasCubiertas || '\u2014')) + '</td>' +
             '<td>$' + formatearNumero(mv.monto) + '</td>' +
             '<td>' + escapeHtml(mv.obs || '') + '</td>' +
           '</tr>';
@@ -10889,7 +10890,7 @@
 
       var printHtml = '<!DOCTYPE html><html><head>' +
         '<meta charset="utf-8">' +
-        '<title>Calendario Alquiler \u2013 ' + escapeHtml(inquilino) + ' \u2013 ' + NOMBRES_MESES[mes] + ' ' + anio + '</title>' +
+        '<title>Calendario Alquiler \u2013 ' + escapeHtml(inquilino) + ' \u2013 ' + _ALQ_MESES[mes] + ' ' + anio + '</title>' +
         '<style>' +
           '@page { size: A4 landscape; margin: 1cm; }' +
           'body { font-family: Arial, sans-serif; font-size: 11pt; color: #222; }' +
@@ -10918,7 +10919,7 @@
         '<div class="header">' +
           '<div>' +
             '<h1>&#127968; Alquiler de Puesto \u2014 ' + escapeHtml(inquilino) + '</h1>' +
-            '<h2>' + NOMBRES_MESES[mes] + ' ' + anio + '</h2>' +
+            '<h2>' + _ALQ_MESES[mes] + ' ' + anio + '</h2>' +
             '<div class="header-info">' +
               'Monto semanal: $' + formatearNumero(cfg.montoEfectivo || cfg.montoSemanal || 0) +
               ' &nbsp;|\u00a0 Semanas pendientes: ' + semImpagas +
