@@ -1939,6 +1939,7 @@
         <img src="https://i.imgur.com/tStvmV1.png" alt="Sol & Verde" class="header-logo-img">
         <span class="header-logo-text">Sol & Verde</span>
       </div>
+      <button class="header-btn" id="btnAyuda" title="Ayuda" aria-label="Ayuda" onclick="abrirModal('modalAyuda')">❓</button>
       <button class="header-btn" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">🌙</button>
     </header>
 
@@ -2797,9 +2798,12 @@
 
       <!-- MODULO: CONFIGURACION -->
       <div class="module-view" id="module-configuracion">
-        <h2 style="margin-bottom: 1rem;">Configuracion</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem;">
+          <h2 style="margin:0;">Configuracion</h2>
+          <input type="search" id="configBuscador" class="form-input" placeholder="🔍 Buscar configuración..." style="max-width:300px;font-size:.9rem;" oninput="filtrarConfiguracion(this.value)" aria-label="Buscar configuración">
+        </div>
 
-        <div class="grid grid-2">
+        <div class="grid grid-2" data-config-section="claves-tokens">
           <div>
             <div class="card">
               <div class="card-title">🔑 API Key de Claude</div>
@@ -3018,7 +3022,7 @@
         </div>
 
         <!-- Nueva Sección: Configuración General del Sistema -->
-        <div style="margin-top: 2rem;">
+        <div style="margin-top: 2rem;" data-config-section="general">
           <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">⚙️ Configuración General del Sistema</h3>
           
           <div class="grid grid-2">
@@ -3253,6 +3257,14 @@
                     Útil cuando cada sección del informe debe estar en una página separada
                   </p>
                 </div>
+
+                <div class="form-group">
+                  <label class="form-label">Altura de celda en Calendario (cm)</label>
+                  <input type="number" class="form-input" id="inputCalPrintCellHeight" placeholder="3.0" step="0.1" min="1.5" max="6">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Altura de cada día en la impresión del calendario de Alquileres (A4 horizontal). Por defecto 3.0 cm (15% menor que el original 3.5 cm).
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -3266,7 +3278,7 @@
         </div>
 
         <!-- Nueva Sección: Configuración de Inquilinos -->
-        <div style="margin-top: 2rem;">
+        <div style="margin-top: 2rem;" data-config-section="alquileres">
           <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">🏠 Configuración de Inquilinos</h3>
           
           <div class="card">
@@ -3287,6 +3299,26 @@
               💾 Guardar Inquilinos
             </button>
             <p id="estadoInquilinos" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
+          </div>
+        </div>
+
+        <!-- Sección: Textos / Ayuda editable -->
+        <div style="margin-top: 2rem;" data-config-section="textos-ayuda">
+          <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">📝 Textos / Ayuda</h3>
+          <div class="card">
+            <div class="card-title">Tutoriales del sistema (editable)</div>
+            <p style="font-size:.875rem;color:var(--sv-texto-secundario);margin-bottom:.75rem;">
+              Estos textos aparecen en el panel de Ayuda (botón ❓). Podés personalizarlos libremente.
+            </p>
+            <div class="form-group">
+              <label class="form-label">Texto de tutoriales (HTML básico permitido)</label>
+              <textarea id="inputAyudaTutoriales" class="form-input" rows="8" style="resize:vertical;font-size:.85rem;font-family:monospace;" placeholder="Escribe aquí los tutoriales en formato HTML o texto plano..."></textarea>
+              <p style="font-size:.75rem;color:var(--sv-texto-muted);margin-top:.25rem;">
+                Dejá en blanco para usar los tutoriales por defecto del sistema.
+              </p>
+            </div>
+            <button class="btn btn-primary" onclick="guardarTextosAyuda()" style="max-width:300px;">💾 Guardar Textos de Ayuda</button>
+            <p id="estadoTextosAyuda" style="margin-top:.5rem;font-size:.875rem;"></p>
           </div>
         </div>
 
@@ -4449,6 +4481,88 @@
     </div>
   </div>
 
+  <!-- Modal: Ayuda -->
+  <div class="modal" id="modalAyuda">
+    <div class="modal-content" style="max-width:680px;max-height:90vh;display:flex;flex-direction:column;">
+      <div class="modal-header">
+        <div class="modal-title">❓ Ayuda – Sol &amp; Verde</div>
+        <button class="modal-close" onclick="cerrarModal('modalAyuda')" aria-label="Cerrar">&times;</button>
+      </div>
+      <div style="padding:.75rem 1rem 0;border-bottom:1px solid var(--sv-borde);">
+        <div style="display:flex;gap:.5rem;">
+          <button class="btn btn-outline btn-sm" id="ayudaTabTutorial" onclick="ayudaCambiarTab('tutorial')" style="font-weight:700;">📖 Tutoriales</button>
+          <button class="btn btn-outline btn-sm" id="ayudaTabErrores" onclick="ayudaCambiarTab('errores')">🛑 Códigos de Error</button>
+        </div>
+      </div>
+      <div style="overflow-y:auto;flex:1;padding:1rem;">
+        <!-- Panel: Tutoriales -->
+        <div id="ayudaPanelTutorial">
+          <p style="font-size:.875rem;color:var(--sv-texto-secundario);margin-bottom:.75rem;">
+            Guía rápida de uso del sistema. Podés editar estos textos desde Configuración &rsaquo; Textos / Ayuda.
+          </p>
+          <div id="ayudaTutorialesContenido">
+            <div style="margin-bottom:1rem;">
+              <strong>📊 Dashboard</strong>
+              <p style="font-size:.875rem;margin:.25rem 0 0;">Muestra el resumen del día, saldos de clientes y accesos rápidos a las operaciones más frecuentes.</p>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <strong>👤 Visor de Cliente</strong>
+              <p style="font-size:.875rem;margin:.25rem 0 0;">Buscá un cliente por nombre para ver su historial de movimientos, saldo actual y datos fiscales.</p>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <strong>💸 Nuevo Movimiento</strong>
+              <p style="font-size:.875rem;margin:.25rem 0 0;">Registrá un FIADO (DEBE) o un PAGO (HABER) para un cliente. El saldo se actualiza automáticamente.</p>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <strong>🧾 Facturación ARCA</strong>
+              <p style="font-size:.875rem;margin:.25rem 0 0;">Emitís comprobantes electrónicos (Factura A/B) directamente desde ARCA. Requiere configurar el Access Token en Configuración &rsaquo; Facturación ARCA.</p>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <strong>🏠 Alquileres</strong>
+              <p style="font-size:.875rem;margin:.25rem 0 0;">Gestioná los pagos semanales y facturas mensuales de cada inquilino. El calendario muestra el estado de cada día.</p>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <strong>📒 Caja Diaria</strong>
+              <p style="font-size:.875rem;margin:.25rem 0 0;">Abrí y cerrá la caja del día, registrá movimientos manuales y realizá el arqueo de efectivo con desglose de billetes.</p>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <strong>⚙️ Configuración</strong>
+              <p style="font-size:.875rem;margin:.25rem 0 0;">Personalizá todos los aspectos del sistema: colores, textos, límites, tokens, impresión. Usá el buscador para encontrar cualquier opción rápidamente.</p>
+            </div>
+          </div>
+        </div>
+        <!-- Panel: Códigos de Error -->
+        <div id="ayudaPanelErrores" style="display:none;">
+          <p style="font-size:.875rem;color:var(--sv-texto-secundario);margin-bottom:.75rem;">
+            Referencia de códigos de error del sistema. Si ves un código ERR-XXX, buscalo aquí.
+          </p>
+          <div style="overflow-x:auto;">
+            <table class="table" style="font-size:.85rem;">
+              <thead>
+                <tr><th style="width:100px;">Código</th><th>Descripción</th><th>Solución</th></tr>
+              </thead>
+              <tbody id="ayudaTablaErrores">
+                <tr><td>ERR-001</td><td>No se pudo conectar al servidor</td><td>Verificá tu conexión a internet e intentá nuevamente.</td></tr>
+                <tr><td>ERR-002</td><td>Cliente no encontrado</td><td>Verificá el nombre exacto del cliente o buscalo en Gestión de Clientes.</td></tr>
+                <tr><td>ERR-003</td><td>Monto inválido</td><td>Ingresá un número positivo sin caracteres especiales.</td></tr>
+                <tr><td>ERR-004</td><td>CUIT inválido o no encontrado en ARCA</td><td>Verificá el CUIT o consultá directamente en la web de ARCA.</td></tr>
+                <tr><td>ERR-005</td><td>API Key de Claude no configurada</td><td>Configurá la API Key en Configuración &rsaquo; API Key de Claude.</td></tr>
+                <tr><td>ERR-006</td><td>Access Token de ARCA no configurado</td><td>Configurá el token en Configuración &rsaquo; Facturación ARCA.</td></tr>
+                <tr><td>ERR-007</td><td>Error al emitir comprobante en ARCA</td><td>Revisá los datos del emisor y el token. Consultá el estado de ARCA.</td></tr>
+                <tr><td>ERR-008</td><td>Saldo excedido</td><td>El cliente superó su límite de crédito. Podés modificarlo en Gestión de Clientes.</td></tr>
+                <tr><td>ERR-009</td><td>Error al guardar configuración</td><td>Verificá que los valores ingresados estén dentro del rango permitido.</td></tr>
+                <tr><td>ERR-010</td><td>Hoja de cálculo no accesible</td><td>Ejecutá inicializarSistema() desde el editor de Apps Script.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalAyuda')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ============================================================================
     // UTILIDADES
@@ -5385,6 +5499,36 @@
       document.getElementById('loadingOverlay').classList.toggle('active', show);
     }
 
+    // Mapa de patrones de error a códigos amigables.
+    // Los patrones incluyen términos en español (mensajes del sistema) e inglés
+    // (errores de red y JavaScript nativos del navegador/GAS).
+    var _ERRORES_CODIGOS = [
+      { pattern: /no se pudo conectar|network|fetch|connection/i, code: 'ERR-001', msg: 'No se pudo conectar al servidor. Verificá tu conexión e intentá nuevamente.' },
+      { pattern: /cliente no encontrado|no existe el cliente/i,   code: 'ERR-002', msg: 'Cliente no encontrado. Verificá el nombre exacto.' },
+      { pattern: /monto inválido|monto debe|número inválido/i,    code: 'ERR-003', msg: 'Monto inválido. Ingresá un número positivo.' },
+      { pattern: /cuit.*no encontrado|cuit.*inválido|cuit.*error/i, code: 'ERR-004', msg: 'CUIT inválido o no encontrado en ARCA.' },
+      { pattern: /api key.*no config|claude.*no config/i,         code: 'ERR-005', msg: 'API Key de Claude no configurada. Configurala en Configuración.' },
+      { pattern: /access token.*no config|afip.*token/i,          code: 'ERR-006', msg: 'Access Token de ARCA no configurado. Configuralo en Configuración.' },
+      { pattern: /error al emitir|afip.*error|arca.*error/i,      code: 'ERR-007', msg: 'Error al emitir comprobante en ARCA. Revisá los datos y el token.' },
+      { pattern: /excedido.*límite|límite.*crédito|saldo excedido/i, code: 'ERR-008', msg: 'Límite de crédito excedido. Modificalo en Gestión de Clientes.' },
+      { pattern: /guardar.*config|config.*guardar|configuración.*inválid/i, code: 'ERR-009', msg: 'Error al guardar configuración. Verificá los valores ingresados.' },
+      { pattern: /spreadsheet|hoja.*cálculo|no se pudo acceder/i, code: 'ERR-010', msg: 'No se pudo acceder a la hoja de cálculo. Ejecutá inicializarSistema().' }
+    ];
+
+    /**
+     * Convierte un mensaje de error técnico a un mensaje amigable con código ERR-XXX.
+     * Si no hay coincidencia, devuelve el mensaje original.
+     */
+    function errorAmigable(mensaje) {
+      if (!mensaje) return mensaje;
+      for (var i = 0; i < _ERRORES_CODIGOS.length; i++) {
+        if (_ERRORES_CODIGOS[i].pattern.test(mensaje)) {
+          return '[' + _ERRORES_CODIGOS[i].code + '] ' + _ERRORES_CODIGOS[i].msg;
+        }
+      }
+      return mensaje;
+    }
+
     function mostrarToast(mensaje, tipo = 'info') {
       // FASE 5: Feedback auditivo
       if (tipo === 'success') SoundPlayer.playSuccess();
@@ -5393,7 +5537,7 @@
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
       toast.className = 'toast toast-' + tipo;
-      toast.textContent = mensaje;
+      toast.textContent = tipo === 'error' ? errorAmigable(mensaje) : mensaje;
       container.appendChild(toast);
 
       setTimeout(() => {
@@ -9193,6 +9337,9 @@
             if (footerEl) footerEl.value = config.printFooter || '';
             const pageBreak = document.getElementById('inputPrintPageBreak');
             if (pageBreak) pageBreak.checked = config.printPageBreak || false;
+            const calCellHeight = document.getElementById('inputCalPrintCellHeight');
+            if (calCellHeight) calCellHeight.value = config.calPrintCellHeight || 3.0;
+            if (config.calPrintCellHeight) _calPrintCellHeight = parseFloat(config.calPrintCellHeight) || 3.0;
 
             // Aplicar configuración de impresión
             aplicarConfiguracionImpresion(
@@ -9212,6 +9359,14 @@
             // Inquilinos
             if (config.inquilinos && config.inquilinos.length > 0) {
               document.getElementById('inputInquilinos').value = config.inquilinos.join(', ');
+            }
+
+            // Textos de Ayuda
+            var inputAyuda = document.getElementById('inputAyudaTutoriales');
+            if (inputAyuda && config.ayudaTutoriales) {
+              inputAyuda.value = config.ayudaTutoriales;
+              var cont = document.getElementById('ayudaTutorialesContenido');
+              if (cont) cont.innerHTML = config.ayudaTutoriales;
             }
           } else {
             mostrarToast('Error al cargar configuración: ' + result.error, 'error');
@@ -9256,7 +9411,8 @@
         printShowLogo: document.getElementById('inputPrintShowLogo') ? document.getElementById('inputPrintShowLogo').checked : true,
         printShowCompany: document.getElementById('inputPrintShowCompany') ? document.getElementById('inputPrintShowCompany').checked : true,
         printFooter: (document.getElementById('inputPrintFooter') || {}).value || '',
-        printPageBreak: document.getElementById('inputPrintPageBreak') ? document.getElementById('inputPrintPageBreak').checked : false
+        printPageBreak: document.getElementById('inputPrintPageBreak') ? document.getElementById('inputPrintPageBreak').checked : false,
+        calPrintCellHeight: parseFloat((document.getElementById('inputCalPrintCellHeight') || {}).value) || 3.0
       };
 
       const estado = document.getElementById('estadoConfigGeneral');
@@ -9292,6 +9448,11 @@
               config.printFooter,
               config.printPageBreak
             );
+
+            // Aplicar altura de celda de calendario
+            if (config.calPrintCellHeight) {
+              _calPrintCellHeight = parseFloat(config.calPrintCellHeight) || 3.0;
+            }
 
             setTimeout(function() {
               estado.innerHTML = '';
@@ -9359,6 +9520,86 @@
           mostrarToast('Error: ' + error.message, 'error');
         })
         .guardarConfiguracionGeneral(config);
+    }
+
+    /**
+     * Guarda los textos personalizados de la sección Ayuda
+     */
+    function guardarTextosAyuda() {
+      var texto = document.getElementById('inputAyudaTutoriales').value;
+      var config = { ayudaTutoriales: texto };
+      var estado = document.getElementById('estadoTextosAyuda');
+      estado.innerHTML = '<span style="color:var(--sv-info);">Guardando...</span>';
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            estado.innerHTML = '<span style="color:var(--sv-exito);">✓ Textos guardados</span>';
+            mostrarToast('Textos de ayuda guardados', 'success');
+            // Aplicar al modal de ayuda si está abierto
+            var cont = document.getElementById('ayudaTutorialesContenido');
+            if (cont && texto) cont.innerHTML = texto;
+            setTimeout(function() { estado.innerHTML = ''; }, 3000);
+          } else {
+            estado.innerHTML = '<span style="color:var(--sv-peligro);">✕ ' + result.error + '</span>';
+            mostrarToast('Error al guardar: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          estado.innerHTML = '<span style="color:var(--sv-peligro);">✕ Error</span>';
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarConfiguracionGeneral(config);
+    }
+
+    /**
+     * Filtra las cards del módulo de Configuración en tiempo real.
+     * Busca en el texto de cada card y oculta las que no coinciden.
+     */
+    function filtrarConfiguracion(query) {
+      var q = (query || '').toLowerCase().trim();
+      var modulo = document.getElementById('module-configuracion');
+      if (!modulo) return;
+      var cards = modulo.querySelectorAll('.card');
+      cards.forEach(function(card) {
+        var texto = card.textContent.toLowerCase();
+        card.style.display = (!q || texto.indexOf(q) !== -1) ? '' : 'none';
+      });
+      // Ocultar secciones cuyos cards estén todos ocultos
+      var sections = modulo.querySelectorAll('[data-config-section]');
+      sections.forEach(function(section) {
+        if (!q) { section.style.display = ''; return; }
+        var sectionCards = section.querySelectorAll('.card');
+        var anyVisible = false;
+        sectionCards.forEach(function(c) { if (c.style.display !== 'none') anyVisible = true; });
+        section.style.display = anyVisible ? '' : 'none';
+      });
+    }
+
+    /** Cambia la pestaña activa del modal de Ayuda. */
+    function ayudaCambiarTab(tab) {
+      var panelTutorial = document.getElementById('ayudaPanelTutorial');
+      var panelErrores  = document.getElementById('ayudaPanelErrores');
+      var btnTutorial   = document.getElementById('ayudaTabTutorial');
+      var btnErrores    = document.getElementById('ayudaTabErrores');
+      if (!panelTutorial) return;
+      if (tab === 'errores') {
+        panelTutorial.style.display = 'none';
+        panelErrores.style.display  = '';
+        btnTutorial.className = 'btn btn-outline btn-sm';
+        btnErrores.className  = 'btn btn-outline btn-sm';
+        btnErrores.style.fontWeight = '700';
+        btnTutorial.style.fontWeight = '';
+      } else {
+        panelTutorial.style.display = '';
+        panelErrores.style.display  = 'none';
+        btnTutorial.className = 'btn btn-outline btn-sm';
+        btnErrores.className  = 'btn btn-outline btn-sm';
+        btnTutorial.style.fontWeight = '700';
+        btnErrores.style.fontWeight = '';
+      }
     }
 
     /**
@@ -10135,6 +10376,7 @@
     // Estado en memoria para acceso rápido sin recargas
     var _alqDatos = null;  // { anio, inquilinos: [...] }
     var _alqTabActiva = 0; // Índice del tab activo
+    var _calPrintCellHeight = 3.0; // Altura de celda en cm para impresión calendario (15% menor que 3.5cm)
     var _ALQ_MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -10458,8 +10700,10 @@
           '<span class="leyenda-item impago">Impago</span>' +
           '<span class="leyenda-item parcial">Parcial</span>' +
         '</div>' +
-        '<div id="calContainer-' + inqId + '" class="calendario-meses">' +
-          alqRenderizarMeses(meses, estadosPorFecha, movsPorFecha, anio, mesActivo, nombresEstado, cabecera, hoyKey) +
+        '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
+          '<div id="calContainer-' + inqId + '" class="calendario-meses" style="min-width:280px;">' +
+            alqRenderizarMeses(meses, estadosPorFecha, movsPorFecha, anio, mesActivo, nombresEstado, cabecera, hoyKey) +
+          '</div>' +
         '</div>';
 
       return html;
@@ -10902,7 +11146,7 @@
           '.leyenda-badge { padding: 2px 10px; border-radius: 4px; font-size: 9pt; font-weight: 600; }' +
           '.cal-print-table { width: 100%; border-collapse: collapse; table-layout: fixed; }' +
           '.cal-print-table th { background: #333; color: #fff; text-align: center; padding: .4rem; font-size: 10pt; border: 1px solid #555; }' +
-          '.cal-print-table td { border: 1px solid #ccc; vertical-align: top; padding: .35rem .4rem; height: 3.5cm; }' +
+          '.cal-print-table td { border: 1px solid #ccc; vertical-align: top; padding: .35rem .4rem; height: ' + _calPrintCellHeight.toFixed(1) + 'cm; }' +
           '.dia-vacio-print { border: 1px solid #e8e8e8; background: #fafafa; }' +
           '.dia-num { font-size: 14pt; font-weight: 700; margin-bottom: .2rem; }' +
           '.dia-mov { font-size: 8.5pt; font-weight: 600; margin-top: .15rem; }' +

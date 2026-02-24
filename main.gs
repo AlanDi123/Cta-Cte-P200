@@ -1329,9 +1329,13 @@ function obtenerConfiguracionCompleta() {
       printShowCompany: (props.getProperty('PRINT_SHOW_COMPANY') || CONFIG.PRINT.SHOW_COMPANY.toString()) !== 'false',
       printFooter: props.getProperty('PRINT_FOOTER') || CONFIG.PRINT.FOOTER,
       printPageBreak: (props.getProperty('PRINT_PAGE_BREAK') || CONFIG.PRINT.PAGE_BREAK.toString()) === 'true',
+      calPrintCellHeight: parseFloat(props.getProperty('CAL_PRINT_CELL_HEIGHT') || '3.0'),
 
       // Inquilinos
-      inquilinos: inquilinosFiltrados
+      inquilinos: inquilinosFiltrados,
+
+      // Textos de Ayuda
+      ayudaTutoriales: props.getProperty('AYUDA_TUTORIALES') || ''
     };
     
     return {
@@ -1520,6 +1524,13 @@ function guardarConfiguracionGeneral(config) {
       props.setProperty('PRINT_PAGE_BREAK', config.printPageBreak.toString());
     }
 
+    if (config.calPrintCellHeight !== undefined) {
+      const cellHeight = parseFloat(config.calPrintCellHeight);
+      if (!isNaN(cellHeight) && cellHeight >= 1.5 && cellHeight <= 6) {
+        props.setProperty('CAL_PRINT_CELL_HEIGHT', cellHeight.toFixed(1));
+      }
+    }
+
     // Inquilinos
     if (config.inquilinos !== undefined) {
       if (Array.isArray(config.inquilinos)) {
@@ -1527,6 +1538,12 @@ function guardarConfiguracionGeneral(config) {
       } else if (typeof config.inquilinos === 'string') {
         props.setProperty('INQUILINOS', config.inquilinos);
       }
+    }
+
+    // Textos de Ayuda
+    if (config.ayudaTutoriales !== undefined) {
+      // ScriptProperties tiene un límite de ~9KB por valor; 5000 chars es suficiente para tutoriales
+      props.setProperty('AYUDA_TUTORIALES', (config.ayudaTutoriales || '').substring(0, 5000));
     }
     
     Logger.log('Configuración general guardada correctamente');
