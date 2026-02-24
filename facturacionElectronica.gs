@@ -521,6 +521,11 @@ const AfipService = {
 
     const auth = this.autenticar('ws_sr_padron_a13');
 
+    // *** FIX: Siempre usar el CUIT REAL del emisor como cuitRepresentada,
+    // NO el CUIT de test aunque estemos en modo dev sin certificado.
+    // El CUIT de test no tiene acceso al padrón real.
+    const cuitRepresentada = config.cuit || CONFIG_AFIP.getEmisor().CUIT;
+
     const payload = {
       environment: config.environment,
       method: 'getPersona',
@@ -528,7 +533,7 @@ const AfipService = {
       params: {
         token: auth.token,
         sign: auth.sign,
-        cuitRepresentada: auth.cuitAuth,
+        cuitRepresentada: cuitRepresentada,
         idPersona: cuitLimpio
       }
     };
@@ -541,8 +546,13 @@ const AfipService = {
       const result = this._fetch('/requests', payload);
       Logger.log('Respuesta padron ARCA para CUIT ' + cuitLimpio + ': ' + JSON.stringify(result).substring(0, 800));
 
-      // afipsdk puede devolver { personaReturn: {...} } o { persona: {...} }
-      const personaReturn = result.personaReturn || result.persona || null;
+      // afipsdk puede devolver la persona en distintas estructuras:
+      // { personaReturn: {...} }, { persona: {...} }, { data: {...} } o directamente { datosGenerales: {...} }
+      const personaReturn = result.personaReturn
+        || result.persona
+        || result.data
+        || (result.datosGenerales ? result : null)
+        || null;
 
       // datosGenerales debe existir y tener idPersona para ser un resultado válido
       const datosGenerales = personaReturn && personaReturn.datosGenerales
@@ -550,7 +560,7 @@ const AfipService = {
         : null;
 
       if (!datosGenerales || !datosGenerales.idPersona) {
-        Logger.log('CUIT ' + cuitLimpio + ' no encontrado en padron. personaReturn: ' + JSON.stringify(personaReturn).substring(0, 300));
+        Logger.log('CUIT ' + cuitLimpio + ' no encontrado en padron. Respuesta completa: ' + JSON.stringify(result).substring(0, 500));
         return { encontrado: false, error: 'CUIT no encontrado en padrón ARCA' };
       }
 
