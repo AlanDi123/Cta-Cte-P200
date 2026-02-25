@@ -105,7 +105,11 @@ const TransferenciasRepository = {
       facturada: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FACTURADA] === true || fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FACTURADA] === 'SI',
       fechaFactura: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.FECHA_FACTURA] || '',
       obs: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.OBS] || ''
-    })).filter(t => t.id);
+    })).filter(t => t.id).sort((a, b) => {
+      const fa = a.fecha || '';
+      const fb = b.fecha || '';
+      return fb.localeCompare(fa); // fecha descendente: más reciente primero
+    });
   },
 
   /**
