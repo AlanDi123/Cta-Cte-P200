@@ -348,6 +348,42 @@ const AfipService = {
   },
 
   /**
+   * Calcula la fecha válida para ARCA (Concepto=1/Productos): máx 5 días en el pasado.
+   * @param {string|null} fechaTransferencia - Fecha en formato YYYY-MM-DD o null
+   * @returns {{ fecha: Date, usandoFechaOriginal: boolean, avisoFecha: string|null }}
+   */
+  calcularFechaValidaArca: function(fechaTransferencia) {
+    var hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    if (!fechaTransferencia) {
+      return { fecha: hoy, usandoFechaOriginal: false, avisoFecha: null };
+    }
+
+    var fechaTrans = parsearFechaLocal(fechaTransferencia);
+    fechaTrans.setHours(0, 0, 0, 0);
+
+    var diffDias = Math.floor((hoy - fechaTrans) / (1000 * 60 * 60 * 24));
+
+    if (diffDias <= 5 && diffDias >= 0) {
+      return { fecha: fechaTrans, usandoFechaOriginal: true, avisoFecha: null };
+    } else if (diffDias > 5) {
+      var fechaMinima = new Date(hoy);
+      fechaMinima.setDate(fechaMinima.getDate() - 5);
+      var fechaOriginalStr = fechaTrans.getDate() + '/' + (fechaTrans.getMonth() + 1) + '/' + fechaTrans.getFullYear();
+      var fechaMinimaStr = fechaMinima.getDate() + '/' + (fechaMinima.getMonth() + 1) + '/' + fechaMinima.getFullYear();
+      return {
+        fecha: fechaMinima,
+        usandoFechaOriginal: false,
+        avisoFecha: 'La fecha original (' + fechaOriginalStr + ') supera los 5 días permitidos por ARCA para facturar productos. Se usará automáticamente la fecha más antigua válida: ' + fechaMinimaStr + '.'
+      };
+    } else {
+      // Fecha futura: usar hoy
+      return { fecha: hoy, usandoFechaOriginal: false, avisoFecha: null };
+    }
+  },
+
+  /**
    * Paso 3: Emitir comprobante electrónico
    * @param {Object} datosFactura - Datos completos de la factura
    * @returns {Object} {cae, caeVto, cbtNro, resultado}
@@ -360,11 +396,12 @@ const AfipService = {
     const ultimoNro = this.ultimoComprobante(datosFactura.cbteTipo);
     const proximoNro = ultimoNro + 1;
 
-    // Fecha en formato YYYYMMDD
-    const hoy = new Date();
-    const fechaCbte = String(hoy.getFullYear()) +
-      String(hoy.getMonth() + 1).padStart(2, '0') +
-      String(hoy.getDate()).padStart(2, '0');
+    // Fecha en formato YYYYMMDD — respetar fecha de transferencia si es válida para ARCA
+    var fechaInfo = this.calcularFechaValidaArca(datosFactura.fechaTransferencia || null);
+    var fechaUsada = fechaInfo.fecha;
+    const fechaCbte = String(fechaUsada.getFullYear()) +
+      String(fechaUsada.getMonth() + 1).padStart(2, '0') +
+      String(fechaUsada.getDate()).padStart(2, '0');
 
     // Calcular importes
     const neto = datosFactura.importeNeto;
@@ -500,7 +537,8 @@ const AfipService = {
       neto: neto,
       iva: iva,
       total: total,
-      resultado: 'A'
+      resultado: 'A',
+      avisoFecha: fechaInfo.avisoFecha || null
     };
   },
 
@@ -538,9 +576,11 @@ const AfipService = {
       }
     };
 
-    // Incluir cert y key si están disponibles
-    if (config.cert) payload.cert = config.cert;
-    if (config.key) payload.key = config.key;
+    // Incluir cert y key solo si son strings no vacíos (no enviar string vacío al SDK)
+    var certValue = config.cert && config.cert.trim ? config.cert.trim() : (config.cert || null);
+    var keyValue = config.key && config.key.trim ? config.key.trim() : (config.key || null);
+    if (certValue) payload.cert = certValue;
+    if (keyValue) payload.key = keyValue;
 
     try {
       const result = this._fetch('/requests', payload);
@@ -576,26 +616,33 @@ const AfipService = {
         ? (Array.isArray(impuestosRaw) ? impuestosRaw : [impuestosRaw])
         : [];
 
-      for (var i = 0; i < impuestos.length; i++) {
-        var imp = impuestos[i];
+      // Detectar monotributo por estructura alternativa
+      var tieneMonotributo = !!(personaReturn.datosMonotributo &&
+        personaReturn.datosMonotributo.categoriaMonotributo);
+
+      var esRI = impuestos.some(function(imp) {
         var idImp = Number(imp.idImpuesto || imp.id || 0);
-        if (idImp === 30 || idImp === 32) {
-          condicionIVA = 'RI';
-          condicionTexto = 'Responsable Inscripto';
-          break;
-        }
-        if (idImp === 20) {
-          condicionIVA = 'M';
-          condicionTexto = 'Monotributo';
-          break;
-        }
+        return idImp === 30 || idImp === 32;
+      });
+
+      var esMonotributo = tieneMonotributo || impuestos.some(function(imp) {
+        var idImp = Number(imp.idImpuesto || imp.id || 0);
+        return idImp === 20;
+      });
+
+      // Fallback: si tiene datosMonotributo o categorias es monotributista
+      if (!esMonotributo && (personaReturn.datosMonotributo || personaReturn.categorias)) {
+        esMonotributo = true;
       }
 
-      // Monotributo por datosMonotributo (cuando no viene en impuestos)
-      if (condicionIVA === 'CF' && (personaReturn.datosMonotributo || personaReturn.categorias)) {
+      if (esRI) {
+        condicionIVA = 'RI';
+        condicionTexto = 'Responsable Inscripto';
+      } else if (esMonotributo) {
         condicionIVA = 'M';
-        condicionTexto = 'Monotributo';
+        condicionTexto = 'Monotributista';
       }
+      // else: CF (Consumidor Final) - persona con CUIT/CUIL sin inscripción activa
 
       // Razón social: para JURIDICA viene razonSocial, para FISICA viene apellido + nombre
       var razonSocial = datosGenerales.razonSocial ||
@@ -621,7 +668,9 @@ const AfipService = {
         condicionIVA: condicionIVA,
         condicionTexto: condicionTexto,
         domicilio: domicilio,
-        tipoPersona: datosGenerales.tipoPersona || ''
+        tipoPersona: datosGenerales.tipoPersona || '',
+        categoriaMonotributo: personaReturn.datosMonotributo ? personaReturn.datosMonotributo.categoriaMonotributo : null,
+        estadoContribuyente: datosGenerales.estadoClave || 'ACTIVO'
       };
     } catch (error) {
       // Si falla la consulta de padrón, no es un error crítico
@@ -1597,7 +1646,8 @@ function emitirFacturaElectronica(datos) {
       importeNeto: datosNormalizados.importeNeto,
       cbteAsocTipo: datosNormalizados.cbteAsocTipo || null,
       cbteAsocNro: datosNormalizados.cbteAsocNro || null,
-      cbteAsocFecha: datosNormalizados.cbteAsocFecha || null
+      cbteAsocFecha: datosNormalizados.cbteAsocFecha || null,
+      fechaTransferencia: datosNormalizados.fechaTransferencia || null
     });
 
     // Registrar en hoja
@@ -1655,6 +1705,7 @@ function emitirFacturaElectronica(datos) {
       iva: resultado.iva,
       total: resultado.total,
       pdfUrl: pdfUrl,
+      avisoFecha: resultado.avisoFecha || null,
       mensaje: 'Comprobante emitido - CAE: ' + resultado.cae
     };
   } catch (error) {

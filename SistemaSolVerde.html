@@ -381,6 +381,69 @@
     }
 
     /* ============================================================================
+       RESPONSIVE: TABLET (768px - 1199px)
+       ============================================================================ */
+    @media (min-width: 768px) and (max-width: 1199px) {
+      :root { --sv-sidebar-width: 60px; }
+
+      .menu-item span,
+      .menu-section-title {
+        display: none;
+      }
+
+      .menu-item {
+        justify-content: center;
+        padding: 0.75rem;
+      }
+
+      .menu-item-icon {
+        margin: 0;
+        font-size: 1.4rem;
+      }
+
+      .grid-3, .grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* ============================================================================
+       RESPONSIVE: MOBILE (<767px) — complementos
+       ============================================================================ */
+    @media (max-width: 767px) {
+      /* Modales como bottom sheet en móvil */
+      .modal {
+        align-items: flex-end;
+      }
+      .modal-content {
+        border-radius: var(--sv-radius) var(--sv-radius) 0 0;
+        max-height: 90vh;
+        width: 100%;
+        max-width: 100%;
+      }
+
+      /* Botones de acción primaria: mínimo 44px */
+      .btn {
+        min-height: 44px;
+      }
+
+      /* Área táctil mínima para todos los botones */
+      button {
+        min-height: 44px;
+      }
+
+      /* Config tabs: scroll horizontal en mobile */
+      .config-tabs-nav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+      }
+
+      /* Sort controls: wrap mejor en mobile */
+      .sort-controls {
+        flex-wrap: wrap;
+      }
+    }
+
+    /* ============================================================================
        COMPONENTES
        ============================================================================ */
 
@@ -1544,6 +1607,39 @@
     .alq-subpanel { display: none; }
     .alq-subpanel.active { display: block; }
 
+    /* Tabs de configuración */
+    .config-tabs-nav {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid var(--sv-borde);
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .config-tab-btn {
+      padding: 0.6rem 1rem;
+      border: none;
+      border-bottom: 3px solid transparent;
+      background: none;
+      color: var(--sv-texto-secundario);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color var(--sv-transition), border-color var(--sv-transition);
+      margin-bottom: -2px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .config-tab-btn:hover { color: var(--sv-primario); }
+    .config-tab-btn.active {
+      color: var(--sv-primario);
+      border-bottom-color: var(--sv-primario);
+      font-weight: 700;
+    }
+    .config-tab-panel { display: none; }
+    .config-tab-panel.active { display: block; }
+
     /* Cabecera de inquilino */
     .alq-inq-header {
       display: flex;
@@ -1749,6 +1845,9 @@
     .dia-cell.hoy     { outline: 3px solid var(--sv-primario);    outline-offset: 1px; font-weight: 800; }
 
     /* Vista de un solo mes (grande) */
+    .cal-mes-unico {
+      grid-template-columns: 1fr !important;
+    }
     .cal-mes-unico .calendario-mes {
       max-width: 600px;
       margin: 0 auto;
@@ -1756,6 +1855,14 @@
     .cal-mes-unico .dia-cell {
       font-size: 1rem;
       border-radius: 6px;
+    }
+
+    /* Vista año completo: mini meses en grid */
+    .cal-vista-anual {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+    }
+    .cal-vista-anual .calendario-mes {
+      overflow: hidden;
     }
 
     /* Leyenda calendario */
@@ -1939,8 +2046,10 @@
         <img src="https://i.imgur.com/tStvmV1.png" alt="Sol & Verde" class="header-logo-img">
         <span class="header-logo-text">Sol & Verde</span>
       </div>
-      <button class="header-btn" id="btnAyuda" title="Ayuda" aria-label="Ayuda" onclick="abrirModal('modalAyuda')">❓</button>
-      <button class="header-btn" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">🌙</button>
+      <div style="display:flex;align-items:center;gap:0.25rem;">
+        <button class="header-btn" id="btnAyuda" title="Ayuda" aria-label="Ayuda" onclick="abrirModal('modalAyuda')">❓</button>
+        <button class="header-btn" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema">🌙</button>
+      </div>
     </header>
 
     <!-- Sidebar Overlay (mobile) -->
@@ -2803,6 +2912,15 @@
           <input type="search" id="configBuscador" class="form-input" placeholder="🔍 Buscar configuración..." style="max-width:300px;font-size:.9rem;" oninput="filtrarConfiguracion(this.value)" aria-label="Buscar configuración">
         </div>
 
+        <!-- Tabs de navegación de configuración -->
+        <div class="config-tabs-nav" id="configTabsNav">
+          <button class="config-tab-btn active" onclick="configCambiarTab('claves-tokens')">🏦 Claves &amp; ARCA</button>
+          <button class="config-tab-btn" onclick="configCambiarTab('general')">⚙️ General</button>
+          <button class="config-tab-btn" onclick="configCambiarTab('alquileres')">🏠 Alquileres</button>
+          <button class="config-tab-btn" onclick="configCambiarTab('textos-ayuda')">📚 Ayuda</button>
+        </div>
+
+        <div class="config-tab-panel active" id="configPanel-claves-tokens">
         <div class="grid grid-2" data-config-section="claves-tokens">
           <div>
             <div class="card">
@@ -3020,9 +3138,11 @@
             </div>
           </div>
         </div>
+        </div><!-- end configPanel-claves-tokens -->
 
+        <div class="config-tab-panel" id="configPanel-general">
         <!-- Nueva Sección: Configuración General del Sistema -->
-        <div style="margin-top: 2rem;" data-config-section="general">
+        <div data-config-section="general">
           <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">⚙️ Configuración General del Sistema</h3>
           
           <div class="grid grid-2">
@@ -3276,9 +3396,11 @@
             <p id="estadoConfigGeneral" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
           </div>
         </div>
+        </div><!-- end configPanel-general -->
 
+        <div class="config-tab-panel" id="configPanel-alquileres">
         <!-- Nueva Sección: Configuración de Inquilinos -->
-        <div style="margin-top: 2rem;" data-config-section="alquileres">
+        <div data-config-section="alquileres">
           <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">🏠 Configuración de Inquilinos</h3>
           
           <div class="card">
@@ -3301,9 +3423,11 @@
             <p id="estadoInquilinos" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
           </div>
         </div>
+        </div><!-- end configPanel-alquileres -->
 
+        <div class="config-tab-panel" id="configPanel-textos-ayuda">
         <!-- Sección: Textos / Ayuda editable -->
-        <div style="margin-top: 2rem;" data-config-section="textos-ayuda">
+        <div data-config-section="textos-ayuda">
           <h3 style="margin-bottom: 1rem; color: var(--sv-primario);">📝 Textos / Ayuda</h3>
           <div class="card">
             <div class="card-title">Tutoriales del sistema (editable)</div>
@@ -3321,6 +3445,7 @@
             <p id="estadoTextosAyuda" style="margin-top:.5rem;font-size:.875rem;"></p>
           </div>
         </div>
+        </div><!-- end configPanel-textos-ayuda -->
 
       </div>
 
@@ -5600,6 +5725,8 @@
         var _cfgVis = {};
         try { _cfgVis = JSON.parse(localStorage.getItem('sv_config_visual') || '{}'); } catch(e) {}
         renderToggleModulos(_cfgVis.modulosOcultos || []);
+        // Inicializar tabs de configuración (restaura tab activa desde sessionStorage)
+        setTimeout(inicializarConfigTabs, 0);
       }
       // FASE 2: Cargar borrador al navegar a caja
       if (modulo === 'arqueo-efectivo') {
@@ -7185,11 +7312,19 @@
             document.getElementById('clienteRazonSocial').value = result.razonSocial || '';
             document.getElementById('clienteDomicilioFiscal').value = result.domicilio || '';
 
-            // Guardar y mostrar condición fiscal
+            // Guardar y mostrar condición fiscal con badge de color
             var condicion = result.condicionTexto || 'Responsable Inscripto';
             document.getElementById('clienteCondicionFiscal').value = condicion;
             var infoEl = document.getElementById('cuitCondicionInfo');
-            infoEl.textContent = '✓ ARCA: ' + condicion + (result.tipoPersona ? ' (' + result.tipoPersona + ')' : '');
+            var badgeColor = result.condicionIVA === 'RI' ? '#2E7D32' :
+                             result.condicionIVA === 'M' ? '#E65100' : '#757575';
+            var badgeEmoji = result.condicionIVA === 'RI' ? '🟢' :
+                             result.condicionIVA === 'M' ? '🟡' : '⚪';
+            var infoHtml = badgeEmoji + ' <strong style="color:' + badgeColor + ';">' + condicion + '</strong>';
+            if (result.tipoPersona) infoHtml += ' <span style="color:var(--sv-texto-muted);">(' + result.tipoPersona + ')</span>';
+            if (result.estadoContribuyente && result.estadoContribuyente !== 'ACTIVO') infoHtml += ' · <span style="color:var(--sv-advertencia);">' + result.estadoContribuyente + '</span>';
+            if (result.categoriaMonotributo) infoHtml += ' · Cat. <strong>' + result.categoriaMonotributo + '</strong>';
+            infoEl.innerHTML = infoHtml;
             infoEl.style.display = 'block';
 
             mostrarToast('✓ Datos verificados en ARCA: ' + condicion, 'success');
@@ -9562,6 +9697,18 @@
       var q = (query || '').toLowerCase().trim();
       var modulo = document.getElementById('module-configuracion');
       if (!modulo) return;
+
+      if (q) {
+        // Durante búsqueda: mostrar todos los paneles de tabs para buscar en todos
+        modulo.querySelectorAll('.config-tab-panel').forEach(function(p) { p.style.display = 'block'; });
+      } else {
+        // Sin búsqueda: restaurar tab activo
+        var tabActiva = sessionStorage.getItem('configTabActiva') || 'claves-tokens';
+        modulo.querySelectorAll('.config-tab-panel').forEach(function(p) { p.style.display = 'none'; });
+        var panelActivo = document.getElementById('configPanel-' + tabActiva);
+        if (panelActivo) panelActivo.style.display = 'block';
+      }
+
       var cards = modulo.querySelectorAll('.card');
       cards.forEach(function(card) {
         var texto = card.textContent.toLowerCase();
@@ -9576,6 +9723,45 @@
         sectionCards.forEach(function(c) { if (c.style.display !== 'none') anyVisible = true; });
         section.style.display = anyVisible ? '' : 'none';
       });
+    }
+
+    /**
+     * Cambia la pestaña activa de la sección de Configuración.
+     */
+    function configCambiarTab(tabId) {
+      var tabPanels = document.querySelectorAll('.config-tab-panel');
+      tabPanels.forEach(function(p) { p.classList.remove('active'); });
+      var panelActivo = document.getElementById('configPanel-' + tabId);
+      if (panelActivo) panelActivo.classList.add('active');
+
+      var tabBtns = document.querySelectorAll('.config-tab-btn');
+      tabBtns.forEach(function(b) { b.classList.remove('active'); });
+      // Marcar botón activo buscando el que tiene onclick con tabId
+      tabBtns.forEach(function(b) {
+        if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf(tabId) !== -1) {
+          b.classList.add('active');
+        }
+      });
+
+      // Guardar en sessionStorage
+      try { sessionStorage.setItem('configTabActiva', tabId); } catch(e) {}
+
+      // Limpiar búsqueda
+      var buscador = document.getElementById('configBuscador');
+      if (buscador) buscador.value = '';
+      filtrarConfiguracion('');
+    }
+
+    /**
+     * Restaura la tab activa de configuración desde sessionStorage al cargar la sección.
+     */
+    function inicializarConfigTabs() {
+      try {
+        var tabActiva = sessionStorage.getItem('configTabActiva') || 'claves-tokens';
+        configCambiarTab(tabActiva);
+      } catch(e) {
+        configCambiarTab('claves-tokens');
+      }
     }
 
     /** Cambia la pestaña activa del modal de Ayuda. */
@@ -10014,6 +10200,7 @@
           cantidad: 1,
           precioUnitario: transferencia.monto // Incluye IVA
         }],
+        fechaTransferencia: transferencia.fecha || null,
         obs: 'Transferencia: ' + (transferencia.banco || '') + ' - ID: ' + transferencia.id
       };
 
@@ -10024,7 +10211,11 @@
           btnEmitir.textContent = '✅ Emitir Factura B en ARCA';
 
           if (result.success) {
-            mostrarToast('¡Factura B emitida exitosamente!', 'success');
+            if (result.avisoFecha) {
+              mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
+            } else {
+              mostrarToast('¡Factura B emitida exitosamente!', 'success');
+            }
 
             // Marcar transferencia como facturada
             transferencia.facturada = true;
@@ -10038,7 +10229,7 @@
 
             // Mostrar resultado
             setTimeout(() => {
-              alert('Factura B emitida correctamente\\n\\nCAE: ' + result.cae + '\\nNúmero: ' + result.ptoVta + '-' + result.cbteNro);
+              alert('Factura B emitida correctamente\\n\\nCAE: ' + result.cae + '\\nNúmero: ' + result.ptoVta + '-' + result.cbteNro + (result.avisoFecha ? '\\n\\n⚠️ ' + result.avisoFecha : ''));
             }, 500);
           } else {
             mostrarToast('Error al emitir factura: ' + result.error, 'error');
@@ -10260,6 +10451,7 @@
           cantidad: item.cantidad,
           precioUnitario: item.precioUnitario // Sin IVA
         })),
+        fechaTransferencia: transferencia.fecha || null,
         obs: 'Transferencia: ' + (transferencia.banco || '') + ' - ID: ' + transferencia.id
       };
 
@@ -10270,7 +10462,11 @@
           btnEmitir.textContent = '✅ Emitir Factura A en ARCA';
 
           if (result.success) {
-            mostrarToast('¡Factura A emitida exitosamente!', 'success');
+            if (result.avisoFecha) {
+              mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
+            } else {
+              mostrarToast('¡Factura A emitida exitosamente!', 'success');
+            }
 
             // Marcar transferencia como facturada
             transferencia.facturada = true;
@@ -10284,7 +10480,7 @@
 
             // Mostrar resultado
             setTimeout(() => {
-              alert('Factura A emitida correctamente\\n\\nCAE: ' + result.cae + '\\nNúmero: ' + result.ptoVta + '-' + result.cbteNro);
+              alert('Factura A emitida correctamente\\n\\nCAE: ' + result.cae + '\\nNúmero: ' + result.ptoVta + '-' + result.cbteNro + (result.avisoFecha ? '\\n\\n⚠️ ' + result.avisoFecha : ''));
             }, 500);
           } else {
             mostrarToast('Error al emitir factura: ' + result.error, 'error');
@@ -10377,6 +10573,7 @@
     var _alqDatos = null;  // { anio, inquilinos: [...] }
     var _alqTabActiva = 0; // Índice del tab activo
     var _calPrintCellHeight = 3.0; // Altura de celda en cm para impresión calendario (15% menor que 3.5cm)
+    var _calendarioVistaAnual = {}; // { [inqId]: boolean } — estado de vista anual por inquilino
     var _ALQ_MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -10529,6 +10726,8 @@
       document.querySelectorAll('.alq-panel').forEach(function(p, i) {
         p.classList.toggle('active', i === idx);
       });
+      // Resetear vista anual al cambiar de inquilino
+      _calendarioVistaAnual = {};
     }
 
     /**
@@ -10686,13 +10885,29 @@
           m.nombre + ' ' + anio + '</option>';
       }).join('');
 
+      var vistaAnual = !!_calendarioVistaAnual[inqId];
+      var mesAnterior = mesActivo > 1 ? mesActivo - 1 : 12;
+      var mesSiguiente = mesActivo < 12 ? mesActivo + 1 : 1;
+      var calClass = vistaAnual ? 'calendario-meses cal-vista-anual' : 'calendario-meses cal-mes-unico';
+      var mesActivoRender = vistaAnual ? 0 : mesActivo;
+
       var html =
         '<div class="alq-cal-toolbar">' +
+          '<button class="btn btn-outline btn-sm" id="btnPrevMes-' + inqId + '"' +
+            (vistaAnual ? ' style="display:none;"' : '') +
+            ' onclick="alqNavMes(\'' + inqId + '\',' + mesAnterior + ')">&#8592;</button>' +
           '<label style="font-weight:600;">Mes:</label>' +
-          '<select class="form-input" style="width:auto;padding:.35rem .6rem;" onchange="alqCambiarMes(\'' + inqId + '\', this.value)">' +
+          '<select class="form-input" id="selMes-' + inqId + '" style="width:auto;padding:.35rem .6rem;"' +
+            (vistaAnual ? ' disabled' : '') +
+            ' onchange="alqCambiarMes(\'' + inqId + '\', this.value)">' +
             opciones +
           '</select>' +
-          '<button class="btn btn-outline btn-sm" onclick="alqVerTodo(\'' + inqId + '\')" style="margin-left:.25rem;">Ver a\u00f1o completo</button>' +
+          '<button class="btn btn-outline btn-sm" id="btnNextMes-' + inqId + '"' +
+            (vistaAnual ? ' style="display:none;"' : '') +
+            ' onclick="alqNavMes(\'' + inqId + '\',' + mesSiguiente + ')">&#8594;</button>' +
+          '<button class="btn btn-outline btn-sm" id="btnToggleVista-' + inqId + '" onclick="alqToggleVista(\'' + inqId + '\')" style="margin-left:.25rem;">' +
+            (vistaAnual ? '&#128197; Ver mes' : '&#128197; Ver a\u00f1o completo') +
+          '</button>' +
           '<button class="btn btn-outline btn-sm" onclick="abrirModalImprimirAlquiler(\'' + escapeHtml(inquilino) + '\')" style="margin-left:auto;">&#128424; Imprimir mes</button>' +
         '</div>' +
         '<div class="calendario-leyenda">' +
@@ -10701,8 +10916,8 @@
           '<span class="leyenda-item parcial">Parcial</span>' +
         '</div>' +
         '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
-          '<div id="calContainer-' + inqId + '" class="calendario-meses" style="min-width:280px;">' +
-            alqRenderizarMeses(meses, estadosPorFecha, movsPorFecha, anio, mesActivo, nombresEstado, cabecera, hoyKey) +
+          '<div id="calContainer-' + inqId + '" class="' + calClass + '" style="min-width:280px;">' +
+            alqRenderizarMeses(meses, estadosPorFecha, movsPorFecha, anio, mesActivoRender, nombresEstado, cabecera, hoyKey) +
           '</div>' +
         '</div>';
 
@@ -10807,21 +11022,61 @@
       var nombresEstado = { pagado: 'Pagado', impago: 'IMPAGO', parcial: 'Pago parcial', futuro: '' };
       var container = document.getElementById('calContainer-' + inqId);
       if (container) {
+        var vistaAnual = !!_calendarioVistaAnual[inqId];
+        // Update class for single-month view
+        container.className = vistaAnual ? 'calendario-meses cal-vista-anual' : 'calendario-meses cal-mes-unico';
         container.innerHTML = alqRenderizarMeses(
           meses, estadosPorFecha, movsPorFecha, _alqDatos.anio, mes, nombresEstado, cabecera, hoyKey
         );
       }
     }
 
-    /** Muestra todos los meses del año. */
-    function alqVerTodo(inqId) {
-      // Reset selector
-      var panel = document.getElementById('subpanel-' + inqId + '-calendario');
-      if (panel) {
-        var sel = panel.querySelector('select');
-        if (sel) sel.value = '';
+    /** Navega al mes anterior o siguiente. */
+    function alqNavMes(inqId, mes) {
+      var sel = document.getElementById('selMes-' + inqId);
+      if (sel) sel.value = String(mes);
+      alqCambiarMes(inqId, String(mes));
+    }
+
+    /** Alterna entre vista de mes y vista de año completo. */
+    function alqToggleVista(inqId) {
+      _calendarioVistaAnual[inqId] = !_calendarioVistaAnual[inqId];
+      var vistaAnual = _calendarioVistaAnual[inqId];
+      var container = document.getElementById('calContainer-' + inqId);
+      var btnToggle = document.getElementById('btnToggleVista-' + inqId);
+      var btnPrev = document.getElementById('btnPrevMes-' + inqId);
+      var btnNext = document.getElementById('btnNextMes-' + inqId);
+      var sel = document.getElementById('selMes-' + inqId);
+
+      if (btnToggle) btnToggle.textContent = vistaAnual ? '📅 Ver mes' : '📅 Ver año completo';
+      if (btnPrev) btnPrev.style.display = vistaAnual ? 'none' : '';
+      if (btnNext) btnNext.style.display = vistaAnual ? 'none' : '';
+      if (sel) sel.disabled = vistaAnual;
+
+      if (container) {
+        container.className = vistaAnual ? 'calendario-meses cal-vista-anual' : 'calendario-meses cal-mes-unico';
+        var mesActivo = vistaAnual ? 0 : (sel ? parseInt(sel.value) || (new Date().getMonth() + 1) : new Date().getMonth() + 1);
+        if (!_alqDatos) return;
+        var inqData = _alqDatos.inquilinos.find(function(d) {
+          return d.config && d.config.inquilino.replace(/\s+/g, '-') === inqId;
+        });
+        if (!inqData || !inqData.calendario) return;
+        var meses = inqData.calendario.meses;
+        var estadosPorFecha = alqBuildEstadosPorFecha(meses, _alqDatos.anio);
+        var movsPorFecha = alqBuildMovsPorFecha(inqData.movimientos || []);
+        var hoyDate = new Date();
+        var hoyKey = hoyDate.getFullYear() + '-' + String(hoyDate.getMonth() + 1).padStart(2, '0') + '-' + String(hoyDate.getDate()).padStart(2, '0');
+        var cabecera = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
+        var nombresEstado = { pagado: 'Pagado', impago: 'IMPAGO', parcial: 'Pago parcial', futuro: '' };
+        container.innerHTML = alqRenderizarMeses(meses, estadosPorFecha, movsPorFecha, _alqDatos.anio, mesActivo, nombresEstado, cabecera, hoyKey);
       }
-      alqCambiarMes(inqId, '0');
+    }
+
+    /** Muestra todos los meses del año (legacy, mantenido por compatibilidad). */
+    function alqVerTodo(inqId) {
+      if (!_calendarioVistaAnual[inqId]) {
+        alqToggleVista(inqId); // activar vista anual
+      }
     }
 
     // ── Modales de registro ──────────────────────────────────────────────────
