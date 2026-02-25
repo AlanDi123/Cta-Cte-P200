@@ -367,23 +367,23 @@ function generarHojaRuta(fecha) {
   if (sesionDelDia) {
     const sesionCompleta = CajaRepository.obtenerSesion(sesionDelDia.sesionId);
 
-    if (sesionCompleta && sesionCompleta.items) {
+    if (sesionCompleta && sesionCompleta.registros) {
       // Extraer proveedores
-      sesionCompleta.items.forEach(item => {
-        if (item.tipo === 'PROVEEDOR' && item.monto > 0) {
+      sesionCompleta.registros.forEach(item => {
+        if (item.tipo === CONFIG.TIPOS_CAJA.PROVEEDOR && item.monto !== 0) {
           proveedores.push({
-            nombre: item.nombre || item.descripcion || 'Proveedor',
-            monto: item.monto
+            nombre: item.descripcion || 'Proveedor',
+            monto: Math.abs(item.monto)
           });
-          totalProveedores += item.monto;
+          totalProveedores += Math.abs(item.monto);
         }
         // Extraer gastos
-        if (item.tipo === 'GASTO' && item.monto > 0) {
+        if (item.tipo === CONFIG.TIPOS_CAJA.GASTO_EXTRA && item.monto !== 0) {
           gastos.push({
-            descripcion: item.descripcion || item.nombre || 'Gasto',
-            monto: item.monto
+            descripcion: item.descripcion || 'Gasto',
+            monto: Math.abs(item.monto)
           });
-          totalGastos += item.monto;
+          totalGastos += Math.abs(item.monto);
         }
       });
     }

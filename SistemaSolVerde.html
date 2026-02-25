@@ -1905,13 +1905,6 @@
       margin-bottom: 4px;
     }
 
-    /* ===== PRINT: CALENDARIO MENSUAL HORIZONTAL ===== */
-    @media print {
-      body > *:not(#alq-print-frame) { display: none !important; }
-      #alq-print-frame { display: block !important; }
-    }
-    #alq-print-frame { display: none; }
-
     /* Modal de impresión */
     #modalImprimirAlquiler .form-group { margin-bottom: 1rem; }
 
@@ -12022,7 +12015,7 @@
           resumen:      JSON.parse(JSON.stringify(caja.resumen)),
           // Empresa
           empresa: {
-            nombre: empresa.nombreEmisor || empresa.nombre || 'Sol & Verde',
+            nombre: empresa.nombreEmisor || empresa.nombre || (empresa.sistema && empresa.sistema.NOMBRE) || 'Sol & Verde',
             logo:   cfg.SHOW_LOGO !== false
           },
           // Configuración de impresión
