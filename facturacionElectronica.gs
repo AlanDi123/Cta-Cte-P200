@@ -1639,6 +1639,19 @@ function emitirFacturaElectronica(datos) {
     // Limpiar CUIT
     var cuitLimpio = datosNormalizados.clienteCuit ? String(datosNormalizados.clienteCuit).replace(/[-\s]/g, '') : '';
 
+    // Para Factura A, validar stock ANTES de emitir
+    if (datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_A) {
+      var productosParaValidar = (datosNormalizados.detalle || [])
+        .filter(function(item) { return item.productoId; })
+        .map(function(item) { return { id: item.productoId, cantidad: item.cantidad || 1 }; });
+      if (productosParaValidar.length > 0) {
+        var stockValidacion = ProductosRepository.validarStock(productosParaValidar);
+        if (!stockValidacion.ok) {
+          throw new Error('Stock insuficiente para emitir la factura: ' + stockValidacion.errores.join('; '));
+        }
+      }
+    }
+
     // Emitir en ARCA
     var resultado = AfipService.emitirComprobante({
       cbteTipo: datosNormalizados.cbteTipo,
@@ -1668,6 +1681,19 @@ function emitirFacturaElectronica(datos) {
       estado: 'EMITIDA',
       detalle: datosNormalizados.detalle || []
     });
+
+    // Para Factura A, descontar stock de los productos seleccionados
+    if (datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_A && datosNormalizados.detalle) {
+      datosNormalizados.detalle.forEach(function(item) {
+        if (item.productoId && item.cantidad > 0) {
+          try {
+            ProductosRepository.descontarStock(item.productoId, item.cantidad);
+          } catch(e) {
+            Logger.log('Advertencia al descontar stock para producto ' + item.productoId + ': ' + e.message);
+          }
+        }
+      });
+    }
 
     // Generar PDF
     var pdfUrl = FacturaPDF.generar({

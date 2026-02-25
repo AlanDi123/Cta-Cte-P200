@@ -444,6 +444,55 @@ const ProductosRepository = {
       }
     }
     return false;
+  },
+
+  /**
+   * Valida si hay suficiente stock para una lista de productos sin descontar.
+   * Agrega las cantidades por producto antes de validar.
+   * @param {Array} productosConCantidad - Array de {id, cantidad}
+   * @returns {{ok: boolean, errores: Array<string>}}
+   */
+  validarStock: function(productosConCantidad) {
+    if (!productosConCantidad || productosConCantidad.length === 0) {
+      return { ok: true, errores: [] };
+    }
+
+    // Agregar cantidades por ID de producto
+    const cantidadesPorId = {};
+    for (const prod of productosConCantidad) {
+      const id = prod.id;
+      cantidadesPorId[id] = (cantidadesPorId[id] || 0) + (prod.cantidad || 1);
+    }
+
+    const hoja = this.getHoja();
+    const dataRange = hoja.getDataRange().getValues();
+    const errores = [];
+
+    for (const idStr of Object.keys(cantidadesPorId)) {
+      const id = Number(idStr);
+      const cantidadSolicitada = cantidadesPorId[idStr];
+      let encontrado = false;
+
+      for (let i = 1; i < dataRange.length; i++) {
+        if (dataRange[i][CONFIG_FACTURACION.COLS_PRODUCTOS.ID] === id) {
+          const stockActual = dataRange[i][CONFIG_FACTURACION.COLS_PRODUCTOS.STOCK];
+          const nombre = dataRange[i][CONFIG_FACTURACION.COLS_PRODUCTOS.NOMBRE];
+          encontrado = true;
+          // Stock ilimitado: siempre ok
+          if (stockActual === 999999) break;
+          if (stockActual < cantidadSolicitada) {
+            errores.push(nombre + ' (disponible: ' + stockActual + ', solicitado: ' + cantidadSolicitada + ')');
+          }
+          break;
+        }
+      }
+
+      if (!encontrado) {
+        errores.push('Producto ID ' + id + ' no encontrado');
+      }
+    }
+
+    return { ok: errores.length === 0, errores: errores };
   }
 };
 

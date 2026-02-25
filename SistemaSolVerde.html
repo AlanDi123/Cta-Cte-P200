@@ -8702,11 +8702,19 @@
       // Usar productos del estado de facturacion si están cargados
       if (EstadoFacturacion.productos && EstadoFacturacion.productos.length > 0) {
         EstadoFacturacion.productos.filter(function(p) { return p.activo && p.precio > 0; }).forEach(function(p) {
+          var esInfinito = (p.stock === 999999 || p.stock === undefined || p.stock === null || p.stock === '');
+          var sinStock = !esInfinito && p.stock <= 0;
           var opt = document.createElement('option');
           opt.value = p.id;
-          opt.textContent = p.nombre + ' - $' + p.precio.toLocaleString('es-AR');
+          var stockInfo = esInfinito ? ' (∞)' : ' (stock: ' + p.stock + ')';
+          opt.textContent = p.nombre + ' - $' + p.precio.toLocaleString('es-AR') + stockInfo;
           opt.dataset.precio = p.precio;
           opt.dataset.nombre = p.nombre;
+          opt.dataset.stock = esInfinito ? 999999 : (p.stock || 0);
+          if (sinStock) {
+            opt.disabled = true;
+            opt.textContent += ' — SIN STOCK';
+          }
           select.appendChild(opt);
         });
       }
@@ -8731,6 +8739,7 @@
       var cantidad = parseInt(document.getElementById('arcaCantidad').value) || 1;
       var precioUnit = parseFloat(document.getElementById('arcaPrecioUnit').value) || 0;
       var selOpt = select.options[select.selectedIndex];
+      var cbteTipo = parseInt(document.getElementById('arcaCbteTipo').value);
 
       if (precioUnit <= 0) {
         mostrarToast('Ingresa un precio unitario valido', 'error');
@@ -8738,8 +8747,10 @@
       }
 
       var descripcion = '';
+      var productoId = null;
       if (selOpt && selOpt.dataset.nombre) {
         descripcion = selOpt.dataset.nombre;
+        productoId = (selOpt.value && selOpt.value !== 'manual' && selOpt.value !== '') ? parseInt(selOpt.value) : null;
       } else if (selOpt && selOpt.value === 'manual') {
         descripcion = prompt('Nombre del producto:');
         if (!descripcion) return;
@@ -8747,11 +8758,27 @@
         descripcion = selOpt ? selOpt.textContent.split(' - ')[0] : 'Producto';
       }
 
+      // Para Factura A, validar stock disponible si el producto tiene ID
+      if (cbteTipo === 1 && productoId) {
+        var stockDisponible = selOpt && selOpt.dataset.stock !== undefined ? parseInt(selOpt.dataset.stock) : 999999;
+        if (stockDisponible !== 999999) {
+          var yaEnFactura = arcaItems.reduce(function(sum, item) {
+            return sum + (item.productoId === productoId ? item.cantidad : 0);
+          }, 0);
+          var stockRestante = stockDisponible - yaEnFactura;
+          if (stockRestante < cantidad) {
+            mostrarToast('Stock insuficiente para "' + descripcion + '". Disponible: ' + stockRestante, 'error');
+            return;
+          }
+        }
+      }
+
       arcaItems.push({
         cantidad: cantidad,
         descripcion: descripcion,
         precioUnit: precioUnit,
-        subtotal: cantidad * precioUnit
+        subtotal: cantidad * precioUnit,
+        productoId: productoId
       });
 
       // Reset
