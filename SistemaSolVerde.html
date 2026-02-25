@@ -12022,7 +12022,7 @@
           resumen:      JSON.parse(JSON.stringify(caja.resumen)),
           // Empresa
           empresa: {
-            nombre: empresa.nombreEmisor || empresa.nombre || 'Sol & Verde',
+            nombre: empresa.nombreEmisor || empresa.nombre || (empresa.sistema && empresa.sistema.NOMBRE) || 'Sol & Verde',
             logo:   cfg.SHOW_LOGO !== false
           },
           // Configuración de impresión

@@ -1176,7 +1176,8 @@ function obtenerConfiguracion() {
     denominaciones: DENOMINACIONES,
     tiposMovimiento: CONFIG.TIPOS_MOVIMIENTO,
     colores: CONFIG.COLORES,
-    sistema: CONFIG.SISTEMA
+    sistema: CONFIG.SISTEMA,
+    print: CONFIG.getPrint()
   };
 }
 

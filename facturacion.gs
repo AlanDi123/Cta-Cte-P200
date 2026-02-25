@@ -359,7 +359,14 @@ const ProductosRepository = {
   agregar: function(datos) {
     const hoja = this.getHoja();
     const lastRow = hoja.getLastRow();
-    const id = lastRow;
+
+    // Generate a safe unique ID (max existing + 1) to avoid collisions after deletions
+    let id = 1;
+    if (lastRow > 1) {
+      const ids = hoja.getRange(2, 1, lastRow - 1, 1).getValues()
+                      .flat().filter(v => typeof v === 'number' && v > 0);
+      if (ids.length > 0) id = Math.max(...ids) + 1;
+    }
 
     hoja.appendRow([
       id,
