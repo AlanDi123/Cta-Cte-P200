@@ -3794,8 +3794,8 @@
                   <input type="number" class="form-input" id="contabCajaFinalInput" step="0.01" min="0" placeholder="0">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Caja del día siguiente (opcional)</label>
-                  <input type="number" class="form-input" id="contabCajaSiguienteInput" step="0.01" min="0" placeholder="Dejá en 0 si no querés fijar el inicio de mañana">
+                  <label class="form-label">Caja del día siguiente (salida) <small style="color:var(--sv-texto-muted);">— se descuenta de la caja calculada</small></label>
+                  <input type="number" class="form-input" id="contabCajaSiguienteInput" step="0.01" min="0" placeholder="0 — dejá en 0 si no separás efectivo para mañana">
                 </div>
                 <div id="contabDiferenciaAlert" style="display:none; margin-bottom:0.75rem;"></div>
                 <div class="form-group" id="contabRazonDiferenciaGroup" style="display:none;">
@@ -3909,7 +3909,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">Descripción *</label>
-          <input type="text" class="form-input" id="movCajaDesc" placeholder="Ej: Retiro para cambio, pago de limpieza...">
+          <input type="text" class="form-input" id="movCajaDesc" placeholder="Ej: Retiro para cambio, pago de limpieza..." list="movCajaDescSuggestions" autocomplete="off">
+          <datalist id="movCajaDescSuggestions"></datalist>
         </div>
         <div class="form-group">
           <label class="form-label">Monto * <small style="color:var(--sv-texto-muted);">(mayor a 0)</small></label>
@@ -11745,9 +11746,9 @@
       }
       if (auto.totalTransferencias > 0) {
         html += '<tr class="mov-auto-row">' +
-          '<td data-label="Concepto">Transferencias del d&iacute;a (' + auto.detalleTransferencias.length + ')</td>' +
-          '<td data-label="Tipo"><span style="color:var(--sv-exito); font-weight:600;">INGRESO</span></td>' +
-          '<td data-label="Monto" style="text-align:right; color:var(--sv-exito);">+' + formatearMonto(auto.totalTransferencias) + '</td>' +
+          '<td data-label="Concepto">Transferencias del d&iacute;a (' + auto.detalleTransferencias.length + ') &mdash; va al banco</td>' +
+          '<td data-label="Tipo"><span style="color:var(--sv-peligro); font-weight:600;">EGRESO</span></td>' +
+          '<td data-label="Monto" style="text-align:right; color:var(--sv-peligro);">&minus;' + formatearMonto(auto.totalTransferencias) + '</td>' +
         '</tr>';
       }
       if (auto.totalFiados > 0) {
@@ -11815,13 +11816,16 @@
       html += fila('Caja Inicial', formatearMonto(r.cajaInicial), 'var(--sv-texto)', false);
       html += divisor();
       html += fila('+ Cobros del día (cta. cte.)', formatearMonto(r.totalPagos), 'var(--sv-exito)', false);
-      html += fila('+ Transferencias del día', formatearMonto(r.totalTransferencias), 'var(--sv-exito)', false);
       html += fila('+ Ingresos manuales', formatearMonto(r.manualHaber), 'var(--sv-exito)', false);
       html += fila('− Fiados del día', formatearMonto(r.totalFiados), 'var(--sv-peligro)', false);
+      html += fila('− Transferencias del día (banco)', formatearMonto(r.totalTransferencias), 'var(--sv-peligro)', false);
       html += fila('− Egresos manuales', formatearMonto(r.manualDebe), 'var(--sv-peligro)', false);
+      if (r.cajaSiguiente > 0) {
+        html += fila('− Caja del día siguiente (reservado)', formatearMonto(r.cajaSiguiente), 'var(--sv-peligro)', false);
+      }
       html += divisor();
       html += fila('Total ingresos', formatearMonto(r.totalIngresos), 'var(--sv-exito)', false);
-      html += fila('Total egresos', formatearMonto(r.totalEgresos), 'var(--sv-peligro)', false);
+      html += fila('Total egresos', formatearMonto(r.totalEgresos + r.cajaSiguiente), 'var(--sv-peligro)', false);
       html += divisor();
       html += fila('Caja calculada', formatearMonto(r.cajaCalculada), 'var(--sv-primario)', true);
 
@@ -11914,8 +11918,8 @@
             '<td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-exito);">+' + formatearMonto(a.totalPagos) + '</td>' +
           '</tr>' +
           '<tr>' +
-            '<td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Transferencias del d&#237;a</td>' +
-            '<td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-exito);">+' + formatearMonto(a.totalTransferencias) + '</td>' +
+            '<td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Transferencias del d&#237;a (banco)</td>' +
+            '<td style="padding:5px 8px; text-align:right; font-weight:600; color:var(--sv-peligro);">&minus;' + formatearMonto(a.totalTransferencias) + '</td>' +
           '</tr>' +
           '<tr style="background:var(--sv-superficie-elevada);">' +
             '<td style="padding:5px 8px; font-style:italic; color:var(--sv-texto-secundario);">Fiados del d&#237;a</td>' +
@@ -11953,10 +11957,16 @@
               '<span style="color:var(--sv-exito);">+ Total ingresos</span>' +
               '<span style="font-weight:600; color:var(--sv-exito);">+' + formatearMonto(r.totalIngresos) + '</span>' +
             '</div>' +
-            '<div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid var(--sv-borde);">' +
-              '<span style="color:var(--sv-peligro);">&minus; Total egresos</span>' +
+            '<div style="display:flex; justify-content:space-between; margin-bottom:' + (r.cajaSiguiente > 0 ? '0.3rem' : '0.5rem') + '; ' + (r.cajaSiguiente <= 0 ? 'padding-bottom:0.5rem; border-bottom:1px solid var(--sv-borde);' : '') + '">' +
+              '<span style="color:var(--sv-peligro);">&minus; Total egresos (incl. transferencias)</span>' +
               '<span style="font-weight:600; color:var(--sv-peligro);">&minus;' + formatearMonto(r.totalEgresos) + '</span>' +
             '</div>' +
+            (r.cajaSiguiente > 0 ?
+              '<div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid var(--sv-borde);">' +
+                '<span style="color:var(--sv-peligro);">&minus; Caja del d&#237;a siguiente</span>' +
+                '<span style="font-weight:600; color:var(--sv-peligro);">&minus;' + formatearMonto(r.cajaSiguiente) + '</span>' +
+              '</div>'
+            : '') +
             '<div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">' +
               '<span style="font-weight:700;">Caja calculada</span>' +
               '<span style="font-weight:700; font-size:1.05rem; color:var(--sv-primario);">' + formatearMonto(r.cajaCalculada) + '</span>' +
@@ -12071,8 +12081,8 @@
               : '') +
               (a.totalTransferencias > 0 ?
                 '<tr>' +
-                  '<td style="padding:5px 8px; font-style:italic; color:#555;">Transferencias del d&#237;a (' + a.detalleTransferencias.length + ')</td>' +
-                  '<td style="padding:5px 8px; text-align:right; font-weight:600; color:#2E7D32;">+' + formatearMonto(a.totalTransferencias) + '</td>' +
+                  '<td style="padding:5px 8px; font-style:italic; color:#555;">Transferencias del d&#237;a (' + a.detalleTransferencias.length + ') &mdash; va al banco</td>' +
+                  '<td style="padding:5px 8px; text-align:right; font-weight:600; color:#C62828;">&minus;' + formatearMonto(a.totalTransferencias) + '</td>' +
                 '</tr>'
               : '') +
               (a.totalFiados > 0 ?
@@ -12103,7 +12113,10 @@
               '<div style="padding: 0.75rem; font-size: 9.5pt;">' +
                 '<div style="display:grid; grid-template-columns:1fr auto; gap:0.3rem 1rem; align-items:center;">' +
                   '<span style="color:#555;">Total ingresos</span><span style="font-weight:600; color:#2E7D32; text-align:right;">+' + formatearMonto(r.totalIngresos) + '</span>' +
-                  '<span style="color:#555;">Total egresos</span><span style="font-weight:600; color:#C62828; text-align:right;">&minus;' + formatearMonto(r.totalEgresos) + '</span>' +
+                  '<span style="color:#555;">Total egresos (incl. transferencias)</span><span style="font-weight:600; color:#C62828; text-align:right;">&minus;' + formatearMonto(r.totalEgresos) + '</span>' +
+                  (r.cajaSiguiente > 0 ?
+                    '<span style="color:#555;">Caja del d&#237;a siguiente</span><span style="font-weight:600; color:#C62828; text-align:right;">&minus;' + formatearMonto(r.cajaSiguiente) + '</span>'
+                  : '') +
                   '<div style="grid-column:1/-1; border-top:1px solid #ccc; margin:0.2rem 0;"></div>' +
                   '<span style="font-weight:700; font-size:10.5pt;">Caja calculada</span><span style="font-weight:700; font-size:10.5pt; color:#2E7D32; text-align:right;">' + formatearMonto(r.cajaCalculada) + '</span>' +
                   (caja.estado === 'CERRADA' ?
@@ -12133,7 +12146,7 @@
 
       /**
        * Imprime la caja: obtiene datos frescos del backend, construye PrintContext
-       * e inyecta el HTML en el área de impresión.
+       * y abre una ventana nueva para imprimir (evita conflictos de CSS).
        *
        * NUNCA lee del DOM ni de EstadoCajaDiaria para los datos financieros.
        *
@@ -12141,9 +12154,6 @@
        * @param {number} copies
        */
       print: function(cajaId, copies) {
-        const printArea = document.getElementById('contabPrintArea');
-        if (!printArea) return;
-
         mostrarLoading(true);
 
         google.script.run
@@ -12157,18 +12167,31 @@
 
             const cfg = (Estado.configuracion && Estado.configuracion.print) || {};
             const ctx = CajaDiariaPrinter.buildContext(result.caja, cfg, copies || 1);
-            const html = CajaDiariaPrinter.buildHtml(ctx);
+            const bodyHtml = CajaDiariaPrinter.buildHtml(ctx);
 
-            printArea.innerHTML = html;
-            printArea.style.display = 'block';
+            const printDoc =
+              '<!DOCTYPE html><html><head>' +
+              '<meta charset="utf-8">' +
+              '<title>Caja Diaria &mdash; ' + (result.caja.fecha || '') + '</title>' +
+              '<style>' +
+                '@page { size: A4 portrait; margin: 0.8cm; }' +
+                'body { font-family: Arial, sans-serif; font-size: 11pt; color: #222; margin: 0; padding: 0; }' +
+                '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
+                '.contab-copy-block { page-break-after: always; }' +
+                '.contab-copy-block:last-child { page-break-after: avoid; }' +
+                '.contab-dif-ok { color: #2E7D32; font-weight: 600; }' +
+                '.contab-dif-mal { color: #C62828; font-weight: 600; }' +
+              '</style>' +
+              '</head><body>' + bodyHtml + '</body></html>';
 
-            setTimeout(function() {
-              window.print();
-              setTimeout(function() {
-                printArea.style.display = 'none';
-                printArea.innerHTML = '';
-              }, 1200);
-            }, 150);
+            const win = window.open('', '_blank', 'width=820,height=950');
+            if (win) {
+              win.document.write(printDoc);
+              win.document.close();
+              win.onload = function() { win.focus(); win.print(); };
+            } else {
+              mostrarToast('Habilitá las ventanas emergentes para imprimir', 'warning');
+            }
           })
           .withFailureHandler(function(error) {
             mostrarLoading(false);
@@ -12195,9 +12218,29 @@
     /** Abre el modal para una nueva caja */
     function abrirModalNuevaCaja() {
       document.getElementById('abrirCajaFecha').value = obtenerFechaLocal();
-      document.getElementById('abrirCajaInicial').value = '0';
-      document.getElementById('abrirCajaInicial').removeAttribute('disabled');
-      document.getElementById('abrirCajaInicialHint').style.display = 'none';
+
+      const inputEl = document.getElementById('abrirCajaInicial');
+      const hintEl  = document.getElementById('abrirCajaInicialHint');
+
+      // Pre-rellenar con la caja del día siguiente de la última caja cerrada
+      const historial = EstadoCajaDiaria.historial || [];
+      const ultimaCerrada = historial
+        .filter(function(c) { return c.estado === 'CERRADA'; })
+        .sort(function(a, b) { return b.fecha.localeCompare(a.fecha); })[0];
+
+      if (ultimaCerrada && ultimaCerrada.cajaSiguiente > 0) {
+        inputEl.value = ultimaCerrada.cajaSiguiente;
+        inputEl.removeAttribute('disabled');
+        if (hintEl) {
+          hintEl.textContent = '💡 Pre-cargado desde el cierre anterior (' + formatearMonto(ultimaCerrada.cajaSiguiente) + '). Podés modificarlo si cambió.';
+          hintEl.style.display = '';
+        }
+      } else {
+        inputEl.value = '0';
+        inputEl.removeAttribute('disabled');
+        if (hintEl) hintEl.style.display = 'none';
+      }
+
       abrirModal('modalAbrirCaja');
     }
 
@@ -12246,7 +12289,10 @@
       }
 
       // Mostrar diferencia en tiempo real antes de enviar
-      const cajaCalculada = caja.resumen ? caja.resumen.cajaCalculada : 0;
+      const cajaSiguienteEnCierre = cajaSiguiente;
+      const cajaCalculadaBase = caja.resumen ? caja.resumen.cajaCalculada : 0;
+      // La caja calculada actual no incluye cajaSiguiente (aún = 0); lo restamos ahora
+      const cajaCalculada = cajaCalculadaBase - cajaSiguienteEnCierre;
       const diferencia = cajaFinal - cajaCalculada;
       const hayDif = Math.abs(diferencia) > 0.009;
       const difAlert = document.getElementById('contabDiferenciaAlert');
@@ -12339,6 +12385,21 @@
       document.getElementById('movCajaDesc').value = '';
       document.getElementById('movCajaMonto').value = '';
       document.querySelectorAll('#modalMovCaja .banco-option').forEach(b => b.classList.remove('selected'));
+
+      // Cargar sugerencias de descripciones previas
+      google.script.run
+        .withSuccessHandler(function(r) {
+          if (r.success && r.descripciones && r.descripciones.length > 0) {
+            const dl = document.getElementById('movCajaDescSuggestions');
+            if (dl) {
+              dl.innerHTML = r.descripciones.map(function(d) {
+                return '<option value="' + escapeHtml(d) + '">';
+              }).join('');
+            }
+          }
+        })
+        .obtenerDescripcionesMovManual();
+
       abrirModal('modalMovCaja');
     }
 
