@@ -353,13 +353,13 @@ const CajaDiariaService = {
    * Calcula el resumen financiero completo de una caja.
    *
    * Fórmula central:
-   *   cajaCalculada = cajaInicial + totalIngresos − totalEgresos
+   *   cajaCalculada = cajaInicial + totalIngresos − totalEgresos − cajaSiguiente
    *   diferencia    = cajaFinal − cajaCalculada
    *
-   * Ingresos: pagos + transferencias + movimientosManuales HABER
-   * Egresos : fiados + movimientosManuales DEBE
+   * Ingresos: pagos + movimientosManuales HABER
+   * Egresos : transferencias (van al banco) + fiados + movimientosManuales DEBE + cajaSiguiente
    *
-   * @param {Object} caja         - Objeto caja (con cajaInicial y cajaFinal)
+   * @param {Object} caja         - Objeto caja (con cajaInicial, cajaFinal y cajaSiguiente)
    * @param {Array}  movManuales  - Array de movimientos manuales
    * @param {Object} automaticos  - Resultado de calcularAutomaticos()
    * @returns {Object}
@@ -372,9 +372,12 @@ const CajaDiariaService = {
       .filter(m => m.tipo === 'DEBE')
       .reduce((s, m) => s + (Number(m.monto) || 0), 0);
 
-    const totalIngresos   = automaticos.totalPagos + automaticos.totalTransferencias + manualHaber;
-    const totalEgresos    = automaticos.totalFiados + manualDebe;
-    const cajaCalculada   = caja.cajaInicial + totalIngresos - totalEgresos;
+    // Transferencias son EGRESO: el dinero va al banco, no queda físicamente en caja
+    const totalIngresos   = automaticos.totalPagos + manualHaber;
+    const totalEgresos    = automaticos.totalFiados + manualDebe + automaticos.totalTransferencias;
+    // Caja del día siguiente: sale físicamente de la caja para la próxima apertura
+    const cajaSiguiente   = Number(caja.cajaSiguiente) || 0;
+    const cajaCalculada   = caja.cajaInicial + totalIngresos - totalEgresos - cajaSiguiente;
     const cajaFinal       = Number(caja.cajaFinal) || 0;
     const diferencia      = cajaFinal - cajaCalculada;
     const hayDiferencia   = Math.abs(diferencia) > 0.009;
@@ -384,6 +387,7 @@ const CajaDiariaService = {
       totalPagos:           automaticos.totalPagos,
       totalFiados:          automaticos.totalFiados,
       totalTransferencias:  automaticos.totalTransferencias,
+      cajaSiguiente,
       manualHaber,
       manualDebe,
       totalIngresos,
@@ -396,19 +400,14 @@ const CajaDiariaService = {
   },
 
   /**
-   * Determina si la cajaInicial puede ser editada.
-   * Está bloqueada cuando el cierre del día anterior seteó cajaSiguiente > 0.
-   * @param {string} fechaCaja - Fecha de la caja en cuestión
-   * @returns {boolean} true = editable, false = bloqueada
+   * La cajaInicial siempre es editable. El valor del cajaSiguiente anterior
+   * se usa como sugerencia en el frontend pero el usuario puede modificarlo.
+   * @returns {boolean} Siempre true
    */
-  cajaInicialEditable: function(fechaCaja) {
-    const todas = CajaDiariaRepository.obtenerTodas();
-    const cerradas = todas
-      .filter(c => c.estado === CONFIG.ESTADOS_CAJA.CERRADA && c.fecha < fechaCaja)
-      .sort((a, b) => b.fecha.localeCompare(a.fecha));
-    if (cerradas.length === 0) return true;
-    return cerradas[0].cajaSiguiente <= 0;
+  cajaInicialEditable: function() {
+    return true;
   }
+
 };
 
 
@@ -454,14 +453,15 @@ function abrirCajaDiaria(datos) {
       };
     }
 
-    // Evaluar cajaSiguiente del último cierre
+    // Evaluar cajaSiguiente del último cierre para sugerencia
     const todas = CajaDiariaRepository.obtenerTodas();
     const cerradas = todas
       .filter(c => c.estado === CONFIG.ESTADOS_CAJA.CERRADA)
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
     const cajaSiguientePrevio = cerradas.length > 0 ? cerradas[0].cajaSiguiente : 0;
-    const cajaInicialEfectiva = cajaSiguientePrevio > 0 ? cajaSiguientePrevio : (datos.cajaInicial || 0);
-    const cajaInicialBloqueada = cajaSiguientePrevio > 0;
+    // Usar el valor ingresado por el usuario; si no ingresó nada, usar el sugerido
+    const cajaInicialEfectiva = (datos.cajaInicial > 0) ? datos.cajaInicial : (cajaSiguientePrevio || 0);
+    const cajaInicialBloqueada = false; // Siempre editable
 
     const nueva = CajaDiariaRepository.crear({
       fecha: datos.fecha,
@@ -508,11 +508,11 @@ function cerrarCajaDiaria(id, datos) {
       return { success: false, error: 'La caja ya está cerrada.' };
     }
 
-    // Siempre recalcular desde fuente
+    // Siempre recalcular desde fuente; incluir cajaSiguiente como egreso
     const automaticos = CajaDiariaService.calcularAutomaticos(caja.fecha);
     const movManuales  = CajaMovManualRepository.obtenerPorCaja(id);
     const resumen      = CajaDiariaService.calcularResumen(
-      { ...caja, cajaFinal: datos.cajaFinal || 0 },
+      { ...caja, cajaFinal: datos.cajaFinal || 0, cajaSiguiente: datos.cajaSiguiente || 0 },
       movManuales,
       automaticos
     );
@@ -677,7 +677,7 @@ function obtenerCajaDiariaActiva() {
     const automaticos       = CajaDiariaService.calcularAutomaticos(caja.fecha);
     const movManuales       = CajaMovManualRepository.obtenerPorCaja(caja.id);
     const resumen           = CajaDiariaService.calcularResumen(caja, movManuales, automaticos);
-    const cajaInicialEditable = CajaDiariaService.cajaInicialEditable(caja.fecha);
+    const cajaInicialEditable = CajaDiariaService.cajaInicialEditable();
 
     return {
       success: true,
@@ -754,12 +754,6 @@ function actualizarCajaInicial(cajaId, cajaInicial) {
     if (caja.estado !== CONFIG.ESTADOS_CAJA.ABIERTA) {
       return { success: false, error: 'No se puede editar una caja cerrada.' };
     }
-    if (!CajaDiariaService.cajaInicialEditable(caja.fecha)) {
-      return {
-        success: false,
-        error: 'La caja inicial fue definida por el cierre del día anterior y no puede modificarse.'
-      };
-    }
 
     const C = CONFIG.COLS_CAJA_DIARIA;
     CajaDiariaRepository.actualizarFila(cajaId, { [C.CAJA_INICIAL]: Number(cajaInicial) || 0 });
@@ -768,5 +762,34 @@ function actualizarCajaInicial(cajaId, cajaInicial) {
   } catch (error) {
     Logger.log('Error en actualizarCajaInicial: ' + error.message);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Devuelve las descripciones únicas de los movimientos manuales previos.
+ * Usado para autocompletar en el modal de nuevo movimiento.
+ *
+ * @returns {{ success: boolean, descripciones: Array<string>, error?: string }}
+ */
+function obtenerDescripcionesMovManual() {
+  try {
+    const hoja = CajaMovManualRepository.getHoja();
+    const datos = hoja.getDataRange().getValues();
+    const C = CONFIG.COLS_CAJA_MOV;
+
+    if (datos.length <= 1) return { success: true, descripciones: [] };
+
+    const set = new Set();
+    for (let i = 1; i < datos.length; i++) {
+      const desc = String(datos[i][C.DESCRIPCION] || '').trim();
+      if (desc) set.add(desc);
+    }
+
+    const descripciones = Array.from(set).sort();
+    return { success: true, descripciones };
+
+  } catch (error) {
+    Logger.log('Error en obtenerDescripcionesMovManual: ' + error.message);
+    return { success: false, descripciones: [], error: error.message };
   }
 }
