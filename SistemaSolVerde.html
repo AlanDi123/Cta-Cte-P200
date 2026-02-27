@@ -2020,6 +2020,346 @@
       .contab-copy-block:last-child { page-break-after: avoid; }
     }
 
+    /* ─────────────────────────────────────────────────────────
+       VENTA NOCTURNA — Estilos del módulo POS
+    ───────────────────────────────────────────────────────── */
+    #module-venta-nocturna {
+      padding: 0;
+      background: var(--sv-fondo);
+      min-height: calc(100vh - 60px);
+    }
+    .vn-sesion-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.6rem 1.2rem;
+      background: #1A237E;
+      color: #fff;
+      font-size: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .vn-sesion-bar .vn-sesion-info { flex: 1; font-weight: 600; }
+    .vn-sesion-bar .badge-open { background: #4CAF50; color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; }
+    .vn-sesion-bar .badge-closed { background: #F44336; color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; }
+
+    .vn-tabs {
+      display: flex;
+      gap: 0;
+      background: #0D47A1;
+      overflow-x: auto;
+    }
+    .vn-tab-btn {
+      padding: 0.55rem 1.1rem;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .vn-tab-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
+    .vn-tab-btn.active { color: #fff; border-bottom-color: #FFD600; background: rgba(255,255,255,0.1); }
+
+    .vn-sin-sesion {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 1rem;
+      text-align: center;
+    }
+    .vn-sin-sesion .vn-sin-sesion-icon { font-size: 4rem; margin-bottom: 1rem; }
+    .vn-sin-sesion h2 { color: var(--sv-texto-principal); margin-bottom: 0.5rem; }
+    .vn-sin-sesion p { color: var(--sv-texto-secundario); margin-bottom: 1.5rem; }
+
+    /* ── POS Layout ── */
+    .vn-pos-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 0;
+      height: calc(100vh - 110px);
+      overflow: hidden;
+    }
+    @media (max-width: 900px) {
+      .vn-pos-layout { grid-template-columns: 1fr; height: auto; overflow: visible; }
+    }
+
+    .vn-pos-left {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--sv-borde);
+    }
+    .vn-pos-top-bar {
+      display: flex;
+      gap: 0.6rem;
+      padding: 0.6rem 0.8rem;
+      background: var(--sv-superficie);
+      border-bottom: 1px solid var(--sv-borde);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .vn-cliente-display {
+      flex: 1;
+      min-width: 160px;
+      padding: 0.4rem 0.8rem;
+      background: var(--sv-superficie-elevada);
+      border: 1px solid var(--sv-borde);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--sv-texto-principal);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .vn-search-prod {
+      flex: 1;
+      min-width: 160px;
+      padding: 0.4rem 0.8rem;
+      border: 1px solid var(--sv-borde);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      background: var(--sv-superficie);
+      color: var(--sv-texto-principal);
+    }
+
+    .vn-prod-grid {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.8rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 0.6rem;
+      align-content: start;
+    }
+    .vn-prod-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 0.5rem;
+      background: var(--sv-superficie);
+      border: 2px solid var(--sv-borde);
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+      gap: 0.3rem;
+      min-height: 80px;
+    }
+    .vn-prod-btn:hover { border-color: var(--sv-primario); background: rgba(46,125,50,0.07); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .vn-prod-btn:active { transform: translateY(0); }
+    .vn-prod-btn .vn-prod-nombre { font-size: 0.78rem; font-weight: 600; color: var(--sv-texto-principal); line-height: 1.2; }
+    .vn-prod-btn .vn-prod-precio { font-size: 0.85rem; color: var(--sv-primario); font-weight: 700; }
+    .vn-prod-btn .vn-prod-stock-low { font-size: 0.65rem; color: #F44336; }
+
+    .vn-pos-right {
+      display: flex;
+      flex-direction: column;
+      background: var(--sv-superficie);
+      overflow: hidden;
+    }
+    .vn-carrito-header {
+      padding: 0.6rem 1rem;
+      font-weight: 700;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--sv-borde);
+      color: var(--sv-texto-principal);
+      background: var(--sv-superficie-elevada);
+    }
+    .vn-carrito-items {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.4rem;
+    }
+    .vn-carrito-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid var(--sv-borde);
+      font-size: 0.82rem;
+    }
+    .vn-carrito-item .vn-ci-nombre { flex: 1; font-weight: 500; }
+    .vn-carrito-item .vn-ci-qty {
+      display: flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
+    .vn-ci-qty button {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 1px solid var(--sv-borde);
+      background: var(--sv-superficie-elevada);
+      cursor: pointer;
+      font-size: 0.8rem;
+      line-height: 1;
+      color: var(--sv-texto-principal);
+    }
+    .vn-ci-qty input {
+      width: 38px;
+      text-align: center;
+      border: 1px solid var(--sv-borde);
+      border-radius: 4px;
+      font-size: 0.8rem;
+      padding: 1px 2px;
+      background: var(--sv-superficie);
+      color: var(--sv-texto-principal);
+    }
+    .vn-carrito-item .vn-ci-subtotal { font-weight: 600; color: var(--sv-primario); min-width: 70px; text-align: right; }
+    .vn-ci-del { background: none; border: none; cursor: pointer; color: #F44336; font-size: 1rem; padding: 0 4px; }
+
+    .vn-carrito-footer {
+      border-top: 2px solid var(--sv-borde);
+      padding: 0.6rem 1rem;
+    }
+    .vn-total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .vn-total-label { font-size: 0.85rem; color: var(--sv-texto-secundario); }
+    .vn-total-monto { font-size: 1.4rem; font-weight: 800; color: var(--sv-texto-principal); }
+
+    .vn-medios-titulo { font-size: 0.78rem; font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 0.4rem; text-transform: uppercase; }
+    .vn-medios-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; margin-bottom: 0.5rem; }
+    .vn-medio-btn {
+      padding: 0.4rem;
+      border: 1px solid var(--sv-borde);
+      border-radius: 6px;
+      background: var(--sv-superficie-elevada);
+      cursor: pointer;
+      font-size: 0.73rem;
+      font-weight: 600;
+      color: var(--sv-texto-principal);
+      text-align: center;
+      transition: all 0.12s;
+    }
+    .vn-medio-btn:hover { border-color: var(--sv-primario); background: rgba(46,125,50,0.1); }
+
+    .vn-pagos-lista { margin-bottom: 0.5rem; }
+    .vn-pago-chip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      background: rgba(46,125,50,0.1);
+      border-radius: 6px;
+      font-size: 0.8rem;
+      margin-bottom: 3px;
+    }
+    .vn-pago-chip button { background: none; border: none; cursor: pointer; color: #F44336; font-size: 0.9rem; }
+
+    .vn-diff-warning { color: #F44336; font-size: 0.75rem; text-align: right; margin-bottom: 0.3rem; }
+
+    .vn-btn-cobrar {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--sv-primario);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .vn-btn-cobrar:hover { background: var(--sv-primario-oscuro, #1B5E20); }
+    .vn-btn-cobrar:disabled { background: #9E9E9E; cursor: not-allowed; }
+
+    .vn-acciones-extra {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.4rem 0.8rem;
+      border-top: 1px solid var(--sv-borde);
+      background: var(--sv-superficie);
+      flex-wrap: wrap;
+    }
+    .vn-accion-btn {
+      flex: 1;
+      padding: 0.35rem 0.5rem;
+      border: 1px dashed var(--sv-borde);
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.75rem;
+      color: var(--sv-texto-secundario);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .vn-accion-btn:hover { border-color: var(--sv-primario); color: var(--sv-primario); }
+
+    /* ── Vista Historial ── */
+    .vn-historial-resumen {
+      display: flex;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: var(--sv-superficie);
+      border-bottom: 1px solid var(--sv-borde);
+      flex-wrap: wrap;
+    }
+    .vn-stat-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.4rem 0.75rem;
+      background: var(--sv-superficie-elevada);
+      border-radius: 8px;
+      min-width: 100px;
+    }
+    .vn-stat-chip .vn-stat-label { font-size: 0.68rem; color: var(--sv-texto-secundario); text-transform: uppercase; }
+    .vn-stat-chip .vn-stat-value { font-size: 1.1rem; font-weight: 700; color: var(--sv-texto-principal); }
+
+    /* ── Vista Stock — semáforo ── */
+    .stock-ok { color: #4CAF50; }
+    .stock-low { color: #FF9800; }
+    .stock-critical { color: #F44336; }
+    .vn-stock-badge { font-size: 1rem; }
+
+    /* ── Modales VN ── */
+    .vn-modal-bancos {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin: 0.75rem 0;
+    }
+    .vn-banco-btn {
+      flex: 1;
+      padding: 0.6rem 0.4rem;
+      border: 2px solid var(--sv-borde);
+      border-radius: 8px;
+      background: var(--sv-superficie-elevada);
+      cursor: pointer;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--sv-texto-principal);
+      transition: all 0.15s;
+    }
+    .vn-banco-btn:hover { border-color: var(--sv-primario); }
+    .vn-banco-btn.selected { border-color: var(--sv-primario); background: rgba(46,125,50,0.12); }
+
+    .vn-cambio-display {
+      text-align: center;
+      padding: 0.5rem;
+      background: rgba(46,125,50,0.08);
+      border-radius: 6px;
+      margin-top: 0.5rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--sv-primario);
+    }
+
+    /* ── Vale impresión ── */
+    @media print {
+      .vn-ticket-print { display: block !important; }
+    }
+
   </style>
 </head>
 <body>
@@ -2131,6 +2471,14 @@
         <div class="menu-item" data-module="alquileres">
           <span class="menu-icon">🏪</span>
           <span>Alquiler de Puestos</span>
+        </div>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-section-title">🌙 Nocturno</div>
+        <div class="menu-item" data-module="venta-nocturna">
+          <span class="menu-icon">🌙</span>
+          <span>Venta Nocturna</span>
         </div>
       </div>
 
@@ -3849,6 +4197,284 @@
 
       </div><!-- /module-contabilidad -->
 
+      <!-- ════════════════════════════════════════════════════
+           MÓDULO: VENTA NOCTURNA
+      ═══════════════════════════════════════════════════════ -->
+      <div class="module-view" id="module-venta-nocturna" style="padding:0;">
+
+        <!-- Barra de sesión -->
+        <div class="vn-sesion-bar" id="vnSesionBar">
+          <span class="vn-sesion-info" id="vnSesionInfo">🌙 Venta Nocturna — Sin sesión activa</span>
+          <button class="btn btn-sm" id="btnVnAbrirSesion" onclick="vnAbrirSesion()" style="background:#4CAF50;color:#fff;border:none;">+ Abrir Sesión</button>
+          <button class="btn btn-sm" id="btnVnCerrarSesion" onclick="vnConfirmarCierre()" style="background:#F44336;color:#fff;border:none;display:none;">Cerrar Sesión</button>
+        </div>
+
+        <!-- Pestañas -->
+        <div class="vn-tabs">
+          <button class="vn-tab-btn active" onclick="vnCambiarVista('pos')" id="vnTabPos">🛒 POS</button>
+          <button class="vn-tab-btn" onclick="vnCambiarVista('historial')" id="vnTabHistorial">📋 Historial</button>
+          <button class="vn-tab-btn" onclick="vnCambiarVista('vales')" id="vnTabVales">🎟️ Vales</button>
+          <button class="vn-tab-btn" onclick="vnCambiarVista('pagos')" id="vnTabPagos">💳 Pagos/Fiados</button>
+          <button class="vn-tab-btn" onclick="vnCambiarVista('stock')" id="vnTabStock">📦 Stock</button>
+          <button class="vn-tab-btn" onclick="vnCambiarVista('config')" id="vnTabConfig">⚙️ Config</button>
+        </div>
+
+        <!-- ── Vista: Sin sesión ── -->
+        <div id="vnViewSinSesion" class="vn-sin-sesion">
+          <div class="vn-sin-sesion-icon">🌙</div>
+          <h2>Venta Nocturna</h2>
+          <p>Abrí una nueva sesión para comenzar a registrar ventas.</p>
+          <button class="btn btn-primary" onclick="vnAbrirSesion()">➕ Abrir Sesión Nocturna</button>
+        </div>
+
+        <!-- ── Vista: POS ── -->
+        <div id="vnViewPOS" style="display:none;">
+          <div class="vn-pos-layout">
+            <!-- Panel izquierdo: productos -->
+            <div class="vn-pos-left">
+              <div class="vn-pos-top-bar">
+                <button class="vn-cliente-display" onclick="vnAbrirBuscadorCliente()" id="vnClienteDisplay" title="Cambiar cliente">
+                  <span>👤</span>
+                  <span id="vnClienteNombre">CONSUMIDOR FINAL</span>
+                  <span style="color:var(--sv-texto-secundario); font-size:0.75rem;">▼</span>
+                </button>
+                <input type="text" class="vn-search-prod" id="vnSearchProd"
+                  placeholder="🔍 Buscar producto..."
+                  oninput="vnFiltrarProductos(this.value)">
+              </div>
+              <div class="vn-prod-grid" id="vnProdGrid">
+                <div style="color:var(--sv-texto-secundario);font-size:0.85rem;grid-column:1/-1;text-align:center;padding:2rem;">
+                  Cargando productos...
+                </div>
+              </div>
+              <div class="vn-acciones-extra">
+                <button class="vn-accion-btn" onclick="vnAbrirEmitirVale()">📦 Emitir Vale</button>
+                <button class="vn-accion-btn" onclick="vnAbrirRegistrarCobro()">💳 Cobro/Pago</button>
+              </div>
+            </div>
+
+            <!-- Panel derecho: carrito -->
+            <div class="vn-pos-right">
+              <div class="vn-carrito-header">🛒 Carrito</div>
+              <div class="vn-carrito-items" id="vnCarritoItems">
+                <div id="vnCarritoVacio" style="text-align:center;padding:2rem;color:var(--sv-texto-secundario);font-size:0.85rem;">
+                  El carrito está vacío.<br>Seleccioná un producto.
+                </div>
+              </div>
+              <div class="vn-carrito-footer">
+                <div class="vn-total-row">
+                  <span class="vn-total-label">TOTAL</span>
+                  <span class="vn-total-monto" id="vnTotalMonto">$0</span>
+                </div>
+                <div class="vn-medios-titulo">Medios de pago</div>
+                <div class="vn-medios-grid">
+                  <button class="vn-medio-btn" onclick="vnAgregarMedio('EFECTIVO')">💵 Efectivo</button>
+                  <button class="vn-medio-btn" onclick="vnAgregarMedio('TRANSFERENCIA')">📱 Transf.</button>
+                  <button class="vn-medio-btn" onclick="vnAgregarMedio('VALE')">🎟️ Vale</button>
+                  <button class="vn-medio-btn" onclick="vnAgregarMedio('FIADO')">📋 Fiado</button>
+                  <button class="vn-medio-btn" onclick="vnAgregarMedio('A_CUENTA')" style="grid-column:1/-1;">💳 Pago a Cuenta</button>
+                </div>
+                <div class="vn-pagos-lista" id="vnPagosLista"></div>
+                <div class="vn-diff-warning" id="vnDiffWarning" style="display:none;"></div>
+                <button class="vn-btn-cobrar" id="vnBtnCobrar" onclick="vnCobrar()" disabled>
+                  🖨️ COBRAR Y EMITIR TICKET
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Vista: Historial de sesión ── -->
+        <div id="vnViewHistorial" style="display:none; padding:1rem;">
+          <div class="vn-historial-resumen" id="vnHistorialResumen">
+            <div class="vn-stat-chip"><span class="vn-stat-label">Total Vendido</span><span class="vn-stat-value" id="vnStatTotal">$0</span></div>
+            <div class="vn-stat-chip"><span class="vn-stat-label">💵 Efectivo</span><span class="vn-stat-value" id="vnStatEfectivo">$0</span></div>
+            <div class="vn-stat-chip"><span class="vn-stat-label">📱 Transf.</span><span class="vn-stat-value" id="vnStatTransf">$0</span></div>
+            <div class="vn-stat-chip"><span class="vn-stat-label">🎟️ Vales</span><span class="vn-stat-value" id="vnStatVales">$0</span></div>
+            <div class="vn-stat-chip"><span class="vn-stat-label">📋 Fiados</span><span class="vn-stat-value" id="vnStatFiado">$0</span></div>
+          </div>
+          <div class="card" style="margin-top:1rem; padding:0; overflow:hidden;">
+            <table class="table" style="font-size:0.82rem;">
+              <thead>
+                <tr>
+                  <th>#</th><th>Hora</th><th>Cliente</th>
+                  <th>Items</th><th>Total</th><th>Pago</th>
+                  <th>Estado</th><th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="vnHistorialBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Vista: Vales ── -->
+        <div id="vnViewVales" style="display:none; padding:1rem;">
+          <div class="card" style="margin-bottom:1rem;">
+            <h3 style="margin-bottom:0.75rem;">Emitir Nuevo Vale</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.5rem;align-items:end;flex-wrap:wrap;">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Cliente</label>
+                <input type="text" class="form-input" id="vnValeCliente" placeholder="Nombre o CONSUMIDOR FINAL" autocomplete="off">
+                <div class="suggestions-list" id="vnValeClienteSug" style="display:none;"></div>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Motivo *</label>
+                <input type="text" class="form-input" id="vnValeMotivo" placeholder="Ej: Devolución vacios x5">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Monto *</label>
+                <input type="number" class="form-input" id="vnValeMonto" placeholder="$0" min="1">
+              </div>
+              <button class="btn btn-primary" onclick="vnEmitirVale()" style="height:42px;">🖨️ Emitir</button>
+            </div>
+          </div>
+
+          <div class="card" style="padding:0;">
+            <div style="display:flex;gap:0.5rem;padding:0.75rem;border-bottom:1px solid var(--sv-borde);align-items:center;flex-wrap:wrap;">
+              <strong style="font-size:0.9rem;">Vales</strong>
+              <select class="form-input" id="vnValesFiltroEstado" onchange="vnCargarVales()" style="width:auto;padding:0.3rem 0.5rem;font-size:0.82rem;">
+                <option value="">Todos</option>
+                <option value="DISPONIBLE">Disponibles</option>
+                <option value="CANJEADO">Canjeados</option>
+                <option value="ANULADO">Anulados</option>
+              </select>
+              <button class="btn btn-sm btn-outline" onclick="vnCargarVales()">🔄 Actualizar</button>
+            </div>
+            <table class="table" style="font-size:0.82rem;">
+              <thead>
+                <tr><th>N° Vale</th><th>Fecha</th><th>Cliente</th><th>Motivo</th><th>Monto</th><th>Estado</th><th>Acciones</th></tr>
+              </thead>
+              <tbody id="vnValesBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Vista: Pagos / Fiados ── -->
+        <div id="vnViewPagos" style="display:none; padding:1rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <!-- Deudas activas -->
+            <div class="card">
+              <h3 style="margin-bottom:0.75rem;">Deudas Activas (Fiados)</h3>
+              <div id="vnDeudasLista" style="font-size:0.85rem;">Cargando...</div>
+            </div>
+            <!-- Registrar cobro / pago -->
+            <div class="card">
+              <h3 style="margin-bottom:0.75rem;">Registrar Movimiento</h3>
+              <div class="form-group">
+                <label class="form-label">Cliente *</label>
+                <input type="text" class="form-input" id="vnPagoCliente" placeholder="Nombre del cliente" autocomplete="off">
+                <div class="suggestions-list" id="vnPagoClienteSug" style="display:none;"></div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tipo</label>
+                <select class="form-input" id="vnPagoTipo">
+                  <option value="COBRO">Cobro de Fiado</option>
+                  <option value="PAGO_A_CUENTA">Pago a Cuenta</option>
+                  <option value="FIADO">Registrar Fiado (deuda)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Monto *</label>
+                <input type="number" class="form-input" id="vnPagoMonto" placeholder="$0" min="1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Observación</label>
+                <input type="text" class="form-input" id="vnPagoObs" placeholder="Opcional">
+              </div>
+              <button class="btn btn-primary" onclick="vnRegistrarPago()" style="width:100%;">✅ Registrar</button>
+            </div>
+          </div>
+          <!-- Historial de pagos de la sesión -->
+          <div class="card" style="margin-top:1rem;padding:0;">
+            <div style="padding:0.75rem;font-weight:600;border-bottom:1px solid var(--sv-borde);">Movimientos de esta Sesión</div>
+            <table class="table" style="font-size:0.82rem;">
+              <thead><tr><th>Hora</th><th>Cliente</th><th>Tipo</th><th>Monto</th><th>Obs</th></tr></thead>
+              <tbody id="vnPagosHistBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Vista: Stock ── -->
+        <div id="vnViewStock" style="display:none; padding:1rem;">
+          <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="vnAbrirCompra()">📥 Registrar Compra</button>
+            <button class="btn btn-outline" onclick="vnAbrirMerma()" style="border-color:#F44336;color:#F44336;">🗑️ Registrar Merma</button>
+            <button class="btn btn-outline" onclick="vnAbrirCorreccion()" style="border-color:#FF9800;color:#FF9800;">✏️ Corrección de Existencias</button>
+            <button class="btn btn-sm btn-outline" onclick="vnCargarStock()" style="margin-left:auto;">🔄</button>
+          </div>
+
+          <!-- Tabs stock -->
+          <div style="display:flex;gap:0;border-bottom:1px solid var(--sv-borde);margin-bottom:1rem;">
+            <button class="vn-tab-btn active" id="vnStockTab1" onclick="vnStockCambiarTab('existencias')" style="border-bottom:none;color:var(--sv-texto-principal);">📦 Existencias</button>
+            <button class="vn-tab-btn" id="vnStockTab2" onclick="vnStockCambiarTab('compras')" style="border-bottom:none;color:var(--sv-texto-secundario);">📥 Compras</button>
+            <button class="vn-tab-btn" id="vnStockTab3" onclick="vnStockCambiarTab('mermas')" style="border-bottom:none;color:var(--sv-texto-secundario);">🗑️ Mermas</button>
+            <button class="vn-tab-btn" id="vnStockTab4" onclick="vnStockCambiarTab('correcciones')" style="border-bottom:none;color:var(--sv-texto-secundario);">✏️ Correcciones</button>
+          </div>
+
+          <div id="vnStockExistencias">
+            <div class="card" style="padding:0;overflow:hidden;">
+              <table class="table" style="font-size:0.85rem;">
+                <thead><tr><th>Producto</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <tbody id="vnExistenciasBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="vnStockCompras" style="display:none;">
+            <div class="card" style="padding:0;"><table class="table" style="font-size:0.82rem;">
+              <thead><tr><th>Fecha</th><th>Proveedor</th><th>Producto</th><th>Cantidad</th><th>Costo U.</th><th>Total</th></tr></thead>
+              <tbody id="vnComprasBody"></tbody>
+            </table></div>
+          </div>
+          <div id="vnStockMermas" style="display:none;">
+            <div class="card" style="padding:0;"><table class="table" style="font-size:0.82rem;">
+              <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Razón</th><th>Usuario</th></tr></thead>
+              <tbody id="vnMermasBody"></tbody>
+            </table></div>
+          </div>
+          <div id="vnStockCorrecciones" style="display:none;">
+            <div class="card" style="padding:0;"><table class="table" style="font-size:0.82rem;">
+              <thead><tr><th>Fecha</th><th>Producto</th><th>Stock Ant.</th><th>Stock Nuevo</th><th>Razón</th><th>Usuario</th></tr></thead>
+              <tbody id="vnCorreccionesBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- ── Vista: Configuración VN ── -->
+        <div id="vnViewConfig" style="display:none; padding:1rem;">
+          <div class="card" style="max-width:600px;">
+            <h3 style="margin-bottom:1rem;">⚙️ Configuración Venta Nocturna</h3>
+            <div class="form-group">
+              <label class="form-label">Nombre de Empresa (en tickets)</label>
+              <input type="text" class="form-input" id="vnConfigEmpresa" placeholder="SOL & VERDE">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Dirección (en tickets)</label>
+              <input type="text" class="form-input" id="vnConfigDireccion" placeholder="Calle 123, Ciudad">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Teléfono (en tickets)</label>
+              <input type="text" class="form-input" id="vnConfigTelefono" placeholder="+54 9 ...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nombre de Impresora (referencia)</label>
+              <input type="text" class="form-input" id="vnConfigImpresora" placeholder="EPSON TM-T20 - Sala Nocturna">
+            </div>
+            <button class="btn btn-primary" onclick="vnGuardarConfig()">💾 Guardar Configuración</button>
+
+            <hr style="margin:1.5rem 0;">
+            <h4 style="margin-bottom:0.75rem;">Gestión de Productos VN</h4>
+            <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+              <button class="btn btn-primary btn-sm" onclick="vnAbrirNuevoProducto()">+ Nuevo Producto</button>
+            </div>
+            <table class="table" style="font-size:0.82rem;">
+              <thead><tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Stock</th><th>Activo</th><th>Acciones</th></tr></thead>
+              <tbody id="vnProductosConfigBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /module-venta-nocturna -->
+
     </main>
   </div>
 
@@ -4678,6 +5304,302 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="cerrarModal('modalAyuda')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODALES — VENTA NOCTURNA
+  ════════════════════════════════════════════════════════════ -->
+
+  <!-- Modal: Confirmar apertura de sesión -->
+  <div class="modal" id="modalVnAbrirSesion">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header"><h3>🌙 Nueva Sesión Nocturna</h3></div>
+      <div class="modal-body">
+        <p>¿Querés abrir una nueva sesión nocturna para hoy?</p>
+        <p style="font-size:0.85rem;color:var(--sv-texto-secundario);">Fecha: <strong id="vnSesionFechaDisplay"></strong></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnAbrirSesion')">Cancelar</button>
+        <button class="btn btn-primary" onclick="vnConfirmarApertura()">✅ Abrir Sesión</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmar cierre de sesión -->
+  <div class="modal" id="modalVnCerrarSesion">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header"><h3>🔒 Cerrar Sesión</h3></div>
+      <div class="modal-body">
+        <div id="vnResumenCierre" style="background:var(--sv-superficie-elevada);padding:1rem;border-radius:8px;margin-bottom:1rem;font-size:0.85rem;"></div>
+        <p style="color:var(--sv-texto-secundario);font-size:0.85rem;">¿Confirmás el cierre de la sesión? Esta acción no puede deshacerse.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnCerrarSesion')">Cancelar</button>
+        <button class="btn btn-danger" onclick="vnConfirmarCierreOk()" style="background:#F44336;color:#fff;border:none;">🔒 Cerrar Sesión</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Seleccionar cliente POS -->
+  <div class="modal" id="modalVnCliente">
+    <div class="modal-content" style="max-width:500px;">
+      <div class="modal-header"><h3>👤 Seleccionar Cliente</h3></div>
+      <div class="modal-body">
+        <input type="text" class="form-input" id="vnBuscarClienteInput"
+          placeholder="Buscar por nombre..." autocomplete="off"
+          oninput="vnBuscarClientePOS(this.value)"
+          style="margin-bottom:0.5rem;">
+        <div id="vnClienteSugerencias" style="max-height:200px;overflow-y:auto;"></div>
+        <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="vnSeleccionarCliente('CONSUMIDOR FINAL','')">👤 Consumidor Final</button>
+          <button class="btn btn-outline btn-sm" onclick="vnAbrirNuevoClienteRapido()">➕ Nuevo cliente</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnCliente')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nuevo cliente rápido -->
+  <div class="modal" id="modalVnNuevoCliente">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header"><h3>➕ Nuevo Cliente</h3></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Nombre *</label>
+          <input type="text" class="form-input" id="vnNcNombre" placeholder="Nombre o razón social" style="text-transform:uppercase;"></div>
+        <div class="form-group"><label class="form-label">Teléfono</label>
+          <input type="text" class="form-input" id="vnNcTel" placeholder="Opcional"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnNuevoCliente')">Cancelar</button>
+        <button class="btn btn-primary" onclick="vnGuardarNuevoCliente()">✅ Crear y Seleccionar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Pago en Efectivo -->
+  <div class="modal" id="modalVnPagoEfectivo">
+    <div class="modal-content" style="max-width:380px;">
+      <div class="modal-header"><h3>💵 Pago en Efectivo</h3></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Monto a aplicar</label>
+          <input type="number" class="form-input" id="vnEfectivoMonto" placeholder="$0" min="1" oninput="vnCalcCambio()"></div>
+        <div class="vn-cambio-display" id="vnCambioDisplay" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnPagoEfectivo')">Cancelar</button>
+        <button class="btn btn-primary" onclick="vnConfirmarEfectivo()">✅ Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Pago Transferencia -->
+  <div class="modal" id="modalVnPagoTransferencia">
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header"><h3>📱 Pago por Transferencia</h3></div>
+      <div class="modal-body">
+        <label class="form-label">Banco</label>
+        <div class="vn-modal-bancos">
+          <button class="vn-banco-btn" onclick="vnSelBanco('Santander',this)">🔴<br>Santander</button>
+          <button class="vn-banco-btn" onclick="vnSelBanco('Mercado Pago',this)">💙<br>Mercado Pago</button>
+          <button class="vn-banco-btn" onclick="vnSelBanco('Macro',this)">🟡<br>Macro</button>
+        </div>
+        <input type="hidden" id="vnTransfBanco" value="">
+        <div class="form-group" style="margin-top:0.5rem;">
+          <label class="form-label">Monto</label>
+          <input type="number" class="form-input" id="vnTransfMonto" placeholder="$0" min="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnPagoTransferencia')">Cancelar</button>
+        <button class="btn btn-primary" onclick="vnConfirmarTransferencia()">✅ Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Pago con Vale -->
+  <div class="modal" id="modalVnPagoVale">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header"><h3>🎟️ Pago con Vale</h3></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Número de Vale</label>
+          <div style="display:flex;gap:0.5rem;">
+            <input type="text" class="form-input" id="vnValeNumero" placeholder="VL-2026-00001" style="flex:1;text-transform:uppercase;"
+              oninput="this.value=this.value.toUpperCase()">
+            <button class="btn btn-outline btn-sm" onclick="vnValidarVale()">🔍 Buscar</button>
+          </div>
+        </div>
+        <div id="vnValeInfo" style="display:none;padding:0.75rem;background:rgba(46,125,50,0.08);border-radius:8px;font-size:0.85rem;margin-bottom:0.5rem;"></div>
+        <div class="form-group" id="vnValeMontoGrupo" style="display:none;">
+          <label class="form-label">Monto a aplicar</label>
+          <input type="number" class="form-input" id="vnValeMontoAplicar" placeholder="$0" min="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnPagoVale')">Cancelar</button>
+        <button class="btn btn-primary" id="btnVnConfirmarVale" onclick="vnConfirmarVale()" disabled>✅ Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Emitir Vale nuevo -->
+  <div class="modal" id="modalVnEmitirVale">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header"><h3>📦 Emitir Vale de Canje</h3></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Cliente</label>
+          <input type="text" class="form-input" id="vnEvCliente" placeholder="Nombre o CONSUMIDOR FINAL" autocomplete="off">
+          <div class="suggestions-list" id="vnEvClienteSug" style="display:none;"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Motivo *</label>
+          <input type="text" class="form-input" id="vnEvMotivo" placeholder="Ej: Devolución jaulas x8"></div>
+        <div class="form-group"><label class="form-label">Monto *</label>
+          <input type="number" class="form-input" id="vnEvMonto" placeholder="$0" min="1"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnEmitirVale')">Cancelar</button>
+        <button class="btn btn-primary" onclick="vnGuardarVale()">🖨️ Emitir e Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Anular Vale -->
+  <div class="modal" id="modalVnAnularVale">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header"><h3>❌ Anular Vale</h3></div>
+      <div class="modal-body">
+        <p>Vale: <strong id="vnAnularValeNumero"></strong></p>
+        <div class="form-group"><label class="form-label">Razón de anulación *</label>
+          <input type="text" class="form-input" id="vnAnularRazon" placeholder="Motivo obligatorio"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnAnularVale')">Cancelar</button>
+        <button class="btn btn-danger" onclick="vnConfirmarAnularVale()" style="background:#F44336;color:#fff;border:none;">❌ Anular</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Registrar Compra de Proveedor -->
+  <div class="modal" id="modalVnCompra">
+    <div class="modal-content" style="max-width:500px;">
+      <div class="modal-header"><h3>📥 Registrar Compra</h3></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Proveedor *</label>
+          <input type="text" class="form-input" id="vnCompraProveedor" placeholder="Nombre del proveedor" style="text-transform:uppercase;"></div>
+        <div class="form-group"><label class="form-label">Producto *</label>
+          <select class="form-input" id="vnCompraProdId" onchange="vnSetCompraProducto()">
+            <option value="">Seleccionar producto...</option>
+          </select></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+          <div class="form-group"><label class="form-label">Cantidad *</label>
+            <input type="number" class="form-input" id="vnCantidad" placeholder="0" min="1" oninput="vnCalcTotalCompra()"></div>
+          <div class="form-group"><label class="form-label">Costo Unitario</label>
+            <input type="number" class="form-input" id="vnCostoUnit" placeholder="$0" min="0" oninput="vnCalcTotalCompra()"></div>
+        </div>
+        <div id="vnCompraTotalDisplay" style="text-align:right;font-weight:700;color:var(--sv-primario);"></div>
+        <div class="form-group"><label class="form-label">Observación</label>
+          <input type="text" class="form-input" id="vnCompraObs" placeholder="Opcional"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnCompra')">Cancelar</button>
+        <button class="btn btn-primary" onclick="vnGuardarCompra()">✅ Registrar Compra</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Registrar Merma -->
+  <div class="modal" id="modalVnMerma">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header"><h3>🗑️ Registrar Merma</h3></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Producto *</label>
+          <select class="form-input" id="vnMermaProdId">
+            <option value="">Seleccionar producto...</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Cantidad *</label>
+          <input type="number" class="form-input" id="vnMermaCantidad" placeholder="0" min="1"></div>
+        <div class="form-group"><label class="form-label">Razón *</label>
+          <input type="text" class="form-input" id="vnMermaRazon" placeholder="Motivo de la merma"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnMerma')">Cancelar</button>
+        <button class="btn btn-danger" onclick="vnGuardarMerma()" style="background:#F44336;color:#fff;border:none;">🗑️ Registrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Corrección de Existencias -->
+  <div class="modal" id="modalVnCorreccion">
+    <div class="modal-content" style="max-width:440px;">
+      <div class="modal-header"><h3>✏️ Corrección de Existencias</h3></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Producto *</label>
+          <select class="form-input" id="vnCorrProdId" onchange="vnMostrarStockActual()">
+            <option value="">Seleccionar producto...</option>
+          </select></div>
+        <div id="vnCorrStockActualDisplay" style="font-size:0.85rem;color:var(--sv-texto-secundario);margin-bottom:0.5rem;"></div>
+        <div class="form-group"><label class="form-label">Stock Nuevo *</label>
+          <input type="number" class="form-input" id="vnCorrStockNuevo" placeholder="0" min="0"></div>
+        <div class="form-group">
+          <label class="form-label">Razón * <span style="color:#F44336;">(obligatoria, mínimo 5 caracteres)</span></label>
+          <input type="text" class="form-input" id="vnCorrRazon" placeholder="Describa el motivo de la corrección">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnCorreccion')">Cancelar</button>
+        <button class="btn btn-primary" onclick="vnGuardarCorreccion()" style="background:#FF9800;color:#fff;border:none;">✏️ Aplicar Corrección</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nuevo Producto VN -->
+  <div class="modal" id="modalVnNuevoProducto">
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header"><h3 id="vnNuevoProdTitulo">➕ Nuevo Producto</h3></div>
+      <div class="modal-body">
+        <input type="hidden" id="vnNuevoProdId">
+        <div class="form-group"><label class="form-label">Nombre *</label>
+          <input type="text" class="form-input" id="vnNuevoProdNombre" placeholder="Nombre del producto" style="text-transform:uppercase;"></div>
+        <div class="form-group"><label class="form-label">Precio de Venta *</label>
+          <input type="number" class="form-input" id="vnNuevoProdPrecio" placeholder="$0" min="0"></div>
+        <div class="form-group"><label class="form-label">Stock Inicial</label>
+          <input type="number" class="form-input" id="vnNuevoProdStock" placeholder="0" min="0" value="0"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnNuevoProducto')">Cancelar</button>
+        <button class="btn btn-primary" onclick="vnGuardarProducto()">✅ Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Cobro/Pago rápido desde POS -->
+  <div class="modal" id="modalVnRegistrarCobro">
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header"><h3>💳 Registrar Cobro / Pago</h3></div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">Cliente *</label>
+          <input type="text" class="form-input" id="vnCobroCliente" placeholder="Nombre del cliente" autocomplete="off">
+          <div class="suggestions-list" id="vnCobroClienteSug" style="display:none;"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Tipo</label>
+          <select class="form-input" id="vnCobroTipo">
+            <option value="COBRO">Cobro de Fiado</option>
+            <option value="PAGO_A_CUENTA">Pago a Cuenta</option>
+            <option value="FIADO">Registrar Fiado (deuda)</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Monto *</label>
+          <input type="number" class="form-input" id="vnCobroMonto" placeholder="$0" min="1"></div>
+        <div class="form-group"><label class="form-label">Observación</label>
+          <input type="text" class="form-input" id="vnCobroObs" placeholder="Opcional"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnRegistrarCobro')">Cancelar</button>
+        <button class="btn btn-primary" onclick="vnGuardarCobro()">✅ Registrar</button>
       </div>
     </div>
   </div>
@@ -5726,6 +6648,10 @@
       if (modulo === 'arqueo-efectivo') {
         _inicializarAutoSaveCaja();
         _cargarBorradorNube();
+      }
+      // Módulo Venta Nocturna
+      if (modulo === 'venta-nocturna') {
+        vnOnActivar();
       }
     }
 
@@ -12557,6 +13483,1227 @@
         return;
       }
       CajaDiariaPrinter.print(cajaId, copies || 1);
+    }
+
+    // ============================================================================
+    //  MÓDULO: VENTA NOCTURNA — JavaScript Frontend
+    // ============================================================================
+
+    /**
+     * Helper para llamar al dispatcher ejecutarAccionVN en el servidor GAS.
+     * @param {Object} data - Objeto con `action` y parámetros adicionales
+     * @param {Function} callback - Función callback(resultado)
+     */
+    function llamarServidor(data, callback) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (callback) callback(res || { success: false, error: 'Sin respuesta' });
+        })
+        .withFailureHandler(function(err) {
+          const msg = (err && err.message) ? err.message : 'Error de comunicación con el servidor';
+          console.error('VN Error (' + data.action + '):', msg);
+          mostrarToast('Error: ' + msg, 'error');
+          if (callback) callback({ success: false, error: msg });
+        })
+        .ejecutarAccionVN(data);
+    }
+
+    const VN = {
+      sesion: null,
+      productos: [],
+      carrito: [],
+      cliente: 'CONSUMIDOR FINAL',
+      clienteNombre: 'CONSUMIDOR FINAL',
+      mediosPago: [],
+      valeActual: null,
+      configLocal: {}
+    };
+
+    // ── Inicialización ────────────────────────────────────────────
+
+    function vnInit() {
+      VN.configLocal = vnCargarConfigLocal();
+      llamarServidor({ action: 'vnGetSesionActiva' }, res => {
+        if (res.sesion) {
+          VN.sesion = res.sesion;
+          vnActualizarBarraSesion();
+          vnCargarProductos();
+          document.getElementById('vnViewSinSesion').style.display = 'none';
+          document.getElementById('vnViewPOS').style.display = 'block';
+        } else {
+          document.getElementById('vnViewSinSesion').style.display = 'flex';
+          document.getElementById('vnViewPOS').style.display = 'none';
+          vnActualizarBarraSesion();
+        }
+      });
+    }
+
+    function vnActualizarBarraSesion() {
+      const info = document.getElementById('vnSesionInfo');
+      const btnAbrir = document.getElementById('btnVnAbrirSesion');
+      const btnCerrar = document.getElementById('btnVnCerrarSesion');
+      if (VN.sesion) {
+        const fecha = VN.sesion.fecha instanceof Date
+          ? formatearFechaCorta(VN.sesion.fecha)
+          : (VN.sesion.fecha || '');
+        info.innerHTML = '🌙 Sesión #' + VN.sesion.id + ' — ' + fecha +
+          ' <span class="badge-open">ABIERTA</span>';
+        btnAbrir.style.display = 'none';
+        btnCerrar.style.display = 'inline-block';
+      } else {
+        info.innerHTML = '🌙 Venta Nocturna — Sin sesión activa';
+        btnAbrir.style.display = 'inline-block';
+        btnCerrar.style.display = 'none';
+      }
+    }
+
+    // ── Sesiones ──────────────────────────────────────────────────
+
+    function vnAbrirSesion() {
+      document.getElementById('vnSesionFechaDisplay').textContent = new Date().toLocaleDateString('es-AR');
+      abrirModal('modalVnAbrirSesion');
+    }
+
+    function vnConfirmarApertura() {
+      cerrarModal('modalVnAbrirSesion');
+      mostrarToast('Abriendo sesión...', 'info');
+      llamarServidor({ action: 'vnAbrirSesion' }, res => {
+        if (res.success) {
+          VN.sesion = res.sesion;
+          mostrarToast('Sesión #' + res.sesion.id + ' abierta', 'success');
+          vnActualizarBarraSesion();
+          vnCargarProductos();
+          document.getElementById('vnViewSinSesion').style.display = 'none';
+          vnCambiarVista('pos');
+        } else {
+          mostrarToast(res.error || 'Error al abrir sesión', 'error');
+        }
+      });
+    }
+
+    function vnConfirmarCierre() {
+      if (!VN.sesion) return;
+      const carrito = VN.carrito;
+      const html = carrito.length > 0
+        ? '<p style="color:#F44336;">⚠️ Hay ' + carrito.length + ' producto(s) en el carrito sin cobrar.</p>'
+        : '<p>No hay ventas pendientes en el carrito.</p>';
+      document.getElementById('vnResumenCierre').innerHTML = html + '<p>¿Cerrar la sesión #' + VN.sesion.id + '?</p>';
+      abrirModal('modalVnCerrarSesion');
+    }
+
+    function vnConfirmarCierreOk() {
+      cerrarModal('modalVnCerrarSesion');
+      llamarServidor({ action: 'vnCerrarSesion', sesionId: VN.sesion.id }, res => {
+        if (res.success) {
+          mostrarToast('Sesión cerrada correctamente', 'success');
+          VN.sesion = null;
+          VN.carrito = [];
+          VN.mediosPago = [];
+          vnActualizarBarraSesion();
+          vnRenderizarCarrito();
+          document.getElementById('vnViewSinSesion').style.display = 'flex';
+          document.getElementById('vnViewPOS').style.display = 'none';
+        } else {
+          mostrarToast(res.error || 'Error al cerrar sesión', 'error');
+        }
+      });
+    }
+
+    // ── Productos y carrito ───────────────────────────────────────
+
+    function vnCargarProductos() {
+      llamarServidor({ action: 'vnGetProductos' }, res => {
+        if (res.success) {
+          VN.productos = (res.productos || []).filter(p => p.activo);
+          vnRenderizarProductos('');
+          vnPopularSelectsProductos();
+        }
+      });
+    }
+
+    function vnRenderizarProductos(filtro) {
+      const grid = document.getElementById('vnProdGrid');
+      const prods = filtro
+        ? VN.productos.filter(p => p.nombre.includes(filtro.toUpperCase()))
+        : VN.productos;
+
+      if (prods.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--sv-texto-secundario);">' +
+          (VN.productos.length === 0 ? 'Sin productos. Agregá productos en Configuración.' : 'Sin resultados para "' + filtro + '"') + '</div>';
+        return;
+      }
+
+      grid.innerHTML = prods.map(p => {
+        const stockBadge = p.stock <= 0
+          ? '<div class="vn-prod-stock-low">SIN STOCK</div>'
+          : (p.stock <= 5 ? '<div class="vn-prod-stock-low">Stock: ' + p.stock + '</div>' : '');
+        return `<button class="vn-prod-btn" onclick="vnAgregar(${p.id})" title="${p.nombre}">
+          <div class="vn-prod-nombre">${p.nombre}</div>
+          <div class="vn-prod-precio">${formatMonto(p.precio)}</div>
+          ${stockBadge}
+        </button>`;
+      }).join('');
+    }
+
+    function vnFiltrarProductos(val) {
+      vnRenderizarProductos(val);
+    }
+
+    function vnAgregar(prodId) {
+      const prod = VN.productos.find(p => p.id === prodId);
+      if (!prod) return;
+      const idx = VN.carrito.findIndex(i => i.prodId === prodId);
+      if (idx >= 0) {
+        VN.carrito[idx].qty++;
+        VN.carrito[idx].subtotal = VN.carrito[idx].qty * VN.carrito[idx].precioUnit;
+      } else {
+        VN.carrito.push({ prodId: prod.id, nombre: prod.nombre, qty: 1, precioUnit: prod.precio, subtotal: prod.precio });
+      }
+      vnRenderizarCarrito();
+    }
+
+    function vnQuitarUno(prodId) {
+      const idx = VN.carrito.findIndex(i => i.prodId === prodId);
+      if (idx < 0) return;
+      VN.carrito[idx].qty--;
+      if (VN.carrito[idx].qty <= 0) {
+        VN.carrito.splice(idx, 1);
+      } else {
+        VN.carrito[idx].subtotal = VN.carrito[idx].qty * VN.carrito[idx].precioUnit;
+      }
+      vnRenderizarCarrito();
+    }
+
+    function vnEliminarItem(prodId) {
+      VN.carrito = VN.carrito.filter(i => i.prodId !== prodId);
+      vnRenderizarCarrito();
+    }
+
+    function vnCambiarQty(prodId, val) {
+      const qty = parseInt(val) || 0;
+      const idx = VN.carrito.findIndex(i => i.prodId === prodId);
+      if (idx < 0) return;
+      if (qty <= 0) { VN.carrito.splice(idx, 1); }
+      else {
+        VN.carrito[idx].qty = qty;
+        VN.carrito[idx].subtotal = qty * VN.carrito[idx].precioUnit;
+      }
+      vnRenderizarCarrito();
+    }
+
+    function vnRenderizarCarrito() {
+      const container = document.getElementById('vnCarritoItems');
+      const vacio = document.getElementById('vnCarritoVacio');
+      const total = VN.carrito.reduce((s, i) => s + i.subtotal, 0);
+
+      if (VN.carrito.length === 0) {
+        container.innerHTML = '';
+        if (vacio) vacio.style.display = 'block';
+      } else {
+        if (vacio) vacio.style.display = 'none';
+        container.innerHTML = VN.carrito.map(item => `
+          <div class="vn-carrito-item">
+            <div class="vn-ci-nombre">${item.nombre}</div>
+            <div class="vn-ci-qty">
+              <button onclick="vnQuitarUno(${item.prodId})">−</button>
+              <input type="number" value="${item.qty}" min="1"
+                onchange="vnCambiarQty(${item.prodId}, this.value)" onclick="this.select()">
+              <button onclick="vnAgregar(${item.prodId})">+</button>
+            </div>
+            <div class="vn-ci-subtotal">${formatMonto(item.subtotal)}</div>
+            <button class="vn-ci-del" onclick="vnEliminarItem(${item.prodId})">✕</button>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('vnTotalMonto').textContent = formatMonto(total);
+      vnValidarPago();
+    }
+
+    // ── Medios de pago ─────────────────────────────────────────────
+
+    function vnAgregarMedio(tipo) {
+      if (!VN.sesion) { mostrarToast('Abrí una sesión primero', 'error'); return; }
+      if (VN.carrito.length === 0) { mostrarToast('El carrito está vacío', 'error'); return; }
+      switch (tipo) {
+        case 'EFECTIVO': vnAbrirEfectivo(); break;
+        case 'TRANSFERENCIA': vnAbrirTransferencia(); break;
+        case 'VALE': vnAbrirPagoVale(); break;
+        case 'FIADO':
+          if (VN.cliente === 'CONSUMIDOR FINAL') {
+            mostrarToast('Seleccioná un cliente para fiado', 'error');
+            vnAbrirBuscadorCliente();
+            return;
+          }
+          vnAgregarPago('FIADO', vnGetTotal(), { });
+          break;
+        case 'A_CUENTA': vnAbrirPagoACuenta(); break;
+      }
+    }
+
+    function vnAgregarPago(tipo, monto, detalle) {
+      VN.mediosPago.push({ tipo, monto: Number(monto), detalle: detalle || {} });
+      vnRenderizarPagos();
+      vnValidarPago();
+    }
+
+    function vnEliminarPago(idx) {
+      const pago = VN.mediosPago[idx];
+      if (pago && pago.tipo === 'VALE' && pago.detalle && pago.detalle.numero) {
+        VN.valeActual = null;
+      }
+      VN.mediosPago.splice(idx, 1);
+      vnRenderizarPagos();
+      vnValidarPago();
+    }
+
+    function vnRenderizarPagos() {
+      const container = document.getElementById('vnPagosLista');
+      if (VN.mediosPago.length === 0) { container.innerHTML = ''; return; }
+
+      const iconos = { EFECTIVO:'💵', TRANSFERENCIA:'📱', VALE:'🎟️', FIADO:'📋', A_CUENTA:'💳' };
+      const nombres = { EFECTIVO:'Efectivo', TRANSFERENCIA:'Transf.', VALE:'Vale', FIADO:'Fiado', A_CUENTA:'A Cuenta' };
+
+      container.innerHTML = VN.mediosPago.map((p, i) => {
+        let detalle = nombres[p.tipo] || p.tipo;
+        if (p.tipo === 'TRANSFERENCIA' && p.detalle && p.detalle.banco) detalle += ' (' + p.detalle.banco + ')';
+        if (p.tipo === 'VALE' && p.detalle && p.detalle.numero) detalle += ' #' + p.detalle.numero;
+        return `<div class="vn-pago-chip">
+          <span>${iconos[p.tipo] || ''} ${detalle}</span>
+          <span style="font-weight:700;">${formatMonto(p.monto)}</span>
+          <button onclick="vnEliminarPago(${i})">✕</button>
+        </div>`;
+      }).join('');
+    }
+
+    function vnValidarPago() {
+      const total = vnGetTotal();
+      const sumaPagos = VN.mediosPago.reduce((s, m) => s + m.monto, 0);
+      const diff = Math.abs(sumaPagos - total);
+      const btn = document.getElementById('vnBtnCobrar');
+      const warn = document.getElementById('vnDiffWarning');
+
+      if (VN.carrito.length === 0 || total === 0) {
+        btn.disabled = true;
+        warn.style.display = 'none';
+        return;
+      }
+      if (diff <= 1) {
+        btn.disabled = false;
+        warn.style.display = 'none';
+      } else if (sumaPagos > 0) {
+        btn.disabled = true;
+        const falta = total - sumaPagos;
+        warn.style.display = 'block';
+        warn.textContent = falta > 0 ? 'Falta: ' + formatMonto(falta) : 'Exceso: ' + formatMonto(-falta);
+      } else {
+        btn.disabled = true;
+        warn.style.display = 'none';
+      }
+    }
+
+    function vnGetTotal() {
+      return VN.carrito.reduce((s, i) => s + i.subtotal, 0);
+    }
+
+    // ── Cobrar ────────────────────────────────────────────────────
+
+    function vnCobrar() {
+      if (!VN.sesion) return;
+      if (VN.carrito.length === 0) { mostrarToast('El carrito está vacío', 'error'); return; }
+
+      const total = vnGetTotal();
+      const ventaData = {
+        action: 'vnRegistrarVenta',
+        sesionId: VN.sesion.id,
+        cliente: VN.cliente,
+        items: VN.carrito,
+        subtotal: total,
+        total: total,
+        mediosPago: VN.mediosPago,
+        obs: ''
+      };
+
+      document.getElementById('vnBtnCobrar').disabled = true;
+      llamarServidor(ventaData, res => {
+        if (res.success) {
+          mostrarToast('Venta #' + res.venta.id + ' registrada', 'success');
+          vnImprimirTicket(res.venta);
+          VN.carrito = [];
+          VN.mediosPago = [];
+          VN.cliente = 'CONSUMIDOR FINAL';
+          VN.clienteNombre = 'CONSUMIDOR FINAL';
+          document.getElementById('vnClienteNombre').textContent = 'CONSUMIDOR FINAL';
+          vnRenderizarCarrito();
+          vnRenderizarPagos();
+        } else {
+          mostrarToast(res.error || 'Error al registrar venta', 'error');
+          document.getElementById('vnBtnCobrar').disabled = false;
+        }
+      });
+    }
+
+    // ── Modales de pago ───────────────────────────────────────────
+
+    function vnAbrirEfectivo() {
+      const restante = vnGetTotal() - VN.mediosPago.reduce((s,m) => s+m.monto, 0);
+      document.getElementById('vnEfectivoMonto').value = restante > 0 ? restante : '';
+      document.getElementById('vnCambioDisplay').style.display = 'none';
+      abrirModal('modalVnPagoEfectivo');
+    }
+
+    function vnCalcCambio() {
+      const monto = parseFloat(document.getElementById('vnEfectivoMonto').value) || 0;
+      const total = vnGetTotal();
+      const sumaPrev = VN.mediosPago.reduce((s,m) => s+m.monto, 0);
+      const aPagar = total - sumaPrev;
+      const cambio = monto - aPagar;
+      const disp = document.getElementById('vnCambioDisplay');
+      if (monto > 0 && cambio > 0) {
+        disp.style.display = 'block';
+        disp.textContent = 'Cambio: ' + formatMonto(cambio);
+      } else {
+        disp.style.display = 'none';
+      }
+    }
+
+    function vnConfirmarEfectivo() {
+      const monto = parseFloat(document.getElementById('vnEfectivoMonto').value) || 0;
+      if (monto <= 0) { mostrarToast('Ingresá un monto', 'error'); return; }
+      const total = vnGetTotal();
+      const sumaPrev = VN.mediosPago.reduce((s,m) => s+m.monto, 0);
+      const aplicar = Math.min(monto, total - sumaPrev + 0.01);
+      cerrarModal('modalVnPagoEfectivo');
+      vnAgregarPago('EFECTIVO', aplicar > 0 ? aplicar : monto, {});
+    }
+
+    function vnAbrirTransferencia() {
+      document.getElementById('vnTransfBanco').value = '';
+      document.getElementById('vnTransfMonto').value = '';
+      document.querySelectorAll('.vn-banco-btn').forEach(b => b.classList.remove('selected'));
+      const restante = vnGetTotal() - VN.mediosPago.reduce((s,m) => s+m.monto, 0);
+      if (restante > 0) document.getElementById('vnTransfMonto').value = restante;
+      abrirModal('modalVnPagoTransferencia');
+    }
+
+    function vnSelBanco(banco, btn) {
+      document.getElementById('vnTransfBanco').value = banco;
+      document.querySelectorAll('.vn-banco-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    }
+
+    function vnConfirmarTransferencia() {
+      const banco = document.getElementById('vnTransfBanco').value;
+      const monto = parseFloat(document.getElementById('vnTransfMonto').value) || 0;
+      if (!banco) { mostrarToast('Seleccioná un banco', 'error'); return; }
+      if (monto <= 0) { mostrarToast('Ingresá un monto', 'error'); return; }
+      cerrarModal('modalVnPagoTransferencia');
+      vnAgregarPago('TRANSFERENCIA', monto, { banco });
+    }
+
+    function vnAbrirPagoVale() {
+      document.getElementById('vnValeNumero').value = '';
+      document.getElementById('vnValeInfo').style.display = 'none';
+      document.getElementById('vnValeMontoGrupo').style.display = 'none';
+      document.getElementById('btnVnConfirmarVale').disabled = true;
+      VN.valeActual = null;
+      abrirModal('modalVnPagoVale');
+    }
+
+    function vnValidarVale() {
+      const numero = document.getElementById('vnValeNumero').value.trim().toUpperCase();
+      if (!numero) return;
+      llamarServidor({ action: 'vnBuscarVale', numero }, res => {
+        const infoDiv = document.getElementById('vnValeInfo');
+        const montoGrupo = document.getElementById('vnValeMontoGrupo');
+        const btnConf = document.getElementById('btnVnConfirmarVale');
+        if (res.success && res.vale) {
+          const v = res.vale;
+          if (v.estado !== 'DISPONIBLE') {
+            infoDiv.innerHTML = '❌ Vale <strong>' + numero + '</strong> — Estado: ' + v.estado;
+            infoDiv.style.background = 'rgba(244,67,54,0.08)';
+            infoDiv.style.display = 'block';
+            montoGrupo.style.display = 'none';
+            btnConf.disabled = true;
+            VN.valeActual = null;
+          } else {
+            infoDiv.innerHTML = '✅ Vale válido<br>Cliente: <strong>' + v.cliente + '</strong><br>Monto: <strong>' + formatMonto(v.monto) + '</strong>';
+            infoDiv.style.background = 'rgba(76,175,80,0.08)';
+            infoDiv.style.display = 'block';
+            const restante = vnGetTotal() - VN.mediosPago.reduce((s,m) => s+m.monto, 0);
+            const aplicar = Math.min(v.monto, restante > 0 ? restante : v.monto);
+            document.getElementById('vnValeMontoAplicar').value = aplicar;
+            montoGrupo.style.display = 'block';
+            btnConf.disabled = false;
+            VN.valeActual = v;
+          }
+        } else {
+          infoDiv.innerHTML = '❌ ' + (res.error || 'Vale no encontrado');
+          infoDiv.style.background = 'rgba(244,67,54,0.08)';
+          infoDiv.style.display = 'block';
+          montoGrupo.style.display = 'none';
+          btnConf.disabled = true;
+          VN.valeActual = null;
+        }
+      });
+    }
+
+    function vnConfirmarVale() {
+      if (!VN.valeActual) return;
+      const monto = parseFloat(document.getElementById('vnValeMontoAplicar').value) || 0;
+      if (monto <= 0) { mostrarToast('Ingresá un monto', 'error'); return; }
+      if (monto > VN.valeActual.monto) { mostrarToast('El monto supera el valor del vale ($' + VN.valeActual.monto + ')', 'error'); return; }
+      cerrarModal('modalVnPagoVale');
+      vnAgregarPago('VALE', monto, { numero: VN.valeActual.numero, monto: VN.valeActual.monto });
+      VN.valeActual = null;
+    }
+
+    function vnAbrirPagoACuenta() {
+      mostrarToast('Registrá el pago a cuenta en la vista Pagos/Fiados', 'info');
+    }
+
+    // ── Cliente POS ───────────────────────────────────────────────
+
+    function vnAbrirBuscadorCliente() {
+      document.getElementById('vnBuscarClienteInput').value = '';
+      document.getElementById('vnClienteSugerencias').innerHTML = '';
+      abrirModal('modalVnCliente');
+      setTimeout(() => document.getElementById('vnBuscarClienteInput').focus(), 100);
+    }
+
+    function vnBuscarClientePOS(termino) {
+      if (termino.length < 2) { document.getElementById('vnClienteSugerencias').innerHTML = ''; return; }
+      llamarServidor({ action: 'vnGetClientes', termino }, res => {
+        const sug = document.getElementById('vnClienteSugerencias');
+        const lista = res.clientes || [];
+        if (lista.length === 0) { sug.innerHTML = '<div style="padding:0.5rem;color:var(--sv-texto-secundario);font-size:0.85rem;">Sin resultados</div>'; return; }
+        sug.innerHTML = lista.map(c => {
+          const nombre = typeof c === 'string' ? c : (c.nombre || c);
+          return `<div class="suggestion-item" onclick="vnSeleccionarCliente('${nombre}','')" style="cursor:pointer;padding:0.4rem 0.75rem;font-size:0.85rem;border-bottom:1px solid var(--sv-borde);">${nombre}</div>`;
+        }).join('');
+        sug.style.display = 'block';
+      });
+    }
+
+    function vnSeleccionarCliente(nombre, detalle) {
+      VN.cliente = nombre;
+      VN.clienteNombre = nombre;
+      document.getElementById('vnClienteNombre').textContent = nombre;
+      cerrarModal('modalVnCliente');
+    }
+
+    function vnAbrirNuevoClienteRapido() {
+      cerrarModal('modalVnCliente');
+      document.getElementById('vnNcNombre').value = '';
+      document.getElementById('vnNcTel').value = '';
+      abrirModal('modalVnNuevoCliente');
+    }
+
+    function vnGuardarNuevoCliente() {
+      const nombre = document.getElementById('vnNcNombre').value.trim().toUpperCase();
+      if (!nombre) { mostrarToast('El nombre es requerido', 'error'); return; }
+      llamarServidor({ action: 'vnCrearClienteRapido', nombre, tel: document.getElementById('vnNcTel').value }, res => {
+        if (res.success) {
+          mostrarToast('Cliente creado', 'success');
+          cerrarModal('modalVnNuevoCliente');
+          vnSeleccionarCliente(nombre, '');
+        } else {
+          mostrarToast(res.error || 'Error al crear cliente', 'error');
+        }
+      });
+    }
+
+    // ── Vista Historial ───────────────────────────────────────────
+
+    function vnCargarHistorial() {
+      if (!VN.sesion) return;
+      llamarServidor({ action: 'vnGetVentasSesion', sesionId: VN.sesion.id }, res => {
+        const tbody = document.getElementById('vnHistorialBody');
+        const ventas = res.ventas || [];
+        if (ventas.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--sv-texto-secundario);">Sin ventas en esta sesión</td></tr>';
+        } else {
+          tbody.innerHTML = ventas.map(v => {
+            const items = (v.items || []).map(i => i.nombre + ' x' + i.qty).join(', ');
+            const medios = (v.mediosPago || []).map(m => m.tipo).join('+');
+            const cancelada = v.estado === 'CANCELADA';
+            return `<tr style="${cancelada ? 'opacity:0.5;text-decoration:line-through;' : ''}">
+              <td>#${v.id}</td>
+              <td>${v.hora instanceof Date ? formatearHora(v.hora) : (typeof v.hora === 'string' ? v.hora.substring(11,16) : '')}</td>
+              <td>${v.cliente}</td>
+              <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${items}">${items}</td>
+              <td><strong>${formatMonto(v.total)}</strong></td>
+              <td style="font-size:0.75rem;">${medios}</td>
+              <td><span class="${cancelada ? 'stock-critical' : 'stock-ok'}">${v.estado}</span></td>
+              <td style="white-space:nowrap;">
+                ${!cancelada ? `<button class="btn btn-sm btn-outline" onclick="vnReimprimirTicket(${v.id})" style="padding:2px 6px;font-size:0.7rem;">🖨️</button>
+                <button class="btn btn-sm" onclick="vnCancelarVenta(${v.id})" style="padding:2px 6px;font-size:0.7rem;background:#F44336;color:#fff;border:none;">✕</button>` : ''}
+              </td>
+            </tr>`;
+          }).join('');
+        }
+        // Actualizar stats
+        llamarServidor({ action: 'vnGetResumenSesion', sesionId: VN.sesion.id }, r => {
+          if (r.resumen) {
+            document.getElementById('vnStatTotal').textContent = formatMonto(r.resumen.totalVentas || 0);
+            document.getElementById('vnStatEfectivo').textContent = formatMonto(r.resumen.efectivo || 0);
+            document.getElementById('vnStatTransf').textContent = formatMonto(r.resumen.transferencia || 0);
+            document.getElementById('vnStatVales').textContent = formatMonto(r.resumen.vales || 0);
+            document.getElementById('vnStatFiado').textContent = formatMonto(r.resumen.fiado || 0);
+          }
+        });
+      });
+    }
+
+    function vnCancelarVenta(ventaId) {
+      if (!confirm('¿Cancelar la venta #' + ventaId + '? Se restaurará el stock.')) return;
+      llamarServidor({ action: 'vnCancelarVenta', ventaId }, res => {
+        if (res.success) {
+          mostrarToast('Venta #' + ventaId + ' cancelada', 'success');
+          vnCargarHistorial();
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    // ── Vista Vales ───────────────────────────────────────────────
+
+    function vnCargarVales() {
+      const estado = document.getElementById('vnValesFiltroEstado').value;
+      llamarServidor({ action: 'vnGetVales', filtros: estado ? { estado } : {} }, res => {
+        const tbody = document.getElementById('vnValesBody');
+        const vales = res.vales || [];
+        const colores = { DISPONIBLE: '#4CAF50', CANJEADO: '#9E9E9E', ANULADO: '#F44336' };
+        if (vales.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--sv-texto-secundario);">Sin vales</td></tr>';
+        } else {
+          tbody.innerHTML = vales.map(v => {
+            const color = colores[v.estado] || '#9E9E9E';
+            const fecha = v.fechaEmision instanceof Date ? formatearFechaCorta(v.fechaEmision) : '';
+            return `<tr>
+              <td><strong>${v.numero}</strong></td>
+              <td>${fecha}</td>
+              <td>${v.cliente}</td>
+              <td style="font-size:0.78rem;">${v.motivo}</td>
+              <td><strong>${formatMonto(v.monto)}</strong></td>
+              <td><span style="color:${color};font-weight:600;">${v.estado}</span></td>
+              <td style="white-space:nowrap;">
+                <button class="btn btn-sm btn-outline" onclick="vnImprimirVale(${JSON.stringify(v).replace(/"/g,'&quot;')})" style="padding:2px 6px;font-size:0.7rem;">🖨️</button>
+                ${v.estado === 'DISPONIBLE' ? `<button class="btn btn-sm" onclick="vnAbrirAnularVale('${v.numero}')" style="padding:2px 6px;font-size:0.7rem;background:#F44336;color:#fff;border:none;">✕</button>` : ''}
+              </td>
+            </tr>`;
+          }).join('');
+        }
+      });
+    }
+
+    function vnEmitirVale() {
+      const cliente = document.getElementById('vnValeCliente').value.trim() || 'CONSUMIDOR FINAL';
+      const motivo = document.getElementById('vnValeMotivo').value.trim();
+      const monto = parseFloat(document.getElementById('vnValeMonto').value) || 0;
+      if (!motivo) { mostrarToast('El motivo es requerido', 'error'); return; }
+      if (monto <= 0) { mostrarToast('El monto debe ser mayor a cero', 'error'); return; }
+
+      llamarServidor({ action: 'vnCrearVale', cliente: cliente.toUpperCase(), motivo, monto }, res => {
+        if (res.success) {
+          mostrarToast('Vale ' + res.vale.numero + ' emitido', 'success');
+          vnImprimirVale(res.vale);
+          document.getElementById('vnValeCliente').value = '';
+          document.getElementById('vnValeMotivo').value = '';
+          document.getElementById('vnValeMonto').value = '';
+          vnCargarVales();
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    function vnAbrirAnularVale(numero) {
+      document.getElementById('vnAnularValeNumero').textContent = numero;
+      document.getElementById('vnAnularRazon').value = '';
+      document.getElementById('modalVnAnularVale').dataset.numero = numero;
+      abrirModal('modalVnAnularVale');
+    }
+
+    function vnConfirmarAnularVale() {
+      const numero = document.getElementById('modalVnAnularVale').dataset.numero;
+      const razon = document.getElementById('vnAnularRazon').value.trim();
+      if (!razon) { mostrarToast('La razón es obligatoria', 'error'); return; }
+      llamarServidor({ action: 'vnAnularVale', numero, razon }, res => {
+        if (res.success) {
+          mostrarToast('Vale anulado', 'success');
+          cerrarModal('modalVnAnularVale');
+          vnCargarVales();
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    function vnAbrirEmitirVale() {
+      document.getElementById('vnEvCliente').value = '';
+      document.getElementById('vnEvMotivo').value = '';
+      document.getElementById('vnEvMonto').value = '';
+      abrirModal('modalVnEmitirVale');
+    }
+
+    function vnGuardarVale() {
+      const cliente = document.getElementById('vnEvCliente').value.trim() || 'CONSUMIDOR FINAL';
+      const motivo = document.getElementById('vnEvMotivo').value.trim();
+      const monto = parseFloat(document.getElementById('vnEvMonto').value) || 0;
+      if (!motivo) { mostrarToast('El motivo es requerido', 'error'); return; }
+      if (monto <= 0) { mostrarToast('El monto debe ser mayor a cero', 'error'); return; }
+      llamarServidor({ action: 'vnCrearVale', cliente: cliente.toUpperCase(), motivo, monto }, res => {
+        if (res.success) {
+          mostrarToast('Vale ' + res.vale.numero + ' emitido', 'success');
+          cerrarModal('modalVnEmitirVale');
+          vnImprimirVale(res.vale);
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    // ── Vista Pagos/Fiados ────────────────────────────────────────
+
+    function vnCargarPagos() {
+      llamarServidor({ action: 'vnGetDeudas', cliente: '' }, res => {
+        const div = document.getElementById('vnDeudasLista');
+        const deudores = res.deudores || [];
+        if (deudores.length === 0) {
+          div.innerHTML = '<div style="color:var(--sv-texto-secundario);font-size:0.85rem;">Sin deudas activas</div>';
+        } else {
+          div.innerHTML = deudores.map(d =>
+            `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--sv-borde);">
+              <span style="font-weight:500;">${d.cliente}</span>
+              <span style="color:#F44336;font-weight:700;">${formatMonto(d.saldo)}</span>
+            </div>`
+          ).join('');
+        }
+      });
+      if (VN.sesion) {
+        llamarServidor({ action: 'vnGetPagosSesion', sesionId: VN.sesion.id }, res => {
+          const tbody = document.getElementById('vnPagosHistBody');
+          const pagos = res.pagos || [];
+          if (pagos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--sv-texto-secundario);">Sin movimientos</td></tr>';
+          } else {
+            tbody.innerHTML = pagos.map(p => `<tr>
+              <td>${p.fecha instanceof Date ? formatearHora(p.fecha) : ''}</td>
+              <td>${p.cliente}</td>
+              <td>${p.tipo}</td>
+              <td>${formatMonto(p.monto)}</td>
+              <td>${p.obs || ''}</td>
+            </tr>`).join('');
+          }
+        });
+      }
+    }
+
+    function vnRegistrarPago() {
+      const cliente = document.getElementById('vnPagoCliente').value.trim();
+      const tipo = document.getElementById('vnPagoTipo').value;
+      const monto = parseFloat(document.getElementById('vnPagoMonto').value) || 0;
+      const obs = document.getElementById('vnPagoObs').value.trim();
+      if (!cliente) { mostrarToast('El cliente es requerido', 'error'); return; }
+      if (monto <= 0) { mostrarToast('El monto debe ser mayor a cero', 'error'); return; }
+
+      const action = tipo === 'COBRO' ? 'vnRegistrarCobro' :
+                     tipo === 'PAGO_A_CUENTA' ? 'vnRegistrarPagoACuenta' : 'vnRegistrarFiado';
+      llamarServidor({ action, cliente: cliente.toUpperCase(), monto, obs, sesionId: VN.sesion ? VN.sesion.id : '' }, res => {
+        if (res.success) {
+          mostrarToast('Movimiento registrado', 'success');
+          document.getElementById('vnPagoCliente').value = '';
+          document.getElementById('vnPagoMonto').value = '';
+          document.getElementById('vnPagoObs').value = '';
+          vnCargarPagos();
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    function vnAbrirRegistrarCobro() {
+      document.getElementById('vnCobroCliente').value = '';
+      document.getElementById('vnCobroMonto').value = '';
+      document.getElementById('vnCobroObs').value = '';
+      abrirModal('modalVnRegistrarCobro');
+    }
+
+    function vnGuardarCobro() {
+      const cliente = document.getElementById('vnCobroCliente').value.trim();
+      const tipo = document.getElementById('vnCobroTipo').value;
+      const monto = parseFloat(document.getElementById('vnCobroMonto').value) || 0;
+      const obs = document.getElementById('vnCobroObs').value.trim();
+      if (!cliente) { mostrarToast('El cliente es requerido', 'error'); return; }
+      if (monto <= 0) { mostrarToast('El monto debe ser mayor a cero', 'error'); return; }
+      const action = tipo === 'COBRO' ? 'vnRegistrarCobro' :
+                     tipo === 'PAGO_A_CUENTA' ? 'vnRegistrarPagoACuenta' : 'vnRegistrarFiado';
+      llamarServidor({ action, cliente: cliente.toUpperCase(), monto, obs, sesionId: VN.sesion ? VN.sesion.id : '' }, res => {
+        if (res.success) {
+          mostrarToast('Movimiento registrado', 'success');
+          cerrarModal('modalVnRegistrarCobro');
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    // ── Vista Stock ───────────────────────────────────────────────
+
+    function vnCargarStock() {
+      llamarServidor({ action: 'vnGetExistencias' }, res => {
+        const tbody = document.getElementById('vnExistenciasBody');
+        const prods = res.productos || [];
+        if (prods.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--sv-texto-secundario);">Sin productos</td></tr>';
+        } else {
+          tbody.innerHTML = prods.map(p => {
+            const badge = p.stock <= 0 ? '🔴' : (p.stock <= 5 ? '🟡' : '🟢');
+            const cls = p.stock <= 0 ? 'stock-critical' : (p.stock <= 5 ? 'stock-low' : 'stock-ok');
+            return `<tr>
+              <td>${p.nombre}</td>
+              <td>${formatMonto(p.precio)}</td>
+              <td class="${cls}"><strong>${p.stock}</strong></td>
+              <td><span class="vn-stock-badge">${badge}</span></td>
+              <td>
+                <button class="btn btn-sm btn-outline" onclick="vnAbrirEditarProducto(${JSON.stringify(p).replace(/"/g,'&quot;')})" style="padding:2px 6px;font-size:0.7rem;">✏️</button>
+                <button class="btn btn-sm btn-outline" onclick="vnToggleProducto(${p.id},${p.activo})" style="padding:2px 6px;font-size:0.7rem;">${p.activo ? 'Ocultar' : 'Activar'}</button>
+              </td>
+            </tr>`;
+          }).join('');
+        }
+      });
+    }
+
+    function vnStockCambiarTab(tab) {
+      ['existencias','compras','mermas','correcciones'].forEach(t => {
+        document.getElementById('vnStock' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? 'block' : 'none';
+      });
+      ['1','2','3','4'].forEach((n, i) => {
+        const id = 'vnStockTab' + n;
+        document.getElementById(id).classList.toggle('active', i === ['existencias','compras','mermas','correcciones'].indexOf(tab));
+      });
+      if (tab === 'compras') vnCargarHistorialCompras();
+      if (tab === 'mermas') vnCargarHistorialMermas();
+      if (tab === 'correcciones') vnCargarHistorialCorrecciones();
+    }
+
+    function vnCargarHistorialCompras() {
+      llamarServidor({ action: 'vnGetHistorialCompras', filtros: {} }, res => {
+        const tbody = document.getElementById('vnComprasBody');
+        const items = res.compras || [];
+        tbody.innerHTML = items.length === 0
+          ? '<tr><td colspan="6" style="text-align:center;color:var(--sv-texto-secundario);">Sin compras</td></tr>'
+          : items.map(c => `<tr>
+              <td>${c.fecha instanceof Date ? formatearFechaCorta(c.fecha) : ''}</td>
+              <td>${c.proveedor}</td><td>${c.productoNombre}</td>
+              <td>${c.cantidad}</td><td>${formatMonto(c.costoUnit)}</td>
+              <td><strong>${formatMonto(c.total)}</strong></td>
+            </tr>`).join('');
+      });
+    }
+
+    function vnCargarHistorialMermas() {
+      llamarServidor({ action: 'vnGetHistorialMermas', filtros: {} }, res => {
+        const tbody = document.getElementById('vnMermasBody');
+        const items = res.mermas || [];
+        tbody.innerHTML = items.length === 0
+          ? '<tr><td colspan="5" style="text-align:center;color:var(--sv-texto-secundario);">Sin mermas</td></tr>'
+          : items.map(m => `<tr>
+              <td>${m.fecha instanceof Date ? formatearFechaCorta(m.fecha) : ''}</td>
+              <td>${m.productoNombre}</td><td>${m.cantidad}</td>
+              <td>${m.razon}</td><td style="font-size:0.75rem;">${m.usuario || ''}</td>
+            </tr>`).join('');
+      });
+    }
+
+    function vnCargarHistorialCorrecciones() {
+      llamarServidor({ action: 'vnGetHistorialCorrecciones', filtros: {} }, res => {
+        const tbody = document.getElementById('vnCorreccionesBody');
+        const items = res.correcciones || [];
+        tbody.innerHTML = items.length === 0
+          ? '<tr><td colspan="6" style="text-align:center;color:var(--sv-texto-secundario);">Sin correcciones</td></tr>'
+          : items.map(c => `<tr>
+              <td>${c.fecha instanceof Date ? formatearFechaCorta(c.fecha) : ''}</td>
+              <td>${c.productoNombre}</td>
+              <td class="stock-low">${c.stockAnterior}</td>
+              <td class="stock-ok">${c.stockNuevo}</td>
+              <td>${c.razon}</td>
+              <td style="font-size:0.75rem;">${c.usuario || ''}</td>
+            </tr>`).join('');
+      });
+    }
+
+    function vnAbrirCompra() {
+      vnPopularSelectsProductos();
+      document.getElementById('vnCompraProveedor').value = '';
+      document.getElementById('vnCompraProdId').value = '';
+      document.getElementById('vnCantidad').value = '';
+      document.getElementById('vnCostoUnit').value = '';
+      document.getElementById('vnCompraObs').value = '';
+      document.getElementById('vnCompraTotalDisplay').textContent = '';
+      abrirModal('modalVnCompra');
+    }
+
+    function vnCalcTotalCompra() {
+      const qty = parseFloat(document.getElementById('vnCantidad').value) || 0;
+      const costo = parseFloat(document.getElementById('vnCostoUnit').value) || 0;
+      document.getElementById('vnCompraTotalDisplay').textContent = qty > 0 && costo > 0 ? 'Total: ' + formatMonto(qty * costo) : '';
+    }
+
+    function vnGuardarCompra() {
+      const proveedor = document.getElementById('vnCompraProveedor').value.trim();
+      const productoId = document.getElementById('vnCompraProdId').value;
+      const cantidad = parseFloat(document.getElementById('vnCantidad').value) || 0;
+      const costoUnit = parseFloat(document.getElementById('vnCostoUnit').value) || 0;
+      if (!proveedor) { mostrarToast('El proveedor es requerido', 'error'); return; }
+      if (!productoId) { mostrarToast('Seleccioná un producto', 'error'); return; }
+      if (cantidad <= 0) { mostrarToast('La cantidad debe ser mayor a cero', 'error'); return; }
+      llamarServidor({ action: 'vnRegistrarCompra', proveedor: proveedor.toUpperCase(), productoId: Number(productoId), cantidad, costoUnit, obs: document.getElementById('vnCompraObs').value }, res => {
+        if (res.success) {
+          mostrarToast('Compra registrada. Nuevo stock: ' + res.nuevoStock, 'success');
+          cerrarModal('modalVnCompra');
+          vnCargarStock();
+          vnCargarProductos();
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    function vnAbrirMerma() {
+      vnPopularSelectsProductos('vnMermaProdId');
+      document.getElementById('vnMermaCantidad').value = '';
+      document.getElementById('vnMermaRazon').value = '';
+      abrirModal('modalVnMerma');
+    }
+
+    function vnGuardarMerma() {
+      const productoId = document.getElementById('vnMermaProdId').value;
+      const cantidad = parseFloat(document.getElementById('vnMermaCantidad').value) || 0;
+      const razon = document.getElementById('vnMermaRazon').value.trim();
+      if (!productoId) { mostrarToast('Seleccioná un producto', 'error'); return; }
+      if (cantidad <= 0) { mostrarToast('La cantidad debe ser mayor a cero', 'error'); return; }
+      if (!razon) { mostrarToast('La razón es requerida', 'error'); return; }
+      llamarServidor({ action: 'vnRegistrarMerma', productoId: Number(productoId), cantidad, razon }, res => {
+        if (res.success) {
+          mostrarToast('Merma registrada. Nuevo stock: ' + res.nuevoStock, 'success');
+          cerrarModal('modalVnMerma');
+          vnCargarStock();
+          vnCargarProductos();
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    function vnAbrirCorreccion() {
+      vnPopularSelectsProductos('vnCorrProdId');
+      document.getElementById('vnCorrStockNuevo').value = '';
+      document.getElementById('vnCorrRazon').value = '';
+      document.getElementById('vnCorrStockActualDisplay').textContent = '';
+      abrirModal('modalVnCorreccion');
+    }
+
+    function vnMostrarStockActual() {
+      const id = document.getElementById('vnCorrProdId').value;
+      const prod = VN.productos.find(p => p.id == id);
+      const div = document.getElementById('vnCorrStockActualDisplay');
+      div.textContent = prod ? 'Stock actual: ' + prod.stock + ' unidades' : '';
+    }
+
+    function vnGuardarCorreccion() {
+      const productoId = document.getElementById('vnCorrProdId').value;
+      const stockNuevo = document.getElementById('vnCorrStockNuevo').value;
+      const razon = document.getElementById('vnCorrRazon').value.trim();
+      if (!productoId) { mostrarToast('Seleccioná un producto', 'error'); return; }
+      if (stockNuevo === '' || stockNuevo === null) { mostrarToast('El stock nuevo es requerido', 'error'); return; }
+      if (razon.length < 5) { mostrarToast('La razón debe tener al menos 5 caracteres', 'error'); return; }
+      llamarServidor({ action: 'vnRegistrarCorreccion', productoId: Number(productoId), stockNuevo: Number(stockNuevo), razon }, res => {
+        if (res.success) {
+          mostrarToast('Corrección aplicada', 'success');
+          cerrarModal('modalVnCorreccion');
+          vnCargarStock();
+          vnCargarProductos();
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    // ── Productos en Config ───────────────────────────────────────
+
+    function vnCargarProductosConfig() {
+      llamarServidor({ action: 'vnGetProductos' }, res => {
+        const tbody = document.getElementById('vnProductosConfigBody');
+        const prods = res.productos || [];
+        if (prods.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--sv-texto-secundario);">Sin productos</td></tr>';
+        } else {
+          tbody.innerHTML = prods.map(p => `<tr>
+            <td>${p.id}</td><td>${p.nombre}</td>
+            <td>${formatMonto(p.precio)}</td><td>${p.stock}</td>
+            <td>${p.activo ? '✅' : '❌'}</td>
+            <td>
+              <button class="btn btn-sm btn-outline" onclick="vnAbrirEditarProducto(${JSON.stringify(p).replace(/"/g,'&quot;')})" style="padding:2px 6px;font-size:0.7rem;">✏️ Editar</button>
+              <button class="btn btn-sm btn-outline" onclick="vnToggleProducto(${p.id},${p.activo})" style="padding:2px 6px;font-size:0.7rem;">${p.activo ? 'Desactivar' : 'Activar'}</button>
+            </td>
+          </tr>`).join('');
+        }
+      });
+    }
+
+    function vnAbrirNuevoProducto() {
+      document.getElementById('vnNuevoProdId').value = '';
+      document.getElementById('vnNuevoProdNombre').value = '';
+      document.getElementById('vnNuevoProdPrecio').value = '';
+      document.getElementById('vnNuevoProdStock').value = '0';
+      document.getElementById('vnNuevoProdTitulo').textContent = '➕ Nuevo Producto';
+      abrirModal('modalVnNuevoProducto');
+    }
+
+    function vnAbrirEditarProducto(prod) {
+      document.getElementById('vnNuevoProdId').value = prod.id;
+      document.getElementById('vnNuevoProdNombre').value = prod.nombre;
+      document.getElementById('vnNuevoProdPrecio').value = prod.precio;
+      document.getElementById('vnNuevoProdStock').value = prod.stock;
+      document.getElementById('vnNuevoProdTitulo').textContent = '✏️ Editar Producto';
+      abrirModal('modalVnNuevoProducto');
+    }
+
+    function vnGuardarProducto() {
+      const id = document.getElementById('vnNuevoProdId').value;
+      const nombre = document.getElementById('vnNuevoProdNombre').value.trim().toUpperCase();
+      const precio = parseFloat(document.getElementById('vnNuevoProdPrecio').value) || 0;
+      const stock = parseInt(document.getElementById('vnNuevoProdStock').value) || 0;
+      if (!nombre) { mostrarToast('El nombre es requerido', 'error'); return; }
+      if (precio < 0) { mostrarToast('El precio no puede ser negativo', 'error'); return; }
+
+      const action = id ? 'vnActualizarProducto' : 'vnCrearProducto';
+      const payload = id ? { action, id: Number(id), nombre, precio, stock } : { action, nombre, precio, stock };
+      llamarServidor(payload, res => {
+        if (res.success) {
+          mostrarToast(id ? 'Producto actualizado' : 'Producto creado', 'success');
+          cerrarModal('modalVnNuevoProducto');
+          vnCargarProductos();
+          vnCargarProductosConfig();
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    function vnToggleProducto(id, activo) {
+      llamarServidor({ action: 'vnToggleProducto', id }, res => {
+        if (res.success) {
+          mostrarToast(res.activo ? 'Producto activado' : 'Producto desactivado', 'success');
+          vnCargarProductos();
+          vnCargarProductosConfig();
+          vnCargarStock();
+        } else {
+          mostrarToast(res.error || 'Error', 'error');
+        }
+      });
+    }
+
+    function vnPopularSelectsProductos(selectId) {
+      const ids = selectId ? [selectId] : ['vnCompraProdId','vnMermaProdId','vnCorrProdId'];
+      ids.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Seleccionar producto...</option>' +
+          VN.productos.map(p => `<option value="${p.id}">${p.nombre} (stock: ${p.stock})</option>`).join('');
+      });
+    }
+
+    function vnSetCompraProducto() { }
+
+    // ── Config VN ─────────────────────────────────────────────────
+
+    function vnCargarConfigLocal() {
+      try { return JSON.parse(localStorage.getItem('vnConfig') || '{}'); } catch (_) { return {}; }
+    }
+
+    function vnGuardarConfig() {
+      const cfg = {
+        empresa: document.getElementById('vnConfigEmpresa').value.trim() || 'SOL & VERDE',
+        direccion: document.getElementById('vnConfigDireccion').value.trim(),
+        telefono: document.getElementById('vnConfigTelefono').value.trim(),
+        impresora: document.getElementById('vnConfigImpresora').value.trim()
+      };
+      localStorage.setItem('vnConfig', JSON.stringify(cfg));
+      VN.configLocal = cfg;
+      mostrarToast('Configuración guardada', 'success');
+    }
+
+    function vnCargarConfigUI() {
+      const cfg = VN.configLocal;
+      document.getElementById('vnConfigEmpresa').value = cfg.empresa || 'SOL & VERDE';
+      document.getElementById('vnConfigDireccion').value = cfg.direccion || '';
+      document.getElementById('vnConfigTelefono').value = cfg.telefono || '';
+      document.getElementById('vnConfigImpresora').value = cfg.impresora || '';
+    }
+
+    // ── Navegación entre vistas ───────────────────────────────────
+
+    function vnCambiarVista(vista) {
+      const vistas = ['pos','historial','vales','pagos','stock','config'];
+      vistas.forEach(v => {
+        const el = document.getElementById('vnView' + v.charAt(0).toUpperCase() + v.slice(1));
+        if (el) el.style.display = v === vista ? (v === 'pos' ? 'block' : 'block') : 'none';
+        const tab = document.getElementById('vnTab' + v.charAt(0).toUpperCase() + v.slice(1));
+        if (tab) tab.classList.toggle('active', v === vista);
+      });
+      if (vista === 'historial') vnCargarHistorial();
+      if (vista === 'vales') vnCargarVales();
+      if (vista === 'pagos') vnCargarPagos();
+      if (vista === 'stock') vnCargarStock();
+      if (vista === 'config') { vnCargarConfigUI(); vnCargarProductosConfig(); }
+      if (vista === 'pos') {
+        document.getElementById('vnViewSinSesion').style.display = VN.sesion ? 'none' : 'flex';
+        document.getElementById('vnViewPOS').style.display = VN.sesion ? 'block' : 'none';
+      }
+    }
+
+    // ── Impresión ─────────────────────────────────────────────────
+
+    function vnImprimirTicket(venta) {
+      const cfg = VN.configLocal;
+      const empresa = cfg.empresa || 'SOL & VERDE';
+      const dir = cfg.direccion || '';
+      const tel = cfg.telefono || '';
+      const items = (venta.items || []).map(i =>
+        `<tr><td>${i.nombre}</td><td style="text-align:right;">x${i.qty}</td><td style="text-align:right;">${formatMonto(i.subtotal)}</td></tr>`
+      ).join('');
+      const medios = (venta.mediosPago || []).map(m => {
+        let d = m.tipo;
+        if (m.detalle && m.detalle.banco) d += ' - ' + m.detalle.banco;
+        if (m.detalle && m.detalle.numero) d += ' #' + m.detalle.numero;
+        return d + ': ' + formatMonto(m.monto);
+      }).join('<br>');
+
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+@page { size: 80mm auto; margin: 2mm; }
+body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; margin:0; padding:0; }
+.center { text-align:center; }
+.bold { font-weight:bold; }
+.line { border-top: 1px dashed #000; margin: 4px 0; }
+table { width:100%; border-collapse:collapse; }
+td { padding: 1px 2px; }
+</style></head><body>
+<div class="center bold" style="font-size:14px;">${empresa}</div>
+${dir ? '<div class="center">' + dir + '</div>' : ''}
+${tel ? '<div class="center">Tel: ' + tel + '</div>' : ''}
+<div class="line"></div>
+<div>Sesión: #${venta.sesionId || ''}</div>
+<div>Hora: ${typeof venta.hora === 'string' ? venta.hora.substring(11,16) : (venta.hora instanceof Date ? formatearHora(venta.hora) : '')}</div>
+<div>Cliente: <strong>${venta.cliente || 'CONSUMIDOR FINAL'}</strong></div>
+<div class="line"></div>
+<table>${items}</table>
+<div class="line"></div>
+<div class="bold" style="text-align:right;font-size:13px;">TOTAL: ${formatMonto(venta.total)}</div>
+<div class="line"></div>
+<div>${medios}</div>
+<div class="line"></div>
+<div class="center">¡Gracias por su compra!</div>
+<div class="center" style="font-size:9px; margin-top:4px;">Venta #${venta.id}</div>
+</body></html>`;
+      vnAbrirVentanaImpresion(html);
+    }
+
+    function vnImprimirVale(vale) {
+      const cfg = VN.configLocal;
+      const empresa = cfg.empresa || 'SOL & VERDE';
+      const fecha = vale.fechaEmision instanceof Date
+        ? formatearFechaCorta(vale.fechaEmision)
+        : (new Date().toLocaleDateString('es-AR'));
+
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+@page { size: 80mm auto; margin: 2mm; }
+body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; margin:0; padding:0; }
+.center { text-align:center; }
+.bold { font-weight:bold; }
+.box { border: 3px double #000; padding: 6px; margin: 2px 0; }
+.big { font-size:18px; font-weight:bold; }
+.xl { font-size:22px; font-weight:900; }
+.line { border-top: 1px dashed #000; margin: 4px 0; }
+</style></head><body>
+<div class="box">
+<div class="center bold" style="font-size:13px;">★ ${empresa} ★</div>
+<div class="center bold" style="font-size:11px;">🎟️ VALE DE CANJE</div>
+<div class="line"></div>
+<div class="center big">N° ${vale.numero || ''}</div>
+<div class="center">Fecha: ${fecha}</div>
+<div class="line"></div>
+<div>Cliente: <strong>${vale.cliente || 'CONSUMIDOR FINAL'}</strong></div>
+<div>Motivo: ${vale.motivo || ''}</div>
+<div class="line"></div>
+<div class="center xl">$ ${(vale.monto || 0).toLocaleString('es-AR')}</div>
+<div class="line"></div>
+<div class="center" style="font-size:9px;">✅ TRANSFERIBLE</div>
+<div class="center" style="font-size:9px;">✅ SIN VENCIMIENTO</div>
+<div class="center" style="font-size:9px;">✅ CANJEABLE EN EFECTIVO</div>
+<div class="line"></div>
+<div class="center" style="font-size:9px;">Conserve este comprobante</div>
+</div>
+</body></html>`;
+      vnAbrirVentanaImpresion(html);
+    }
+
+    function vnReimprimirTicket(ventaId) {
+      llamarServidor({ action: 'vnGetVentasSesion', sesionId: VN.sesion ? VN.sesion.id : 0 }, res => {
+        const venta = (res.ventas || []).find(v => v.id === ventaId);
+        if (venta) vnImprimirTicket(venta);
+      });
+    }
+
+    function vnAbrirVentanaImpresion(html) {
+      const w = window.open('', '_blank', 'width=350,height=700,menubar=no,toolbar=no,location=no');
+      if (!w) { mostrarToast('Permití ventanas emergentes para imprimir', 'error'); return; }
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(() => { w.print(); setTimeout(() => w.close(), 500); }, 400);
+    }
+
+    // ── Helpers de formato VN ─────────────────────────────────────
+
+    // Alias para compatibilidad con el sistema (usa formatearMonto)
+    function formatMonto(monto) {
+      return typeof formatearMonto === 'function' ? formatearMonto(monto) : ('$' + (monto || 0).toLocaleString('es-AR'));
+    }
+
+    function formatearFechaCorta(fecha) {
+      if (!fecha) return '';
+      if (typeof formatearFecha === 'function') return formatearFecha(fecha);
+      try {
+        if (fecha instanceof Date) return fecha.toLocaleDateString('es-AR');
+        return String(fecha).substring(0, 10);
+      } catch (_) { return ''; }
+    }
+
+    function formatarHora(fecha) {
+      if (!fecha) return '';
+      try {
+        if (fecha instanceof Date) return fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        if (typeof fecha === 'string') return fecha.substring(11, 16);
+      } catch (_) {}
+      return '';
+    }
+
+    function formatearHora(fecha) { return formatarHora(fecha); }
+
+    // ── Hook en navegarA ──────────────────────────────────────────
+    // Se llama cuando se entra al módulo VN desde el menú
+
+    const _vnNavOriginal = typeof navegarA === 'function' ? navegarA : null;
+
+    function vnOnActivar() {
+      vnInit();
     }
 
   </script>

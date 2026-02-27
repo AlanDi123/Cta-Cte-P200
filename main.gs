@@ -87,6 +87,60 @@ function doPost(e) {
       return guardarBackupAPI(data.data);
     }
 
+    // ─── VENTA NOCTURNA ───────────────────────────────────────────
+    // Inicialización
+    if (data.action === 'vnInicializarHojas') {
+      return _vnJsonOk(inicializarHojasVN());
+    }
+
+    // Sesiones
+    if (data.action === 'vnAbrirSesion') return _vnJsonOk(vnAbrirSesion());
+    if (data.action === 'vnCerrarSesion') return _vnJsonOk(vnCerrarSesion(data.sesionId));
+    if (data.action === 'vnGetSesionActiva') return _vnJsonOk(vnGetSesionActiva());
+    if (data.action === 'vnReabrirSesion') return _vnJsonOk(vnReabrirSesion(data));
+    if (data.action === 'vnGetHistorialSesiones') return _vnJsonOk(vnGetHistorialSesiones(data.limit));
+
+    // Productos VN
+    if (data.action === 'vnGetProductos') return _vnJsonOk(vnGetProductos());
+    if (data.action === 'vnCrearProducto') return _vnJsonOk(vnCrearProducto(data));
+    if (data.action === 'vnActualizarProducto') return _vnJsonOk(vnActualizarProducto(data));
+    if (data.action === 'vnToggleProducto') return _vnJsonOk(vnToggleProducto(data.id));
+
+    // Ventas POS
+    if (data.action === 'vnRegistrarVenta') return _vnJsonOk(vnRegistrarVenta(data));
+    if (data.action === 'vnCancelarVenta') return _vnJsonOk(vnCancelarVenta(data.ventaId));
+    if (data.action === 'vnGetVentasSesion') return _vnJsonOk(vnGetVentasSesion(data.sesionId));
+    if (data.action === 'vnGetResumenSesion') return _vnJsonOk(vnGetResumenSesion(data.sesionId));
+
+    // Vales
+    if (data.action === 'vnCrearVale') return _vnJsonOk(vnCrearVale(data));
+    if (data.action === 'vnBuscarVale') return _vnJsonOk(vnBuscarVale(data.numero));
+    if (data.action === 'vnAnularVale') return _vnJsonOk(vnAnularVale(data));
+    if (data.action === 'vnGetVales') return _vnJsonOk(vnGetVales(data.filtros));
+    if (data.action === 'vnGetValesCliente') return _vnJsonOk(vnGetValesCliente(data.cliente));
+
+    // Stock
+    if (data.action === 'vnGetExistencias') return _vnJsonOk(vnGetExistencias());
+    if (data.action === 'vnRegistrarCompra') return _vnJsonOk(vnRegistrarCompra(data));
+    if (data.action === 'vnRegistrarMerma') return _vnJsonOk(vnRegistrarMerma(data));
+    if (data.action === 'vnRegistrarCorreccion') return _vnJsonOk(vnRegistrarCorreccion(data));
+    if (data.action === 'vnGetHistorialCompras') return _vnJsonOk(vnGetHistorialCompras(data.filtros));
+    if (data.action === 'vnGetHistorialMermas') return _vnJsonOk(vnGetHistorialMermas(data.filtros));
+    if (data.action === 'vnGetHistorialCorrecciones') return _vnJsonOk(vnGetHistorialCorrecciones(data.filtros));
+
+    // Pagos / Fiados
+    if (data.action === 'vnRegistrarFiado') return _vnJsonOk(vnRegistrarFiado(data));
+    if (data.action === 'vnRegistrarCobro') return _vnJsonOk(vnRegistrarCobro(data));
+    if (data.action === 'vnRegistrarPagoACuenta') return _vnJsonOk(vnRegistrarPagoACuenta(data));
+    if (data.action === 'vnGetDeudas') return _vnJsonOk(vnGetDeudas(data.cliente));
+    if (data.action === 'vnGetPagosSesion') return _vnJsonOk(vnGetPagosSesion(data.sesionId));
+    if (data.action === 'vnGetSaldoCliente') return _vnJsonOk(vnGetSaldoCliente(data.cliente));
+
+    // Clientes (lectura del módulo principal)
+    if (data.action === 'vnGetClientes') return _vnJsonOk(vnGetClientes(data.termino));
+    if (data.action === 'vnCrearClienteRapido') return _vnJsonOk(vnCrearClienteRapido(data));
+    // ─────────────────────────────────────────────────────────────
+
     return ContentService.createTextOutput(
       JSON.stringify({ success: false, error: 'Acción no reconocida: ' + data.action })
     ).setMimeType(ContentService.MimeType.JSON);
@@ -1600,5 +1654,14 @@ function restaurarConfiguracionPorDefecto() {
       error: error.message
     };
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HELPER: Serializar respuestas del módulo Venta Nocturna
+// ─────────────────────────────────────────────────────────────
+
+function _vnJsonOk(resultado) {
+  return ContentService.createTextOutput(JSON.stringify(resultado))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
