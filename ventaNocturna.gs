@@ -29,8 +29,9 @@ const CONFIG_VN = {
     RAZON_REAPERTURA: 12, USUARIO: 13
   },
   COLS_PRODUCTOS: {
-    ID: 1, NOMBRE: 2, PRECIO: 3, STOCK: 4, ACTIVO: 5
+    ID: 1, NOMBRE: 2, PRECIO: 3, STOCK: 4, CATEGORIA: 5, ACTIVO: 6
   },
+  UMBRAL_DEUDA_ALERTA: 500000,
   COLS_VENTAS: {
     ID: 1, SESION_ID: 2, FECHA: 3, HORA: 4, CLIENTE: 5,
     ITEMS_JSON: 6, SUBTOTAL: 7, TOTAL: 8,
@@ -77,7 +78,7 @@ function inicializarHojasVN() {
     },
     {
       nombre: CONFIG_VN.HOJAS.PRODUCTOS,
-      headers: ['ID','NOMBRE','PRECIO','STOCK','ACTIVO'],
+      headers: ['ID','NOMBRE','PRECIO','STOCK','CATEGORIA','ACTIVO'],
       color: '#1B5E20', colorTexto: '#FFFFFF'
     },
     {
@@ -312,6 +313,7 @@ function vnCrearProducto(data) {
       data.nombre.toUpperCase().trim(),
       Number(data.precio) || 0,
       Number(data.stock) || 0,
+      (data.categoria || '').toUpperCase().trim(),
       true
     ]);
     return { success: true, id: nuevoId };
@@ -336,10 +338,11 @@ function vnActualizarProducto(data) {
     }
     if (filaIdx === -1) return { success: false, error: 'Producto no encontrado.' };
 
-    if (data.nombre !== undefined) hoja.getRange(filaIdx, CONFIG_VN.COLS_PRODUCTOS.NOMBRE).setValue(data.nombre.toUpperCase().trim());
-    if (data.precio !== undefined) hoja.getRange(filaIdx, CONFIG_VN.COLS_PRODUCTOS.PRECIO).setValue(Number(data.precio));
-    if (data.stock !== undefined)  hoja.getRange(filaIdx, CONFIG_VN.COLS_PRODUCTOS.STOCK).setValue(Number(data.stock));
-    if (data.activo !== undefined) hoja.getRange(filaIdx, CONFIG_VN.COLS_PRODUCTOS.ACTIVO).setValue(Boolean(data.activo));
+    if (data.nombre    !== undefined) hoja.getRange(filaIdx, CONFIG_VN.COLS_PRODUCTOS.NOMBRE).setValue(data.nombre.toUpperCase().trim());
+    if (data.precio    !== undefined) hoja.getRange(filaIdx, CONFIG_VN.COLS_PRODUCTOS.PRECIO).setValue(Number(data.precio));
+    if (data.stock     !== undefined) hoja.getRange(filaIdx, CONFIG_VN.COLS_PRODUCTOS.STOCK).setValue(Number(data.stock));
+    if (data.categoria !== undefined) hoja.getRange(filaIdx, CONFIG_VN.COLS_PRODUCTOS.CATEGORIA).setValue((data.categoria || '').toUpperCase().trim());
+    if (data.activo    !== undefined) hoja.getRange(filaIdx, CONFIG_VN.COLS_PRODUCTOS.ACTIVO).setValue(Boolean(data.activo));
 
     return { success: true };
   } catch (e) {
@@ -435,11 +438,12 @@ function _mapearSesion(fila) {
 function _mapearProducto(fila) {
   const C = CONFIG_VN.COLS_PRODUCTOS;
   return {
-    id:     fila[C.ID - 1],
-    nombre: fila[C.NOMBRE - 1],
-    precio: fila[C.PRECIO - 1] || 0,
-    stock:  fila[C.STOCK - 1] || 0,
-    activo: fila[C.ACTIVO - 1] === true || fila[C.ACTIVO - 1] === 'TRUE'
+    id:        fila[C.ID - 1],
+    nombre:    fila[C.NOMBRE - 1],
+    precio:    fila[C.PRECIO - 1] || 0,
+    stock:     fila[C.STOCK - 1] || 0,
+    categoria: fila[C.CATEGORIA - 1] || '',
+    activo:    fila[C.ACTIVO - 1] === true || fila[C.ACTIVO - 1] === 'TRUE'
   };
 }
 
@@ -482,6 +486,20 @@ function _obtenerUltimoId(hoja) {
   return Math.max(...datos.slice(1).map(r => Number(r[0]) || 0));
 }
 
+function vnGetCategorias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName(CONFIG_VN.HOJAS.PRODUCTOS);
+  if (!hoja) return { success: true, categorias: [] };
+
+  const datos = hoja.getDataRange().getValues();
+  const set = new Set();
+  datos.slice(1).forEach(fila => {
+    const cat = (fila[CONFIG_VN.COLS_PRODUCTOS.CATEGORIA - 1] || '').toString().trim();
+    if (cat) set.add(cat);
+  });
+  return { success: true, categorias: Array.from(set).sort() };
+}
+
 // ─────────────────────────────────────────────────────────────
 //  DISPATCHER — Llamado directo desde el frontend via
 //  google.script.run.ejecutarAccionVN(data)
@@ -504,6 +522,7 @@ function ejecutarAccionVN(data) {
       case 'vnCrearProducto':      return vnCrearProducto(data);
       case 'vnActualizarProducto': return vnActualizarProducto(data);
       case 'vnToggleProducto':     return vnToggleProducto(data.id);
+      case 'vnGetCategorias':      return vnGetCategorias();
       // Ventas
       case 'vnRegistrarVenta':     return vnRegistrarVenta(data);
       case 'vnCancelarVenta':      return vnCancelarVenta(data.ventaId);

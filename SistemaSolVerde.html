@@ -2020,344 +2020,351 @@
       .contab-copy-block:last-child { page-break-after: avoid; }
     }
 
-    /* ─────────────────────────────────────────────────────────
-       VENTA NOCTURNA — Estilos del módulo POS
-    ───────────────────────────────────────────────────────── */
+    /* ═══════════════════════════════════════════════════════════
+       VENTA NOCTURNA — Estilos del módulo POS (v2 rediseño)
+    ═══════════════════════════════════════════════════════════ */
+    /* Variables dark-mode para VN */
+    [data-theme="dark"] #module-venta-nocturna {
+      --vn-bg:           #0F0F1A;
+      --vn-surface:      #1A1A2E;
+      --vn-surface2:     #16213E;
+      --vn-border:       #2D2D4E;
+      --vn-primary:      #7C3AED;
+      --vn-primary-h:    #6D28D9;
+      --vn-accent:       #10B981;
+      --vn-danger:       #EF4444;
+      --vn-warning:      #F59E0B;
+      --vn-text:         #F1F5F9;
+      --vn-text2:        #94A3B8;
+      --vn-bar-bg:       linear-gradient(135deg,#1A1A2E,#0D0D1A);
+      --vn-cobrar-bg:    linear-gradient(135deg,#10B981,#059669);
+      --vn-tabs-bg:      #16213E;
+    }
     #module-venta-nocturna {
+      --vn-bg:           var(--sv-fondo);
+      --vn-surface:      var(--sv-superficie);
+      --vn-surface2:     var(--sv-superficie-elevada);
+      --vn-border:       var(--sv-borde);
+      --vn-primary:      var(--sv-primario);
+      --vn-primary-h:    var(--sv-primario-oscuro, #1B5E20);
+      --vn-accent:       #10B981;
+      --vn-danger:       #EF4444;
+      --vn-warning:      #F59E0B;
+      --vn-text:         var(--sv-texto-principal);
+      --vn-text2:        var(--sv-texto-secundario);
+      --vn-bar-bg:       linear-gradient(135deg,#1A237E,#0D47A1);
+      --vn-cobrar-bg:    linear-gradient(135deg,var(--sv-primario),var(--sv-primario-oscuro,#1B5E20));
+      --vn-tabs-bg:      #0D47A1;
       padding: 0;
-      background: var(--sv-fondo);
+      background: var(--vn-bg);
       min-height: calc(100vh - 60px);
     }
+
+    /* ── Barra de sesión ── */
     .vn-sesion-bar {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 0.6rem 1.2rem;
-      background: #1A237E;
+      gap: 0.75rem;
+      padding: 0.55rem 1rem;
+      background: var(--vn-bar-bg);
       color: #fff;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       flex-wrap: wrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
-    .vn-sesion-bar .vn-sesion-info { flex: 1; font-weight: 600; }
-    .vn-sesion-bar .badge-open { background: #4CAF50; color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; }
-    .vn-sesion-bar .badge-closed { background: #F44336; color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; }
+    .vn-sesion-bar .vn-sesion-info { flex: 1; font-weight: 600; display:flex; align-items:center; gap:0.5rem; }
+    .vn-sesion-bar .vn-sesion-clock { font-variant-numeric: tabular-nums; opacity:0.85; font-size:0.8rem; }
+    .vn-sesion-bar .vn-sesion-duracion { opacity:0.7; font-size:0.75rem; }
+    .vn-sesion-bar .badge-open  { background: #10B981; color:#fff; padding:2px 10px; border-radius:12px; font-size:0.72rem; font-weight:700; }
+    .vn-sesion-bar .badge-closed{ background: #EF4444; color:#fff; padding:2px 10px; border-radius:12px; font-size:0.72rem; font-weight:700; }
+    .vn-sesion-bar .btn-sm { padding:0.3rem 0.7rem; font-size:0.75rem; border-radius:6px; border:none; cursor:pointer; font-weight:600; }
 
+    /* ── Tabs de vistas ── */
     .vn-tabs {
       display: flex;
       gap: 0;
-      background: #0D47A1;
+      background: var(--vn-tabs-bg);
       overflow-x: auto;
+      scrollbar-width: none;
     }
+    .vn-tabs::-webkit-scrollbar { display:none; }
     .vn-tab-btn {
-      padding: 0.55rem 1.1rem;
+      padding: 0.5rem 1rem;
       background: transparent;
       border: none;
-      color: rgba(255,255,255,0.7);
+      color: rgba(255,255,255,0.65);
       cursor: pointer;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       font-weight: 500;
       border-bottom: 3px solid transparent;
       white-space: nowrap;
       transition: all 0.15s;
+      letter-spacing: 0.01em;
     }
-    .vn-tab-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
-    .vn-tab-btn.active { color: #fff; border-bottom-color: #FFD600; background: rgba(255,255,255,0.1); }
+    .vn-tab-btn:hover { color:#fff; background:rgba(255,255,255,0.08); }
+    .vn-tab-btn.active { color:#fff; border-bottom-color:#FFD600; background:rgba(255,255,255,0.12); font-weight:700; }
 
+    /* ── Sin sesión ── */
     .vn-sin-sesion {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 4rem 1rem;
-      text-align: center;
+      display: flex; flex-direction:column; align-items:center;
+      justify-content:center; padding:4rem 1rem; text-align:center;
     }
-    .vn-sin-sesion .vn-sin-sesion-icon { font-size: 4rem; margin-bottom: 1rem; }
-    .vn-sin-sesion h2 { color: var(--sv-texto-principal); margin-bottom: 0.5rem; }
-    .vn-sin-sesion p { color: var(--sv-texto-secundario); margin-bottom: 1.5rem; }
+    .vn-sin-sesion-icon { font-size:4rem; margin-bottom:1rem; }
+    .vn-sin-sesion h2   { color:var(--vn-text); margin-bottom:0.5rem; }
+    .vn-sin-sesion p    { color:var(--vn-text2); margin-bottom:1.5rem; }
 
     /* ── POS Layout ── */
     .vn-pos-layout {
       display: grid;
-      grid-template-columns: 1fr 340px;
-      gap: 0;
-      height: calc(100vh - 110px);
+      grid-template-columns: 1fr 360px;
+      height: calc(100vh - 112px);
       overflow: hidden;
     }
-    @media (max-width: 900px) {
-      .vn-pos-layout { grid-template-columns: 1fr; height: auto; overflow: visible; }
+    @media (max-width:900px) {
+      .vn-pos-layout { grid-template-columns:1fr; height:auto; overflow:visible; }
+    }
+    .vn-pos-left {
+      display:flex; flex-direction:column; overflow:hidden;
+      border-right:1px solid var(--vn-border);
     }
 
-    .vn-pos-left {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      border-right: 1px solid var(--sv-borde);
-    }
+    /* ── Barra de cliente + búsqueda ── */
     .vn-pos-top-bar {
-      display: flex;
-      gap: 0.6rem;
-      padding: 0.6rem 0.8rem;
-      background: var(--sv-superficie);
-      border-bottom: 1px solid var(--sv-borde);
-      align-items: center;
-      flex-wrap: wrap;
+      display:flex; gap:0.5rem; padding:0.5rem 0.7rem;
+      background:var(--vn-surface2); border-bottom:1px solid var(--vn-border);
+      align-items:center; flex-wrap:wrap;
     }
     .vn-cliente-display {
-      flex: 1;
-      min-width: 160px;
-      padding: 0.4rem 0.8rem;
-      background: var(--sv-superficie-elevada);
-      border: 1px solid var(--sv-borde);
-      border-radius: 6px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      color: var(--sv-texto-principal);
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
+      flex:1; min-width:160px; padding:0.38rem 0.8rem;
+      background:var(--vn-surface); border:1.5px solid var(--vn-border);
+      border-radius:8px; font-size:0.83rem; cursor:pointer;
+      color:var(--vn-text); display:flex; align-items:center; gap:0.4rem;
+      transition: border-color 0.15s;
+    }
+    .vn-cliente-display:hover { border-color:var(--vn-primary); }
+    .vn-deuda-badge {
+      display:inline-flex; align-items:center; gap:2px;
+      background:#F59E0B; color:#fff; border-radius:10px;
+      font-size:0.68rem; font-weight:700; padding:1px 7px;
+      white-space:nowrap;
     }
     .vn-search-prod {
-      flex: 1;
-      min-width: 160px;
-      padding: 0.4rem 0.8rem;
-      border: 1px solid var(--sv-borde);
-      border-radius: 6px;
-      font-size: 0.85rem;
-      background: var(--sv-superficie);
-      color: var(--sv-texto-principal);
+      flex:1; min-width:160px; padding:0.38rem 0.8rem;
+      border:1.5px solid var(--vn-border); border-radius:8px;
+      font-size:0.83rem; background:var(--vn-surface); color:var(--vn-text);
+      outline:none; transition:border-color 0.15s;
     }
+    .vn-search-prod:focus { border-color:var(--vn-primary); }
 
+    /* ── Tabs de categorías ── */
+    .vn-cat-tabs {
+      display:flex; gap:0; padding:0.35rem 0.7rem;
+      background:var(--vn-surface2); border-bottom:1px solid var(--vn-border);
+      overflow-x:auto; scrollbar-width:none; flex-shrink:0;
+    }
+    .vn-cat-tabs::-webkit-scrollbar { display:none; }
+    .vn-cat-pill {
+      padding:0.22rem 0.75rem; border-radius:20px; border:1.5px solid var(--vn-border);
+      background:transparent; cursor:pointer; font-size:0.75rem; font-weight:600;
+      color:var(--vn-text2); white-space:nowrap; transition:all 0.14s;
+      margin-right:0.3rem;
+    }
+    .vn-cat-pill:hover  { border-color:var(--vn-primary); color:var(--vn-primary); }
+    .vn-cat-pill.active { background:var(--vn-primary); border-color:var(--vn-primary); color:#fff; }
+
+    /* ── Grilla de productos ── */
     .vn-prod-grid {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0.8rem;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-      gap: 0.6rem;
-      align-content: start;
+      flex:1; overflow-y:auto; padding:0.7rem;
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+      gap:0.55rem; align-content:start;
     }
     .vn-prod-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 0.75rem 0.5rem;
-      background: var(--sv-superficie);
-      border: 2px solid var(--sv-borde);
-      border-radius: 10px;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.15s;
-      gap: 0.3rem;
-      min-height: 80px;
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:space-between; padding:0.65rem 0.4rem 0.55rem;
+      background:var(--vn-surface); border:2px solid var(--vn-border);
+      border-radius:12px; cursor:pointer; text-align:center;
+      transition:all 0.15s; gap:0.25rem; min-height:82px;
+      position:relative;
     }
-    .vn-prod-btn:hover { border-color: var(--sv-primario); background: rgba(46,125,50,0.07); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
-    .vn-prod-btn:active { transform: translateY(0); }
-    .vn-prod-btn .vn-prod-nombre { font-size: 0.78rem; font-weight: 600; color: var(--sv-texto-principal); line-height: 1.2; }
-    .vn-prod-btn .vn-prod-precio { font-size: 0.85rem; color: var(--sv-primario); font-weight: 700; }
-    .vn-prod-btn .vn-prod-stock-low { font-size: 0.65rem; color: #F44336; }
+    .vn-prod-btn:hover {
+      border-color:var(--vn-primary);
+      background:var(--vn-surface2);
+      transform:translateY(-2px);
+      box-shadow:0 4px 12px rgba(0,0,0,0.18);
+    }
+    .vn-prod-btn:active { transform:translateY(0); box-shadow:none; }
+    .vn-prod-btn.sin-stock { opacity:0.5; cursor:not-allowed; }
+    .vn-prod-nombre { font-size:0.75rem; font-weight:700; color:var(--vn-text); line-height:1.25; }
+    .vn-prod-precio { font-size:0.82rem; color:var(--vn-primary); font-weight:800; }
+    .vn-prod-stock  { font-size:0.62rem; font-weight:600; }
+    .vn-prod-stock.ok       { color:#10B981; }
+    .vn-prod-stock.low      { color:#F59E0B; }
+    .vn-prod-stock.critical { color:#EF4444; }
 
+    /* ── Panel carrito (derecha) ── */
     .vn-pos-right {
-      display: flex;
-      flex-direction: column;
-      background: var(--sv-superficie);
-      overflow: hidden;
+      display:flex; flex-direction:column;
+      background:var(--vn-surface); overflow:hidden;
     }
     .vn-carrito-header {
-      padding: 0.6rem 1rem;
-      font-weight: 700;
-      font-size: 0.9rem;
-      border-bottom: 1px solid var(--sv-borde);
-      color: var(--sv-texto-principal);
-      background: var(--sv-superficie-elevada);
+      padding:0.55rem 0.9rem; font-weight:700; font-size:0.88rem;
+      border-bottom:1px solid var(--vn-border); color:var(--vn-text);
+      background:var(--vn-surface2); display:flex;
+      justify-content:space-between; align-items:center;
     }
-    .vn-carrito-items {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0.4rem;
-    }
+    .vn-carrito-items { flex:1; overflow-y:auto; padding:0.3rem; }
+
+    /* ── Item del carrito ── */
     .vn-carrito-item {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.4rem 0.5rem;
-      border-bottom: 1px solid var(--sv-borde);
-      font-size: 0.82rem;
+      padding:0.45rem 0.5rem; border-bottom:1px solid var(--vn-border);
+      font-size:0.8rem;
     }
-    .vn-carrito-item .vn-ci-nombre { flex: 1; font-weight: 500; }
-    .vn-carrito-item .vn-ci-qty {
-      display: flex;
-      align-items: center;
-      gap: 0.2rem;
+    .vn-ci-row1 { display:flex; align-items:center; gap:0.35rem; margin-bottom:0.25rem; }
+    .vn-ci-nombre { flex:1; font-weight:600; color:var(--vn-text); line-height:1.2; }
+    .vn-ci-qty {
+      display:flex; align-items:center; gap:0.2rem;
     }
     .vn-ci-qty button {
-      width: 22px; height: 22px;
-      border-radius: 50%;
-      border: 1px solid var(--sv-borde);
-      background: var(--sv-superficie-elevada);
-      cursor: pointer;
-      font-size: 0.8rem;
-      line-height: 1;
-      color: var(--sv-texto-principal);
+      width:22px; height:22px; border-radius:50%;
+      border:1.5px solid var(--vn-border); background:var(--vn-surface2);
+      cursor:pointer; font-size:0.82rem; line-height:1; color:var(--vn-text);
+      transition:all 0.12s;
     }
-    .vn-ci-qty input {
-      width: 38px;
-      text-align: center;
-      border: 1px solid var(--sv-borde);
-      border-radius: 4px;
-      font-size: 0.8rem;
-      padding: 1px 2px;
-      background: var(--sv-superficie);
-      color: var(--sv-texto-principal);
+    .vn-ci-qty button:hover { border-color:var(--vn-primary); color:var(--vn-primary); }
+    .vn-ci-qty-input {
+      width:36px; text-align:center;
+      border:1px solid var(--vn-border); border-radius:4px;
+      font-size:0.8rem; padding:1px 2px;
+      background:var(--vn-surface); color:var(--vn-text);
     }
-    .vn-carrito-item .vn-ci-subtotal { font-weight: 600; color: var(--sv-primario); min-width: 70px; text-align: right; }
-    .vn-ci-del { background: none; border: none; cursor: pointer; color: #F44336; font-size: 1rem; padding: 0 4px; }
+    .vn-ci-del { background:none; border:none; cursor:pointer; color:#EF4444; font-size:1rem; padding:0 2px; }
+    .vn-ci-row2 { display:flex; align-items:center; gap:0.4rem; }
+    .vn-ci-precio-label { font-size:0.68rem; color:var(--vn-text2); }
+    .vn-ci-precio-input {
+      width:72px; padding:2px 4px; border:1px solid var(--vn-border);
+      border-radius:5px; font-size:0.78rem; font-weight:600;
+      background:var(--vn-surface2); color:var(--vn-primary);
+      text-align:right;
+    }
+    .vn-ci-precio-input:focus { border-color:var(--vn-primary); outline:none; }
+    .vn-ci-descuento { font-size:0.65rem; color:#F59E0B; margin-left:auto; }
+    .vn-ci-subtotal { font-weight:700; color:var(--vn-primary); margin-left:auto; font-size:0.82rem; }
 
-    .vn-carrito-footer {
-      border-top: 2px solid var(--sv-borde);
-      padding: 0.6rem 1rem;
+    /* ── Footer del carrito ── */
+    .vn-carrito-footer { border-top:2px solid var(--vn-border); padding:0.55rem 0.9rem; }
+    .vn-obs-section { margin-bottom:0.4rem; }
+    .vn-obs-toggle {
+      background:none; border:none; color:var(--vn-text2); cursor:pointer;
+      font-size:0.72rem; padding:0; text-decoration:underline; text-underline-offset:2px;
     }
-    .vn-total-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.5rem;
+    .vn-obs-input {
+      width:100%; margin-top:0.25rem; padding:0.3rem 0.5rem;
+      border:1px solid var(--vn-border); border-radius:6px; font-size:0.78rem;
+      background:var(--vn-surface2); color:var(--vn-text); resize:none;
+      display:none;
     }
-    .vn-total-label { font-size: 0.85rem; color: var(--sv-texto-secundario); }
-    .vn-total-monto { font-size: 1.4rem; font-weight: 800; color: var(--sv-texto-principal); }
+    .vn-obs-input.visible { display:block; }
 
-    .vn-medios-titulo { font-size: 0.78rem; font-weight: 600; color: var(--sv-texto-secundario); margin-bottom: 0.4rem; text-transform: uppercase; }
-    .vn-medios-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; margin-bottom: 0.5rem; }
+    .vn-total-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; }
+    .vn-total-label { font-size:0.82rem; color:var(--vn-text2); }
+    .vn-total-monto {
+      font-size:1.55rem; font-weight:900; color:var(--vn-text);
+      transition:transform 0.15s;
+    }
+    .vn-total-monto.bump { transform:scale(1.08); }
+
+    /* ── Medios de pago ── */
+    .vn-medios-titulo { font-size:0.72rem; font-weight:700; color:var(--vn-text2); margin-bottom:0.35rem; text-transform:uppercase; letter-spacing:0.05em; }
+    .vn-medios-grid   { display:grid; grid-template-columns:1fr 1fr; gap:0.3rem; margin-bottom:0.4rem; }
     .vn-medio-btn {
-      padding: 0.4rem;
-      border: 1px solid var(--sv-borde);
-      border-radius: 6px;
-      background: var(--sv-superficie-elevada);
-      cursor: pointer;
-      font-size: 0.73rem;
-      font-weight: 600;
-      color: var(--sv-texto-principal);
-      text-align: center;
-      transition: all 0.12s;
+      padding:0.38rem 0.3rem; border:1.5px solid var(--vn-border); border-radius:7px;
+      background:var(--vn-surface2); cursor:pointer; font-size:0.72rem; font-weight:600;
+      color:var(--vn-text); text-align:center; transition:all 0.12s;
     }
-    .vn-medio-btn:hover { border-color: var(--sv-primario); background: rgba(46,125,50,0.1); }
+    .vn-medio-btn:hover { border-color:var(--vn-primary); color:var(--vn-primary); background:var(--vn-surface); }
 
-    .vn-pagos-lista { margin-bottom: 0.5rem; }
+    .vn-pagos-lista { margin-bottom:0.4rem; }
     .vn-pago-chip {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.25rem 0.5rem;
-      background: rgba(46,125,50,0.1);
-      border-radius: 6px;
-      font-size: 0.8rem;
-      margin-bottom: 3px;
+      display:flex; justify-content:space-between; align-items:center;
+      padding:0.22rem 0.5rem; background:rgba(16,185,129,0.12);
+      border-radius:6px; font-size:0.78rem; margin-bottom:3px;
+      border:1px solid rgba(16,185,129,0.2);
     }
-    .vn-pago-chip button { background: none; border: none; cursor: pointer; color: #F44336; font-size: 0.9rem; }
+    .vn-pago-chip button { background:none; border:none; cursor:pointer; color:#EF4444; font-size:0.9rem; }
 
-    .vn-diff-warning { color: #F44336; font-size: 0.75rem; text-align: right; margin-bottom: 0.3rem; }
+    .vn-diff-display { display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.35rem; }
+    .vn-diff-warning { color:#EF4444; font-weight:700; }
+    .vn-diff-ok      { color:#10B981; font-weight:700; }
 
+    /* ── Botón COBRAR ── */
     .vn-btn-cobrar {
-      width: 100%;
-      padding: 0.75rem;
-      background: var(--sv-primario);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.15s;
+      width:100%; padding:0.8rem; background:var(--vn-cobrar-bg);
+      color:#fff; border:none; border-radius:10px; font-size:1.05rem;
+      font-weight:800; cursor:pointer; transition:all 0.15s;
+      box-shadow:0 3px 10px rgba(0,0,0,0.25); letter-spacing:0.03em;
     }
-    .vn-btn-cobrar:hover { background: var(--sv-primario-oscuro, #1B5E20); }
-    .vn-btn-cobrar:disabled { background: #9E9E9E; cursor: not-allowed; }
+    .vn-btn-cobrar:hover   { filter:brightness(1.1); transform:translateY(-1px); box-shadow:0 5px 15px rgba(0,0,0,0.3); }
+    .vn-btn-cobrar:active  { transform:translateY(0); }
+    .vn-btn-cobrar:disabled{ background:#6B7280; cursor:not-allowed; box-shadow:none; transform:none; filter:none; }
+    .vn-kb-hint { font-size:0.62rem; opacity:0.65; margin-top:0.25rem; text-align:center; color:var(--vn-text2); }
 
+    /* ── Botones de acción extra ── */
     .vn-acciones-extra {
-      display: flex;
-      gap: 0.4rem;
-      padding: 0.4rem 0.8rem;
-      border-top: 1px solid var(--sv-borde);
-      background: var(--sv-superficie);
-      flex-wrap: wrap;
+      display:flex; gap:0.35rem; padding:0.4rem 0.7rem;
+      border-top:1px solid var(--vn-border); background:var(--vn-surface2); flex-wrap:wrap;
     }
     .vn-accion-btn {
-      flex: 1;
-      padding: 0.35rem 0.5rem;
-      border: 1px dashed var(--sv-borde);
-      border-radius: 6px;
-      background: transparent;
-      cursor: pointer;
-      font-size: 0.75rem;
-      color: var(--sv-texto-secundario);
-      text-align: center;
-      white-space: nowrap;
+      flex:1; padding:0.3rem 0.4rem; border:1px dashed var(--vn-border);
+      border-radius:6px; background:transparent; cursor:pointer; font-size:0.72rem;
+      color:var(--vn-text2); text-align:center; white-space:nowrap; transition:all 0.12s;
     }
-    .vn-accion-btn:hover { border-color: var(--sv-primario); color: var(--sv-primario); }
+    .vn-accion-btn:hover { border-color:var(--vn-primary); color:var(--vn-primary); }
 
     /* ── Vista Historial ── */
     .vn-historial-resumen {
-      display: flex;
-      gap: 0.75rem;
-      padding: 0.75rem 1rem;
-      background: var(--sv-superficie);
-      border-bottom: 1px solid var(--sv-borde);
-      flex-wrap: wrap;
+      display:flex; gap:0.6rem; padding:0.65rem 1rem;
+      background:var(--vn-surface); border-bottom:1px solid var(--vn-border); flex-wrap:wrap;
     }
     .vn-stat-chip {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0.4rem 0.75rem;
-      background: var(--sv-superficie-elevada);
-      border-radius: 8px;
-      min-width: 100px;
+      display:flex; flex-direction:column; align-items:center;
+      padding:0.4rem 0.7rem; background:var(--vn-surface2); border-radius:10px;
+      min-width:90px; border:1px solid var(--vn-border);
     }
-    .vn-stat-chip .vn-stat-label { font-size: 0.68rem; color: var(--sv-texto-secundario); text-transform: uppercase; }
-    .vn-stat-chip .vn-stat-value { font-size: 1.1rem; font-weight: 700; color: var(--sv-texto-principal); }
+    .vn-stat-chip .vn-stat-label { font-size:0.63rem; color:var(--vn-text2); text-transform:uppercase; letter-spacing:0.04em; }
+    .vn-stat-chip .vn-stat-value { font-size:1.05rem; font-weight:800; color:var(--vn-text); }
 
-    /* ── Vista Stock — semáforo ── */
-    .stock-ok { color: #4CAF50; }
-    .stock-low { color: #FF9800; }
-    .stock-critical { color: #F44336; }
-    .vn-stock-badge { font-size: 1rem; }
+    /* ── Stock semáforo ── */
+    .stock-ok       { color:#10B981; }
+    .stock-low      { color:#F59E0B; }
+    .stock-critical { color:#EF4444; }
+    .vn-stock-badge { font-size:1rem; }
 
     /* ── Modales VN ── */
-    .vn-modal-bancos {
-      display: flex;
-      gap: 0.5rem;
-      justify-content: center;
-      margin: 0.75rem 0;
-    }
+    .vn-modal-bancos { display:flex; gap:0.5rem; justify-content:center; margin:0.75rem 0; }
     .vn-banco-btn {
-      flex: 1;
-      padding: 0.6rem 0.4rem;
-      border: 2px solid var(--sv-borde);
-      border-radius: 8px;
-      background: var(--sv-superficie-elevada);
-      cursor: pointer;
-      text-align: center;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--sv-texto-principal);
-      transition: all 0.15s;
+      flex:1; padding:0.55rem 0.35rem; border:2px solid var(--vn-border);
+      border-radius:8px; background:var(--vn-surface2); cursor:pointer;
+      text-align:center; font-size:0.78rem; font-weight:600;
+      color:var(--vn-text); transition:all 0.14s;
     }
-    .vn-banco-btn:hover { border-color: var(--sv-primario); }
-    .vn-banco-btn.selected { border-color: var(--sv-primario); background: rgba(46,125,50,0.12); }
-
+    .vn-banco-btn:hover  { border-color:var(--vn-primary); }
+    .vn-banco-btn.selected{ border-color:var(--vn-primary); background:rgba(16,185,129,0.12); }
     .vn-cambio-display {
-      text-align: center;
-      padding: 0.5rem;
-      background: rgba(46,125,50,0.08);
-      border-radius: 6px;
-      margin-top: 0.5rem;
-      font-weight: 700;
-      font-size: 1.1rem;
-      color: var(--sv-primario);
+      text-align:center; padding:0.5rem;
+      background:rgba(16,185,129,0.1); border-radius:8px;
+      margin-top:0.5rem; font-weight:800; font-size:1.1rem; color:var(--vn-accent);
     }
 
-    /* ── Vale impresión ── */
+    /* ── Reporte cierre de sesión ── */
+    .vn-reporte-barra { display:flex; align-items:center; gap:0.5rem; margin:0.3rem 0; font-size:0.82rem; }
+    .vn-reporte-barra-track { flex:1; background:var(--vn-border); border-radius:4px; height:8px; overflow:hidden; }
+    .vn-reporte-barra-fill  { height:100%; border-radius:4px; background:var(--vn-accent); transition:width 0.6s ease; }
+    .vn-reporte-barra-label { min-width:80px; text-align:right; font-weight:700; color:var(--vn-text); }
+    .vn-reporte-barra-pct   { min-width:36px; text-align:right; color:var(--vn-text2); font-size:0.74rem; }
+
+    /* ── Print ── */
     @media print {
-      .vn-ticket-print { display: block !important; }
+      .vn-ticket-print { display:block !important; }
     }
 
   </style>
@@ -4198,28 +4205,34 @@
       </div><!-- /module-contabilidad -->
 
       <!-- ════════════════════════════════════════════════════
-           MÓDULO: VENTA NOCTURNA
+           MÓDULO: VENTA NOCTURNA (v2)
       ═══════════════════════════════════════════════════════ -->
       <div class="module-view" id="module-venta-nocturna" style="padding:0;">
 
-        <!-- Barra de sesión -->
+        <!-- Barra de sesión con reloj en vivo -->
         <div class="vn-sesion-bar" id="vnSesionBar">
-          <span class="vn-sesion-info" id="vnSesionInfo">🌙 Venta Nocturna — Sin sesión activa</span>
-          <button class="btn btn-sm" id="btnVnAbrirSesion" onclick="vnAbrirSesion()" style="background:#4CAF50;color:#fff;border:none;">+ Abrir Sesión</button>
-          <button class="btn btn-sm" id="btnVnCerrarSesion" onclick="vnConfirmarCierre()" style="background:#F44336;color:#fff;border:none;display:none;">Cerrar Sesión</button>
+          <span class="vn-sesion-info" id="vnSesionInfo">
+            🌙 <span id="vnSesionLabel">Venta Nocturna — Sin sesión</span>
+            <span class="vn-sesion-clock" id="vnReloj"></span>
+            <span class="vn-sesion-duracion" id="vnDuracion"></span>
+          </span>
+          <button class="btn-sm" id="btnVnAbrirSesion" onclick="vnAbrirSesion()"
+            style="background:#10B981;color:#fff;border-radius:6px;font-weight:700;">➕ Abrir Sesión</button>
+          <button class="btn-sm" id="btnVnCerrarSesion" onclick="vnConfirmarCierre()"
+            style="background:#EF4444;color:#fff;border-radius:6px;font-weight:700;display:none;">🔒 Cerrar Sesión</button>
         </div>
 
-        <!-- Pestañas -->
+        <!-- Pestañas de vista -->
         <div class="vn-tabs">
-          <button class="vn-tab-btn active" onclick="vnCambiarVista('pos')" id="vnTabPos">🛒 POS</button>
-          <button class="vn-tab-btn" onclick="vnCambiarVista('historial')" id="vnTabHistorial">📋 Historial</button>
-          <button class="vn-tab-btn" onclick="vnCambiarVista('vales')" id="vnTabVales">🎟️ Vales</button>
-          <button class="vn-tab-btn" onclick="vnCambiarVista('pagos')" id="vnTabPagos">💳 Pagos/Fiados</button>
-          <button class="vn-tab-btn" onclick="vnCambiarVista('stock')" id="vnTabStock">📦 Stock</button>
-          <button class="vn-tab-btn" onclick="vnCambiarVista('config')" id="vnTabConfig">⚙️ Config</button>
+          <button class="vn-tab-btn active" onclick="vnCambiarVista('pos')"      id="vnTabPos">🛒 POS</button>
+          <button class="vn-tab-btn"        onclick="vnCambiarVista('historial')"id="vnTabHistorial">📋 Historial</button>
+          <button class="vn-tab-btn"        onclick="vnCambiarVista('vales')"    id="vnTabVales">🎟️ Vales</button>
+          <button class="vn-tab-btn"        onclick="vnCambiarVista('pagos')"    id="vnTabPagos">💳 Pagos/Fiados</button>
+          <button class="vn-tab-btn"        onclick="vnCambiarVista('stock')"    id="vnTabStock">📦 Stock</button>
+          <button class="vn-tab-btn"        onclick="vnCambiarVista('config')"   id="vnTabConfig">⚙️ Config</button>
         </div>
 
-        <!-- ── Vista: Sin sesión ── -->
+        <!-- ── Sin sesión ── -->
         <div id="vnViewSinSesion" class="vn-sin-sesion">
           <div class="vn-sin-sesion-icon">🌙</div>
           <h2>Venta Nocturna</h2>
@@ -4230,78 +4243,94 @@
         <!-- ── Vista: POS ── -->
         <div id="vnViewPOS" style="display:none;">
           <div class="vn-pos-layout">
-            <!-- Panel izquierdo: productos -->
+            <!-- ── Panel izquierdo: productos ── -->
             <div class="vn-pos-left">
+              <!-- Barra cliente + búsqueda -->
               <div class="vn-pos-top-bar">
-                <button class="vn-cliente-display" onclick="vnAbrirBuscadorCliente()" id="vnClienteDisplay" title="Cambiar cliente">
+                <button class="vn-cliente-display" onclick="vnAbrirBuscadorCliente()" id="vnClienteDisplay">
                   <span>👤</span>
                   <span id="vnClienteNombre">CONSUMIDOR FINAL</span>
-                  <span style="color:var(--sv-texto-secundario); font-size:0.75rem;">▼</span>
+                  <span id="vnDeudaBadge" style="display:none;" class="vn-deuda-badge"></span>
+                  <span style="color:var(--vn-text2);font-size:0.72rem;margin-left:auto;">▼</span>
                 </button>
                 <input type="text" class="vn-search-prod" id="vnSearchProd"
-                  placeholder="🔍 Buscar producto..."
+                  placeholder="🔍 Buscar producto... (Ctrl+F)"
                   oninput="vnFiltrarProductos(this.value)">
               </div>
+              <!-- Tabs de categorías -->
+              <div class="vn-cat-tabs" id="vnCatTabs">
+                <button class="vn-cat-pill active" onclick="vnFiltrarCategoria('')" data-cat="">Todos</button>
+              </div>
+              <!-- Grilla de productos -->
               <div class="vn-prod-grid" id="vnProdGrid">
-                <div style="color:var(--sv-texto-secundario);font-size:0.85rem;grid-column:1/-1;text-align:center;padding:2rem;">
+                <div style="color:var(--vn-text2);font-size:0.85rem;grid-column:1/-1;text-align:center;padding:2rem;">
                   Cargando productos...
                 </div>
               </div>
+              <!-- Acciones extra -->
               <div class="vn-acciones-extra">
-                <button class="vn-accion-btn" onclick="vnAbrirEmitirVale()">📦 Emitir Vale</button>
+                <button class="vn-accion-btn" onclick="vnAbrirEmitirVale()">🎟️ Emitir Vale</button>
                 <button class="vn-accion-btn" onclick="vnAbrirRegistrarCobro()">💳 Cobro/Pago</button>
               </div>
             </div>
 
-            <!-- Panel derecho: carrito -->
+            <!-- ── Panel derecho: carrito ── -->
             <div class="vn-pos-right">
-              <div class="vn-carrito-header">🛒 Carrito</div>
+              <div class="vn-carrito-header">
+                <span>🛒 Carrito <span id="vnCarritoCount" style="font-size:0.75rem;font-weight:400;color:var(--vn-text2);"></span></span>
+                <button onclick="vnLimpiarCarrito()" style="background:none;border:none;cursor:pointer;color:#EF4444;font-size:0.75rem;" title="Vaciar (Esc)">🗑️ Vaciar</button>
+              </div>
               <div class="vn-carrito-items" id="vnCarritoItems">
-                <div id="vnCarritoVacio" style="text-align:center;padding:2rem;color:var(--sv-texto-secundario);font-size:0.85rem;">
+                <div id="vnCarritoVacio" style="text-align:center;padding:2rem;color:var(--vn-text2);font-size:0.83rem;">
                   El carrito está vacío.<br>Seleccioná un producto.
                 </div>
               </div>
               <div class="vn-carrito-footer">
+                <!-- Notas -->
+                <div class="vn-obs-section">
+                  <button class="vn-obs-toggle" onclick="vnToggleObs()">📝 Agregar nota</button>
+                  <textarea class="vn-obs-input" id="vnObsVenta" rows="2" placeholder="Ej: separar para mañana, entrega especial..."></textarea>
+                </div>
+                <!-- Total -->
                 <div class="vn-total-row">
                   <span class="vn-total-label">TOTAL</span>
                   <span class="vn-total-monto" id="vnTotalMonto">$0</span>
                 </div>
-                <div class="vn-medios-titulo">Medios de pago</div>
+                <!-- Medios de pago -->
+                <div class="vn-medios-titulo">Medios de pago <span style="font-weight:400;opacity:0.6;">(F1–F4)</span></div>
                 <div class="vn-medios-grid">
-                  <button class="vn-medio-btn" onclick="vnAgregarMedio('EFECTIVO')">💵 Efectivo</button>
-                  <button class="vn-medio-btn" onclick="vnAgregarMedio('TRANSFERENCIA')">📱 Transf.</button>
-                  <button class="vn-medio-btn" onclick="vnAgregarMedio('VALE')">🎟️ Vale</button>
-                  <button class="vn-medio-btn" onclick="vnAgregarMedio('FIADO')">📋 Fiado</button>
+                  <button class="vn-medio-btn" onclick="vnAgregarMedio('EFECTIVO')"      id="vnMedioEfectivo">💵 Efectivo</button>
+                  <button class="vn-medio-btn" onclick="vnAgregarMedio('TRANSFERENCIA')" id="vnMedioTransf">📱 Transf.</button>
+                  <button class="vn-medio-btn" onclick="vnAgregarMedio('VALE')"          id="vnMedioVale">🎟️ Vale</button>
+                  <button class="vn-medio-btn" onclick="vnAgregarMedio('FIADO')"         id="vnMedioFiado">📋 Fiado</button>
                   <button class="vn-medio-btn" onclick="vnAgregarMedio('A_CUENTA')" style="grid-column:1/-1;">💳 Pago a Cuenta</button>
                 </div>
                 <div class="vn-pagos-lista" id="vnPagosLista"></div>
-                <div class="vn-diff-warning" id="vnDiffWarning" style="display:none;"></div>
+                <div class="vn-diff-display" id="vnDiffDisplay" style="display:none;">
+                  <span>Ingresado:</span><span id="vnDiffMonto" class="vn-diff-warning"></span>
+                </div>
                 <button class="vn-btn-cobrar" id="vnBtnCobrar" onclick="vnCobrar()" disabled>
                   🖨️ COBRAR Y EMITIR TICKET
                 </button>
+                <div class="vn-kb-hint">Enter=Cobrar · Esc=Vaciar · F1=Ef · F2=Tr · F3=Va · F4=Fi</div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- ── Vista: Historial de sesión ── -->
+        <!-- ── Vista: Historial ── -->
         <div id="vnViewHistorial" style="display:none; padding:1rem;">
           <div class="vn-historial-resumen" id="vnHistorialResumen">
             <div class="vn-stat-chip"><span class="vn-stat-label">Total Vendido</span><span class="vn-stat-value" id="vnStatTotal">$0</span></div>
+            <div class="vn-stat-chip"><span class="vn-stat-label">N° Ventas</span><span class="vn-stat-value" id="vnStatVentas">0</span></div>
             <div class="vn-stat-chip"><span class="vn-stat-label">💵 Efectivo</span><span class="vn-stat-value" id="vnStatEfectivo">$0</span></div>
             <div class="vn-stat-chip"><span class="vn-stat-label">📱 Transf.</span><span class="vn-stat-value" id="vnStatTransf">$0</span></div>
             <div class="vn-stat-chip"><span class="vn-stat-label">🎟️ Vales</span><span class="vn-stat-value" id="vnStatVales">$0</span></div>
             <div class="vn-stat-chip"><span class="vn-stat-label">📋 Fiados</span><span class="vn-stat-value" id="vnStatFiado">$0</span></div>
           </div>
-          <div class="card" style="margin-top:1rem; padding:0; overflow:hidden;">
+          <div class="card" style="margin-top:1rem;padding:0;overflow:hidden;">
             <table class="table" style="font-size:0.82rem;">
-              <thead>
-                <tr>
-                  <th>#</th><th>Hora</th><th>Cliente</th>
-                  <th>Items</th><th>Total</th><th>Pago</th>
-                  <th>Estado</th><th>Acciones</th>
-                </tr>
-              </thead>
+              <thead><tr><th>#</th><th>Hora</th><th>Cliente</th><th>Items</th><th>Total</th><th>Pago</th><th>Estado</th><th>Acc.</th></tr></thead>
               <tbody id="vnHistorialBody"></tbody>
             </table>
           </div>
@@ -4310,11 +4339,11 @@
         <!-- ── Vista: Vales ── -->
         <div id="vnViewVales" style="display:none; padding:1rem;">
           <div class="card" style="margin-bottom:1rem;">
-            <h3 style="margin-bottom:0.75rem;">Emitir Nuevo Vale</h3>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.5rem;align-items:end;flex-wrap:wrap;">
+            <h3 style="margin-bottom:0.75rem;">🎟️ Emitir Nuevo Vale</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:0.5rem;align-items:end;">
               <div class="form-group" style="margin:0;">
                 <label class="form-label">Cliente</label>
-                <input type="text" class="form-input" id="vnValeCliente" placeholder="Nombre o CONSUMIDOR FINAL" autocomplete="off">
+                <input type="text" class="form-input" id="vnValeCliente" placeholder="CONSUMIDOR FINAL" autocomplete="off">
                 <div class="suggestions-list" id="vnValeClienteSug" style="display:none;"></div>
               </div>
               <div class="form-group" style="margin:0;">
@@ -4328,10 +4357,9 @@
               <button class="btn btn-primary" onclick="vnEmitirVale()" style="height:42px;">🖨️ Emitir</button>
             </div>
           </div>
-
           <div class="card" style="padding:0;">
-            <div style="display:flex;gap:0.5rem;padding:0.75rem;border-bottom:1px solid var(--sv-borde);align-items:center;flex-wrap:wrap;">
-              <strong style="font-size:0.9rem;">Vales</strong>
+            <div style="display:flex;gap:0.5rem;padding:0.75rem;border-bottom:1px solid var(--vn-border);align-items:center;flex-wrap:wrap;">
+              <strong style="font-size:0.88rem;">Listado de Vales</strong>
               <select class="form-input" id="vnValesFiltroEstado" onchange="vnCargarVales()" style="width:auto;padding:0.3rem 0.5rem;font-size:0.82rem;">
                 <option value="">Todos</option>
                 <option value="DISPONIBLE">Disponibles</option>
@@ -4341,9 +4369,7 @@
               <button class="btn btn-sm btn-outline" onclick="vnCargarVales()">🔄 Actualizar</button>
             </div>
             <table class="table" style="font-size:0.82rem;">
-              <thead>
-                <tr><th>N° Vale</th><th>Fecha</th><th>Cliente</th><th>Motivo</th><th>Monto</th><th>Estado</th><th>Acciones</th></tr>
-              </thead>
+              <thead><tr><th>N° Vale</th><th>Fecha</th><th>Cliente</th><th>Motivo</th><th>Monto</th><th>Estado</th><th>Acc.</th></tr></thead>
               <tbody id="vnValesBody"></tbody>
             </table>
           </div>
@@ -4352,12 +4378,10 @@
         <!-- ── Vista: Pagos / Fiados ── -->
         <div id="vnViewPagos" style="display:none; padding:1rem;">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-            <!-- Deudas activas -->
             <div class="card">
               <h3 style="margin-bottom:0.75rem;">Deudas Activas (Fiados)</h3>
               <div id="vnDeudasLista" style="font-size:0.85rem;">Cargando...</div>
             </div>
-            <!-- Registrar cobro / pago -->
             <div class="card">
               <h3 style="margin-bottom:0.75rem;">Registrar Movimiento</h3>
               <div class="form-group">
@@ -4384,9 +4408,8 @@
               <button class="btn btn-primary" onclick="vnRegistrarPago()" style="width:100%;">✅ Registrar</button>
             </div>
           </div>
-          <!-- Historial de pagos de la sesión -->
           <div class="card" style="margin-top:1rem;padding:0;">
-            <div style="padding:0.75rem;font-weight:600;border-bottom:1px solid var(--sv-borde);">Movimientos de esta Sesión</div>
+            <div style="padding:0.75rem;font-weight:600;border-bottom:1px solid var(--vn-border);">Movimientos de esta Sesión</div>
             <table class="table" style="font-size:0.82rem;">
               <thead><tr><th>Hora</th><th>Cliente</th><th>Tipo</th><th>Monto</th><th>Obs</th></tr></thead>
               <tbody id="vnPagosHistBody"></tbody>
@@ -4398,23 +4421,20 @@
         <div id="vnViewStock" style="display:none; padding:1rem;">
           <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
             <button class="btn btn-primary" onclick="vnAbrirCompra()">📥 Registrar Compra</button>
-            <button class="btn btn-outline" onclick="vnAbrirMerma()" style="border-color:#F44336;color:#F44336;">🗑️ Registrar Merma</button>
-            <button class="btn btn-outline" onclick="vnAbrirCorreccion()" style="border-color:#FF9800;color:#FF9800;">✏️ Corrección de Existencias</button>
+            <button class="btn btn-outline" onclick="vnAbrirMerma()" style="border-color:#EF4444;color:#EF4444;">🗑️ Merma</button>
+            <button class="btn btn-outline" onclick="vnAbrirCorreccion()" style="border-color:#F59E0B;color:#F59E0B;">✏️ Corrección</button>
             <button class="btn btn-sm btn-outline" onclick="vnCargarStock()" style="margin-left:auto;">🔄</button>
           </div>
-
-          <!-- Tabs stock -->
-          <div style="display:flex;gap:0;border-bottom:1px solid var(--sv-borde);margin-bottom:1rem;">
-            <button class="vn-tab-btn active" id="vnStockTab1" onclick="vnStockCambiarTab('existencias')" style="border-bottom:none;color:var(--sv-texto-principal);">📦 Existencias</button>
-            <button class="vn-tab-btn" id="vnStockTab2" onclick="vnStockCambiarTab('compras')" style="border-bottom:none;color:var(--sv-texto-secundario);">📥 Compras</button>
-            <button class="vn-tab-btn" id="vnStockTab3" onclick="vnStockCambiarTab('mermas')" style="border-bottom:none;color:var(--sv-texto-secundario);">🗑️ Mermas</button>
-            <button class="vn-tab-btn" id="vnStockTab4" onclick="vnStockCambiarTab('correcciones')" style="border-bottom:none;color:var(--sv-texto-secundario);">✏️ Correcciones</button>
+          <div style="display:flex;gap:0;border-bottom:1px solid var(--vn-border);margin-bottom:1rem;">
+            <button class="vn-tab-btn active" id="vnStockTab1" onclick="vnStockCambiarTab('existencias')">📦 Existencias</button>
+            <button class="vn-tab-btn"        id="vnStockTab2" onclick="vnStockCambiarTab('compras')">📥 Compras</button>
+            <button class="vn-tab-btn"        id="vnStockTab3" onclick="vnStockCambiarTab('mermas')">🗑️ Mermas</button>
+            <button class="vn-tab-btn"        id="vnStockTab4" onclick="vnStockCambiarTab('correcciones')">✏️ Correcciones</button>
           </div>
-
           <div id="vnStockExistencias">
             <div class="card" style="padding:0;overflow:hidden;">
               <table class="table" style="font-size:0.85rem;">
-                <thead><tr><th>Producto</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead>
                 <tbody id="vnExistenciasBody"></tbody>
               </table>
             </div>
@@ -4433,7 +4453,7 @@
           </div>
           <div id="vnStockCorrecciones" style="display:none;">
             <div class="card" style="padding:0;"><table class="table" style="font-size:0.82rem;">
-              <thead><tr><th>Fecha</th><th>Producto</th><th>Stock Ant.</th><th>Stock Nuevo</th><th>Razón</th><th>Usuario</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Producto</th><th>Ant.</th><th>Nuevo</th><th>Razón</th><th>Usuario</th></tr></thead>
               <tbody id="vnCorreccionesBody"></tbody>
             </table></div>
           </div>
@@ -4441,7 +4461,7 @@
 
         <!-- ── Vista: Configuración VN ── -->
         <div id="vnViewConfig" style="display:none; padding:1rem;">
-          <div class="card" style="max-width:600px;">
+          <div class="card" style="max-width:620px;">
             <h3 style="margin-bottom:1rem;">⚙️ Configuración Venta Nocturna</h3>
             <div class="form-group">
               <label class="form-label">Nombre de Empresa (en tickets)</label>
@@ -4456,18 +4476,17 @@
               <input type="text" class="form-input" id="vnConfigTelefono" placeholder="+54 9 ...">
             </div>
             <div class="form-group">
-              <label class="form-label">Nombre de Impresora (referencia)</label>
-              <input type="text" class="form-input" id="vnConfigImpresora" placeholder="EPSON TM-T20 - Sala Nocturna">
+              <label class="form-label">Umbral alerta deuda ($)</label>
+              <input type="number" class="form-input" id="vnConfigUmbralDeuda" placeholder="500000" min="0">
             </div>
             <button class="btn btn-primary" onclick="vnGuardarConfig()">💾 Guardar Configuración</button>
-
             <hr style="margin:1.5rem 0;">
             <h4 style="margin-bottom:0.75rem;">Gestión de Productos VN</h4>
             <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
               <button class="btn btn-primary btn-sm" onclick="vnAbrirNuevoProducto()">+ Nuevo Producto</button>
             </div>
             <table class="table" style="font-size:0.82rem;">
-              <thead><tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Stock</th><th>Activo</th><th>Acciones</th></tr></thead>
+              <thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Activo</th><th>Acc.</th></tr></thead>
               <tbody id="vnProductosConfigBody"></tbody>
             </table>
           </div>
@@ -5556,14 +5575,18 @@
     </div>
   </div>
 
-  <!-- Modal: Nuevo Producto VN -->
+  <!-- Modal: Nuevo / Editar Producto VN -->
   <div class="modal" id="modalVnNuevoProducto">
-    <div class="modal-content" style="max-width:420px;">
+    <div class="modal-content" style="max-width:440px;">
       <div class="modal-header"><h3 id="vnNuevoProdTitulo">➕ Nuevo Producto</h3></div>
       <div class="modal-body">
         <input type="hidden" id="vnNuevoProdId">
         <div class="form-group"><label class="form-label">Nombre *</label>
           <input type="text" class="form-input" id="vnNuevoProdNombre" placeholder="Nombre del producto" style="text-transform:uppercase;"></div>
+        <div class="form-group"><label class="form-label">Categoría</label>
+          <input type="text" class="form-input" id="vnNuevoProdCategoria" placeholder="Ej: Lácteos, Bebidas, Pan..." list="vnCatSugList" style="text-transform:uppercase;">
+          <datalist id="vnCatSugList"></datalist>
+        </div>
         <div class="form-group"><label class="form-label">Precio de Venta *</label>
           <input type="number" class="form-input" id="vnNuevoProdPrecio" placeholder="$0" min="0"></div>
         <div class="form-group"><label class="form-label">Stock Inicial</label>
@@ -5572,6 +5595,34 @@
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="cerrarModal('modalVnNuevoProducto')">Cancelar</button>
         <button class="btn btn-primary" onclick="vnGuardarProducto()">✅ Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Post-cobro (imprimir ticket) -->
+  <div class="modal" id="modalVnPostCobro">
+    <div class="modal-content" style="max-width:380px;text-align:center;">
+      <div class="modal-body" style="padding:2rem 1.5rem;">
+        <div style="font-size:3rem;margin-bottom:0.5rem;">✅</div>
+        <h3 id="vnPostCobroTitulo" style="margin-bottom:0.5rem;"></h3>
+        <p id="vnPostCobroSubtitulo" style="color:var(--vn-text2);font-size:0.9rem;margin-bottom:1.5rem;"></p>
+        <div style="display:flex;gap:0.75rem;justify-content:center;">
+          <button class="btn btn-primary" onclick="vnImprimirTicketPostCobro()" style="flex:1;">🖨️ Imprimir Ticket</button>
+          <button class="btn btn-outline" onclick="cerrarModal('modalVnPostCobro')" style="flex:1;">✖️ Sin Ticket</button>
+        </div>
+        <p style="font-size:0.72rem;color:var(--vn-text2);margin-top:0.75rem;" id="vnPostCobroTimer"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Reporte de cierre de sesión -->
+  <div class="modal" id="modalVnReporteCierre">
+    <div class="modal-content" style="max-width:560px;">
+      <div class="modal-header"><h3>📊 Resumen de Sesión</h3></div>
+      <div class="modal-body" id="vnReporteCierreBody" style="font-size:0.88rem;"></div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalVnReporteCierre')">Cerrar</button>
+        <button class="btn btn-primary" onclick="vnImprimirReporte()">🖨️ Imprimir Resumen</button>
       </div>
     </div>
   </div>
@@ -13486,14 +13537,9 @@
     }
 
     // ============================================================================
-    //  MÓDULO: VENTA NOCTURNA — JavaScript Frontend
+    //  MÓDULO: VENTA NOCTURNA — JavaScript Frontend v2
     // ============================================================================
 
-    /**
-     * Helper para llamar al dispatcher ejecutarAccionVN en el servidor GAS.
-     * @param {Object} data - Objeto con `action` y parámetros adicionales
-     * @param {Function} callback - Función callback(resultado)
-     */
     function llamarServidor(data, callback) {
       google.script.run
         .withSuccessHandler(function(res) {
@@ -13508,25 +13554,40 @@
         .ejecutarAccionVN(data);
     }
 
+    // ── Estado global VN ──────────────────────────────────────────
     const VN = {
-      sesion: null,
-      productos: [],
-      carrito: [],
-      cliente: 'CONSUMIDOR FINAL',
-      clienteNombre: 'CONSUMIDOR FINAL',
-      mediosPago: [],
-      valeActual: null,
-      configLocal: {}
+      sesion: null, productos: [], carrito: [],
+      cliente: 'CONSUMIDOR FINAL', clienteNombre: 'CONSUMIDOR FINAL',
+      mediosPago: [], valeActual: null, configLocal: {},
+      categoriaActual: '', categorias: [],
+      umbralDeuda: 500000, saldoCliente: 0,
+      postCobroVenta: null, _relojId: null, _sesionStart: null
     };
 
-    // ── Inicialización ────────────────────────────────────────────
+    // ── Sonidos Web Audio API ─────────────────────────────────────
+    function vnSonido(tipo) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        if (tipo === 'add')   { osc.frequency.value = 880; gain.gain.setValueAtTime(0.15,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.09); osc.start(); osc.stop(ctx.currentTime+0.09); }
+        else if (tipo === 'cobro') { osc.frequency.value = 660; osc.type='triangle'; gain.gain.setValueAtTime(0.2,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.35); osc.start(); osc.stop(ctx.currentTime+0.35); }
+        else if (tipo === 'error') { osc.frequency.value = 220; gain.gain.setValueAtTime(0.2,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.25); osc.start(); osc.stop(ctx.currentTime+0.25); }
+      } catch(_) {}
+    }
 
+    // ── Inicialización ────────────────────────────────────────────
     function vnInit() {
       VN.configLocal = vnCargarConfigLocal();
+      VN.umbralDeuda = Number(VN.configLocal.umbralDeuda) || 500000;
+      vnInstalarTeclas();
       llamarServidor({ action: 'vnGetSesionActiva' }, res => {
         if (res.sesion) {
           VN.sesion = res.sesion;
+          VN._sesionStart = res.sesion.horaApertura ? new Date(res.sesion.horaApertura) : new Date();
           vnActualizarBarraSesion();
+          vnIniciarReloj();
           vnCargarProductos();
           document.getElementById('vnViewSinSesion').style.display = 'none';
           document.getElementById('vnViewPOS').style.display = 'block';
@@ -13539,26 +13600,74 @@
     }
 
     function vnActualizarBarraSesion() {
-      const info = document.getElementById('vnSesionInfo');
-      const btnAbrir = document.getElementById('btnVnAbrirSesion');
+      const btnAbrir  = document.getElementById('btnVnAbrirSesion');
       const btnCerrar = document.getElementById('btnVnCerrarSesion');
+      const label     = document.getElementById('vnSesionLabel');
       if (VN.sesion) {
-        const fecha = VN.sesion.fecha instanceof Date
-          ? formatearFechaCorta(VN.sesion.fecha)
-          : (VN.sesion.fecha || '');
-        info.innerHTML = '🌙 Sesión #' + VN.sesion.id + ' — ' + fecha +
+        const fecha = VN.sesion.fecha ? formatearFechaCorta(VN.sesion.fecha) : '';
+        label.innerHTML = 'Sesión #' + VN.sesion.id + ' — ' + fecha +
           ' <span class="badge-open">ABIERTA</span>';
-        btnAbrir.style.display = 'none';
+        btnAbrir.style.display  = 'none';
         btnCerrar.style.display = 'inline-block';
       } else {
-        info.innerHTML = '🌙 Venta Nocturna — Sin sesión activa';
-        btnAbrir.style.display = 'inline-block';
+        label.textContent = 'Venta Nocturna — Sin sesión';
+        btnAbrir.style.display  = 'inline-block';
         btnCerrar.style.display = 'none';
       }
     }
 
-    // ── Sesiones ──────────────────────────────────────────────────
+    function vnIniciarReloj() {
+      if (VN._relojId) clearInterval(VN._relojId);
+      function tick() {
+        const reloj = document.getElementById('vnReloj');
+        const dur   = document.getElementById('vnDuracion');
+        if (!reloj) return;
+        const now = new Date();
+        reloj.textContent = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        if (VN._sesionStart) {
+          const diff = Math.floor((now - VN._sesionStart) / 1000);
+          const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60);
+          dur.textContent = '⏱ ' + (h ? h + 'h ' : '') + m + 'm';
+        }
+      }
+      tick();
+      VN._relojId = setInterval(tick, 1000);
+    }
 
+    function vnDetenerReloj() {
+      if (VN._relojId) { clearInterval(VN._relojId); VN._relojId = null; }
+    }
+
+    // ── Atajos de teclado ─────────────────────────────────────────
+    function vnInstalarTeclas() {
+      document.addEventListener('keydown', function vnKeyHandler(e) {
+        // Solo activo si el módulo VN está visible
+        const mod = document.getElementById('module-venta-nocturna');
+        if (!mod || mod.style.display === 'none') return;
+        if (!VN.sesion) return;
+        const tag = (e.target.tagName || '').toLowerCase();
+        const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+        if (e.ctrlKey && e.key === 'f') {
+          e.preventDefault();
+          const s = document.getElementById('vnSearchProd');
+          if (s) { s.focus(); s.select(); }
+          return;
+        }
+        if (isInput) return;
+        if (e.key === 'F1') { e.preventDefault(); vnAgregarMedio('EFECTIVO'); }
+        if (e.key === 'F2') { e.preventDefault(); vnAgregarMedio('TRANSFERENCIA'); }
+        if (e.key === 'F3') { e.preventDefault(); vnAgregarMedio('VALE'); }
+        if (e.key === 'F4') { e.preventDefault(); vnAgregarMedio('FIADO'); }
+        if (e.key === 'Escape') { vnLimpiarCarrito(); }
+        if (e.key === 'Enter')  {
+          const btn = document.getElementById('vnBtnCobrar');
+          if (btn && !btn.disabled) vnCobrar();
+        }
+      });
+    }
+
+    // ── Sesiones ──────────────────────────────────────────────────
     function vnAbrirSesion() {
       document.getElementById('vnSesionFechaDisplay').textContent = new Date().toLocaleDateString('es-AR');
       abrirModal('modalVnAbrirSesion');
@@ -13570,8 +13679,10 @@
       llamarServidor({ action: 'vnAbrirSesion' }, res => {
         if (res.success) {
           VN.sesion = res.sesion;
+          VN._sesionStart = new Date();
           mostrarToast('Sesión #' + res.sesion.id + ' abierta', 'success');
           vnActualizarBarraSesion();
+          vnIniciarReloj();
           vnCargarProductos();
           document.getElementById('vnViewSinSesion').style.display = 'none';
           vnCambiarVista('pos');
@@ -13583,12 +13694,25 @@
 
     function vnConfirmarCierre() {
       if (!VN.sesion) return;
-      const carrito = VN.carrito;
-      const html = carrito.length > 0
-        ? '<p style="color:#F44336;">⚠️ Hay ' + carrito.length + ' producto(s) en el carrito sin cobrar.</p>'
-        : '<p>No hay ventas pendientes en el carrito.</p>';
-      document.getElementById('vnResumenCierre').innerHTML = html + '<p>¿Cerrar la sesión #' + VN.sesion.id + '?</p>';
-      abrirModal('modalVnCerrarSesion');
+      llamarServidor({ action: 'vnGetResumenSesion', sesionId: VN.sesion.id }, res => {
+        const t = res.resumen || {};
+        const html = `
+          <div style="margin-bottom:0.75rem;">
+            <strong>Sesión #${VN.sesion.id}</strong><br>
+            <span style="color:var(--vn-text2);font-size:0.83rem;">¿Confirmás el cierre? No puede deshacerse.</span>
+          </div>
+          <div style="background:var(--vn-surface2);padding:0.75rem;border-radius:8px;font-size:0.85rem;">
+            <b>Total vendido:</b> ${formatMonto(t.totalVentas||0)}<br>
+            <b>💵 Efectivo:</b> ${formatMonto(t.efectivo||0)} &nbsp;|&nbsp;
+            <b>📱 Transf.:</b> ${formatMonto(t.transferencia||0)}<br>
+            <b>🎟️ Vales:</b> ${formatMonto(t.vales||0)} &nbsp;|&nbsp;
+            <b>📋 Fiados:</b> ${formatMonto(t.fiado||0)}
+          </div>
+          ${VN.carrito.length > 0 ? '<p style="color:#EF4444;margin-top:0.5rem;font-size:0.83rem;">⚠️ Hay ' + VN.carrito.length + ' item(s) en el carrito sin cobrar.</p>' : ''}
+        `;
+        document.getElementById('vnResumenCierre').innerHTML = html;
+        abrirModal('modalVnCerrarSesion');
+      });
     }
 
     function vnConfirmarCierreOk() {
@@ -13596,68 +13720,172 @@
       llamarServidor({ action: 'vnCerrarSesion', sesionId: VN.sesion.id }, res => {
         if (res.success) {
           mostrarToast('Sesión cerrada correctamente', 'success');
-          VN.sesion = null;
-          VN.carrito = [];
-          VN.mediosPago = [];
+          vnDetenerReloj();
+          const sesionCerrada = VN.sesion;
+          const totales = res.totales;
+          VN.sesion = null; VN.carrito = []; VN.mediosPago = [];
           vnActualizarBarraSesion();
           vnRenderizarCarrito();
           document.getElementById('vnViewSinSesion').style.display = 'flex';
           document.getElementById('vnViewPOS').style.display = 'none';
+          // Mostrar reporte de cierre
+          setTimeout(() => vnMostrarReporteCierre(sesionCerrada, totales), 400);
         } else {
           mostrarToast(res.error || 'Error al cerrar sesión', 'error');
         }
       });
     }
 
-    // ── Productos y carrito ───────────────────────────────────────
+    function vnMostrarReporteCierre(sesion, totales) {
+      const t = totales || {};
+      const total = t.totalVentas || 0;
+      const items = [
+        { label: '💵 Efectivo',      monto: t.efectivo      || 0, color: '#10B981' },
+        { label: '📱 Transferencia', monto: t.transferencia || 0, color: '#3B82F6' },
+        { label: '🎟️ Vales',         monto: t.vales         || 0, color: '#8B5CF6' },
+        { label: '📋 Fiados',        monto: t.fiado         || 0, color: '#F59E0B' },
+        { label: '💳 A Cuenta',      monto: t.aCuenta       || 0, color: '#6B7280' },
+      ].filter(i => i.monto > 0);
+
+      const barras = items.map(i => {
+        const pct = total > 0 ? Math.round(i.monto / total * 100) : 0;
+        return `<div class="vn-reporte-barra">
+          <span style="min-width:130px;font-size:0.82rem;">${i.label}</span>
+          <div class="vn-reporte-barra-track"><div class="vn-reporte-barra-fill" style="width:${pct}%;background:${i.color};"></div></div>
+          <span class="vn-reporte-barra-label">${formatMonto(i.monto)}</span>
+          <span class="vn-reporte-barra-pct">${pct}%</span>
+        </div>`;
+      }).join('');
+
+      document.getElementById('vnReporteCierreBody').innerHTML = `
+        <div style="text-align:center;margin-bottom:1rem;padding:1rem;background:var(--vn-surface2);border-radius:10px;">
+          <div style="font-size:2rem;font-weight:900;color:var(--vn-primary);">${formatMonto(total)}</div>
+          <div style="color:var(--vn-text2);font-size:0.85rem;">Total vendido en sesión #${sesion ? sesion.id : ''}</div>
+        </div>
+        <div style="margin-bottom:1rem;">${barras || '<p style="color:var(--vn-text2);">Sin ventas registradas en esta sesión.</p>'}</div>
+      `;
+      abrirModal('modalVnReporteCierre');
+    }
+
+    function vnImprimirReporte() {
+      const body = document.getElementById('vnReporteCierreBody');
+      if (!body) return;
+      const cfg = VN.configLocal;
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <title>Reporte de Sesión</title>
+        <style>
+          body { font-family: monospace; font-size: 12px; width: 70mm; margin: 0 auto; }
+          h2 { text-align:center; font-size:14px; }
+          .row { display:flex; justify-content:space-between; margin:3px 0; }
+          .sep { border-top:1px dashed #000; margin:6px 0; }
+        </style>
+      </head><body>
+        <h2>${cfg.empresa || 'SOL & VERDE'}</h2>
+        <p style="text-align:center;">${body.innerText}</p>
+      </body></html>`;
+      vnAbrirVentanaImpresion(html);
+    }
+
+    // ── Productos ─────────────────────────────────────────────────
+    function vnCambiarVista(vista) {
+      const vistas = ['pos','historial','vales','pagos','stock','config'];
+      vistas.forEach(v => {
+        const el = document.getElementById('vnView' + v.charAt(0).toUpperCase() + v.slice(1));
+        const tab = document.getElementById('vnTab' + v.charAt(0).toUpperCase() + v.slice(1));
+        if (el) el.style.display = 'none';
+        if (tab) tab.classList.remove('active');
+      });
+      const active = document.getElementById('vnView' + vista.charAt(0).toUpperCase() + vista.slice(1));
+      const activeTab = document.getElementById('vnTab' + vista.charAt(0).toUpperCase() + vista.slice(1));
+      if (active)    active.style.display = vista === 'pos' ? 'block' : 'block';
+      if (activeTab) activeTab.classList.add('active');
+
+      if (vista === 'historial') vnCargarHistorial();
+      if (vista === 'vales')     vnCargarVales();
+      if (vista === 'pagos')     vnCargarDeudas();
+      if (vista === 'stock')     vnCargarStock();
+      if (vista === 'config')    vnCargarConfig();
+    }
 
     function vnCargarProductos() {
       llamarServidor({ action: 'vnGetProductos' }, res => {
         if (res.success) {
-          VN.productos = (res.productos || []).filter(p => p.activo);
-          vnRenderizarProductos('');
+          VN.productos = (res.productos || [])
+            .filter(p => p.activo)
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+          // Extraer categorías únicas
+          const cats = [...new Set(VN.productos.map(p => p.categoria).filter(Boolean))].sort();
+          VN.categorias = cats;
+          vnRenderizarCatTabs();
+          vnRenderizarProductos();
           vnPopularSelectsProductos();
         }
       });
     }
 
-    function vnRenderizarProductos(filtro) {
+    function vnRenderizarCatTabs() {
+      const tabs = document.getElementById('vnCatTabs');
+      if (!tabs) return;
+      tabs.innerHTML = '<button class="vn-cat-pill' + (!VN.categoriaActual ? ' active' : '') +
+        '" onclick="vnFiltrarCategoria(\'\')" data-cat="">Todos</button>';
+      VN.categorias.forEach(cat => {
+        const active = VN.categoriaActual === cat ? ' active' : '';
+        tabs.innerHTML += `<button class="vn-cat-pill${active}" onclick="vnFiltrarCategoria('${escapeHtml(cat)}')" data-cat="${escapeHtml(cat)}">${cat}</button>`;
+      });
+    }
+
+    function vnFiltrarCategoria(cat) {
+      VN.categoriaActual = cat;
+      document.querySelectorAll('.vn-cat-pill').forEach(el => {
+        el.classList.toggle('active', (el.dataset.cat || '') === cat);
+      });
+      vnRenderizarProductos();
+    }
+
+    function vnRenderizarProductos() {
       const grid = document.getElementById('vnProdGrid');
-      const prods = filtro
-        ? VN.productos.filter(p => p.nombre.includes(filtro.toUpperCase()))
-        : VN.productos;
+      if (!grid) return;
+      const busq = (document.getElementById('vnSearchProd') ? document.getElementById('vnSearchProd').value : '').toUpperCase();
+      let prods = VN.productos;
+      if (VN.categoriaActual) prods = prods.filter(p => p.categoria === VN.categoriaActual);
+      if (busq) prods = prods.filter(p => p.nombre.includes(busq));
 
       if (prods.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--sv-texto-secundario);">' +
-          (VN.productos.length === 0 ? 'Sin productos. Agregá productos en Configuración.' : 'Sin resultados para "' + filtro + '"') + '</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--vn-text2);">' +
+          (VN.productos.length === 0 ? 'Sin productos. Agregá en Configuración.' : 'Sin resultados.') + '</div>';
         return;
       }
-
       grid.innerHTML = prods.map(p => {
-        const stockBadge = p.stock <= 0
-          ? '<div class="vn-prod-stock-low">SIN STOCK</div>'
-          : (p.stock <= 5 ? '<div class="vn-prod-stock-low">Stock: ' + p.stock + '</div>' : '');
-        return `<button class="vn-prod-btn" onclick="vnAgregar(${p.id})" title="${p.nombre}">
-          <div class="vn-prod-nombre">${p.nombre}</div>
+        let stockClass = 'ok', stockTxt = 'Stock: ' + p.stock;
+        if (p.stock <= 0)  { stockClass = 'critical'; stockTxt = 'SIN STOCK'; }
+        else if (p.stock <= 5) { stockClass = 'low'; }
+        const disabled = p.stock <= 0 ? ' sin-stock' : '';
+        return `<button class="vn-prod-btn${disabled}" onclick="${p.stock > 0 ? 'vnAgregar(' + p.id + ')' : ''}" title="${escapeHtml(p.nombre)}">
+          <div class="vn-prod-nombre">${escapeHtml(p.nombre)}</div>
           <div class="vn-prod-precio">${formatMonto(p.precio)}</div>
-          ${stockBadge}
+          <div class="vn-prod-stock ${stockClass}">${stockTxt}</div>
         </button>`;
       }).join('');
     }
 
     function vnFiltrarProductos(val) {
-      vnRenderizarProductos(val);
+      vnRenderizarProductos();
     }
 
     function vnAgregar(prodId) {
-      const prod = VN.productos.find(p => p.id === prodId);
+      const prod = VN.productos.find(p => Number(p.id) === Number(prodId));
       if (!prod) return;
+      vnSonido('add');
       const idx = VN.carrito.findIndex(i => i.prodId === prodId);
       if (idx >= 0) {
         VN.carrito[idx].qty++;
-        VN.carrito[idx].subtotal = VN.carrito[idx].qty * VN.carrito[idx].precioUnit;
+        VN.carrito[idx].subtotal = VN.carrito[idx].qty * VN.carrito[idx].precioFinal;
       } else {
-        VN.carrito.push({ prodId: prod.id, nombre: prod.nombre, qty: 1, precioUnit: prod.precio, subtotal: prod.precio });
+        VN.carrito.push({
+          prodId: prod.id, nombre: prod.nombre, qty: 1,
+          precioUnit: prod.precio, precioFinal: prod.precio,
+          subtotal: prod.precio
+        });
       }
       vnRenderizarCarrito();
     }
@@ -13666,11 +13894,8 @@
       const idx = VN.carrito.findIndex(i => i.prodId === prodId);
       if (idx < 0) return;
       VN.carrito[idx].qty--;
-      if (VN.carrito[idx].qty <= 0) {
-        VN.carrito.splice(idx, 1);
-      } else {
-        VN.carrito[idx].subtotal = VN.carrito[idx].qty * VN.carrito[idx].precioUnit;
-      }
+      if (VN.carrito[idx].qty <= 0) { VN.carrito.splice(idx, 1); }
+      else { VN.carrito[idx].subtotal = VN.carrito[idx].qty * VN.carrito[idx].precioFinal; }
       vnRenderizarCarrito();
     }
 
@@ -13684,121 +13909,101 @@
       const idx = VN.carrito.findIndex(i => i.prodId === prodId);
       if (idx < 0) return;
       if (qty <= 0) { VN.carrito.splice(idx, 1); }
-      else {
-        VN.carrito[idx].qty = qty;
-        VN.carrito[idx].subtotal = qty * VN.carrito[idx].precioUnit;
-      }
+      else { VN.carrito[idx].qty = qty; VN.carrito[idx].subtotal = qty * VN.carrito[idx].precioFinal; }
       vnRenderizarCarrito();
+    }
+
+    function vnCambiarPrecio(prodId, val) {
+      const precio = Number(val) || 0;
+      const idx = VN.carrito.findIndex(i => i.prodId === prodId);
+      if (idx < 0) return;
+      VN.carrito[idx].precioFinal = precio;
+      VN.carrito[idx].subtotal = VN.carrito[idx].qty * precio;
+      // Recalcular solo el subtotal en DOM
+      const sub = document.getElementById('vn-ci-sub-' + prodId);
+      if (sub) sub.textContent = formatMonto(VN.carrito[idx].subtotal);
+      const desc = document.getElementById('vn-ci-desc-' + prodId);
+      if (desc) {
+        const pct = VN.carrito[idx].precioUnit > 0
+          ? Math.round((1 - precio / VN.carrito[idx].precioUnit) * 100) : 0;
+        desc.textContent = pct > 0 ? ('-' + pct + '%') : '';
+      }
+      vnActualizarTotal();
+    }
+
+    function vnLimpiarCarrito() {
+      VN.carrito = [];
+      VN.mediosPago = [];
+      vnRenderizarCarrito();
+    }
+
+    function vnToggleObs() {
+      const obs = document.getElementById('vnObsVenta');
+      if (obs) obs.classList.toggle('visible');
     }
 
     function vnRenderizarCarrito() {
       const container = document.getElementById('vnCarritoItems');
-      const vacio = document.getElementById('vnCarritoVacio');
-      const total = VN.carrito.reduce((s, i) => s + i.subtotal, 0);
+      const count = document.getElementById('vnCarritoCount');
+      if (count) count.textContent = VN.carrito.length > 0 ? '(' + VN.carrito.length + ')' : '';
 
       if (VN.carrito.length === 0) {
-        container.innerHTML = '';
-        if (vacio) vacio.style.display = 'block';
+        container.innerHTML = '<div id="vnCarritoVacio" style="text-align:center;padding:2rem;color:var(--vn-text2);font-size:0.83rem;">El carrito está vacío.<br>Seleccioná un producto.</div>';
       } else {
-        if (vacio) vacio.style.display = 'none';
-        container.innerHTML = VN.carrito.map(item => `
-          <div class="vn-carrito-item">
-            <div class="vn-ci-nombre">${item.nombre}</div>
-            <div class="vn-ci-qty">
-              <button onclick="vnQuitarUno(${item.prodId})">−</button>
-              <input type="number" value="${item.qty}" min="1"
-                onchange="vnCambiarQty(${item.prodId}, this.value)" onclick="this.select()">
-              <button onclick="vnAgregar(${item.prodId})">+</button>
+        container.innerHTML = VN.carrito.map(item => {
+          const pct = item.precioUnit > 0 ? Math.round((1 - item.precioFinal / item.precioUnit) * 100) : 0;
+          return `<div class="vn-carrito-item">
+            <div class="vn-ci-row1">
+              <div class="vn-ci-nombre">${escapeHtml(item.nombre)}</div>
+              <div class="vn-ci-qty">
+                <button onclick="vnQuitarUno(${item.prodId})">−</button>
+                <input class="vn-ci-qty-input" type="number" value="${item.qty}" min="1"
+                  onchange="vnCambiarQty(${item.prodId},this.value)" onclick="this.select()">
+                <button onclick="vnAgregar(${item.prodId})">+</button>
+              </div>
+              <button class="vn-ci-del" onclick="vnEliminarItem(${item.prodId})">✕</button>
             </div>
-            <div class="vn-ci-subtotal">${formatMonto(item.subtotal)}</div>
-            <button class="vn-ci-del" onclick="vnEliminarItem(${item.prodId})">✕</button>
-          </div>
-        `).join('');
+            <div class="vn-ci-row2">
+              <span class="vn-ci-precio-label">Precio:</span>
+              <input class="vn-ci-precio-input" type="number" value="${item.precioFinal}" min="0"
+                onchange="vnCambiarPrecio(${item.prodId},this.value)" onclick="this.select()"
+                title="Precio unitario (editá para aplicar descuento)">
+              <span class="vn-ci-descuento" id="vn-ci-desc-${item.prodId}">${pct > 0 ? '-' + pct + '%' : ''}</span>
+              <span class="vn-ci-subtotal" id="vn-ci-sub-${item.prodId}">${formatMonto(item.subtotal)}</span>
+            </div>
+          </div>`;
+        }).join('');
       }
+      vnActualizarTotal();
+    }
 
-      document.getElementById('vnTotalMonto').textContent = formatMonto(total);
+    function vnActualizarTotal() {
+      const total = VN.carrito.reduce((s, i) => s + i.subtotal, 0);
+      const el = document.getElementById('vnTotalMonto');
+      if (el) {
+        el.textContent = formatMonto(total);
+        el.classList.add('bump');
+        setTimeout(() => el.classList.remove('bump'), 180);
+      }
       vnValidarPago();
     }
 
     // ── Medios de pago ─────────────────────────────────────────────
-
     function vnAgregarMedio(tipo) {
       if (!VN.sesion) { mostrarToast('Abrí una sesión primero', 'error'); return; }
-      if (VN.carrito.length === 0) { mostrarToast('El carrito está vacío', 'error'); return; }
+      if (VN.carrito.length === 0) { mostrarToast('El carrito está vacío', 'error'); vnSonido('error'); return; }
       switch (tipo) {
-        case 'EFECTIVO': vnAbrirEfectivo(); break;
+        case 'EFECTIVO':      vnAbrirEfectivo(); break;
         case 'TRANSFERENCIA': vnAbrirTransferencia(); break;
-        case 'VALE': vnAbrirPagoVale(); break;
+        case 'VALE':          vnAbrirPagoVale(); break;
         case 'FIADO':
           if (VN.cliente === 'CONSUMIDOR FINAL') {
-            mostrarToast('Seleccioná un cliente para fiado', 'error');
-            vnAbrirBuscadorCliente();
-            return;
+            mostrarToast('Seleccioná un cliente identificado para fiado', 'error');
+            vnSonido('error'); return;
           }
-          vnAgregarPago('FIADO', vnGetTotal(), { });
+          vnAgregarMedioPago('FIADO', vnGetTotal(), null);
           break;
-        case 'A_CUENTA': vnAbrirPagoACuenta(); break;
-      }
-    }
-
-    function vnAgregarPago(tipo, monto, detalle) {
-      VN.mediosPago.push({ tipo, monto: Number(monto), detalle: detalle || {} });
-      vnRenderizarPagos();
-      vnValidarPago();
-    }
-
-    function vnEliminarPago(idx) {
-      const pago = VN.mediosPago[idx];
-      if (pago && pago.tipo === 'VALE' && pago.detalle && pago.detalle.numero) {
-        VN.valeActual = null;
-      }
-      VN.mediosPago.splice(idx, 1);
-      vnRenderizarPagos();
-      vnValidarPago();
-    }
-
-    function vnRenderizarPagos() {
-      const container = document.getElementById('vnPagosLista');
-      if (VN.mediosPago.length === 0) { container.innerHTML = ''; return; }
-
-      const iconos = { EFECTIVO:'💵', TRANSFERENCIA:'📱', VALE:'🎟️', FIADO:'📋', A_CUENTA:'💳' };
-      const nombres = { EFECTIVO:'Efectivo', TRANSFERENCIA:'Transf.', VALE:'Vale', FIADO:'Fiado', A_CUENTA:'A Cuenta' };
-
-      container.innerHTML = VN.mediosPago.map((p, i) => {
-        let detalle = nombres[p.tipo] || p.tipo;
-        if (p.tipo === 'TRANSFERENCIA' && p.detalle && p.detalle.banco) detalle += ' (' + p.detalle.banco + ')';
-        if (p.tipo === 'VALE' && p.detalle && p.detalle.numero) detalle += ' #' + p.detalle.numero;
-        return `<div class="vn-pago-chip">
-          <span>${iconos[p.tipo] || ''} ${detalle}</span>
-          <span style="font-weight:700;">${formatMonto(p.monto)}</span>
-          <button onclick="vnEliminarPago(${i})">✕</button>
-        </div>`;
-      }).join('');
-    }
-
-    function vnValidarPago() {
-      const total = vnGetTotal();
-      const sumaPagos = VN.mediosPago.reduce((s, m) => s + m.monto, 0);
-      const diff = Math.abs(sumaPagos - total);
-      const btn = document.getElementById('vnBtnCobrar');
-      const warn = document.getElementById('vnDiffWarning');
-
-      if (VN.carrito.length === 0 || total === 0) {
-        btn.disabled = true;
-        warn.style.display = 'none';
-        return;
-      }
-      if (diff <= 1) {
-        btn.disabled = false;
-        warn.style.display = 'none';
-      } else if (sumaPagos > 0) {
-        btn.disabled = true;
-        const falta = total - sumaPagos;
-        warn.style.display = 'block';
-        warn.textContent = falta > 0 ? 'Falta: ' + formatMonto(falta) : 'Exceso: ' + formatMonto(-falta);
-      } else {
-        btn.disabled = true;
-        warn.style.display = 'none';
+        case 'A_CUENTA': vnAgregarMedioPago('A_CUENTA', vnGetTotal(), null); break;
       }
     }
 
@@ -13806,418 +14011,366 @@
       return VN.carrito.reduce((s, i) => s + i.subtotal, 0);
     }
 
-    // ── Cobrar ────────────────────────────────────────────────────
+    function vnAgregarMedioPago(tipo, monto, detalle) {
+      // Remover medios del mismo tipo que no sean transferencia (permite multi-banco)
+      if (tipo !== 'TRANSFERENCIA') {
+        VN.mediosPago = VN.mediosPago.filter(m => m.tipo !== tipo);
+      }
+      VN.mediosPago.push({ tipo, monto: Number(monto), detalle: detalle || null });
+      vnRenderizarPagos();
+    }
 
+    function vnQuitarMedio(idx) {
+      VN.mediosPago.splice(idx, 1);
+      vnRenderizarPagos();
+    }
+
+    function vnRenderizarPagos() {
+      const lista  = document.getElementById('vnPagosLista');
+      const diff   = document.getElementById('vnDiffDisplay');
+      const diffM  = document.getElementById('vnDiffMonto');
+      const total  = vnGetTotal();
+      const suma   = VN.mediosPago.reduce((s, m) => s + m.monto, 0);
+      const iconos = { EFECTIVO:'💵', TRANSFERENCIA:'📱', VALE:'🎟️', FIADO:'📋', A_CUENTA:'💳' };
+
+      lista.innerHTML = VN.mediosPago.map((m, i) => {
+        const banco = m.detalle && m.detalle.banco ? ' — ' + m.detalle.banco : '';
+        const vale  = m.detalle && m.detalle.numero ? ' ' + m.detalle.numero : '';
+        return `<div class="vn-pago-chip">
+          <span>${iconos[m.tipo] || ''} ${m.tipo}${banco}${vale} — ${formatMonto(m.monto)}</span>
+          <button onclick="vnQuitarMedio(${i})">✕</button>
+        </div>`;
+      }).join('');
+
+      if (VN.mediosPago.length > 0 && total > 0) {
+        diff.style.display = 'flex';
+        const resto = total - suma;
+        if (Math.abs(resto) <= 1) {
+          diffM.className = 'vn-diff-ok';
+          diffM.textContent = '✓ Completo';
+        } else if (resto > 0) {
+          diffM.className = 'vn-diff-warning';
+          diffM.textContent = 'Falta ' + formatMonto(resto);
+        } else {
+          diffM.className = 'vn-diff-ok';
+          diffM.textContent = 'Cambio: ' + formatMonto(-resto);
+        }
+      } else {
+        diff.style.display = 'none';
+      }
+      vnValidarPago();
+    }
+
+    function vnValidarPago() {
+      const btn   = document.getElementById('vnBtnCobrar');
+      if (!btn) return;
+      const total = vnGetTotal();
+      const suma  = VN.mediosPago.reduce((s, m) => s + m.monto, 0);
+      const ok    = VN.carrito.length > 0 && total > 0 && VN.mediosPago.length > 0 && Math.abs(suma - total) <= 1;
+      btn.disabled = !ok;
+    }
+
+    // ── Cobrar ────────────────────────────────────────────────────
     function vnCobrar() {
       if (!VN.sesion) return;
-      if (VN.carrito.length === 0) { mostrarToast('El carrito está vacío', 'error'); return; }
-
       const total = vnGetTotal();
-      const ventaData = {
+      const obs   = document.getElementById('vnObsVenta');
+      const data = {
         action: 'vnRegistrarVenta',
         sesionId: VN.sesion.id,
         cliente: VN.cliente,
-        items: VN.carrito,
-        subtotal: total,
-        total: total,
+        items: VN.carrito.map(i => ({
+          prodId: i.prodId, nombre: i.nombre, qty: i.qty,
+          precioUnit: i.precioUnit, precioFinal: i.precioFinal, subtotal: i.subtotal
+        })),
+        subtotal: total, total,
         mediosPago: VN.mediosPago,
-        obs: ''
+        obs: obs ? obs.value.trim() : ''
       };
-
-      document.getElementById('vnBtnCobrar').disabled = true;
-      llamarServidor(ventaData, res => {
+      const btnCobrar = document.getElementById('vnBtnCobrar');
+      if (btnCobrar) btnCobrar.disabled = true;
+      llamarServidor(data, res => {
+        if (btnCobrar) btnCobrar.disabled = false;
         if (res.success) {
-          mostrarToast('Venta #' + res.venta.id + ' registrada', 'success');
-          vnImprimirTicket(res.venta);
-          VN.carrito = [];
-          VN.mediosPago = [];
-          VN.cliente = 'CONSUMIDOR FINAL';
-          VN.clienteNombre = 'CONSUMIDOR FINAL';
-          document.getElementById('vnClienteNombre').textContent = 'CONSUMIDOR FINAL';
+          vnSonido('cobro');
+          VN.postCobroVenta = res.venta;
+          const carritoGuardado = [...VN.carrito];
+          VN.carrito = []; VN.mediosPago = [];
+          if (obs) { obs.value = ''; obs.classList.remove('visible'); }
           vnRenderizarCarrito();
-          vnRenderizarPagos();
+          vnMostrarPostCobro(res.venta, carritoGuardado);
         } else {
+          vnSonido('error');
           mostrarToast(res.error || 'Error al registrar venta', 'error');
-          document.getElementById('vnBtnCobrar').disabled = false;
         }
       });
     }
 
-    // ── Modales de pago ───────────────────────────────────────────
+    function vnMostrarPostCobro(venta, items) {
+      document.getElementById('vnPostCobroTitulo').textContent = '✅ Venta #' + venta.id + ' registrada';
+      document.getElementById('vnPostCobroSubtitulo').textContent = formatMonto(venta.total) + ' — ' + venta.fecha + ' ' + venta.hora;
+      abrirModal('modalVnPostCobro');
+      // Auto-cerrar en 6s
+      let secs = 6;
+      const timerEl = document.getElementById('vnPostCobroTimer');
+      const tid = setInterval(() => {
+        secs--;
+        if (timerEl) timerEl.textContent = 'Se cierra en ' + secs + 's...';
+        if (secs <= 0) { clearInterval(tid); cerrarModal('modalVnPostCobro'); }
+      }, 1000);
+    }
 
+    function vnImprimirTicketPostCobro() {
+      cerrarModal('modalVnPostCobro');
+      if (VN.postCobroVenta) vnImprimirTicket(VN.postCobroVenta);
+    }
+
+    // ── Modal efectivo ─────────────────────────────────────────────
     function vnAbrirEfectivo() {
-      const restante = vnGetTotal() - VN.mediosPago.reduce((s,m) => s+m.monto, 0);
-      document.getElementById('vnEfectivoMonto').value = restante > 0 ? restante : '';
-      document.getElementById('vnCambioDisplay').style.display = 'none';
+      const restante = Math.max(0, vnGetTotal() - VN.mediosPago.reduce((s,m)=>s+m.monto,0));
+      document.getElementById('vnEfectivoMonto').value = restante || '';
       abrirModal('modalVnPagoEfectivo');
     }
 
-    function vnCalcCambio() {
-      const monto = parseFloat(document.getElementById('vnEfectivoMonto').value) || 0;
-      const total = vnGetTotal();
-      const sumaPrev = VN.mediosPago.reduce((s,m) => s+m.monto, 0);
-      const aPagar = total - sumaPrev;
-      const cambio = monto - aPagar;
-      const disp = document.getElementById('vnCambioDisplay');
-      if (monto > 0 && cambio > 0) {
-        disp.style.display = 'block';
-        disp.textContent = 'Cambio: ' + formatMonto(cambio);
-      } else {
-        disp.style.display = 'none';
-      }
-    }
-
     function vnConfirmarEfectivo() {
-      const monto = parseFloat(document.getElementById('vnEfectivoMonto').value) || 0;
-      if (monto <= 0) { mostrarToast('Ingresá un monto', 'error'); return; }
-      const total = vnGetTotal();
-      const sumaPrev = VN.mediosPago.reduce((s,m) => s+m.monto, 0);
-      const aplicar = Math.min(monto, total - sumaPrev + 0.01);
+      const monto = Number(document.getElementById('vnEfectivoMonto').value);
+      if (!monto || monto <= 0) { mostrarToast('Ingresá un monto', 'error'); return; }
       cerrarModal('modalVnPagoEfectivo');
-      vnAgregarPago('EFECTIVO', aplicar > 0 ? aplicar : monto, {});
+      vnAgregarMedioPago('EFECTIVO', monto, null);
     }
 
+    // ── Modal transferencia ────────────────────────────────────────
     function vnAbrirTransferencia() {
-      document.getElementById('vnTransfBanco').value = '';
-      document.getElementById('vnTransfMonto').value = '';
+      const restante = Math.max(0, vnGetTotal() - VN.mediosPago.reduce((s,m)=>s+m.monto,0));
+      document.getElementById('vnTransfMonto').value = restante || '';
       document.querySelectorAll('.vn-banco-btn').forEach(b => b.classList.remove('selected'));
-      const restante = vnGetTotal() - VN.mediosPago.reduce((s,m) => s+m.monto, 0);
-      if (restante > 0) document.getElementById('vnTransfMonto').value = restante;
       abrirModal('modalVnPagoTransferencia');
     }
 
-    function vnSelBanco(banco, btn) {
-      document.getElementById('vnTransfBanco').value = banco;
+    function vnSeleccionarBanco(banco) {
       document.querySelectorAll('.vn-banco-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
+      const btn = document.querySelector('.vn-banco-btn[data-banco="' + banco + '"]');
+      if (btn) btn.classList.add('selected');
     }
 
     function vnConfirmarTransferencia() {
-      const banco = document.getElementById('vnTransfBanco').value;
-      const monto = parseFloat(document.getElementById('vnTransfMonto').value) || 0;
+      const monto = Number(document.getElementById('vnTransfMonto').value);
+      const banco = document.querySelector('.vn-banco-btn.selected');
+      if (!monto || monto <= 0) { mostrarToast('Ingresá el monto', 'error'); return; }
       if (!banco) { mostrarToast('Seleccioná un banco', 'error'); return; }
-      if (monto <= 0) { mostrarToast('Ingresá un monto', 'error'); return; }
       cerrarModal('modalVnPagoTransferencia');
-      vnAgregarPago('TRANSFERENCIA', monto, { banco });
+      vnAgregarMedioPago('TRANSFERENCIA', monto, { banco: banco.dataset.banco });
     }
 
+    // ── Modal vale ─────────────────────────────────────────────────
     function vnAbrirPagoVale() {
-      document.getElementById('vnValeNumero').value = '';
-      document.getElementById('vnValeInfo').style.display = 'none';
-      document.getElementById('vnValeMontoGrupo').style.display = 'none';
-      document.getElementById('btnVnConfirmarVale').disabled = true;
+      document.getElementById('vnValeNroPago').value = '';
+      document.getElementById('vnValeInfoPago').innerHTML = '';
       VN.valeActual = null;
       abrirModal('modalVnPagoVale');
     }
 
-    function vnValidarVale() {
-      const numero = document.getElementById('vnValeNumero').value.trim().toUpperCase();
-      if (!numero) return;
-      llamarServidor({ action: 'vnBuscarVale', numero }, res => {
-        const infoDiv = document.getElementById('vnValeInfo');
-        const montoGrupo = document.getElementById('vnValeMontoGrupo');
-        const btnConf = document.getElementById('btnVnConfirmarVale');
+    function vnBuscarValeParaPago() {
+      const nro = document.getElementById('vnValeNroPago').value.trim().toUpperCase();
+      if (!nro) return;
+      llamarServidor({ action: 'vnBuscarVale', numero: nro }, res => {
+        const info = document.getElementById('vnValeInfoPago');
         if (res.success && res.vale) {
-          const v = res.vale;
-          if (v.estado !== 'DISPONIBLE') {
-            infoDiv.innerHTML = '❌ Vale <strong>' + numero + '</strong> — Estado: ' + v.estado;
-            infoDiv.style.background = 'rgba(244,67,54,0.08)';
-            infoDiv.style.display = 'block';
-            montoGrupo.style.display = 'none';
-            btnConf.disabled = true;
+          VN.valeActual = res.vale;
+          if (res.vale.estado !== 'DISPONIBLE') {
+            info.innerHTML = '<span style="color:#EF4444;">❌ Vale ' + res.vale.estado + '</span>';
             VN.valeActual = null;
           } else {
-            infoDiv.innerHTML = '✅ Vale válido<br>Cliente: <strong>' + v.cliente + '</strong><br>Monto: <strong>' + formatMonto(v.monto) + '</strong>';
-            infoDiv.style.background = 'rgba(76,175,80,0.08)';
-            infoDiv.style.display = 'block';
-            const restante = vnGetTotal() - VN.mediosPago.reduce((s,m) => s+m.monto, 0);
-            const aplicar = Math.min(v.monto, restante > 0 ? restante : v.monto);
-            document.getElementById('vnValeMontoAplicar').value = aplicar;
-            montoGrupo.style.display = 'block';
-            btnConf.disabled = false;
-            VN.valeActual = v;
+            info.innerHTML = '<span style="color:#10B981;">✅ Vale disponible — ' + formatMonto(res.vale.monto) + ' — ' + escapeHtml(res.vale.cliente) + '</span>';
           }
         } else {
-          infoDiv.innerHTML = '❌ ' + (res.error || 'Vale no encontrado');
-          infoDiv.style.background = 'rgba(244,67,54,0.08)';
-          infoDiv.style.display = 'block';
-          montoGrupo.style.display = 'none';
-          btnConf.disabled = true;
+          info.innerHTML = '<span style="color:#EF4444;">❌ ' + (res.error || 'No encontrado') + '</span>';
           VN.valeActual = null;
         }
       });
     }
 
     function vnConfirmarVale() {
-      if (!VN.valeActual) return;
-      const monto = parseFloat(document.getElementById('vnValeMontoAplicar').value) || 0;
-      if (monto <= 0) { mostrarToast('Ingresá un monto', 'error'); return; }
-      if (monto > VN.valeActual.monto) { mostrarToast('El monto supera el valor del vale ($' + VN.valeActual.monto + ')', 'error'); return; }
+      if (!VN.valeActual) { mostrarToast('Buscá y verificá el vale primero', 'error'); return; }
+      const monto = Math.min(VN.valeActual.monto, vnGetTotal());
       cerrarModal('modalVnPagoVale');
-      vnAgregarPago('VALE', monto, { numero: VN.valeActual.numero, monto: VN.valeActual.monto });
+      vnAgregarMedioPago('VALE', monto, { numero: VN.valeActual.numero });
       VN.valeActual = null;
     }
 
-    function vnAbrirPagoACuenta() {
-      mostrarToast('Registrá el pago a cuenta en la vista Pagos/Fiados', 'info');
-    }
-
-    // ── Cliente POS ───────────────────────────────────────────────
-
-    function vnAbrirBuscadorCliente() {
-      document.getElementById('vnBuscarClienteInput').value = '';
-      document.getElementById('vnClienteSugerencias').innerHTML = '';
-      abrirModal('modalVnCliente');
-      setTimeout(() => document.getElementById('vnBuscarClienteInput').focus(), 100);
-    }
-
-    function vnBuscarClientePOS(termino) {
-      if (termino.length < 2) { document.getElementById('vnClienteSugerencias').innerHTML = ''; return; }
-      llamarServidor({ action: 'vnGetClientes', termino }, res => {
-        const sug = document.getElementById('vnClienteSugerencias');
-        const lista = res.clientes || [];
-        if (lista.length === 0) { sug.innerHTML = '<div style="padding:0.5rem;color:var(--sv-texto-secundario);font-size:0.85rem;">Sin resultados</div>'; return; }
-        sug.innerHTML = lista.map(c => {
-          const nombre = typeof c === 'string' ? c : (c.nombre || c);
-          return `<div class="suggestion-item" onclick="vnSeleccionarCliente('${nombre}','')" style="cursor:pointer;padding:0.4rem 0.75rem;font-size:0.85rem;border-bottom:1px solid var(--sv-borde);">${nombre}</div>`;
-        }).join('');
-        sug.style.display = 'block';
-      });
-    }
-
-    function vnSeleccionarCliente(nombre, detalle) {
-      VN.cliente = nombre;
-      VN.clienteNombre = nombre;
-      document.getElementById('vnClienteNombre').textContent = nombre;
-      cerrarModal('modalVnCliente');
-    }
-
-    function vnAbrirNuevoClienteRapido() {
-      cerrarModal('modalVnCliente');
-      document.getElementById('vnNcNombre').value = '';
-      document.getElementById('vnNcTel').value = '';
-      abrirModal('modalVnNuevoCliente');
-    }
-
-    function vnGuardarNuevoCliente() {
-      const nombre = document.getElementById('vnNcNombre').value.trim().toUpperCase();
-      if (!nombre) { mostrarToast('El nombre es requerido', 'error'); return; }
-      llamarServidor({ action: 'vnCrearClienteRapido', nombre, tel: document.getElementById('vnNcTel').value }, res => {
-        if (res.success) {
-          mostrarToast('Cliente creado', 'success');
-          cerrarModal('modalVnNuevoCliente');
-          vnSeleccionarCliente(nombre, '');
-        } else {
-          mostrarToast(res.error || 'Error al crear cliente', 'error');
-        }
-      });
-    }
-
-    // ── Vista Historial ───────────────────────────────────────────
-
+    // ── Historial ─────────────────────────────────────────────────
     function vnCargarHistorial() {
       if (!VN.sesion) return;
       llamarServidor({ action: 'vnGetVentasSesion', sesionId: VN.sesion.id }, res => {
-        const tbody = document.getElementById('vnHistorialBody');
+        if (!res.success) return;
         const ventas = res.ventas || [];
+        const tbody  = document.getElementById('vnHistorialBody');
+        if (!tbody) return;
+        const confirmadas = ventas.filter(v => v.estado !== 'CANCELADA');
+        const total = confirmadas.reduce((s, v) => s + v.total, 0);
+
+        // Actualizar chips resumen
+        let ef=0, tr=0, va=0, fi=0;
+        confirmadas.forEach(v => (v.mediosPago||[]).forEach(m => {
+          const mo = Number(m.monto)||0;
+          if (m.tipo==='EFECTIVO') ef+=mo;
+          else if (m.tipo==='TRANSFERENCIA') tr+=mo;
+          else if (m.tipo==='VALE') va+=mo;
+          else if (m.tipo==='FIADO') fi+=mo;
+        }));
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = formatMonto(v); };
+        set('vnStatTotal', total);
+        const cnt = document.getElementById('vnStatVentas'); if(cnt) cnt.textContent = confirmadas.length;
+        set('vnStatEfectivo', ef); set('vnStatTransf', tr); set('vnStatVales', va); set('vnStatFiado', fi);
+
         if (ventas.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--sv-texto-secundario);">Sin ventas en esta sesión</td></tr>';
-        } else {
-          tbody.innerHTML = ventas.map(v => {
-            const items = (v.items || []).map(i => i.nombre + ' x' + i.qty).join(', ');
-            const medios = (v.mediosPago || []).map(m => m.tipo).join('+');
-            const cancelada = v.estado === 'CANCELADA';
-            return `<tr style="${cancelada ? 'opacity:0.5;text-decoration:line-through;' : ''}">
-              <td>#${v.id}</td>
-              <td>${v.hora instanceof Date ? formatearHora(v.hora) : (typeof v.hora === 'string' ? v.hora.substring(11,16) : '')}</td>
-              <td>${v.cliente}</td>
-              <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${items}">${items}</td>
-              <td><strong>${formatMonto(v.total)}</strong></td>
-              <td style="font-size:0.75rem;">${medios}</td>
-              <td><span class="${cancelada ? 'stock-critical' : 'stock-ok'}">${v.estado}</span></td>
-              <td style="white-space:nowrap;">
-                ${!cancelada ? `<button class="btn btn-sm btn-outline" onclick="vnReimprimirTicket(${v.id})" style="padding:2px 6px;font-size:0.7rem;">🖨️</button>
-                <button class="btn btn-sm" onclick="vnCancelarVenta(${v.id})" style="padding:2px 6px;font-size:0.7rem;background:#F44336;color:#fff;border:none;">✕</button>` : ''}
-              </td>
-            </tr>`;
-          }).join('');
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:1rem;color:var(--vn-text2);">Sin ventas en esta sesión</td></tr>';
+          return;
         }
-        // Actualizar stats
-        llamarServidor({ action: 'vnGetResumenSesion', sesionId: VN.sesion.id }, r => {
-          if (r.resumen) {
-            document.getElementById('vnStatTotal').textContent = formatMonto(r.resumen.totalVentas || 0);
-            document.getElementById('vnStatEfectivo').textContent = formatMonto(r.resumen.efectivo || 0);
-            document.getElementById('vnStatTransf').textContent = formatMonto(r.resumen.transferencia || 0);
-            document.getElementById('vnStatVales').textContent = formatMonto(r.resumen.vales || 0);
-            document.getElementById('vnStatFiado').textContent = formatMonto(r.resumen.fiado || 0);
-          }
-        });
+        tbody.innerHTML = ventas.map(v => {
+          const medios = (v.mediosPago||[]).map(m=>m.tipo).join(', ');
+          const cancelada = v.estado === 'CANCELADA';
+          return `<tr style="${cancelada ? 'opacity:0.5;text-decoration:line-through;' : ''}">
+            <td>${v.id}</td>
+            <td>${formatarHora(v.hora)}</td>
+            <td>${escapeHtml(v.cliente || 'CONSUMIDOR FINAL')}</td>
+            <td>${(v.items||[]).length}</td>
+            <td>${formatMonto(v.total)}</td>
+            <td style="font-size:0.75rem;">${medios}</td>
+            <td><span style="font-size:0.75rem;${cancelada?'color:#EF4444':'color:#10B981'}">${v.estado}</span></td>
+            <td>
+              ${!cancelada ? '<button class="btn btn-sm btn-outline" onclick="vnCancelarVenta(' + v.id + ')" style="font-size:0.72rem;padding:2px 6px;border-color:#EF4444;color:#EF4444;">Cancelar</button>' : ''}
+              <button class="btn btn-sm btn-outline" onclick="vnReimprimirTicket(' + v.id + ')" style="font-size:0.72rem;padding:2px 6px;">🖨️</button>
+            </td>
+          </tr>`;
+        }).join('');
       });
     }
 
     function vnCancelarVenta(ventaId) {
       if (!confirm('¿Cancelar la venta #' + ventaId + '? Se restaurará el stock.')) return;
       llamarServidor({ action: 'vnCancelarVenta', ventaId }, res => {
-        if (res.success) {
-          mostrarToast('Venta #' + ventaId + ' cancelada', 'success');
-          vnCargarHistorial();
-        } else {
-          mostrarToast(res.error || 'Error', 'error');
-        }
+        if (res.success) { mostrarToast('Venta cancelada', 'success'); vnCargarHistorial(); }
+        else mostrarToast(res.error || 'Error', 'error');
       });
     }
 
-    // ── Vista Vales ───────────────────────────────────────────────
+    function vnReimprimirTicket(ventaId) {
+      if (!VN.sesion) return;
+      llamarServidor({ action: 'vnGetVentasSesion', sesionId: VN.sesion.id }, res => {
+        const venta = (res.ventas || []).find(v => Number(v.id) === Number(ventaId));
+        if (venta) vnImprimirTicket(venta);
+      });
+    }
 
+    // ── Vales ─────────────────────────────────────────────────────
     function vnCargarVales() {
-      const estado = document.getElementById('vnValesFiltroEstado').value;
-      llamarServidor({ action: 'vnGetVales', filtros: estado ? { estado } : {} }, res => {
+      const estado = document.getElementById('vnValesFiltroEstado');
+      const filtros = estado && estado.value ? { estado: estado.value } : {};
+      llamarServidor({ action: 'vnGetVales', filtros }, res => {
         const tbody = document.getElementById('vnValesBody');
+        if (!tbody) return;
         const vales = res.vales || [];
-        const colores = { DISPONIBLE: '#4CAF50', CANJEADO: '#9E9E9E', ANULADO: '#F44336' };
         if (vales.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--sv-texto-secundario);">Sin vales</td></tr>';
-        } else {
-          tbody.innerHTML = vales.map(v => {
-            const color = colores[v.estado] || '#9E9E9E';
-            const fecha = v.fechaEmision instanceof Date ? formatearFechaCorta(v.fechaEmision) : '';
-            return `<tr>
-              <td><strong>${v.numero}</strong></td>
-              <td>${fecha}</td>
-              <td>${v.cliente}</td>
-              <td style="font-size:0.78rem;">${v.motivo}</td>
-              <td><strong>${formatMonto(v.monto)}</strong></td>
-              <td><span style="color:${color};font-weight:600;">${v.estado}</span></td>
-              <td style="white-space:nowrap;">
-                <button class="btn btn-sm btn-outline" onclick="vnImprimirVale(${JSON.stringify(v).replace(/"/g,'&quot;')})" style="padding:2px 6px;font-size:0.7rem;">🖨️</button>
-                ${v.estado === 'DISPONIBLE' ? `<button class="btn btn-sm" onclick="vnAbrirAnularVale('${v.numero}')" style="padding:2px 6px;font-size:0.7rem;background:#F44336;color:#fff;border:none;">✕</button>` : ''}
-              </td>
-            </tr>`;
-          }).join('');
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:1rem;color:var(--vn-text2);">Sin vales</td></tr>';
+          return;
         }
+        const colores = { DISPONIBLE:'#10B981', CANJEADO:'#3B82F6', ANULADO:'#EF4444' };
+        tbody.innerHTML = vales.map(v => `<tr>
+          <td><strong>${escapeHtml(v.numero)}</strong></td>
+          <td>${formatearFechaCorta(v.fechaEmision)}</td>
+          <td>${escapeHtml(v.cliente)}</td>
+          <td style="font-size:0.8rem;">${escapeHtml(v.motivo)}</td>
+          <td><strong>${formatMonto(v.monto)}</strong></td>
+          <td><span style="color:${colores[v.estado]||'inherit'};font-weight:700;">${v.estado}</span></td>
+          <td>${v.estado === 'DISPONIBLE' ? '<button class="btn btn-sm btn-outline" onclick="vnConfirmarAnularVale(\'' + escapeHtml(v.numero) + '\')" style="font-size:0.72rem;padding:2px 6px;color:#EF4444;border-color:#EF4444;">Anular</button>' : ''}</td>
+        </tr>`).join('');
       });
     }
 
     function vnEmitirVale() {
       const cliente = document.getElementById('vnValeCliente').value.trim() || 'CONSUMIDOR FINAL';
-      const motivo = document.getElementById('vnValeMotivo').value.trim();
-      const monto = parseFloat(document.getElementById('vnValeMonto').value) || 0;
+      const motivo  = document.getElementById('vnValeMotivo').value.trim();
+      const monto   = Number(document.getElementById('vnValeMonto').value);
       if (!motivo) { mostrarToast('El motivo es requerido', 'error'); return; }
-      if (monto <= 0) { mostrarToast('El monto debe ser mayor a cero', 'error'); return; }
-
+      if (!monto || monto <= 0) { mostrarToast('El monto debe ser mayor a 0', 'error'); return; }
       llamarServidor({ action: 'vnCrearVale', cliente: cliente.toUpperCase(), motivo, monto }, res => {
         if (res.success) {
           mostrarToast('Vale ' + res.vale.numero + ' emitido', 'success');
-          vnImprimirVale(res.vale);
           document.getElementById('vnValeCliente').value = '';
           document.getElementById('vnValeMotivo').value = '';
           document.getElementById('vnValeMonto').value = '';
-          vnCargarVales();
-        } else {
-          mostrarToast(res.error || 'Error', 'error');
-        }
-      });
-    }
-
-    function vnAbrirAnularVale(numero) {
-      document.getElementById('vnAnularValeNumero').textContent = numero;
-      document.getElementById('vnAnularRazon').value = '';
-      document.getElementById('modalVnAnularVale').dataset.numero = numero;
-      abrirModal('modalVnAnularVale');
-    }
-
-    function vnConfirmarAnularVale() {
-      const numero = document.getElementById('modalVnAnularVale').dataset.numero;
-      const razon = document.getElementById('vnAnularRazon').value.trim();
-      if (!razon) { mostrarToast('La razón es obligatoria', 'error'); return; }
-      llamarServidor({ action: 'vnAnularVale', numero, razon }, res => {
-        if (res.success) {
-          mostrarToast('Vale anulado', 'success');
-          cerrarModal('modalVnAnularVale');
-          vnCargarVales();
-        } else {
-          mostrarToast(res.error || 'Error', 'error');
-        }
-      });
-    }
-
-    function vnAbrirEmitirVale() {
-      document.getElementById('vnEvCliente').value = '';
-      document.getElementById('vnEvMotivo').value = '';
-      document.getElementById('vnEvMonto').value = '';
-      abrirModal('modalVnEmitirVale');
-    }
-
-    function vnGuardarVale() {
-      const cliente = document.getElementById('vnEvCliente').value.trim() || 'CONSUMIDOR FINAL';
-      const motivo = document.getElementById('vnEvMotivo').value.trim();
-      const monto = parseFloat(document.getElementById('vnEvMonto').value) || 0;
-      if (!motivo) { mostrarToast('El motivo es requerido', 'error'); return; }
-      if (monto <= 0) { mostrarToast('El monto debe ser mayor a cero', 'error'); return; }
-      llamarServidor({ action: 'vnCrearVale', cliente: cliente.toUpperCase(), motivo, monto }, res => {
-        if (res.success) {
-          mostrarToast('Vale ' + res.vale.numero + ' emitido', 'success');
-          cerrarModal('modalVnEmitirVale');
           vnImprimirVale(res.vale);
+          vnCargarVales();
         } else {
           mostrarToast(res.error || 'Error', 'error');
         }
       });
     }
 
-    // ── Vista Pagos/Fiados ────────────────────────────────────────
+    function vnAbrirEmitirVale() { vnCambiarVista('vales'); }
 
-    function vnCargarPagos() {
-      llamarServidor({ action: 'vnGetDeudas', cliente: '' }, res => {
-        const div = document.getElementById('vnDeudasLista');
-        const deudores = res.deudores || [];
-        if (deudores.length === 0) {
-          div.innerHTML = '<div style="color:var(--sv-texto-secundario);font-size:0.85rem;">Sin deudas activas</div>';
-        } else {
-          div.innerHTML = deudores.map(d =>
-            `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--sv-borde);">
-              <span style="font-weight:500;">${d.cliente}</span>
-              <span style="color:#F44336;font-weight:700;">${formatMonto(d.saldo)}</span>
-            </div>`
-          ).join('');
-        }
+    function vnConfirmarAnularVale(numero) {
+      const razon = prompt('Razón de anulación del vale ' + numero + ':');
+      if (!razon || razon.trim() === '') return;
+      llamarServidor({ action: 'vnAnularVale', numero, razon }, res => {
+        if (res.success) { mostrarToast('Vale anulado', 'success'); vnCargarVales(); }
+        else mostrarToast(res.error || 'Error', 'error');
       });
+    }
+
+    // ── Pagos / Fiados ─────────────────────────────────────────────
+    function vnCargarDeudas() {
+      llamarServidor({ action: 'vnGetDeudas' }, res => {
+        const lista = document.getElementById('vnDeudasLista');
+        if (!lista) return;
+        const deudores = (typeof res === 'object' && res.deudores) ? res.deudores : [];
+        if (deudores.length === 0) {
+          lista.innerHTML = '<p style="color:var(--vn-text2);">Sin deudas activas.</p>';
+          return;
+        }
+        lista.innerHTML = deudores.map(d => `
+          <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--vn-border);">
+            <span style="font-weight:600;">${escapeHtml(d.cliente)}</span>
+            <span style="color:#EF4444;font-weight:700;">${formatMonto(d.saldo)}</span>
+          </div>`).join('');
+      });
+      // Historial de pagos de la sesión
       if (VN.sesion) {
         llamarServidor({ action: 'vnGetPagosSesion', sesionId: VN.sesion.id }, res => {
           const tbody = document.getElementById('vnPagosHistBody');
+          if (!tbody) return;
           const pagos = res.pagos || [];
           if (pagos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--sv-texto-secundario);">Sin movimientos</td></tr>';
-          } else {
-            tbody.innerHTML = pagos.map(p => `<tr>
-              <td>${p.fecha instanceof Date ? formatearHora(p.fecha) : ''}</td>
-              <td>${p.cliente}</td>
-              <td>${p.tipo}</td>
-              <td>${formatMonto(p.monto)}</td>
-              <td>${p.obs || ''}</td>
-            </tr>`).join('');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1rem;color:var(--vn-text2);">Sin movimientos</td></tr>';
+            return;
           }
+          tbody.innerHTML = pagos.map(p => `<tr>
+            <td>${formatarHora(p.fecha)}</td>
+            <td>${escapeHtml(p.cliente)}</td>
+            <td><span style="font-size:0.78rem;">${p.tipo}</span></td>
+            <td>${formatMonto(p.monto)}</td>
+            <td style="font-size:0.78rem;">${escapeHtml(p.obs||'')}</td>
+          </tr>`).join('');
         });
       }
     }
 
     function vnRegistrarPago() {
-      const cliente = document.getElementById('vnPagoCliente').value.trim();
-      const tipo = document.getElementById('vnPagoTipo').value;
-      const monto = parseFloat(document.getElementById('vnPagoMonto').value) || 0;
-      const obs = document.getElementById('vnPagoObs').value.trim();
+      const cliente = document.getElementById('vnPagoCliente').value.trim().toUpperCase();
+      const tipo    = document.getElementById('vnPagoTipo').value;
+      const monto   = Number(document.getElementById('vnPagoMonto').value);
+      const obs     = document.getElementById('vnPagoObs').value.trim();
       if (!cliente) { mostrarToast('El cliente es requerido', 'error'); return; }
-      if (monto <= 0) { mostrarToast('El monto debe ser mayor a cero', 'error'); return; }
-
-      const action = tipo === 'COBRO' ? 'vnRegistrarCobro' :
-                     tipo === 'PAGO_A_CUENTA' ? 'vnRegistrarPagoACuenta' : 'vnRegistrarFiado';
-      llamarServidor({ action, cliente: cliente.toUpperCase(), monto, obs, sesionId: VN.sesion ? VN.sesion.id : '' }, res => {
+      if (!monto || monto <= 0) { mostrarToast('El monto debe ser mayor a 0', 'error'); return; }
+      const action = tipo === 'COBRO' ? 'vnRegistrarCobro' : (tipo === 'FIADO' ? 'vnRegistrarFiado' : 'vnRegistrarPagoACuenta');
+      llamarServidor({ action, cliente, monto, obs, sesionId: VN.sesion ? VN.sesion.id : null }, res => {
         if (res.success) {
           mostrarToast('Movimiento registrado', 'success');
           document.getElementById('vnPagoCliente').value = '';
           document.getElementById('vnPagoMonto').value = '';
           document.getElementById('vnPagoObs').value = '';
-          vnCargarPagos();
+          vnCargarDeudas();
         } else {
           mostrarToast(res.error || 'Error', 'error');
         }
@@ -14232,175 +14385,174 @@
     }
 
     function vnGuardarCobro() {
-      const cliente = document.getElementById('vnCobroCliente').value.trim();
-      const tipo = document.getElementById('vnCobroTipo').value;
-      const monto = parseFloat(document.getElementById('vnCobroMonto').value) || 0;
-      const obs = document.getElementById('vnCobroObs').value.trim();
-      if (!cliente) { mostrarToast('El cliente es requerido', 'error'); return; }
-      if (monto <= 0) { mostrarToast('El monto debe ser mayor a cero', 'error'); return; }
-      const action = tipo === 'COBRO' ? 'vnRegistrarCobro' :
-                     tipo === 'PAGO_A_CUENTA' ? 'vnRegistrarPagoACuenta' : 'vnRegistrarFiado';
-      llamarServidor({ action, cliente: cliente.toUpperCase(), monto, obs, sesionId: VN.sesion ? VN.sesion.id : '' }, res => {
-        if (res.success) {
-          mostrarToast('Movimiento registrado', 'success');
-          cerrarModal('modalVnRegistrarCobro');
-        } else {
-          mostrarToast(res.error || 'Error', 'error');
-        }
+      const cliente = document.getElementById('vnCobroCliente').value.trim().toUpperCase();
+      const tipo    = document.getElementById('vnCobroTipo').value;
+      const monto   = Number(document.getElementById('vnCobroMonto').value);
+      const obs     = document.getElementById('vnCobroObs').value.trim();
+      if (!cliente || !monto || monto <= 0) { mostrarToast('Completá todos los campos', 'error'); return; }
+      const action = tipo === 'COBRO' ? 'vnRegistrarCobro' : (tipo === 'FIADO' ? 'vnRegistrarFiado' : 'vnRegistrarPagoACuenta');
+      llamarServidor({ action, cliente, monto, obs, sesionId: VN.sesion ? VN.sesion.id : null }, res => {
+        if (res.success) { mostrarToast('Registrado', 'success'); cerrarModal('modalVnRegistrarCobro'); }
+        else mostrarToast(res.error || 'Error', 'error');
       });
     }
 
-    // ── Vista Stock ───────────────────────────────────────────────
-
+    // ── Stock ─────────────────────────────────────────────────────
     function vnCargarStock() {
-      llamarServidor({ action: 'vnGetExistencias' }, res => {
-        const tbody = document.getElementById('vnExistenciasBody');
-        const prods = res.productos || [];
-        if (prods.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--sv-texto-secundario);">Sin productos</td></tr>';
-        } else {
-          tbody.innerHTML = prods.map(p => {
-            const badge = p.stock <= 0 ? '🔴' : (p.stock <= 5 ? '🟡' : '🟢');
-            const cls = p.stock <= 0 ? 'stock-critical' : (p.stock <= 5 ? 'stock-low' : 'stock-ok');
-            return `<tr>
-              <td>${p.nombre}</td>
-              <td>${formatMonto(p.precio)}</td>
-              <td class="${cls}"><strong>${p.stock}</strong></td>
-              <td><span class="vn-stock-badge">${badge}</span></td>
-              <td>
-                <button class="btn btn-sm btn-outline" onclick="vnAbrirEditarProducto(${JSON.stringify(p).replace(/"/g,'&quot;')})" style="padding:2px 6px;font-size:0.7rem;">✏️</button>
-                <button class="btn btn-sm btn-outline" onclick="vnToggleProducto(${p.id},${p.activo})" style="padding:2px 6px;font-size:0.7rem;">${p.activo ? 'Ocultar' : 'Activar'}</button>
-              </td>
-            </tr>`;
-          }).join('');
-        }
-      });
+      vnStockCambiarTab('existencias');
     }
 
     function vnStockCambiarTab(tab) {
       ['existencias','compras','mermas','correcciones'].forEach(t => {
-        document.getElementById('vnStock' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? 'block' : 'none';
+        const el = document.getElementById('vnStock' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (el) el.style.display = t === tab ? 'block' : 'none';
+        const btn = document.getElementById('vnStockTab' + ['existencias','compras','mermas','correcciones'].indexOf(t) + 1);
+        if (btn) btn.classList.toggle('active', t === tab);
       });
-      ['1','2','3','4'].forEach((n, i) => {
-        const id = 'vnStockTab' + n;
-        document.getElementById(id).classList.toggle('active', i === ['existencias','compras','mermas','correcciones'].indexOf(tab));
-      });
-      if (tab === 'compras') vnCargarHistorialCompras();
-      if (tab === 'mermas') vnCargarHistorialMermas();
+      if (tab === 'existencias') vnCargarExistencias();
+      if (tab === 'compras')     vnCargarHistorialCompras();
+      if (tab === 'mermas')      vnCargarHistorialMermas();
       if (tab === 'correcciones') vnCargarHistorialCorrecciones();
+    }
+
+    function vnCargarExistencias() {
+      llamarServidor({ action: 'vnGetExistencias' }, res => {
+        const tbody = document.getElementById('vnExistenciasBody');
+        if (!tbody) return;
+        const prods = (res.productos || []).sort((a,b) => a.nombre.localeCompare(b.nombre,'es'));
+        if (prods.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1rem;color:var(--vn-text2);">Sin productos</td></tr>';
+          return;
+        }
+        tbody.innerHTML = prods.map(p => {
+          const cls = p.stock <= 0 ? 'stock-critical' : (p.stock <= 5 ? 'stock-low' : 'stock-ok');
+          return `<tr>
+            <td>${escapeHtml(p.nombre)}</td>
+            <td style="font-size:0.8rem;color:var(--vn-text2);">${escapeHtml(p.categoria||'')}</td>
+            <td>${formatMonto(p.precio)}</td>
+            <td class="${cls}">${p.stock}</td>
+            <td><span class="${cls}">${p.stock<=0?'🔴':p.stock<=5?'🟡':'🟢'}</span></td>
+            <td>
+              <button class="btn btn-sm btn-outline" onclick="vnEditarProducto(${p.id})" style="font-size:0.72rem;padding:2px 6px;">✏️</button>
+              <button class="btn btn-sm btn-outline" onclick="vnAbrirCompraProducto(${p.id})" style="font-size:0.72rem;padding:2px 6px;">📥</button>
+            </td>
+          </tr>`;
+        }).join('');
+      });
     }
 
     function vnCargarHistorialCompras() {
       llamarServidor({ action: 'vnGetHistorialCompras', filtros: {} }, res => {
         const tbody = document.getElementById('vnComprasBody');
+        if (!tbody) return;
         const items = res.compras || [];
-        tbody.innerHTML = items.length === 0
-          ? '<tr><td colspan="6" style="text-align:center;color:var(--sv-texto-secundario);">Sin compras</td></tr>'
-          : items.map(c => `<tr>
-              <td>${c.fecha instanceof Date ? formatearFechaCorta(c.fecha) : ''}</td>
-              <td>${c.proveedor}</td><td>${c.productoNombre}</td>
-              <td>${c.cantidad}</td><td>${formatMonto(c.costoUnit)}</td>
-              <td><strong>${formatMonto(c.total)}</strong></td>
-            </tr>`).join('');
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--vn-text2);">Sin compras</td></tr>'; return;
+        }
+        tbody.innerHTML = items.map(c => `<tr>
+          <td>${formatearFechaCorta(c.fecha)}</td>
+          <td>${escapeHtml(c.proveedor)}</td>
+          <td>${escapeHtml(c.productoNombre)}</td>
+          <td>${c.cantidad}</td>
+          <td>${formatMonto(c.costoUnit)}</td>
+          <td>${formatMonto(c.total)}</td>
+        </tr>`).join('');
       });
     }
 
     function vnCargarHistorialMermas() {
       llamarServidor({ action: 'vnGetHistorialMermas', filtros: {} }, res => {
         const tbody = document.getElementById('vnMermasBody');
+        if (!tbody) return;
         const items = res.mermas || [];
-        tbody.innerHTML = items.length === 0
-          ? '<tr><td colspan="5" style="text-align:center;color:var(--sv-texto-secundario);">Sin mermas</td></tr>'
-          : items.map(m => `<tr>
-              <td>${m.fecha instanceof Date ? formatearFechaCorta(m.fecha) : ''}</td>
-              <td>${m.productoNombre}</td><td>${m.cantidad}</td>
-              <td>${m.razon}</td><td style="font-size:0.75rem;">${m.usuario || ''}</td>
-            </tr>`).join('');
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--vn-text2);">Sin mermas</td></tr>'; return;
+        }
+        tbody.innerHTML = items.map(m => `<tr>
+          <td>${formatearFechaCorta(m.fecha)}</td>
+          <td>${escapeHtml(m.productoNombre)}</td>
+          <td>${m.cantidad}</td>
+          <td>${escapeHtml(m.razon)}</td>
+          <td style="font-size:0.78rem;">${escapeHtml(m.usuario||'')}</td>
+        </tr>`).join('');
       });
     }
 
     function vnCargarHistorialCorrecciones() {
       llamarServidor({ action: 'vnGetHistorialCorrecciones', filtros: {} }, res => {
         const tbody = document.getElementById('vnCorreccionesBody');
+        if (!tbody) return;
         const items = res.correcciones || [];
-        tbody.innerHTML = items.length === 0
-          ? '<tr><td colspan="6" style="text-align:center;color:var(--sv-texto-secundario);">Sin correcciones</td></tr>'
-          : items.map(c => `<tr>
-              <td>${c.fecha instanceof Date ? formatearFechaCorta(c.fecha) : ''}</td>
-              <td>${c.productoNombre}</td>
-              <td class="stock-low">${c.stockAnterior}</td>
-              <td class="stock-ok">${c.stockNuevo}</td>
-              <td>${c.razon}</td>
-              <td style="font-size:0.75rem;">${c.usuario || ''}</td>
-            </tr>`).join('');
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--vn-text2);">Sin correcciones</td></tr>'; return;
+        }
+        tbody.innerHTML = items.map(c => `<tr>
+          <td>${formatearFechaCorta(c.fecha)}</td>
+          <td>${escapeHtml(c.productoNombre)}</td>
+          <td>${c.stockAnterior}</td>
+          <td><strong>${c.stockNuevo}</strong></td>
+          <td style="font-size:0.8rem;">${escapeHtml(c.razon)}</td>
+          <td style="font-size:0.78rem;">${escapeHtml(c.usuario||'')}</td>
+        </tr>`).join('');
       });
     }
 
-    function vnAbrirCompra() {
+    function vnAbrirCompra() { vnAbrirCompraProducto(null); }
+    function vnAbrirCompraProducto(prodId) {
       vnPopularSelectsProductos();
+      if (prodId) {
+        setTimeout(() => { const s = document.getElementById('vnCompraProdId'); if(s) s.value = prodId; }, 100);
+      }
+      document.getElementById('vnCompraCantidad').value = '';
+      document.getElementById('vnCompraCosto').value = '';
       document.getElementById('vnCompraProveedor').value = '';
-      document.getElementById('vnCompraProdId').value = '';
-      document.getElementById('vnCantidad').value = '';
-      document.getElementById('vnCostoUnit').value = '';
       document.getElementById('vnCompraObs').value = '';
-      document.getElementById('vnCompraTotalDisplay').textContent = '';
       abrirModal('modalVnCompra');
     }
 
-    function vnCalcTotalCompra() {
-      const qty = parseFloat(document.getElementById('vnCantidad').value) || 0;
-      const costo = parseFloat(document.getElementById('vnCostoUnit').value) || 0;
-      document.getElementById('vnCompraTotalDisplay').textContent = qty > 0 && costo > 0 ? 'Total: ' + formatMonto(qty * costo) : '';
-    }
-
     function vnGuardarCompra() {
+      const prodId    = document.getElementById('vnCompraProdId').value;
+      const cantidad  = Number(document.getElementById('vnCompraCantidad').value);
+      const costoUnit = Number(document.getElementById('vnCompraCosto').value);
       const proveedor = document.getElementById('vnCompraProveedor').value.trim();
-      const productoId = document.getElementById('vnCompraProdId').value;
-      const cantidad = parseFloat(document.getElementById('vnCantidad').value) || 0;
-      const costoUnit = parseFloat(document.getElementById('vnCostoUnit').value) || 0;
-      if (!proveedor) { mostrarToast('El proveedor es requerido', 'error'); return; }
-      if (!productoId) { mostrarToast('Seleccioná un producto', 'error'); return; }
-      if (cantidad <= 0) { mostrarToast('La cantidad debe ser mayor a cero', 'error'); return; }
-      llamarServidor({ action: 'vnRegistrarCompra', proveedor: proveedor.toUpperCase(), productoId: Number(productoId), cantidad, costoUnit, obs: document.getElementById('vnCompraObs').value }, res => {
+      const obs       = document.getElementById('vnCompraObs').value.trim();
+      if (!prodId || !cantidad || cantidad <= 0 || !proveedor) {
+        mostrarToast('Completá los campos obligatorios', 'error'); return;
+      }
+      llamarServidor({ action: 'vnRegistrarCompra', productoId: prodId, cantidad, costoUnit, proveedor, obs }, res => {
         if (res.success) {
-          mostrarToast('Compra registrada. Nuevo stock: ' + res.nuevoStock, 'success');
+          mostrarToast('Compra registrada. Stock: ' + res.nuevoStock, 'success');
           cerrarModal('modalVnCompra');
-          vnCargarStock();
-          vnCargarProductos();
-        } else {
-          mostrarToast(res.error || 'Error', 'error');
-        }
+          vnCargarExistencias();
+        } else mostrarToast(res.error || 'Error', 'error');
       });
     }
 
     function vnAbrirMerma() {
-      vnPopularSelectsProductos('vnMermaProdId');
+      vnPopularSelectsProductos();
       document.getElementById('vnMermaCantidad').value = '';
       document.getElementById('vnMermaRazon').value = '';
       abrirModal('modalVnMerma');
     }
 
     function vnGuardarMerma() {
-      const productoId = document.getElementById('vnMermaProdId').value;
-      const cantidad = parseFloat(document.getElementById('vnMermaCantidad').value) || 0;
-      const razon = document.getElementById('vnMermaRazon').value.trim();
-      if (!productoId) { mostrarToast('Seleccioná un producto', 'error'); return; }
-      if (cantidad <= 0) { mostrarToast('La cantidad debe ser mayor a cero', 'error'); return; }
-      if (!razon) { mostrarToast('La razón es requerida', 'error'); return; }
-      llamarServidor({ action: 'vnRegistrarMerma', productoId: Number(productoId), cantidad, razon }, res => {
+      const prodId   = document.getElementById('vnMermaProdId').value;
+      const cantidad = Number(document.getElementById('vnMermaCantidad').value);
+      const razon    = document.getElementById('vnMermaRazon').value.trim();
+      if (!prodId || !cantidad || cantidad <= 0 || !razon) {
+        mostrarToast('Completá todos los campos', 'error'); return;
+      }
+      llamarServidor({ action: 'vnRegistrarMerma', productoId: prodId, cantidad, razon }, res => {
         if (res.success) {
-          mostrarToast('Merma registrada. Nuevo stock: ' + res.nuevoStock, 'success');
+          mostrarToast('Merma registrada. Stock: ' + res.nuevoStock, 'success');
           cerrarModal('modalVnMerma');
-          vnCargarStock();
-          vnCargarProductos();
-        } else {
-          mostrarToast(res.error || 'Error', 'error');
-        }
+          vnCargarExistencias();
+        } else mostrarToast(res.error || 'Error', 'error');
       });
     }
 
     function vnAbrirCorreccion() {
-      vnPopularSelectsProductos('vnCorrProdId');
+      vnPopularSelectsProductos();
       document.getElementById('vnCorrStockNuevo').value = '';
       document.getElementById('vnCorrRazon').value = '';
       document.getElementById('vnCorrStockActualDisplay').textContent = '';
@@ -14408,257 +14560,291 @@
     }
 
     function vnMostrarStockActual() {
-      const id = document.getElementById('vnCorrProdId').value;
-      const prod = VN.productos.find(p => p.id == id);
-      const div = document.getElementById('vnCorrStockActualDisplay');
-      div.textContent = prod ? 'Stock actual: ' + prod.stock + ' unidades' : '';
+      const prodId = document.getElementById('vnCorrProdId').value;
+      const prod = VN.productos.find(p => Number(p.id) === Number(prodId));
+      const div  = document.getElementById('vnCorrStockActualDisplay');
+      if (div) div.textContent = prod ? 'Stock actual: ' + prod.stock : '';
     }
 
     function vnGuardarCorreccion() {
-      const productoId = document.getElementById('vnCorrProdId').value;
-      const stockNuevo = document.getElementById('vnCorrStockNuevo').value;
-      const razon = document.getElementById('vnCorrRazon').value.trim();
-      if (!productoId) { mostrarToast('Seleccioná un producto', 'error'); return; }
-      if (stockNuevo === '' || stockNuevo === null) { mostrarToast('El stock nuevo es requerido', 'error'); return; }
-      if (razon.length < 5) { mostrarToast('La razón debe tener al menos 5 caracteres', 'error'); return; }
-      llamarServidor({ action: 'vnRegistrarCorreccion', productoId: Number(productoId), stockNuevo: Number(stockNuevo), razon }, res => {
+      const prodId    = document.getElementById('vnCorrProdId').value;
+      const stockNuevo= document.getElementById('vnCorrStockNuevo').value;
+      const razon     = document.getElementById('vnCorrRazon').value.trim();
+      if (!prodId || stockNuevo === '' || !razon || razon.length < 5) {
+        mostrarToast('Completá todos los campos (razón mín. 5 caracteres)', 'error'); return;
+      }
+      llamarServidor({ action: 'vnRegistrarCorreccion', productoId: prodId, stockNuevo: Number(stockNuevo), razon }, res => {
         if (res.success) {
-          mostrarToast('Corrección aplicada', 'success');
+          mostrarToast('Stock corregido: ' + res.stockAnterior + ' → ' + res.stockNuevo, 'success');
           cerrarModal('modalVnCorreccion');
-          vnCargarStock();
-          vnCargarProductos();
-        } else {
-          mostrarToast(res.error || 'Error', 'error');
-        }
+          vnCargarExistencias();
+        } else mostrarToast(res.error || 'Error', 'error');
       });
     }
 
-    // ── Productos en Config ───────────────────────────────────────
-
-    function vnCargarProductosConfig() {
+    // ── Config ────────────────────────────────────────────────────
+    function vnCargarConfig() {
+      const cfg = VN.configLocal;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+      set('vnConfigEmpresa', cfg.empresa);
+      set('vnConfigDireccion', cfg.direccion);
+      set('vnConfigTelefono', cfg.telefono);
+      set('vnConfigUmbralDeuda', cfg.umbralDeuda || 500000);
+      // Cargar productos en config
       llamarServidor({ action: 'vnGetProductos' }, res => {
         const tbody = document.getElementById('vnProductosConfigBody');
-        const prods = res.productos || [];
-        if (prods.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--sv-texto-secundario);">Sin productos</td></tr>';
-        } else {
-          tbody.innerHTML = prods.map(p => `<tr>
-            <td>${p.id}</td><td>${p.nombre}</td>
-            <td>${formatMonto(p.precio)}</td><td>${p.stock}</td>
-            <td>${p.activo ? '✅' : '❌'}</td>
-            <td>
-              <button class="btn btn-sm btn-outline" onclick="vnAbrirEditarProducto(${JSON.stringify(p).replace(/"/g,'&quot;')})" style="padding:2px 6px;font-size:0.7rem;">✏️ Editar</button>
-              <button class="btn btn-sm btn-outline" onclick="vnToggleProducto(${p.id},${p.activo})" style="padding:2px 6px;font-size:0.7rem;">${p.activo ? 'Desactivar' : 'Activar'}</button>
-            </td>
-          </tr>`).join('');
+        if (!tbody) return;
+        const prods = (res.productos || []).sort((a,b) => a.nombre.localeCompare(b.nombre,'es'));
+        tbody.innerHTML = prods.map(p => `<tr>
+          <td>${p.id}</td>
+          <td>${escapeHtml(p.nombre)}</td>
+          <td style="color:var(--vn-text2);font-size:0.8rem;">${escapeHtml(p.categoria||'')}</td>
+          <td>${formatMonto(p.precio)}</td>
+          <td>${p.stock}</td>
+          <td><span style="color:${p.activo?'#10B981':'#EF4444'};">${p.activo ? '✅' : '❌'}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline" onclick="vnEditarProducto(${p.id})" style="font-size:0.72rem;padding:2px 6px;">✏️</button>
+            <button class="btn btn-sm btn-outline" onclick="vnToggleProducto(${p.id})" style="font-size:0.72rem;padding:2px 6px;">${p.activo ? 'Desact.' : 'Act.'}</button>
+          </td>
+        </tr>`).join('');
+      });
+      // Poblar datalist categorías
+      llamarServidor({ action: 'vnGetCategorias' }, res => {
+        const dl = document.getElementById('vnCatSugList');
+        if (dl && res.categorias) {
+          dl.innerHTML = res.categorias.map(c => '<option value="' + escapeHtml(c) + '">').join('');
         }
       });
     }
 
+    function vnGuardarConfig() {
+      VN.configLocal = {
+        empresa:     document.getElementById('vnConfigEmpresa').value.trim(),
+        direccion:   document.getElementById('vnConfigDireccion').value.trim(),
+        telefono:    document.getElementById('vnConfigTelefono').value.trim(),
+        umbralDeuda: Number(document.getElementById('vnConfigUmbralDeuda').value) || 500000,
+      };
+      VN.umbralDeuda = VN.configLocal.umbralDeuda;
+      vnGuardarConfigLocal(VN.configLocal);
+      mostrarToast('Configuración guardada', 'success');
+    }
+
+    function vnCargarConfigLocal() {
+      try { return JSON.parse(localStorage.getItem('vn_config') || '{}'); }
+      catch (_) { return {}; }
+    }
+
+    function vnGuardarConfigLocal(cfg) {
+      try { localStorage.setItem('vn_config', JSON.stringify(cfg)); } catch (_) {}
+    }
+
+    // ── Productos config ──────────────────────────────────────────
     function vnAbrirNuevoProducto() {
+      document.getElementById('vnNuevoProdTitulo').textContent = '➕ Nuevo Producto';
       document.getElementById('vnNuevoProdId').value = '';
       document.getElementById('vnNuevoProdNombre').value = '';
+      document.getElementById('vnNuevoProdCategoria').value = '';
       document.getElementById('vnNuevoProdPrecio').value = '';
       document.getElementById('vnNuevoProdStock').value = '0';
-      document.getElementById('vnNuevoProdTitulo').textContent = '➕ Nuevo Producto';
       abrirModal('modalVnNuevoProducto');
     }
 
-    function vnAbrirEditarProducto(prod) {
+    function vnEditarProducto(id) {
+      const prod = VN.productos.find(p => Number(p.id) === Number(id));
+      if (!prod) {
+        llamarServidor({ action: 'vnGetProductos' }, res => {
+          const p = (res.productos||[]).find(p => Number(p.id) === Number(id));
+          if (p) _vnAbrirEditar(p);
+        });
+        return;
+      }
+      _vnAbrirEditar(prod);
+    }
+
+    function _vnAbrirEditar(prod) {
+      document.getElementById('vnNuevoProdTitulo').textContent = '✏️ Editar Producto';
       document.getElementById('vnNuevoProdId').value = prod.id;
       document.getElementById('vnNuevoProdNombre').value = prod.nombre;
+      document.getElementById('vnNuevoProdCategoria').value = prod.categoria || '';
       document.getElementById('vnNuevoProdPrecio').value = prod.precio;
       document.getElementById('vnNuevoProdStock').value = prod.stock;
-      document.getElementById('vnNuevoProdTitulo').textContent = '✏️ Editar Producto';
       abrirModal('modalVnNuevoProducto');
     }
 
     function vnGuardarProducto() {
-      const id = document.getElementById('vnNuevoProdId').value;
-      const nombre = document.getElementById('vnNuevoProdNombre').value.trim().toUpperCase();
-      const precio = parseFloat(document.getElementById('vnNuevoProdPrecio').value) || 0;
-      const stock = parseInt(document.getElementById('vnNuevoProdStock').value) || 0;
-      if (!nombre) { mostrarToast('El nombre es requerido', 'error'); return; }
-      if (precio < 0) { mostrarToast('El precio no puede ser negativo', 'error'); return; }
-
+      const id       = document.getElementById('vnNuevoProdId').value;
+      const nombre   = document.getElementById('vnNuevoProdNombre').value.trim().toUpperCase();
+      const categoria= document.getElementById('vnNuevoProdCategoria').value.trim().toUpperCase();
+      const precio   = Number(document.getElementById('vnNuevoProdPrecio').value);
+      const stock    = Number(document.getElementById('vnNuevoProdStock').value) || 0;
+      if (!nombre || precio < 0) { mostrarToast('Nombre y precio son requeridos', 'error'); return; }
       const action = id ? 'vnActualizarProducto' : 'vnCrearProducto';
-      const payload = id ? { action, id: Number(id), nombre, precio, stock } : { action, nombre, precio, stock };
-      llamarServidor(payload, res => {
+      const data   = { action, nombre, categoria, precio, stock };
+      if (id) data.id = id;
+      llamarServidor(data, res => {
         if (res.success) {
           mostrarToast(id ? 'Producto actualizado' : 'Producto creado', 'success');
           cerrarModal('modalVnNuevoProducto');
           vnCargarProductos();
-          vnCargarProductosConfig();
-        } else {
-          mostrarToast(res.error || 'Error', 'error');
-        }
+          vnCargarConfig();
+        } else mostrarToast(res.error || 'Error', 'error');
       });
     }
 
-    function vnToggleProducto(id, activo) {
+    function vnToggleProducto(id) {
       llamarServidor({ action: 'vnToggleProducto', id }, res => {
         if (res.success) {
-          mostrarToast(res.activo ? 'Producto activado' : 'Producto desactivado', 'success');
+          mostrarToast('Producto ' + (res.activo ? 'activado' : 'desactivado'), 'success');
           vnCargarProductos();
-          vnCargarProductosConfig();
-          vnCargarStock();
-        } else {
-          mostrarToast(res.error || 'Error', 'error');
+          vnCargarConfig();
+        } else mostrarToast(res.error || 'Error', 'error');
+      });
+    }
+
+    // ── Popular selects de productos ──────────────────────────────
+    function vnPopularSelectsProductos() {
+      llamarServidor({ action: 'vnGetProductos' }, res => {
+        const prods = (res.productos || []).sort((a,b) => a.nombre.localeCompare(b.nombre,'es'));
+        const opts = prods.map(p => '<option value="' + p.id + '">' + escapeHtml(p.nombre) + ' (Stock: ' + p.stock + ')</option>').join('');
+        ['vnCompraProdId','vnMermaProdId','vnCorrProdId'].forEach(sid => {
+          const s = document.getElementById(sid);
+          if (s) s.innerHTML = '<option value="">Seleccionar producto...</option>' + opts;
+        });
+      });
+    }
+
+    // ── Clientes ──────────────────────────────────────────────────
+    function vnAbrirBuscadorCliente() {
+      document.getElementById('vnBuscarClienteInput').value = '';
+      document.getElementById('vnClienteSugerencias').innerHTML = '';
+      abrirModal('modalVnCliente');
+    }
+
+    function vnBuscarClientePOS(val) {
+      if (val.length < 2) { document.getElementById('vnClienteSugerencias').innerHTML = ''; return; }
+      llamarServidor({ action: 'vnGetClientes', termino: val }, res => {
+        const lista = document.getElementById('vnClienteSugerencias');
+        const clientes = res.clientes || [];
+        if (clientes.length === 0) {
+          lista.innerHTML = '<div style="padding:0.5rem;color:var(--vn-text2);font-size:0.85rem;">Sin resultados</div>';
+          return;
         }
+        lista.innerHTML = clientes.map(c => {
+          const nombre = typeof c === 'string' ? c : (c.nombre || c);
+          return `<div style="padding:0.5rem 0.75rem;cursor:pointer;border-bottom:1px solid var(--vn-border);font-size:0.85rem;"
+            onmousedown="vnSeleccionarCliente('${escapeHtml(nombre)}', '')">${escapeHtml(nombre)}</div>`;
+        }).join('');
       });
     }
 
-    function vnPopularSelectsProductos(selectId) {
-      const ids = selectId ? [selectId] : ['vnCompraProdId','vnMermaProdId','vnCorrProdId'];
-      ids.forEach(id => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        sel.innerHTML = '<option value="">Seleccionar producto...</option>' +
-          VN.productos.map(p => `<option value="${p.id}">${p.nombre} (stock: ${p.stock})</option>`).join('');
-      });
-    }
-
-    function vnSetCompraProducto() { }
-
-    // ── Config VN ─────────────────────────────────────────────────
-
-    function vnCargarConfigLocal() {
-      try { return JSON.parse(localStorage.getItem('vnConfig') || '{}'); } catch (_) { return {}; }
-    }
-
-    function vnGuardarConfig() {
-      const cfg = {
-        empresa: document.getElementById('vnConfigEmpresa').value.trim() || 'SOL & VERDE',
-        direccion: document.getElementById('vnConfigDireccion').value.trim(),
-        telefono: document.getElementById('vnConfigTelefono').value.trim(),
-        impresora: document.getElementById('vnConfigImpresora').value.trim()
-      };
-      localStorage.setItem('vnConfig', JSON.stringify(cfg));
-      VN.configLocal = cfg;
-      mostrarToast('Configuración guardada', 'success');
-    }
-
-    function vnCargarConfigUI() {
-      const cfg = VN.configLocal;
-      document.getElementById('vnConfigEmpresa').value = cfg.empresa || 'SOL & VERDE';
-      document.getElementById('vnConfigDireccion').value = cfg.direccion || '';
-      document.getElementById('vnConfigTelefono').value = cfg.telefono || '';
-      document.getElementById('vnConfigImpresora').value = cfg.impresora || '';
-    }
-
-    // ── Navegación entre vistas ───────────────────────────────────
-
-    function vnCambiarVista(vista) {
-      const vistas = ['pos','historial','vales','pagos','stock','config'];
-      vistas.forEach(v => {
-        const el = document.getElementById('vnView' + v.charAt(0).toUpperCase() + v.slice(1));
-        if (el) el.style.display = v === vista ? (v === 'pos' ? 'block' : 'block') : 'none';
-        const tab = document.getElementById('vnTab' + v.charAt(0).toUpperCase() + v.slice(1));
-        if (tab) tab.classList.toggle('active', v === vista);
-      });
-      if (vista === 'historial') vnCargarHistorial();
-      if (vista === 'vales') vnCargarVales();
-      if (vista === 'pagos') vnCargarPagos();
-      if (vista === 'stock') vnCargarStock();
-      if (vista === 'config') { vnCargarConfigUI(); vnCargarProductosConfig(); }
-      if (vista === 'pos') {
-        document.getElementById('vnViewSinSesion').style.display = VN.sesion ? 'none' : 'flex';
-        document.getElementById('vnViewPOS').style.display = VN.sesion ? 'block' : 'none';
+    function vnSeleccionarCliente(nombre, id) {
+      cerrarModal('modalVnCliente');
+      VN.cliente = nombre.toUpperCase().trim();
+      VN.clienteNombre = VN.cliente;
+      document.getElementById('vnClienteNombre').textContent = VN.clienteNombre;
+      // Verificar deuda
+      const badge = document.getElementById('vnDeudaBadge');
+      if (badge) badge.style.display = 'none';
+      if (VN.cliente && VN.cliente !== 'CONSUMIDOR FINAL') {
+        llamarServidor({ action: 'vnGetSaldoCliente', cliente: VN.cliente }, res => {
+          if (res.success && res.saldo >= VN.umbralDeuda && badge) {
+            badge.textContent = 'Debe ' + formatMonto(res.saldo);
+            badge.style.display = 'inline-flex';
+          }
+        });
       }
+      vnValidarPago();
+    }
+
+    function vnAbrirNuevoClienteRapido() {
+      cerrarModal('modalVnCliente');
+      abrirModal('modalVnNuevoCliente');
+    }
+
+    function vnGuardarNuevoCliente() {
+      const nombre = document.getElementById('vnNuevoClienteNombre').value.trim().toUpperCase();
+      const tel    = document.getElementById('vnNuevoClienteTel').value.trim();
+      if (!nombre) { mostrarToast('El nombre es requerido', 'error'); return; }
+      llamarServidor({ action: 'vnCrearClienteRapido', nombre, tel }, res => {
+        if (res.success) {
+          mostrarToast('Cliente creado', 'success');
+          cerrarModal('modalVnNuevoCliente');
+          vnSeleccionarCliente(nombre, res.id || '');
+        } else mostrarToast(res.error || 'Error', 'error');
+      });
     }
 
     // ── Impresión ─────────────────────────────────────────────────
-
     function vnImprimirTicket(venta) {
       const cfg = VN.configLocal;
-      const empresa = cfg.empresa || 'SOL & VERDE';
-      const dir = cfg.direccion || '';
-      const tel = cfg.telefono || '';
+      const empresa   = cfg.empresa   || 'SOL & VERDE';
+      const direccion = cfg.direccion || '';
+      const telefono  = cfg.telefono  || '';
       const items = (venta.items || []).map(i =>
-        `<tr><td>${i.nombre}</td><td style="text-align:right;">x${i.qty}</td><td style="text-align:right;">${formatMonto(i.subtotal)}</td></tr>`
-      ).join('');
-      const medios = (venta.mediosPago || []).map(m => {
-        let d = m.tipo;
-        if (m.detalle && m.detalle.banco) d += ' - ' + m.detalle.banco;
-        if (m.detalle && m.detalle.numero) d += ' #' + m.detalle.numero;
-        return d + ': ' + formatMonto(m.monto);
-      }).join('<br>');
-
+        `<div style="display:flex;justify-content:space-between;margin:2px 0;font-size:11px;">
+          <span>${escapeHtml(i.nombre)} x${i.qty}</span>
+          <span>$${(i.subtotal||0).toLocaleString('es-AR')}</span>
+        </div>`).join('');
+      const medios = (venta.mediosPago || []).map(m =>
+        '<div style="display:flex;justify-content:space-between;font-size:11px;">' +
+        '<span>' + m.tipo + (m.detalle&&m.detalle.banco?' ('+m.detalle.banco+')':'') + '</span>' +
+        '<span>$' + (m.monto||0).toLocaleString('es-AR') + '</span></div>').join('');
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-@page { size: 80mm auto; margin: 2mm; }
-body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; margin:0; padding:0; }
-.center { text-align:center; }
-.bold { font-weight:bold; }
-.line { border-top: 1px dashed #000; margin: 4px 0; }
-table { width:100%; border-collapse:collapse; }
-td { padding: 1px 2px; }
-</style></head><body>
-<div class="center bold" style="font-size:14px;">${empresa}</div>
-${dir ? '<div class="center">' + dir + '</div>' : ''}
-${tel ? '<div class="center">Tel: ' + tel + '</div>' : ''}
-<div class="line"></div>
-<div>Sesión: #${venta.sesionId || ''}</div>
-<div>Hora: ${typeof venta.hora === 'string' ? venta.hora.substring(11,16) : (venta.hora instanceof Date ? formatearHora(venta.hora) : '')}</div>
-<div>Cliente: <strong>${venta.cliente || 'CONSUMIDOR FINAL'}</strong></div>
-<div class="line"></div>
-<table>${items}</table>
-<div class="line"></div>
-<div class="bold" style="text-align:right;font-size:13px;">TOTAL: ${formatMonto(venta.total)}</div>
-<div class="line"></div>
-<div>${medios}</div>
-<div class="line"></div>
-<div class="center">¡Gracias por su compra!</div>
-<div class="center" style="font-size:9px; margin-top:4px;">Venta #${venta.id}</div>
-</body></html>`;
+        <title>Ticket #${venta.id}</title>
+        <style>
+          @page { size: 80mm auto; margin: 2mm; }
+          body { font-family: monospace; font-size: 12px; width: 76mm; margin: 0 auto; }
+          h2 { text-align:center; margin:4px 0; font-size:14px; }
+          .sep { border-top: 1px dashed #000; margin: 5px 0; }
+          .total { font-size:16px; font-weight:bold; text-align:center; margin:6px 0; }
+        </style>
+      </head><body>
+        <h2>${escapeHtml(empresa)}</h2>
+        ${direccion ? '<div style="text-align:center;font-size:10px;">' + escapeHtml(direccion) + '</div>' : ''}
+        ${telefono  ? '<div style="text-align:center;font-size:10px;">Tel: ' + escapeHtml(telefono) + '</div>' : ''}
+        <div class="sep"></div>
+        <div style="font-size:10px;">Ticket #${venta.id} — ${escapeHtml(venta.fecha||'')} ${escapeHtml(venta.hora||'')}</div>
+        <div style="font-size:10px;">Cliente: ${escapeHtml(venta.cliente||'CONSUMIDOR FINAL')}</div>
+        <div class="sep"></div>
+        ${items}
+        <div class="sep"></div>
+        <div class="total">TOTAL: $${(venta.total||0).toLocaleString('es-AR')}</div>
+        <div class="sep"></div>
+        ${medios}
+        <div class="sep"></div>
+        <div style="text-align:center;font-size:10px;">¡Gracias por su compra!</div>
+      </body></html>`;
       vnAbrirVentanaImpresion(html);
     }
 
     function vnImprimirVale(vale) {
       const cfg = VN.configLocal;
-      const empresa = cfg.empresa || 'SOL & VERDE';
-      const fecha = vale.fechaEmision instanceof Date
-        ? formatearFechaCorta(vale.fechaEmision)
-        : (new Date().toLocaleDateString('es-AR'));
-
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-@page { size: 80mm auto; margin: 2mm; }
-body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; margin:0; padding:0; }
-.center { text-align:center; }
-.bold { font-weight:bold; }
-.box { border: 3px double #000; padding: 6px; margin: 2px 0; }
-.big { font-size:18px; font-weight:bold; }
-.xl { font-size:22px; font-weight:900; }
-.line { border-top: 1px dashed #000; margin: 4px 0; }
-</style></head><body>
-<div class="box">
-<div class="center bold" style="font-size:13px;">★ ${empresa} ★</div>
-<div class="center bold" style="font-size:11px;">🎟️ VALE DE CANJE</div>
-<div class="line"></div>
-<div class="center big">N° ${vale.numero || ''}</div>
-<div class="center">Fecha: ${fecha}</div>
-<div class="line"></div>
-<div>Cliente: <strong>${vale.cliente || 'CONSUMIDOR FINAL'}</strong></div>
-<div>Motivo: ${vale.motivo || ''}</div>
-<div class="line"></div>
-<div class="center xl">$ ${(vale.monto || 0).toLocaleString('es-AR')}</div>
-<div class="line"></div>
-<div class="center" style="font-size:9px;">✅ TRANSFERIBLE</div>
-<div class="center" style="font-size:9px;">✅ SIN VENCIMIENTO</div>
-<div class="center" style="font-size:9px;">✅ CANJEABLE EN EFECTIVO</div>
-<div class="line"></div>
-<div class="center" style="font-size:9px;">Conserve este comprobante</div>
-</div>
-</body></html>`;
+        <title>Vale ${vale.numero}</title>
+        <style>
+          @page { size: 80mm auto; margin: 3mm; }
+          body { font-family: monospace; width: 76mm; margin: 0 auto; text-align:center; }
+          .box { border: 3px double #000; padding: 8px; margin: 4px 0; }
+          .numero { font-size: 18px; font-weight: bold; letter-spacing: 2px; }
+          .monto  { font-size: 28px; font-weight: bold; margin: 8px 0; }
+          .sep { border-top: 1px dashed #000; margin: 5px 0; }
+        </style>
+      </head><body>
+        <div class="box">
+          <div style="font-size:14px;font-weight:bold;">${escapeHtml(cfg.empresa||'SOL & VERDE')}</div>
+          <div style="font-size:10px;margin-bottom:6px;">VALE DE CANJE</div>
+          <div class="numero">${escapeHtml(vale.numero)}</div>
+          <div class="sep"></div>
+          <div class="monto">$${(vale.monto||0).toLocaleString('es-AR')}</div>
+          <div class="sep"></div>
+          <div style="font-size:10px;">Cliente: ${escapeHtml(vale.cliente||'CONSUMIDOR FINAL')}</div>
+          <div style="font-size:10px;">Motivo: ${escapeHtml(vale.motivo||'')}</div>
+          <div style="font-size:10px;">Emitido: ${escapeHtml(vale.fecha||vale.fechaEmision||'')}</div>
+          <div class="sep"></div>
+          <div style="font-size:9px;">Sin vencimiento — Válido como pago parcial o total</div>
+        </div>
+      </body></html>`;
       vnAbrirVentanaImpresion(html);
-    }
-
-    function vnReimprimirTicket(ventaId) {
-      llamarServidor({ action: 'vnGetVentasSesion', sesionId: VN.sesion ? VN.sesion.id : 0 }, res => {
-        const venta = (res.ventas || []).find(v => v.id === ventaId);
-        if (venta) vnImprimirTicket(venta);
-      });
     }
 
     function vnAbrirVentanaImpresion(html) {
@@ -14671,12 +14857,9 @@ body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; marg
     }
 
     // ── Helpers de formato VN ─────────────────────────────────────
-
-    // Alias para compatibilidad con el sistema (usa formatearMonto)
     function formatMonto(monto) {
       return typeof formatearMonto === 'function' ? formatearMonto(monto) : ('$' + (monto || 0).toLocaleString('es-AR'));
     }
-
     function formatearFechaCorta(fecha) {
       if (!fecha) return '';
       if (typeof formatearFecha === 'function') return formatearFecha(fecha);
@@ -14685,7 +14868,6 @@ body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; marg
         return String(fecha).substring(0, 10);
       } catch (_) { return ''; }
     }
-
     function formatarHora(fecha) {
       if (!fecha) return '';
       try {
@@ -14694,14 +14876,9 @@ body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; marg
       } catch (_) {}
       return '';
     }
-
     function formatearHora(fecha) { return formatarHora(fecha); }
 
-    // ── Hook en navegarA ──────────────────────────────────────────
-    // Se llama cuando se entra al módulo VN desde el menú
-
-    const _vnNavOriginal = typeof navegarA === 'function' ? navegarA : null;
-
+    // ── Hook de navegación ────────────────────────────────────────
     function vnOnActivar() {
       vnInit();
     }
