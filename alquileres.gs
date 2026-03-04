@@ -108,46 +108,58 @@ const AlquileresRepository = {
   // =========================================================================
 
   registrarPago: function(datos) {
-    var hoja = this.getHoja();
-    var id = this.generarNuevoID();
-    var fecha = datos.fecha ? parsearFechaLocal(datos.fecha) : new Date();
-    var infoSemana = this.obtenerInfoSemana(fecha);
+    var lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(10000);
 
-    var nuevaFila = [
-      id,
-      fecha,
-      normalizarString(datos.inquilino),
-      datos.tipo || CONFIG.TIPOS_ALQUILER.PAGO_SEMANAL,
-      datos.monto,
-      datos.semana || infoSemana.semana,
-      datos.anio || infoSemana.anio,
-      datos.mes || (fecha.getMonth() + 1),
-      datos.semanasCubiertas || '',
-      datos.obs || '',
-      new Date()
-    ];
+      var hoja = this.getHoja();
+      var id = this.generarNuevoID();
+      var fecha = datos.fecha ? parsearFechaLocal(datos.fecha) : new Date();
+      var infoSemana = this.obtenerInfoSemana(fecha);
 
-    hoja.appendRow(nuevaFila);
+      var nuevaFila = [
+        id,
+        fecha,
+        normalizarString(datos.inquilino),
+        datos.tipo || CONFIG.TIPOS_ALQUILER.PAGO_SEMANAL,
+        datos.monto,
+        datos.semana || infoSemana.semana,
+        datos.anio || infoSemana.anio,
+        datos.mes || (fecha.getMonth() + 1),
+        datos.semanasCubiertas || '',
+        datos.obs || '',
+        new Date()
+      ];
 
-    // Actualizar saldo y ultimo pago en config
-    var config = this.obtenerConfigInquilino(datos.inquilino);
-    if (config) {
-      this.actualizarConfigInquilino(datos.inquilino, {
-        ultimoPago: fecha
-      });
+      hoja.appendRow(nuevaFila);
+
+      // Actualizar saldo y ultimo pago en config
+      var config = this.obtenerConfigInquilino(datos.inquilino);
+      if (config) {
+        this.actualizarConfigInquilino(datos.inquilino, {
+          ultimoPago: fecha
+        });
+      }
+
+      lock.releaseLock();
+
+      return {
+        id: id,
+        fecha: fecha.toISOString(),
+        inquilino: normalizarString(datos.inquilino),
+        tipo: datos.tipo || CONFIG.TIPOS_ALQUILER.PAGO_SEMANAL,
+        monto: datos.monto,
+        semana: datos.semana || infoSemana.semana,
+        anio: datos.anio || infoSemana.anio,
+        semanasCubiertas: datos.semanasCubiertas || '',
+        obs: datos.obs || ''
+      };
+
+    } catch (error) {
+      lock.releaseLock();
+      Logger.log('[ALQUILERES] Error en registrarPago: ' + error.message);
+      throw error;
     }
-
-    return {
-      id: id,
-      fecha: fecha.toISOString(),
-      inquilino: normalizarString(datos.inquilino),
-      tipo: datos.tipo || CONFIG.TIPOS_ALQUILER.PAGO_SEMANAL,
-      monto: datos.monto,
-      semana: datos.semana || infoSemana.semana,
-      anio: datos.anio || infoSemana.anio,
-      semanasCubiertas: datos.semanasCubiertas || '',
-      obs: datos.obs || ''
-    };
   },
 
   registrarFacturaMensual: function(datos) {
@@ -268,6 +280,14 @@ const AlquileresRepository = {
     return { inicio: inicio, fin: fin };
   },
 
+  // AGREGAR esta función auxiliar nueva dentro de AlquileresRepository
+  // Calcula si el año tiene 52 o 53 semanas ISO
+  _semanaISOMaxima: function(anio) {
+    // La semana 28 de diciembre siempre pertenece a la última semana del año ISO
+    var dic28 = new Date(anio, 11, 28);
+    return this.obtenerInfoSemana(dic28).semana;
+  },
+
   obtenerEstadoCalendario: function(inquilino, anio) {
     var movimientos = this.obtenerMovimientos(inquilino, anio);
 
@@ -315,8 +335,16 @@ const AlquileresRepository = {
       var semFin = this.obtenerInfoSemana(ultimoDia).semana;
 
       // Manejar cambio de año en diciembre
-      if (mes === 11 && semFin < semInicio) semFin = 53;
-      if (mes === 0 && semInicio > 50) semInicio = 1;
+      if (mes === 11 && semFin < semInicio) {
+        // Usar la semana máxima real del año (52 o 53 según el año)
+        semFin = this._semanaISOMaxima(anio);
+      }
+      // Manejar inicio de enero: si la semana 1 pertenece al año anterior,
+      // la primera semana del año actual puede empezar en 1 directamente
+      if (mes === 0 && semInicio > 50) {
+        // Las semanas > 50 en enero pertenecen al año anterior, empezar desde semana 1
+        semInicio = 1;
+      }
 
       for (var s = semInicio; s <= semFin; s++) {
         var pagado = semanasPagadas[s] || 0;

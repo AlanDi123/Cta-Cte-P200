@@ -18,7 +18,7 @@ const VnVentasRepo = {
 
     // Validar suma de medios de pago
     const sumaMedios = data.mediosPago.reduce((s, m) => s + (Number(m.monto) || 0), 0);
-    if (Math.abs(sumaMedios - total) > 1) { // tolerancia de $1 por redondeos
+    if (Math.abs(sumaMedios - total) > 0.01) { // tolerancia de $0.01 (un centavo)
       return { success: false, error: 'La suma de los medios de pago ($' + sumaMedios + ') no coincide con el total ($' + total + ').' };
     }
 
@@ -120,6 +120,7 @@ const VnVentasRepo = {
         }
       };
     } catch (e) {
+      Logger.log('[VN_VENTAS] Error en registrar: ' + e.message);
       return { success: false, error: 'Error al registrar venta: ' + e.message };
     } finally {
       lock.releaseLock();
@@ -151,6 +152,26 @@ const VnVentasRepo = {
         return { success: false, error: 'La venta ya fue cancelada.' };
       }
 
+      // ✅ BLOQUE NUEVO: verificar que la sesión esté ABIERTA
+      const hojaSesiones = ss.getSheetByName(CONFIG_VN.HOJAS.SESIONES);
+      if (hojaSesiones) {
+        const datosSesiones = hojaSesiones.getDataRange().getValues();
+        for (let i = 1; i < datosSesiones.length; i++) {
+          if (Number(datosSesiones[i][CONFIG_VN.COLS_SESIONES.ID - 1]) === Number(venta.sesionId)) {
+            const estadoSesion = datosSesiones[i][CONFIG_VN.COLS_SESIONES.ESTADO - 1];
+            if (estadoSesion === CONFIG_VN.ESTADOS_SESION.CERRADA) {
+              lock.releaseLock();
+              return {
+                success: false,
+                error: 'No se puede cancelar una venta de una sesión ya cerrada (Sesión #' + venta.sesionId + '). Reabra la sesión primero si es necesario.'
+              };
+            }
+            break;
+          }
+        }
+      }
+      // FIN BLOQUE NUEVO
+
       // Cancelar en la hoja
       hoja.getRange(filaIdx, CONFIG_VN.COLS_VENTAS.ESTADO).setValue(CONFIG_VN.ESTADOS_VENTA.CANCELADA);
 
@@ -168,6 +189,7 @@ const VnVentasRepo = {
 
       return { success: true };
     } catch (e) {
+      Logger.log('[VN_VENTAS] Error en cancelar: ' + e.message);
       return { success: false, error: 'Error al cancelar venta: ' + e.message };
     } finally {
       lock.releaseLock();

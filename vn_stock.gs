@@ -62,6 +62,7 @@ const VnStockRepo = {
 
       return { success: true, id: nuevoId, nuevoStock: prod.stock + cantidad };
     } catch (e) {
+      Logger.log('[VN_STOCK] Error en registrarCompra: ' + e.message);
       return { success: false, error: 'Error al registrar compra: ' + e.message };
     } finally {
       lock.releaseLock();
@@ -109,6 +110,7 @@ const VnStockRepo = {
 
       return { success: true, id: nuevoId, nuevoStock: prod.stock - cantidad };
     } catch (e) {
+      Logger.log('[VN_STOCK] Error en registrarMerma: ' + e.message);
       return { success: false, error: 'Error al registrar merma: ' + e.message };
     } finally {
       lock.releaseLock();
@@ -158,6 +160,7 @@ const VnStockRepo = {
 
       return { success: true, id: nuevoId, stockAnterior: prod.stock, stockNuevo };
     } catch (e) {
+      Logger.log('[VN_STOCK] Error en registrarCorreccion: ' + e.message);
       return { success: false, error: 'Error al registrar corrección: ' + e.message };
     } finally {
       lock.releaseLock();
@@ -230,6 +233,7 @@ const VnStockRepo = {
       if (Number(datos[i][0]) === Number(productoId)) {
         const stockActual = Number(datos[i][CONFIG_VN.COLS_PRODUCTOS.STOCK - 1]) || 0;
         hoja.getRange(i + 1, CONFIG_VN.COLS_PRODUCTOS.STOCK).setValue(stockActual + Number(cantidad));
+        SpreadsheetApp.flush(); // ← LÍNEA AGREGADA
         return;
       }
     }
@@ -242,6 +246,7 @@ const VnStockRepo = {
       if (Number(datos[i][0]) === Number(productoId)) {
         const stockActual = Number(datos[i][CONFIG_VN.COLS_PRODUCTOS.STOCK - 1]) || 0;
         hoja.getRange(i + 1, CONFIG_VN.COLS_PRODUCTOS.STOCK).setValue(Math.max(0, stockActual - Number(cantidad)));
+        SpreadsheetApp.flush(); // ← LÍNEA AGREGADA
         return;
       }
     }

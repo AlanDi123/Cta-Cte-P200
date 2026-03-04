@@ -81,9 +81,9 @@ const MovimientosRepository = {
       let nuevoSaldo;
 
       if (movimientoData.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
-        nuevoSaldo = saldoAnterior + movimientoData.monto;
+        nuevoSaldo = sumaFinanciera(saldoAnterior, movimientoData.monto);
       } else {
-        nuevoSaldo = saldoAnterior - movimientoData.monto;
+        nuevoSaldo = restaFinanciera(saldoAnterior, movimientoData.monto);
       }
 
       // Registrar movimiento
@@ -133,6 +133,7 @@ const MovimientosRepository = {
    * @returns {Object} {exitosos: Array, errores: Array}
    */
   registrarLote: function(movimientos) {
+    Logger.log('[MOVIMIENTOS] Iniciando registrarLote: ' + movimientos.length + ' movimientos');
     const resultados = {
       exitosos: [],
       errores: []
@@ -144,6 +145,7 @@ const MovimientosRepository = {
         const registrado = this.registrar(mov);
         resultados.exitosos.push(registrado);
       } catch (error) {
+        Logger.log('[MOVIMIENTOS] Error en lote índice ' + i + ': ' + error.message);
         resultados.errores.push({
           movimiento: mov,
           error: error.message,
@@ -152,6 +154,7 @@ const MovimientosRepository = {
       }
     }
 
+    Logger.log('[MOVIMIENTOS] registrarLote completado: ' + resultados.exitosos.length + ' exitosos, ' + resultados.errores.length + ' errores');
     return resultados;
   },
 
@@ -317,41 +320,53 @@ const MovimientosRepository = {
    * @returns {Object} Movimiento actualizado
    */
   editar: function(id, datos) {
-    const mov = this.buscarPorId(id);
-    if (!mov) {
-      throw new Error('Movimiento no encontrado: ' + id);
-    }
+    const lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(30000);
 
-    const hoja = this.getHoja();
-    const fila = mov.fila;
-
-    // Solo permitir editar monto y observaciones
-    if (datos.monto !== undefined && esMontoValido(datos.monto)) {
-      const diferencia = datos.monto - mov.monto;
-
-      // Recalcular saldo del cliente
-      const cliente = ClientesRepository.buscarPorNombre(mov.cliente);
-      if (cliente) {
-        let nuevoSaldoCliente;
-        if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
-          nuevoSaldoCliente = cliente.saldo + diferencia;
-        } else {
-          nuevoSaldoCliente = cliente.saldo - diferencia;
-        }
-
-        hoja.getRange(fila, CONFIG.COLS_MOVS.MONTO + 1).setValue(datos.monto);
-
-        // Actualizar saldo en cliente
-        const hojaClientes = ClientesRepository.getHoja();
-        hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldoCliente);
+      const mov = this.buscarPorId(id);
+      if (!mov) {
+        throw new Error('Movimiento no encontrado: ' + id);
       }
-    }
 
-    if (datos.obs !== undefined) {
-      hoja.getRange(fila, CONFIG.COLS_MOVS.OBS + 1).setValue(datos.obs);
-    }
+      const hoja = this.getHoja();
+      const fila = mov.fila;
 
-    return this.buscarPorId(id);
+      // Solo permitir editar monto y observaciones
+      if (datos.monto !== undefined && esMontoValido(datos.monto)) {
+        const diferencia = restaFinanciera(datos.monto, mov.monto);
+
+        // Recalcular saldo del cliente
+        const cliente = ClientesRepository.buscarPorNombre(mov.cliente);
+        if (cliente) {
+          let nuevoSaldoCliente;
+          if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+            nuevoSaldoCliente = sumaFinanciera(cliente.saldo, diferencia);
+          } else {
+            nuevoSaldoCliente = restaFinanciera(cliente.saldo, diferencia);
+          }
+
+          hoja.getRange(fila, CONFIG.COLS_MOVS.MONTO + 1).setValue(datos.monto);
+
+          // Actualizar saldo en cliente
+          const hojaClientes = ClientesRepository.getHoja();
+          hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldoCliente);
+          Logger.log('[MOVIMIENTOS] Editar #' + id + ': saldo ' + cliente.saldo + ' → ' + nuevoSaldoCliente);
+        }
+      }
+
+      if (datos.obs !== undefined) {
+        hoja.getRange(fila, CONFIG.COLS_MOVS.OBS + 1).setValue(datos.obs);
+      }
+
+      lock.releaseLock();
+      return this.buscarPorId(id);
+
+    } catch (error) {
+      lock.releaseLock();
+      Logger.log('[MOVIMIENTOS] Error en editar #' + id + ': ' + error.message);
+      throw error;
+    }
   },
 
   /**
@@ -359,29 +374,59 @@ const MovimientosRepository = {
    * @param {number} id - ID del movimiento
    */
   eliminar: function(id) {
-    const mov = this.buscarPorId(id);
-    if (!mov) {
-      throw new Error('Movimiento no encontrado: ' + id);
-    }
+    const lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(30000);
 
-    // Recalcular saldo del cliente
-    const cliente = ClientesRepository.buscarPorNombre(mov.cliente);
-    if (cliente) {
-      let nuevoSaldoCliente;
-      if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
-        nuevoSaldoCliente = cliente.saldo - mov.monto;
-      } else {
-        nuevoSaldoCliente = cliente.saldo + mov.monto;
+      const mov = this.buscarPorId(id);
+      if (!mov) {
+        throw new Error('Movimiento no encontrado: ' + id);
       }
 
-      // Actualizar saldo en cliente
-      const hojaClientes = ClientesRepository.getHoja();
-      hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldoCliente);
-    }
+      // Recalcular saldo del cliente
+      const cliente = ClientesRepository.buscarPorNombre(mov.cliente);
+      if (cliente) {
+        let nuevoSaldoCliente;
+        if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+          nuevoSaldoCliente = restaFinanciera(cliente.saldo, mov.monto);
+        } else {
+          nuevoSaldoCliente = sumaFinanciera(cliente.saldo, mov.monto);
+        }
 
-    // Eliminar fila
-    const hoja = this.getHoja();
-    hoja.deleteRow(mov.fila);
+        // Actualizar saldo en cliente
+        const hojaClientes = ClientesRepository.getHoja();
+        // Actualizar saldo
+        hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldoCliente);
+        // C-08: Decrementar contador de movimientos
+        const nuevoTotal = Math.max(0, (cliente.totalMovs || 1) - 1);
+        hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.TOTAL_MOVS + 1).setValue(nuevoTotal);
+        // C-08: Actualizar ultimoMov con el movimiento más reciente restante
+        const movRestantes = this.obtenerPorCliente(mov.cliente);
+        const filtrados = movRestantes.filter(m => m.id !== id);
+        if (filtrados.length > 0) {
+          // obtenerPorCliente retorna ordenado cronológicamente, tomar el último
+          const ultimoMov = filtrados[filtrados.length - 1];
+          hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(
+            ultimoMov.fecha ? parsearFechaLocal(ultimoMov.fecha) : ''
+          );
+        } else {
+          hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue('');
+        }
+
+        Logger.log('[MOVIMIENTOS] Eliminar #' + id + ': saldo ' + cliente.saldo + ' → ' + nuevoSaldoCliente);
+      }
+
+      // Eliminar fila
+      const hoja = this.getHoja();
+      hoja.deleteRow(mov.fila);
+
+      lock.releaseLock();
+
+    } catch (error) {
+      lock.releaseLock();
+      Logger.log('[MOVIMIENTOS] Error en eliminar #' + id + ': ' + error.message);
+      throw error;
+    }
   },
 
   /**

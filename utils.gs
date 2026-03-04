@@ -77,6 +77,37 @@ function esMontoValido(monto) {
 }
 
 /**
+ * Parsea un monto en formato argentino a número.
+ * En Argentina: punto = separador de miles, coma = decimal.
+ * Ejemplo: '15.000' → 15000, '1.500,50' → 1500.50, '1500' → 1500
+ * IMPORTANTE: Number('15.000') = 15 en JS estándar (incorrecto para Argentina).
+ * @param {string|number} valor - Monto en formato argentino o número
+ * @returns {number} Monto como número de JavaScript
+ */
+function parsearMontoARG(valor) {
+  if (typeof valor === 'number') return valor;
+  if (!valor && valor !== 0) return 0;
+  const str = String(valor).trim();
+  if (!str) return 0;
+  // Detectar formato: si hay coma decimal (1.500,50) → quitar puntos, reemplazar coma
+  if (str.includes(',')) {
+    return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  // Solo puntos (15.000 o 1.500.000) → quitar puntos (son miles)
+  if (str.includes('.')) {
+    // Verificar si el punto es decimal (1 o 2 decimales al final) o de miles
+    const partes = str.split('.');
+    if (partes[partes.length - 1].length <= 2 && partes.length === 2) {
+      // Podría ser decimal: 1500.50 → es decimal legítimo de JS
+      return parseFloat(str) || 0;
+    }
+    // Múltiples puntos o más de 2 decimales → son separadores de miles
+    return parseFloat(str.replace(/\./g, '')) || 0;
+  }
+  return parseFloat(str) || 0;
+}
+
+/**
  * Valida y convierte una fecha
  * @param {string|Date} fecha - Fecha a validar
  * @returns {Date|null} Objeto Date valido o null
@@ -351,4 +382,49 @@ function generarSesionId() {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 8);
   return `SES_${timestamp}_${random}`.toUpperCase();
+}
+
+// ============================================================================
+// UTILIDADES DE ARITMÉTICA FINANCIERA
+// Convierte a enteros (centavos) para evitar errores de punto flotante IEEE 754
+// ============================================================================
+
+/**
+ * Convierte pesos a centavos enteros para aritmética financiera exacta.
+ * Ejemplo: centavos(1500.50) → 150050
+ * @param {number} pesos - Monto en pesos
+ * @returns {number} Monto en centavos (entero)
+ */
+function centavos(pesos) {
+  return Math.round((pesos || 0) * 100);
+}
+
+/**
+ * Convierte centavos enteros a pesos para almacenamiento y display.
+ * Ejemplo: pesos(150050) → 1500.50
+ * @param {number} cts - Monto en centavos
+ * @returns {number} Monto en pesos
+ */
+function pesos(cts) {
+  return cts / 100;
+}
+
+/**
+ * Suma financiera exacta de dos montos en pesos.
+ * @param {number} a - Primer monto en pesos
+ * @param {number} b - Segundo monto en pesos
+ * @returns {number} Suma exacta en pesos
+ */
+function sumaFinanciera(a, b) {
+  return pesos(centavos(a) + centavos(b));
+}
+
+/**
+ * Resta financiera exacta de dos montos en pesos.
+ * @param {number} a - Minuendo en pesos
+ * @param {number} b - Sustraendo en pesos
+ * @returns {number} Resta exacta en pesos
+ */
+function restaFinanciera(a, b) {
+  return pesos(centavos(a) - centavos(b));
 }

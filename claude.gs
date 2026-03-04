@@ -65,6 +65,20 @@ const ClaudeService = {
 
     const fechaHoy = fecha || obtenerFechaHoy();
 
+    // ✅ BLOQUE NUEVO: validación de CONFIG.CLAUDE antes de construir payload
+    const claudeConfig = (CONFIG && CONFIG.CLAUDE) ? CONFIG.CLAUDE : null;
+    if (!claudeConfig || !claudeConfig.MODEL || !claudeConfig.API_URL || !claudeConfig.VERSION) {
+      throw new Error(
+        'Configuración de Claude AI incompleta o ausente en config.gs. ' +
+        'Verificá que CONFIG.CLAUDE tenga: MODEL, API_URL, MAX_TOKENS y VERSION.'
+      );
+    }
+    const claudeModel    = claudeConfig.MODEL;
+    const claudeMaxTokens = claudeConfig.MAX_TOKENS || 4096;
+    const claudeVersion  = claudeConfig.VERSION;
+    const claudeApiUrl   = claudeConfig.API_URL;
+    // FIN BLOQUE NUEVO
+
     // Construir el prompt optimizado para español/Argentina
     const prompt = `Analiza esta imagen de un libro contable argentino de cuenta corriente.
 
@@ -121,8 +135,8 @@ Responde SOLO con JSON valido (sin markdown ni explicaciones):
 
     // Construir payload para Claude API
     const payload = {
-      model: CONFIG.CLAUDE.MODEL,
-      max_tokens: CONFIG.CLAUDE.MAX_TOKENS,
+      model: claudeModel,        // antes: CONFIG.CLAUDE.MODEL
+      max_tokens: claudeMaxTokens, // antes: CONFIG.CLAUDE.MAX_TOKENS
       messages: [
         {
           role: 'user',
@@ -150,14 +164,14 @@ Responde SOLO con JSON valido (sin markdown ni explicaciones):
       contentType: 'application/json',
       headers: {
         'x-api-key': apiKey,
-        'anthropic-version': CONFIG.CLAUDE.VERSION
+        'anthropic-version': claudeVersion  // antes: CONFIG.CLAUDE.VERSION
       },
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     };
 
     try {
-      const response = UrlFetchApp.fetch(CONFIG.CLAUDE.API_URL, options);
+      const response = UrlFetchApp.fetch(claudeApiUrl, options);  // antes: CONFIG.CLAUDE.API_URL
       const responseCode = response.getResponseCode();
       const responseText = response.getContentText();
 
@@ -198,6 +212,10 @@ Responde SOLO con JSON valido (sin markdown ni explicaciones):
 
     } catch (error) {
       Logger.log('Error en ClaudeService.analizarImagen: ' + error.message);
+      // Detectar timeout de UrlFetchApp
+      if (error.message && (error.message.toLowerCase().includes('timed out') || error.message.toLowerCase().includes('timeout'))) {
+        throw new Error('La imagen tardó demasiado en procesarse (timeout de 30s). Intentá con una imagen de menor resolución o tamaño.');
+      }
       throw error;
     }
   },

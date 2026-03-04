@@ -892,6 +892,10 @@ function obtenerSaldosConMovimientosDia(fecha) {
  */
 function guardarMovimiento(movimientoData) {
   try {
+    // C-12: Parsear monto en formato argentino si viene como string
+    if (movimientoData && movimientoData.monto !== undefined) {
+      movimientoData.monto = parsearMontoARG(movimientoData.monto);
+    }
     const movimiento = MovimientosRepository.registrar(movimientoData);
     const cliente = ClientesRepository.buscarPorNombre(movimiento.cliente);
 

@@ -292,8 +292,21 @@ const CONFIG = {
    * Obtiene la lista de inquilinos
    */
   getInquilinos: function() {
-    const inquilinosStr = this.get('INQUILINOS', this.INQUILINOS.join(','));
-    return inquilinosStr.split(',').map(i => i.trim()).filter(i => i);
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const hoja = ss.getSheetByName(this.HOJAS.ALQUILERES_CONFIG);
+      if (hoja && hoja.getLastRow() > 1) {
+        const datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, 1).getValues();
+        const inquilinos = datos
+          .map(fila => String(fila[0] || '').trim().toUpperCase())
+          .filter(nombre => nombre.length > 0);
+        if (inquilinos.length > 0) return inquilinos;
+      }
+    } catch (e) {
+      Logger.log('[CONFIG] Error al leer inquilinos de hoja: ' + e.message + '. Usando lista por defecto.');
+    }
+    // Fallback al array fijo si la hoja no existe o está vacía
+    return ['ORTIZ JESUS', 'FLORES FLORIBEL'];
   },
 
   /**

@@ -377,10 +377,13 @@ const CajaDiariaService = {
     const totalEgresos    = automaticos.totalFiados + manualDebe + automaticos.totalTransferencias;
     // Caja del día siguiente: sale físicamente de la caja para la próxima apertura
     const cajaSiguiente   = Number(caja.cajaSiguiente) || 0;
-    const cajaCalculada   = caja.cajaInicial + totalIngresos - totalEgresos - cajaSiguiente;
+    const cajaCalculada   = restaFinanciera(
+      restaFinanciera(sumaFinanciera(caja.cajaInicial, totalIngresos), totalEgresos),
+      cajaSiguiente
+    );
     const cajaFinal       = Number(caja.cajaFinal) || 0;
-    const diferencia      = cajaFinal - cajaCalculada;
-    const hayDiferencia   = Math.abs(diferencia) > 0.009;
+    const diferencia      = restaFinanciera(cajaFinal, cajaCalculada);
+    const hayDiferencia   = Math.abs(diferencia) >= 0.01; // umbral de 1 centavo, no 0.009
 
     return {
       cajaInicial:          caja.cajaInicial,
@@ -560,18 +563,28 @@ function cerrarCajaDiaria(id, datos) {
  * @returns {{ success: boolean, error?: string }}
  */
 function reabrirCajaDiaria(id, razon) {
+  if (!razon || razon.trim().length < 3) {
+    return { success: false, error: 'Debe ingresar una razón para reabrir la caja (mínimo 3 caracteres).' };
+  }
+
+  const lock = LockService.getScriptLock();
   try {
-    if (!razon || razon.trim().length < 3) {
-      return { success: false, error: 'Debe ingresar una razón para reabrir la caja (mínimo 3 caracteres).' };
-    }
+    lock.waitLock(15000);
 
     const caja = CajaDiariaRepository.obtenerPorId(id);
-    if (!caja) return { success: false, error: 'Caja no encontrada.' };
-    if (caja.estado !== CONFIG.ESTADOS_CAJA.CERRADA) return { success: false, error: 'La caja ya está abierta.' };
+    if (!caja) {
+      lock.releaseLock();
+      return { success: false, error: 'Caja no encontrada.' };
+    }
+    if (caja.estado !== CONFIG.ESTADOS_CAJA.CERRADA) {
+      lock.releaseLock();
+      return { success: false, error: 'La caja ya está abierta.' };
+    }
 
-    // Verificar que no hay otra caja abierta
+    // Verificación de caja activa DENTRO del lock para evitar race condition
     const cajaActiva = CajaDiariaRepository.obtenerActiva();
     if (cajaActiva && cajaActiva.id !== id) {
+      lock.releaseLock();
       return {
         success: false,
         error: 'Existe otra caja abierta (fecha: ' + cajaActiva.fecha + '). Ciérrela primero.'
@@ -586,9 +599,12 @@ function reabrirCajaDiaria(id, razon) {
       [C.TIMESTAMP_CIERRE]: ''
     });
 
+    lock.releaseLock();
+    Logger.log('[CONTABILIDAD] Caja #' + id + ' reabierta. Razón: ' + razon.trim());
     return { success: true, mensaje: 'Caja reabierta correctamente.' };
 
   } catch (error) {
+    lock.releaseLock();
     Logger.log('Error en reabrirCajaDiaria: ' + error.message);
     return { success: false, error: error.message };
   }

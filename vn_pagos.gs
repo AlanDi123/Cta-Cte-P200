@@ -41,6 +41,7 @@ const VnPagosRepo = {
 
       return { success: true, id: nuevoId, saldoDeuda: nuevoSaldo };
     } catch (e) {
+      Logger.log('[VN_PAGOS] Error en registrarFiado: ' + e.message);
       return { success: false, error: 'Error al registrar fiado: ' + e.message };
     } finally {
       lock.releaseLock();
@@ -65,7 +66,11 @@ const VnPagosRepo = {
 
       const nuevoId = _obtenerUltimoId(hoja) + 1;
       const saldoActual = this._calcularSaldoDeuda(ss, data.cliente);
-      const nuevoSaldo = Math.max(0, saldoActual - Number(data.monto));
+      const montoCobro = Number(data.monto);
+      if (montoCobro > saldoActual) {
+        Logger.log('[VN_PAGOS] ADVERTENCIA: Cobro de $' + montoCobro + ' supera la deuda de $' + saldoActual + ' para cliente: ' + data.cliente);
+      }
+      const nuevoSaldo = Math.max(0, restaFinanciera(saldoActual, montoCobro));
 
       hoja.appendRow([
         nuevoId,
@@ -82,6 +87,7 @@ const VnPagosRepo = {
 
       return { success: true, id: nuevoId, saldoDeuda: nuevoSaldo };
     } catch (e) {
+      Logger.log('[VN_PAGOS] Error en registrarCobro: ' + e.message);
       return { success: false, error: 'Error al registrar cobro: ' + e.message };
     } finally {
       lock.releaseLock();
@@ -106,6 +112,10 @@ const VnPagosRepo = {
 
       const nuevoId = _obtenerUltimoId(hoja) + 1;
       const saldoActual = this._calcularSaldoDeuda(ss, data.cliente);
+      const nuevoSaldo = Math.max(0, restaFinanciera(saldoActual, Number(data.monto))); // ← LÍNEA CORREGIDA
+      if (Number(data.monto) > saldoActual) {
+        Logger.log('[VN_PAGOS] ADVERTENCIA: Pago a cuenta de $' + data.monto + ' supera la deuda de $' + saldoActual + ' para cliente: ' + data.cliente);
+      }
 
       hoja.appendRow([
         nuevoId,
@@ -114,7 +124,7 @@ const VnPagosRepo = {
         data.cliente.toUpperCase().trim(),
         CONFIG_VN.TIPOS_PAGO.A_CUENTA,
         Number(data.monto),
-        saldoActual,
+        nuevoSaldo,     // ← CORREGIDO: guarda el saldo POST-pago
         '',
         data.obs || '',
         Session.getActiveUser().getEmail()
@@ -122,6 +132,7 @@ const VnPagosRepo = {
 
       return { success: true, id: nuevoId };
     } catch (e) {
+      Logger.log('[VN_PAGOS] Error en registrarPagoACuenta: ' + e.message);
       return { success: false, error: 'Error al registrar pago a cuenta: ' + e.message };
     } finally {
       lock.releaseLock();
@@ -163,8 +174,9 @@ const VnPagosRepo = {
       const monto = Number(fila[CONFIG_VN.COLS_PAGOS.MONTO - 1]) || 0;
 
       if (!clientesMap[cliente]) clientesMap[cliente] = 0;
-      if (tipo === CONFIG_VN.TIPOS_PAGO.FIADO) clientesMap[cliente] += monto;
-      if (tipo === CONFIG_VN.TIPOS_PAGO.COBRO) clientesMap[cliente] -= monto;
+      if (tipo === CONFIG_VN.TIPOS_PAGO.FIADO)    clientesMap[cliente] += monto;
+      if (tipo === CONFIG_VN.TIPOS_PAGO.COBRO)    clientesMap[cliente] -= monto;
+      if (tipo === CONFIG_VN.TIPOS_PAGO.A_CUENTA) clientesMap[cliente] -= monto; // ← LÍNEA AGREGADA
     });
 
     const deudores = Object.entries(clientesMap)
@@ -209,8 +221,9 @@ const VnPagosRepo = {
       if (fila[CONFIG_VN.COLS_PAGOS.CLIENTE - 1] !== nombre) return;
       const tipo = fila[CONFIG_VN.COLS_PAGOS.TIPO - 1];
       const monto = Number(fila[CONFIG_VN.COLS_PAGOS.MONTO - 1]) || 0;
-      if (tipo === CONFIG_VN.TIPOS_PAGO.FIADO) saldo += monto;
-      if (tipo === CONFIG_VN.TIPOS_PAGO.COBRO) saldo -= monto;
+      if (tipo === CONFIG_VN.TIPOS_PAGO.FIADO)    saldo += monto;
+      if (tipo === CONFIG_VN.TIPOS_PAGO.COBRO)    saldo -= monto;
+      if (tipo === CONFIG_VN.TIPOS_PAGO.A_CUENTA) saldo -= monto; // ← LÍNEA AGREGADA
     });
 
     return Math.max(0, saldo);

@@ -61,6 +61,8 @@ const CajaRepository = {
       const usuario = Session.getActiveUser().getEmail();
 
       const registros = [];
+      const idBase = this.generarNuevoID(); // ← UNA sola llamada antes del loop
+      let idActual = idBase;                // ← contador local que se incrementa
 
       // 1. Guardar denominaciones de efectivo (billetes y monedas)
       if (datos.arqueo) {
@@ -70,7 +72,7 @@ const CajaRepository = {
             if (denom) {
               const monto = cantidad * denom.valor;
               registros.push([
-                this.generarNuevoID(),
+                idActual++,              // ← usar y luego incrementar
                 fecha,
                 sesionId,
                 tipo,
@@ -89,7 +91,7 @@ const CajaRepository = {
         for (const prov of datos.proveedores) {
           if (prov.monto > 0) {
             registros.push([
-              this.generarNuevoID(),
+              idActual++,              // ← usar y luego incrementar
               fecha,
               sesionId,
               CONFIG.TIPOS_CAJA.PROVEEDOR,
@@ -107,7 +109,7 @@ const CajaRepository = {
         for (const gasto of datos.gastos) {
           if (gasto.monto > 0) {
             registros.push([
-              this.generarNuevoID(),
+              idActual++,              // ← usar y luego incrementar
               fecha,
               sesionId,
               CONFIG.TIPOS_CAJA.GASTO_EXTRA,
@@ -125,7 +127,7 @@ const CajaRepository = {
         for (const ingreso of datos.ingresos) {
           if (ingreso.monto > 0) {
             registros.push([
-              this.generarNuevoID(),
+              idActual++,              // ← usar y luego incrementar
               fecha,
               sesionId,
               CONFIG.TIPOS_CAJA.INGRESO,
@@ -141,7 +143,7 @@ const CajaRepository = {
       // 5. Guardar resumen de cobranzas del dia
       if (datos.totalCobranzas > 0) {
         registros.push([
-          this.generarNuevoID(),
+          idActual++,
           fecha,
           sesionId,
           CONFIG.TIPOS_CAJA.COBRANZA,
@@ -155,7 +157,7 @@ const CajaRepository = {
       // 6. Guardar total de fiados del dia
       if (datos.totalFiados > 0) {
         registros.push([
-          this.generarNuevoID(),
+          idActual++,
           fecha,
           sesionId,
           CONFIG.TIPOS_CAJA.FIADO_DIA,
@@ -499,10 +501,37 @@ function generarResumenArqueo(sesionId) {
  */
 function guardarBorradorCaja(usuarioId, datosJSON) {
   try {
+    // ScriptProperties tiene límite de ~9KB por propiedad
+    if (datosJSON && datosJSON.length > 8500) {
+      Logger.log('[CAJA] Borrador de ' + usuarioId + ' supera 8.5KB (' + datosJSON.length + ' chars). Truncando campos no esenciales.');
+      // Intentar comprimir: parsear y eliminar denominaciones cero
+      try {
+        const obj = JSON.parse(datosJSON);
+        if (obj.arqueo) {
+          // Eliminar denominaciones con cantidad 0
+          Object.keys(obj.arqueo).forEach(k => {
+            if (!obj.arqueo[k] || obj.arqueo[k] === 0) delete obj.arqueo[k];
+          });
+        }
+        const comprimido = JSON.stringify(obj);
+        if (comprimido.length <= 8500) {
+          PropertiesService.getScriptProperties()
+            .setProperty('borrador_caja_' + usuarioId, comprimido);
+          return { success: true, advertencia: 'Borrador guardado en modo comprimido.' };
+        }
+      } catch (parseErr) {
+        // Si no se puede parsear, continuar con el original
+      }
+      return {
+        success: false,
+        error: 'El borrador es demasiado grande para guardarse en la nube (' + datosJSON.length + ' caracteres). Guardá el arqueo manualmente.'
+      };
+    }
     PropertiesService.getScriptProperties()
       .setProperty('borrador_caja_' + usuarioId, datosJSON);
     return { success: true };
   } catch (e) {
+    Logger.log('[CAJA] Error al guardar borrador para ' + usuarioId + ': ' + e.message);
     return { success: false, error: e.message };
   }
 }

@@ -74,6 +74,7 @@ const VnValesRepo = {
         }
       };
     } catch (e) {
+      Logger.log('[VN_VALES] Error en crear: ' + e.message);
       return { success: false, error: 'Error al crear vale: ' + e.message };
     } finally {
       lock.releaseLock();
@@ -128,6 +129,7 @@ const VnValesRepo = {
 
       return { success: true, vale: { ...vale, estado: CONFIG_VN.ESTADOS_VALE.CANJEADO } };
     } catch (e) {
+      Logger.log('[VN_VALES] Error en canjear: ' + e.message);
       return { success: false, error: e.message };
     } finally {
       lock.releaseLock();
@@ -154,6 +156,7 @@ const VnValesRepo = {
       }
       return { success: false, error: 'Vale no encontrado.' };
     } catch (e) {
+      Logger.log('[VN_VALES] Error en revertirCanje: ' + e.message);
       return { success: false, error: e.message };
     } finally {
       lock.releaseLock();
@@ -186,6 +189,7 @@ const VnValesRepo = {
       }
       return { success: false, error: 'Vale no encontrado.' };
     } catch (e) {
+      Logger.log('[VN_VALES] Error en anular: ' + e.message);
       return { success: false, error: e.message };
     } finally {
       lock.releaseLock();
