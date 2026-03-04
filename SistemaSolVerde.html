@@ -3342,15 +3342,28 @@
           </div>
           <ul id="providerList" style="list-style: none; padding: 0; margin: 0;"></ul>
           <div style="display: flex; gap: 10px; margin-top: 10px; align-items: flex-end;">
-            <div style="flex: 2;">
-              <select id="newProvSelect" class="form-select"></select>
+            <div style="flex: 2; position: relative;">
+              <!-- FIX: Autocomplete con debounce y normalización -->
+              <input 
+                type="text" 
+                id="newProvInput" 
+                class="form-input" 
+                placeholder="Buscar proveedor..."
+                autocomplete="off"
+                oninput="handleProviderSearch(this.value)"
+                onfocus="handleProviderFocus()"
+              >
+              <div 
+                id="providerSuggestions" 
+                class="suggestions-list" 
+                style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;"
+              ></div>
             </div>
-            <input type="text" id="newProvCustom" class="form-input" placeholder="Nombre..." style="display: none; flex: 2;">
             <input type="number" id="newProvAmount" class="form-input" placeholder="$" style="flex: 1;">
             <button class="btn btn-primary" onclick="addProvider()" style="width: auto; margin: 0;">+</button>
           </div>
           <div style="text-align: right; font-size: 0.8rem; margin-top: 5px;">
-            <a href="#" onclick="toggleCustomProv(); return false;" style="color: var(--sv-primario);">Escribir Manual</a>
+            <span style="color: var(--sv-texto-muted);">Escribe para buscar o seleccionar</span>
           </div>
         </div>
 
@@ -4846,6 +4859,83 @@
       setTimeout(() => {
         toast.remove();
       }, 300);
+    }
+
+    // ========================================
+    // UTILIDADES: DEBOUNCE Y NORMALIZACIÓN
+    // ========================================
+    // FIX: Mejoras de rendimiento y fiabilidad para autocompletados
+    
+    /**
+     * Normaliza un string: trim, NFKC normalization, lowercase
+     * @param {string} s - String a normalizar
+     * @returns {string} String normalizado
+     */
+    function normalizeName(s) {
+      return s ? s.trim().normalize('NFKC').toLowerCase() : '';
+    }
+    
+    /**
+     * Capitaliza la primera letra de cada palabra
+     * @param {string} s - String a capitalizar
+     * @returns {string} String capitalizado
+     */
+    function capitalize(s) {
+      if (!s) return '';
+      return s.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    }
+    
+    /**
+     * Crea una función debounce para limitar la frecuencia de ejecución
+     * @param {Function} fn - Función a ejecutar
+     * @param {number} delay - Retraso en ms (default: 250)
+     * @returns {Function} Función con debounce
+     */
+    function debounce(fn, delay = 250) {
+      let timeoutId;
+      return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn.apply(this, args), delay);
+      };
+    }
+    
+    /**
+     * Busca coincidencias en una lista con prioridad startsWith + includes fallback
+     * @param {string} query - Término de búsqueda
+     * @param {Array<string>} list - Lista de strings
+     * @param {number} maxResults - Máximo de resultados (default: 50)
+     * @returns {Array<string>} Resultados ordenados por relevancia
+     */
+    function fuzzySearch(query, list, maxResults = 50) {
+      const q = normalizeName(query);
+      if (!q) return list.slice(0, maxResults);
+      
+      const startsWith = [];
+      const includes = [];
+      
+      for (const item of list) {
+        const normalized = normalizeName(item);
+        if (normalized.startsWith(q)) {
+          startsWith.push(item);
+        } else if (normalized.includes(q)) {
+          includes.push(item);
+        }
+      }
+      
+      // Priorizar startsWith sobre includes
+      const results = [...startsWith, ...includes];
+      return results.slice(0, maxResults);
+    }
+    
+    /**
+     * Elimina duplicados de un array usando Set
+     * @param {Array} arr - Array con posibles duplicados
+     * @returns {Array} Array sin duplicados
+     */
+    function uniqueArray(arr) {
+      return Array.from(new Set(arr));
     }
 
     // ========================================
@@ -6976,57 +7066,195 @@
       }
     }
 
+    // ========================================
+    // AUTOCOMPLETE PROVEEDORES - CON DEBOUNCE
+    // ========================================
+    // FIX: Autocomplete mejorado con debounce, normalización y sin duplicados
+    
+    let providersList = []; // Lista completa de proveedores
+    let providerSearchTimeout = null;
+    
+    /**
+     * Cargar configuración de proveedores con autocomplete
+     */
     function cargarConfigProveedores(config) {
       // DESCOMPRESIÓN OPTIMIZADA: Descomprimir respuesta del backend
       config = descomprimirRespuesta(config);
 
       if (!config || !config.providers) return;
-      const sel = document.getElementById('newProvSelect');
-      if (sel) {
-        sel.innerHTML = '<option value="">Seleccionar...</option>';
-        config.providers.forEach(p => {
-          sel.innerHTML += `<option value="${p}">${p}</option>`;
-        });
+      
+      // FIX: Guardar lista normalizada y sin duplicados
+      providersList = uniqueArray(config.providers.map(p => String(p).trim()));
+      
+      // Inicializar input de autocomplete
+      const input = document.getElementById('newProvInput');
+      if (input) {
+        input.value = '';
+        input.disabled = false;
       }
     }
-
-    function updateBill(denom, count) {
-      arqueoState.bills[denom] = parseInt(count) || 0;
-      const subtotalEl = document.getElementById(`subtotal-${denom}`);
-      if (subtotalEl) {
-        subtotalEl.innerText = fmt(arqueoState.bills[denom] * denom);
-      }
-      calc();
+    
+    /**
+     * Manejar búsqueda de proveedores con debounce
+     */
+    function handleProviderSearch(value) {
+      clearTimeout(providerSearchTimeout);
+      providerSearchTimeout = setTimeout(() => {
+        showProviderSuggestions(value);
+      }, 250); // 250ms debounce
     }
-
+    
+    /**
+     * Mostrar sugerencias al enfocar
+     */
+    function handleProviderFocus() {
+      showProviderSuggestions('');
+    }
+    
+    /**
+     * Mostrar sugerencias filtradas
+     * @param {string} query - Término de búsqueda
+     */
+    function showProviderSuggestions(query) {
+      const suggestionsDiv = document.getElementById('providerSuggestions');
+      const input = document.getElementById('newProvInput');
+      
+      if (!suggestionsDiv || !input) return;
+      
+      // FIX: Usar fuzzySearch con prioridad startsWith
+      const matches = fuzzySearch(query, providersList, 50);
+      
+      if (matches.length === 0) {
+        // Si no hay coincidencias, mostrar opción para agregar nuevo
+        if (query && query.trim().length > 2) {
+          suggestionsDiv.innerHTML = `
+            <div class="suggestion-item" onclick="selectProvider('${escapeHtml(query)}', true)">
+              <strong>➕ Agregar "${escapeHtml(query)}"</strong>
+            </div>
+          `;
+          suggestionsDiv.style.display = 'block';
+        } else {
+          suggestionsDiv.style.display = 'none';
+        }
+        return;
+      }
+      
+      // Renderizar sugerencias
+      suggestionsDiv.innerHTML = matches.map(p => {
+        const highlighted = highlightMatch(p, query);
+        return `
+          <div class="suggestion-item" onclick="selectProvider('${escapeHtml(p)}', false)">
+            ${highlighted}
+          </div>
+        `;
+      }).join('');
+      
+      suggestionsDiv.style.display = 'block';
+    }
+    
+    /**
+     * Resaltar coincidencia en el texto
+     */
+    function highlightMatch(text, query) {
+      if (!query) return escapeHtml(text);
+      const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+      return escapeHtml(text).replace(regex, '<strong>$1</strong>');
+    }
+    
+    /**
+     * Escapar caracteres especiales para regex
+     */
+    function escapeRegex(string) {
+      return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    }
+    
+    /**
+     * Seleccionar proveedor
+     * @param {string} value - Valor seleccionado
+     * @param {boolean} isNew - Si es un nuevo proveedor
+     */
+    function selectProvider(value, isNew) {
+      const input = document.getElementById('newProvInput');
+      const suggestionsDiv = document.getElementById('providerSuggestions');
+      
+      if (input) {
+        input.value = value;
+        input.dataset.isNew = isNew;
+      }
+      if (suggestionsDiv) {
+        suggestionsDiv.style.display = 'none';
+      }
+      
+      // Enfocar campo de monto
+      const amountInput = document.getElementById('newProvAmount');
+      if (amountInput) {
+        amountInput.focus();
+      }
+    }
+    
+    /**
+     * Ocultar sugerencias al hacer click fuera
+     */
+    document.addEventListener('click', function(e) {
+      const input = document.getElementById('newProvInput');
+      const suggestionsDiv = document.getElementById('providerSuggestions');
+      
+      if (suggestionsDiv && input && 
+          !input.contains(e.target) && 
+          !suggestionsDiv.contains(e.target)) {
+        suggestionsDiv.style.display = 'none';
+      }
+    });
+    
+    // ========================================
+    // FUNCIONES ACTUALIZADAS PARA AGREGAR PROVEEDOR
+    // ========================================
+    
     function addItem(type) {
       let name='', amt=0, elName, elAmt, arrName, listId;
       if(type==='prov') {
-        const s = document.getElementById('newProvSelect'), c = document.getElementById('newProvCustom');
-        name = (c.style.display!=='none' && c.value) ? c.value : s.value;
-        elAmt=document.getElementById('newProvAmount'); elName=c.style.display!=='none'?c:s;
-        arrName='providers'; listId='providerList';
+        // FIX: Usar nuevo input de autocomplete
+        const input = document.getElementById('newProvInput');
+        name = input ? input.value.trim() : '';
+        elAmt = document.getElementById('newProvAmount');
+        elName = input;
+        arrName = 'providers';
+        listId = 'providerList';
       } else if(type==='inj') {
-        elName=document.getElementById('injDesc'); elAmt=document.getElementById('injAmount');
-        name=elName.value; arrName='injections'; listId='injectionList';
+        elName = document.getElementById('injDesc');
+        elAmt = document.getElementById('injAmount');
+        name = elName.value;
+        arrName = 'injections';
+        listId = 'injectionList';
       } else {
-        elName=document.getElementById('extDesc'); elAmt=document.getElementById('extAmount');
-        name=elName.value; arrName='extras'; listId='extraList';
+        elName = document.getElementById('extDesc');
+        elAmt = document.getElementById('extAmount');
+        name = elName.value;
+        arrName = 'extras';
+        listId = 'extraList';
       }
-      amt = parseFloat(elAmt.value);
+      amt = parseFloat(elAmt ? elAmt.value : 0);
 
       if(name && amt) {
         arqueoState[arrName].push({ name, amount: amt });
         renderList(listId, arqueoState[arrName], type);
-        if(type==='prov') { document.getElementById('newProvAmount').value=''; document.getElementById('newProvCustom').value=''; }
-        else { elName.value=''; elAmt.value=''; }
+        if(type==='prov') { 
+          document.getElementById('newProvAmount').value = ''; 
+          if(elName) elName.value = ''; 
+          if(elName) elName.dataset.isNew = '';
+        } else { 
+          if(elName) elName.value = ''; 
+          if(elAmt) elAmt.value = ''; 
+        }
         calc();
-        if(elName.focus) elName.focus();
+        if(elName && elName.focus) elName.focus();
       }
     }
-    function addProvider(){ addItem('prov'); }
-    function addInjection(){ addItem('inj'); }
-    function addExtra(){ addItem('ext'); }
+    
+    // Funciones wrapper para agregar items
+    function addProvider() { addItem('prov'); }
+    function addInjection() { addItem('inj'); }
+    function addExtra() { addItem('ext'); }
 
     function removeItem(type, idx) {
       let arr = type==='prov'?'providers':type==='inj'?'injections':'extras';
@@ -7201,14 +7429,7 @@
       return '$'+n.toLocaleString('es-AR',{minimumFractionDigits:0, maximumFractionDigits:2});
     }
 
-    function toggleCustomProv() {
-      const c=document.getElementById('newProvCustom');
-      const s=document.getElementById('newProvSelect');
-      const v=c.style.display==='none';
-      c.style.display=v?'block':'none';
-      s.style.display=v?'none':'block';
-      if(v)c.focus();
-    }
+    // toggleCustomProv eliminado - ya no se usa con el nuevo autocomplete
 
     function guardarMovimientoArqueo() {
       try {

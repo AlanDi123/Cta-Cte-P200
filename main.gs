@@ -2389,7 +2389,8 @@ function initializeHistoricalCashData() {
 }
 
 /**
- * Obtiene la configuracion del sistema de Arqueo (lista de provdores)
+ * Obtiene la configuracion del sistema de Arqueo (lista de proveedores)
+ * FIX: Normalizar y eliminar duplicados para mejor autocomplete
  * @returns {Object} {providers: [...]}
  */
 function getCashSystemConfig() {
@@ -2398,25 +2399,44 @@ function getCashSystemConfig() {
     const configSht = ss.getSheetByName('Config');
 
     if (!configSht) {
-      return { providers: ['Provdor 1', 'Provdor 2', 'Provdor 3'] };
+      return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
     }
 
     const lastRow = configSht.getLastRow();
-    const providers = [];
-
+    
     if (lastRow > 1) {  // Cambiar a > 1 para skipear header
       const data = configSht.getRange(2, 1, lastRow - 1, 1).getValues();
-      const filtered = data.flat().filter(String);
-      if (filtered.length > 0) {
-        return { providers: filtered };
+      // FIX: Normalizar, eliminar duplicados y ordenar
+      const normalized = data.flat()
+        .filter(String)
+        .map(function(p) { 
+          return String(p).trim().normalize('NFKC'); 
+        });
+      
+      // Eliminar duplicados (case-insensitive)
+      const seen = {};
+      const unique = [];
+      for (const p of normalized) {
+        const key = p.toLowerCase();
+        if (!seen[key]) {
+          seen[key] = true;
+          unique.push(p);
+        }
+      }
+      
+      // Ordenar alfabéticamente
+      unique.sort();
+      
+      if (unique.length > 0) {
+        return { providers: unique };
       }
     }
 
-    // Si no hay datos, retornar provdores predeterminados
-    return { providers: ['Provdor 1', 'Provdor 2', 'Provdor 3'] };
+    // Si no hay datos, retornar proveedores predeterminados
+    return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
   } catch (error) {
-    Logger.log('Error n getCashSystemConfig: ' + error.message);
-    return { providers: ['Provdor 1', 'Provdor 2', 'Provdor 3'] };
+    Logger.log('Error en getCashSystemConfig: ' + error.message);
+    return { providers: ['Proveedor 1', 'Proveedor 2', 'Proveedor 3'] };
   }
 }
 
