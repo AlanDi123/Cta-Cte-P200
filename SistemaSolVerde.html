@@ -5123,15 +5123,35 @@
         .obtenerDatosParaHTML();
     }
 
-    function actualizarTablaMovimientos() {
+    // ========================================
+    // ACTUALIZAR TABLA DE MOVIMIENTOS
+    // ========================================
+    // FIX: Mostrar TODOS los movimientos (sin limite de 10)
+    // Con paginación para mejor rendimiento
+    const MOVIMIENTOS_POR_PAGINA = 50;
+    let movimientosPaginaActual = 0;
+
+    function actualizarTablaMovimientos(pagina = 0) {
       const tbody = document.getElementById('tablaMovimientosBody');
 
       if (!AppState.movimientosRecientes || AppState.movimientosRecientes.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="tabla-empty">No hay movimientos recientes</td></tr>';
+        document.getElementById('movimientosPaginationControls')?.remove();
         return;
       }
 
-      tbody.innerHTML = AppState.movimientosRecientes.slice(0, 10).map(mov => {
+      // Calcular total de páginas
+      const totalMovimientos = AppState.movimientosRecientes.length;
+      const totalPaginas = Math.ceil(totalMovimientos / MOVIMIENTOS_POR_PAGINA);
+      movimientosPaginaActual = Math.min(pagina, totalPaginas - 1);
+
+      // Obtener movimientos de la página actual
+      const inicio = movimientosPaginaActual * MOVIMIENTOS_POR_PAGINA;
+      const fin = Math.min(inicio + MOVIMIENTOS_POR_PAGINA, totalMovimientos);
+      const movimientosPagina = AppState.movimientosRecientes.slice(inicio, fin);
+
+      // Renderizar movimientos
+      tbody.innerHTML = movimientosPagina.map(mov => {
         const monto = typeof mov.monto === 'number' ? mov.monto : (typeof mov.monto === 'string' ? parseFloat(mov.monto) : 0);
         const saldo = typeof mov.saldoPost === 'number' ? mov.saldoPost : (typeof mov.saldoPost === 'string' ? parseFloat(mov.saldoPost) : 0);
 
@@ -5154,6 +5174,43 @@
         </tr>
       `;
       }).join('');
+
+      // Agregar controles de paginación
+      const existingControls = document.getElementById('movimientosPaginationControls');
+      if (existingControls) existingControls.remove();
+
+      if (totalPaginas > 1) {
+        const paginationDiv = document.createElement('div');
+        paginationDiv.id = 'movimientosPaginationControls';
+        paginationDiv.className = 'pagination-controls';
+        paginationDiv.style.cssText = 'display: flex; gap: 0.5rem; justify-content: center; align-items: center; margin-top: 1rem; padding: 0.5rem;';
+
+        const btnPrev = document.createElement('button');
+        btnPrev.className = 'btn btn-sm btn-outline';
+        btnPrev.textContent = '◀ Anterior';
+        btnPrev.disabled = movimientosPaginaActual === 0;
+        btnPrev.onclick = () => actualizarTablaMovimientos(movimientosPaginaActual - 1);
+
+        const pageInfo = document.createElement('span');
+        pageInfo.style.cssText = 'padding: 0 1rem; font-size: 0.875rem; color: var(--sv-texto-secundario);';
+        pageInfo.textContent = `Página ${movimientosPaginaActual + 1} de ${totalPaginas} (${totalMovimientos} movimientos)`;
+
+        const btnNext = document.createElement('button');
+        btnNext.className = 'btn btn-sm btn-outline';
+        btnNext.textContent = 'Siguiente ▶';
+        btnNext.disabled = movimientosPaginaActual === totalPaginas - 1;
+        btnNext.onclick = () => actualizarTablaMovimientos(movimientosPaginaActual + 1);
+
+        paginationDiv.appendChild(btnPrev);
+        paginationDiv.appendChild(pageInfo);
+        paginationDiv.appendChild(btnNext);
+
+        // Insertar después de la tabla
+        const table = document.getElementById('tablaMovimientos');
+        if (table && table.parentNode) {
+          table.parentNode.insertBefore(paginationDiv, table.nextSibling);
+        }
+      }
 
       // Actualizar datalist de clientes para autocomplete
       actualizarDatalistClientes();

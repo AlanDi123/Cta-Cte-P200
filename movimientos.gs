@@ -162,7 +162,7 @@ const MovimientosRepository = {
 
   /**
    * Obtiene los movimientos más recientes
-   * @param {number} limite - Cantidad máxima de movimientos
+   * @param {number} limite - Cantidad máxima de movimientos (0 = todos sin límite)
    * @returns {Array<Object>} Array de movimientos
    */
   obtenerRecientes: function(limite) {
@@ -171,11 +171,39 @@ const MovimientosRepository = {
 
     if (lastRow <= 1) return []; // Solo encabezados o vacío
 
-    // PERFORMANCE FIX: Instead of reading entire sheet, read only last N+buffer rows
-    // Buffer of 50% extra to ensure we get all we need (sorted by date, not insertion order)
+    // FIX: Soporte para limite = 0 (sin límite, cargar todos)
+    const sinLimite = (limite === 0 || limite === undefined);
+    
+    if (sinLimite) {
+      // Cargar TODOS los movimientos (para export, backup, etc.)
+      const datos = hoja.getRange(2, 1, lastRow - 1, 8).getValues();
+      const movimientos = [];
+      
+      for (let i = datos.length - 1; i >= 0; i--) {
+        const fila = datos[i];
+        const fecha = fila[CONFIG.COLS_MOVS.FECHA];
+        if (!fila[CONFIG.COLS_MOVS.ID]) continue;
+        
+        movimientos.push({
+          id: fila[CONFIG.COLS_MOVS.ID],
+          fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
+          cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
+          tipo: fila[CONFIG.COLS_MOVS.TIPO],
+          monto: fila[CONFIG.COLS_MOVS.MONTO],
+          saldoPost: fila[CONFIG.COLS_MOVS.SALDO_POST],
+          obs: fila[CONFIG.COLS_MOVS.OBS] || '',
+          usuario: fila[CONFIG.COLS_MOVS.USUARIO] || ''
+        });
+      }
+      
+      return movimientos;
+    }
+
+    // PERFORMANCE FIX: For limited queries, read only last N+buffer rows
+    // Buffer of 50% extra to ensure we get all we need
     const buffer = Math.ceil(limite * 1.5);
-    const rowsToRead = Math.min(buffer, lastRow - 1); // Don't read more than available
-    const startRow = Math.max(2, lastRow - rowsToRead + 1); // Start from appropriate row
+    const rowsToRead = Math.min(buffer, lastRow - 1);
+    const startRow = Math.max(2, lastRow - rowsToRead + 1);
 
     let datos = [];
     if (rowsToRead > 0) {
@@ -191,7 +219,7 @@ const MovimientosRepository = {
 
       movimientos.push({
         id: fila[CONFIG.COLS_MOVS.ID],
-        fecha: fecha instanceof Date ? fecha.toISOString() : fecha,  // Convertir Date a ISO string
+        fecha: fecha instanceof Date ? fecha.toISOString() : fecha,
         cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
         tipo: fila[CONFIG.COLS_MOVS.TIPO],
         monto: fila[CONFIG.COLS_MOVS.MONTO],

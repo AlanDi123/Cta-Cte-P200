@@ -1044,11 +1044,12 @@ function obtenerDatosParaHTML() {
     const totalClientes = indicesClientes.size;
 
     // Usar indices para obtener movimientos recientes (50x mas rapido)
+    // FIX: Cargar TODOS los movimientos para mostrar en dashboard (sin limite)
     const movimientos = [];
     const indicesMovs = IndicesCache.indices.movimientos;
     const movsArray = Array.from(indicesMovs.values())
-      .sort((a, b) => new Date(b.datos.fecha) - new Date(a.datos.fecha))
-      .slice(0, 20);
+      .sort((a, b) => new Date(b.datos.fecha) - new Date(a.datos.fecha));
+      // Sin slice - cargar todos los movimientos
 
     for (const mov of movsArray) {
       movimientos.push(mov.datos);
