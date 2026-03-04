@@ -33,6 +33,22 @@ const ClientesRepository = {
    * @returns {Array<Object>} Array de clientes
    */
   obtenerTodos: function(offset = 0, limit = 0) {
+    const CACHE_KEY = 'clientes_todos_v2';
+
+    // M-01 + M-04: Solo cachear si es la consulta completa sin paginación
+    if (offset === 0 && limit === 0) {
+      // 1. Intentar RequestCache primero (mismo request)
+      const reqCacheado = RequestCache.get(CACHE_KEY);
+      if (reqCacheado !== undefined) return reqCacheado;
+
+      // 2. Intentar SheetsCache (cross-request, TTL 60s)
+      const sheetsCacheado = SheetsCache.get(CACHE_KEY);
+      if (sheetsCacheado !== null) {
+        RequestCache.set(CACHE_KEY, sheetsCacheado); // promover a RequestCache
+        return sheetsCacheado;
+      }
+    }
+
     const hoja = this.getHoja();
     const lastRow = hoja.getLastRow();
 
@@ -66,6 +82,12 @@ const ClientesRepository = {
       });
     }
 
+    // M-01 + M-04: Cachear resultado si es consulta completa
+    if (offset === 0 && limit === 0) {
+      SheetsCache.set(CACHE_KEY, clientes, 60); // TTL 60 segundos
+      RequestCache.set(CACHE_KEY, clientes);
+    }
+
     return clientes;
   },
 
@@ -78,32 +100,42 @@ const ClientesRepository = {
     const nombreNorm = normalizarString(nombre);
     if (!nombreNorm) return null;
 
-    const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
+    // M-01: Obtener (o construir) el índice Map nombre→objeto cliente
+    const INDEX_KEY = 'clientes_index_nombre';
+    let indice = RequestCache.get(INDEX_KEY);
 
-    for (let i = 1; i < datos.length; i++) {
-      if (normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]) === nombreNorm) {
+    if (indice === undefined) {
+      // Primera llamada en este request: construir el índice
+      const hoja = this.getHoja();
+      const datos = hoja.getDataRange().getValues();
+      indice = new Map();
+      const C = CONFIG.COLS_CLIENTES;
+
+      for (let i = 1; i < datos.length; i++) {
         const fila = datos[i];
-        return {
-          nombre: fila[CONFIG.COLS_CLIENTES.NOMBRE],
-          tel: fila[CONFIG.COLS_CLIENTES.TEL] || '',
-          email: fila[CONFIG.COLS_CLIENTES.EMAIL] || '',
-          limite: fila[CONFIG.COLS_CLIENTES.LIMITE] || CONFIG.getLimiteCredito(),
-          saldo: fila[CONFIG.COLS_CLIENTES.SALDO] || 0,
-          totalMovs: fila[CONFIG.COLS_CLIENTES.TOTAL_MOVS] || 0,
-          alta: fila[CONFIG.COLS_CLIENTES.ALTA] instanceof Date ? formatearFechaLocal(fila[CONFIG.COLS_CLIENTES.ALTA]) : '',
-          ultimoMov: fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV] instanceof Date ? formatearFechaLocal(fila[CONFIG.COLS_CLIENTES.ULTIMO_MOV]) : '',
-          obs: fila[CONFIG.COLS_CLIENTES.OBS] || '',
-          cuit: fila[CONFIG.COLS_CLIENTES.CUIT] || '',
-          condicionFiscal: fila[CONFIG.COLS_CLIENTES.CONDICION_FISCAL] || (fila[CONFIG.COLS_CLIENTES.CUIT] ? 'Responsable Inscripto' : 'Consumidor Final'),
-          razonSocial: fila[CONFIG.COLS_CLIENTES.RAZON_SOCIAL] || '',
-          domicilioFiscal: fila[CONFIG.COLS_CLIENTES.DOMICILIO_FISCAL] || '',
-          fila: i + 1
-        };
+        const nomNorm = normalizarString(fila[C.NOMBRE]);
+        if (!nomNorm) continue;
+        indice.set(nomNorm, {
+          nombre:         fila[C.NOMBRE],
+          tel:            fila[C.TEL] || '',
+          email:          fila[C.EMAIL] || '',
+          limite:         fila[C.LIMITE] || CONFIG.getLimiteCredito(),
+          saldo:          fila[C.SALDO] || 0,
+          totalMovs:      fila[C.TOTAL_MOVS] || 0,
+          alta:           fila[C.ALTA] instanceof Date ? formatearFechaLocal(fila[C.ALTA]) : '',
+          ultimoMov:      fila[C.ULTIMO_MOV] instanceof Date ? formatearFechaLocal(fila[C.ULTIMO_MOV]) : '',
+          obs:            fila[C.OBS] || '',
+          cuit:           fila[C.CUIT] || '',
+          condicionFiscal: fila[C.CONDICION_FISCAL] || (fila[C.CUIT] ? 'Responsable Inscripto' : 'Consumidor Final'),
+          razonSocial:    fila[C.RAZON_SOCIAL] || '',
+          domicilioFiscal: fila[C.DOMICILIO_FISCAL] || '',
+          fila:           i + 1
+        });
       }
+      RequestCache.set(INDEX_KEY, indice);
     }
 
-    return null;
+    return indice.get(nombreNorm) || null;
   },
 
   /**
@@ -173,6 +205,10 @@ const ClientesRepository = {
     ];
 
     hoja.appendRow(nuevaFila);
+
+    // M-01 + M-04: Invalidar ambas capas de caché
+    RequestCache.invalidar('clientes_todos', 'clientes_todos_v2', 'clientes_index_nombre');
+    SheetsCache.invalidar('clientes_todos_v2');
 
     return {
       nombre: nombreNorm,
@@ -258,6 +294,10 @@ const ClientesRepository = {
       hoja.getRange(fila, CONFIG.COLS_CLIENTES.DOMICILIO_FISCAL + 1).setValue(datos.domicilioFiscal);
     }
 
+    // M-01 + M-04: Invalidar ambas capas de caché
+    RequestCache.invalidar('clientes_todos', 'clientes_todos_v2', 'clientes_index_nombre');
+    SheetsCache.invalidar('clientes_todos_v2');
+
     return this.buscarPorNombre(nombreFinal);
   },
 
@@ -273,6 +313,10 @@ const ClientesRepository = {
 
     const hoja = this.getHoja();
     hoja.deleteRow(cliente.fila);
+
+    // M-01 + M-04: Invalidar ambas capas de caché
+    RequestCache.invalidar('clientes_todos', 'clientes_todos_v2', 'clientes_index_nombre');
+    SheetsCache.invalidar('clientes_todos_v2');
   },
 
   /**
@@ -299,15 +343,22 @@ const ClientesRepository = {
 
     const hoja = this.getHoja();
     const fila = cliente.fila;
+    const C = CONFIG.COLS_CLIENTES;
 
-    // Actualizar saldo
-    hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldo);
+    // M-02: Leer fila completa actual para no sobrescribir columnas intermedias
+    const filaActual = hoja.getRange(fila, 1, 1, 13).getValues()[0];
 
-    // Incrementar contador de movimientos
-    hoja.getRange(fila, CONFIG.COLS_CLIENTES.TOTAL_MOVS + 1).setValue(cliente.totalMovs + 1);
+    // Actualizar solo las columnas que cambian
+    filaActual[C.SALDO]      = nuevoSaldo;
+    filaActual[C.TOTAL_MOVS] = (cliente.totalMovs || 0) + 1;
+    filaActual[C.ULTIMO_MOV] = fechaMovimiento;
 
-    // Actualizar fecha ultimo movimiento
-    hoja.getRange(fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(fechaMovimiento);
+    // M-02: Una sola escritura para toda la fila actualizada
+    hoja.getRange(fila, 1, 1, 13).setValues([filaActual]);
+
+    // M-01 + M-04: Invalidar cache porque el cliente fue modificado
+    RequestCache.invalidar('clientes_todos', 'clientes_todos_v2', 'clientes_index_nombre');
+    SheetsCache.invalidar('clientes_todos_v2');
   },
 
   /**

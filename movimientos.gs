@@ -103,10 +103,21 @@ const MovimientosRepository = {
         usuario
       ];
 
-      hoja.appendRow(nuevaFila);
+      // M-05: Usar conRetry para operaciones críticas
+      conRetry(() => hoja.appendRow(nuevaFila), { contexto: 'MOV.registrar.appendRow', maxIntentos: 3 });
+      conRetry(() => ClientesRepository.actualizarSaldoYContadores(clienteNorm, nuevoSaldo, fecha),
+        { contexto: 'MOV.registrar.actualizarCliente', maxIntentos: 3 });
 
-      // Actualizar saldo del cliente
-      ClientesRepository.actualizarSaldoYContadores(clienteNorm, nuevoSaldo, fecha);
+      // M-06: Auditoría — fire and forget (no bloquea)
+      AuditLogger.registrar({
+        modulo:      'MOVIMIENTOS',
+        operacion:   'CREAR',
+        entidadId:   nuevoID,
+        entidadDesc: 'Cliente: ' + clienteNorm + ' | Tipo: ' + movimientoData.tipo,
+        antes:       { saldo: saldoAnterior },
+        despues:     { saldo: nuevoSaldo, monto: movimientoData.monto, tipo: movimientoData.tipo },
+        montoImpacto: movimientoData.monto
+      });
 
       lock.releaseLock();
 
@@ -415,6 +426,17 @@ const MovimientosRepository = {
 
         Logger.log('[MOVIMIENTOS] Eliminar #' + id + ': saldo ' + cliente.saldo + ' → ' + nuevoSaldoCliente);
       }
+
+      // M-06: Auditoría antes de eliminar
+      AuditLogger.registrar({
+        modulo:      'MOVIMIENTOS',
+        operacion:   'ELIMINAR',
+        entidadId:   id,
+        entidadDesc: 'Cliente: ' + mov.cliente + ' | Monto: $' + mov.monto,
+        antes:       { cliente: mov.cliente, monto: mov.monto, tipo: mov.tipo, saldo: mov.saldoPost },
+        despues:     null,
+        montoImpacto: mov.monto
+      });
 
       // Eliminar fila
       const hoja = this.getHoja();

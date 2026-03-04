@@ -1669,3 +1669,130 @@ function _vnJsonOk(resultado) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// ============================================================================
+// M-07: HEALTH CHECK — Verificación de integridad del sistema
+// ============================================================================
+
+/**
+ * Verifica la integridad del sistema Sol & Verde.
+ * Ejecuta 4 chequeos críticos y retorna un reporte detallado.
+ * Expuesta al frontend para diagnóstico desde la UI de administración.
+ *
+ * @returns {Object} { success, timestamp, chequeos, resumen }
+ */
+function verificarIntegridadSistema() {
+  const inicio = Date.now();
+  const chequeos = [];
+
+  // ── Chequeo 1: Todas las hojas requeridas existen ──────────────────────
+  try {
+    const ss = getSpreadsheet();
+    const hojasRequeridas = Object.values(CONFIG.HOJAS);
+    const hojasVN = Object.values(CONFIG_VN ? CONFIG_VN.HOJAS : {});
+    const hojasFaltantes = [];
+
+    [...hojasRequeridas, ...hojasVN].forEach(nombre => {
+      if (!ss.getSheetByName(nombre)) hojasFaltantes.push(nombre);
+    });
+
+    chequeos.push({
+      nombre:  'HOJAS_EXISTENTES',
+      estado:  hojasFaltantes.length === 0 ? 'OK' : 'ERROR',
+      detalle: hojasFaltantes.length === 0
+        ? 'Todas las hojas requeridas existen'
+        : 'Hojas faltantes: ' + hojasFaltantes.join(', ')
+    });
+  } catch (e) {
+    chequeos.push({ nombre: 'HOJAS_EXISTENTES', estado: 'ERROR', detalle: e.message });
+  }
+
+  // ── Chequeo 2: Saldos en hoja CLIENTES vs. recálculo desde MOVIMIENTOS ──
+  try {
+    const clientes = ClientesRepository.obtenerTodos();
+    const saldosRecalculados = MovimientosRepository.recalcularTodosSaldos
+      ? MovimientosRepository.recalcularTodosSaldos()
+      : null;
+
+    if (!saldosRecalculados) {
+      chequeos.push({ nombre: 'SALDOS_COHERENTES', estado: 'SKIP', detalle: 'recalcularTodosSaldos no disponible' });
+    } else {
+      const inconsistentes = [];
+      clientes.forEach(c => {
+        const saldoCalc = saldosRecalculados[c.nombre] || 0;
+        const diff = Math.abs((c.saldo || 0) - saldoCalc);
+        if (diff > 0.01) {
+          inconsistentes.push({ cliente: c.nombre, saldoHoja: c.saldo, saldoCalc, diff });
+        }
+      });
+      chequeos.push({
+        nombre:  'SALDOS_COHERENTES',
+        estado:  inconsistentes.length === 0 ? 'OK' : 'ADVERTENCIA',
+        detalle: inconsistentes.length === 0
+          ? 'Todos los saldos son coherentes (' + clientes.length + ' clientes)'
+          : inconsistentes.length + ' saldo(s) inconsistente(s): ' + JSON.stringify(inconsistentes.slice(0, 5))
+      });
+    }
+  } catch (e) {
+    chequeos.push({ nombre: 'SALDOS_COHERENTES', estado: 'ERROR', detalle: e.message });
+  }
+
+  // ── Chequeo 3: No hay sesión VN abierta sin cierre por más de 24hs ──────
+  try {
+    const ss = getSpreadsheet();
+    const hojaSesiones = ss.getSheetByName(CONFIG_VN ? CONFIG_VN.HOJAS.SESIONES : 'VN_SESIONES');
+    if (!hojaSesiones) {
+      chequeos.push({ nombre: 'SESIONES_VN', estado: 'SKIP', detalle: 'Módulo VN no inicializado' });
+    } else {
+      const datos = hojaSesiones.getDataRange().getValues();
+      const ahora = new Date();
+      const sesionesFantasma = [];
+
+      datos.slice(1).forEach(f => {
+        const estado = f[CONFIG_VN.COLS_SESIONES.ESTADO - 1];
+        const fechaApertura = f[CONFIG_VN.COLS_SESIONES.APERTURA - 1];
+        if (estado === CONFIG_VN.ESTADOS_SESION.ABIERTA && fechaApertura instanceof Date) {
+          const hs = (ahora - fechaApertura) / 3600000;
+          if (hs > 24) {
+            sesionesFantasma.push({ id: f[0], hs: Math.round(hs) });
+          }
+        }
+      });
+
+      chequeos.push({
+        nombre:  'SESIONES_VN',
+        estado:  sesionesFantasma.length === 0 ? 'OK' : 'ADVERTENCIA',
+        detalle: sesionesFantasma.length === 0
+          ? 'No hay sesiones VN abiertas por más de 24hs'
+          : sesionesFantasma.length + ' sesión(es) abierta(s) > 24hs: ' + JSON.stringify(sesionesFantasma)
+      });
+    }
+  } catch (e) {
+    chequeos.push({ nombre: 'SESIONES_VN', estado: 'ERROR', detalle: e.message });
+  }
+
+  // ── Chequeo 4: API key de Claude configurada ─────────────────────────────
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const apiKey = props.getProperty('CLAUDE_API_KEY') || props.getProperty('claude_api_key');
+    chequeos.push({
+      nombre:  'CLAUDE_API_KEY',
+      estado:  apiKey ? 'OK' : 'ADVERTENCIA',
+      detalle: apiKey ? 'API key configurada (***' + apiKey.slice(-4) + ')' : 'API key de Claude no configurada'
+    });
+  } catch (e) {
+    chequeos.push({ nombre: 'CLAUDE_API_KEY', estado: 'ERROR', detalle: e.message });
+  }
+
+  const hayErrores = chequeos.some(c => c.estado === 'ERROR');
+  const hayAdvertencias = chequeos.some(c => c.estado === 'ADVERTENCIA');
+
+  return {
+    success:   true,
+    timestamp: new Date().toISOString(),
+    duracionMs: Date.now() - inicio,
+    estadoGeneral: hayErrores ? 'ERROR' : hayAdvertencias ? 'ADVERTENCIA' : 'OK',
+    chequeos,
+    resumen: chequeos.map(c => c.nombre + ': ' + c.estado).join(' | ')
+  };
+}
+

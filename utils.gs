@@ -428,3 +428,215 @@ function sumaFinanciera(a, b) {
 function restaFinanciera(a, b) {
   return pesos(centavos(a) - centavos(b));
 }
+
+// ============================================================================
+// REQUEST-SCOPED CACHE — In-Memory Index por ejecución GAS
+// Las variables module-level persisten durante todo el request lifecycle.
+// Se invalidan automáticamente al terminar la ejecución (no hay memoria cruzada).
+// ============================================================================
+
+const RequestCache = {
+  _store: {},
+
+  /**
+   * Obtiene un valor del cache de request.
+   * @param {string} key
+   * @returns {*} Valor o undefined si no existe
+   */
+  get: function(key) {
+    return this._store[key];
+  },
+
+  /**
+   * Guarda un valor en el cache de request.
+   * @param {string} key
+   * @param {*} value
+   */
+  set: function(key, value) {
+    this._store[key] = value;
+  },
+
+  /**
+   * Invalida una o más claves del cache.
+   * Debe llamarse en CADA operación de escritura (crear, editar, eliminar).
+   * @param {...string} keys
+   */
+  invalidar: function(...keys) {
+    keys.forEach(k => delete this._store[k]);
+  },
+
+  /**
+   * Obtiene o computa un valor del cache.
+   * Si existe, retorna el cacheado. Si no, ejecuta fn(), cachea y retorna.
+   * @param {string} key
+   * @param {Function} fn - Función que produce el valor
+   * @returns {*}
+   */
+  obtenerOComputar: function(key, fn) {
+    if (this._store[key] !== undefined) {
+      return this._store[key];
+    }
+    const valor = fn();
+    this._store[key] = valor;
+    return valor;
+  }
+};
+
+// ============================================================================
+// SHEETS CACHE LAYER — CacheService wrapper con invalidación explícita
+// TTL corto (60s) para balance óptimo entre frescura y performance.
+// Diseñado para datos de lectura frecuente con escritura infrecuente.
+// ============================================================================
+
+const SheetsCache = {
+  _cache: null,
+
+  _getCache: function() {
+    if (!this._cache) this._cache = CacheService.getScriptCache();
+    return this._cache;
+  },
+
+  /**
+   * Guarda datos en CacheService, manejando el límite de 100KB con chunking.
+   * @param {string} key - Clave del cache
+   * @param {*} data - Datos a cachear (se serializan como JSON)
+   * @param {number} ttlSegundos - TTL en segundos (default: 60)
+   */
+  set: function(key, data, ttlSegundos) {
+    ttlSegundos = ttlSegundos || 60;
+    try {
+      const json = JSON.stringify(data);
+      const cache = this._getCache();
+
+      if (json.length <= 95000) {
+        // Cabe en un solo valor
+        cache.put(key, json, ttlSegundos);
+        cache.put(key + '_meta', JSON.stringify({ chunks: 1 }), ttlSegundos);
+      } else {
+        // Chunking para datos > 95KB
+        const chunkSize = 90000;
+        const chunks = [];
+        for (let i = 0; i < json.length; i += chunkSize) {
+          chunks.push(json.substring(i, i + chunkSize));
+        }
+        const putEntries = {};
+        putEntries[key + '_meta'] = JSON.stringify({ chunks: chunks.length });
+        chunks.forEach((chunk, idx) => {
+          putEntries[key + '_' + idx] = chunk;
+        });
+        cache.putAll(putEntries, ttlSegundos);
+      }
+    } catch (e) {
+      Logger.log('[SheetsCache] Error en set(' + key + '): ' + e.message);
+    }
+  },
+
+  /**
+   * Recupera datos del cache.
+   * @param {string} key
+   * @returns {*} Datos deserializados o null si no existe/expiró
+   */
+  get: function(key) {
+    try {
+      const cache = this._getCache();
+      const metaStr = cache.get(key + '_meta');
+      if (!metaStr) return null;
+
+      const meta = JSON.parse(metaStr);
+      if (meta.chunks === 1) {
+        const raw = cache.get(key);
+        return raw ? JSON.parse(raw) : null;
+      }
+
+      // Reconstruir chunks
+      let json = '';
+      const keys = [];
+      for (let i = 0; i < meta.chunks; i++) keys.push(key + '_' + i);
+      const chunks = cache.getAll(keys);
+      for (let i = 0; i < meta.chunks; i++) {
+        const chunk = chunks[key + '_' + i];
+        if (!chunk) return null; // chunk expirado → cache miss
+        json += chunk;
+      }
+      return JSON.parse(json);
+    } catch (e) {
+      Logger.log('[SheetsCache] Error en get(' + key + '): ' + e.message);
+      return null;
+    }
+  },
+
+  /**
+   * Invalida claves del cache (borrado inmediato).
+   * Llamar en TODA operación de escritura sobre los datos cacheados.
+   * @param {...string} keys
+   */
+  invalidar: function(...keys) {
+    try {
+      const cache = this._getCache();
+      const allKeys = [];
+      keys.forEach(k => {
+        allKeys.push(k + '_meta', k + '_0', k + '_1', k + '_2', k + '_3', k);
+      });
+      cache.removeAll(allKeys);
+    } catch (e) {
+      Logger.log('[SheetsCache] Error en invalidar: ' + e.message);
+    }
+  }
+};
+
+// ============================================================================
+// RETRY WRAPPER — Backoff exponencial para errores transitorios de Sheets API
+// Detecta: ServiceUnavailableException, QuotaExceeded, timeout genérico.
+// NO hace retry en: errores de validación, not found, permisos.
+// ============================================================================
+
+/**
+ * Ejecuta una función con retry y backoff exponencial.
+ * @param {Function} fn - Función a ejecutar (debe ser idempotente)
+ * @param {Object} opciones
+ * @param {number} opciones.maxIntentos - Máximo de intentos (default: 3)
+ * @param {number} opciones.delayBaseMs - Delay base en ms (default: 1000)
+ * @param {string} opciones.contexto - Nombre del contexto para logging
+ * @returns {*} Resultado de fn() en el primer intento exitoso
+ * @throws {Error} Si agota todos los intentos
+ */
+function conRetry(fn, opciones) {
+  const maxIntentos = (opciones && opciones.maxIntentos) || 3;
+  const delayBaseMs = (opciones && opciones.delayBaseMs) || 1000;
+  const contexto    = (opciones && opciones.contexto)    || 'conRetry';
+
+  // Mensajes que indican error transitorio (reintentable)
+  const ERRORES_REINTENTABLES = [
+    'service spreadsheets failed',
+    'exceeded',
+    'quota',
+    'timeout',
+    'timed out',
+    'service unavailable',
+    'internal error',
+    'backend error',
+    'try again'
+  ];
+
+  let ultimoError;
+  for (let intento = 1; intento <= maxIntentos; intento++) {
+    try {
+      return fn();
+    } catch (e) {
+      ultimoError = e;
+      const msgLower = (e.message || '').toLowerCase();
+      const esReintentable = ERRORES_REINTENTABLES.some(patron => msgLower.includes(patron));
+
+      if (!esReintentable || intento === maxIntentos) {
+        // Error no reintentable o agotamos intentos → propagar
+        Logger.log('[' + contexto + '] Error no reintentable o intentos agotados (' + intento + '/' + maxIntentos + '): ' + e.message);
+        throw e;
+      }
+
+      const delayMs = delayBaseMs * Math.pow(2, intento - 1); // 1s, 2s, 4s
+      Logger.log('[' + contexto + '] Intento ' + intento + '/' + maxIntentos + ' fallido. Reintentando en ' + delayMs + 'ms. Error: ' + e.message);
+      Utilities.sleep(delayMs);
+    }
+  }
+  throw ultimoError; // never reached, TypeScript appeasement
+}

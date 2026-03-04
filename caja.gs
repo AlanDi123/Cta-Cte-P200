@@ -170,13 +170,25 @@ const CajaRepository = {
 
       // Insertar todos los registros
       for (const registro of registros) {
-        hoja.appendRow(registro);
+        // M-05: Usar conRetry para cada appendRow
+        conRetry(() => hoja.appendRow(registro), { contexto: 'CAJA.guardarSesion.appendRow', maxIntentos: 3 });
       }
 
       lock.releaseLock();
 
       // Calcular totales
       const totales = this.calcularTotalesSesion(registros);
+
+      // M-06: Auditoría de arqueo de caja
+      AuditLogger.registrar({
+        modulo:      'CAJA',
+        operacion:   'GUARDAR_ARQUEO',
+        entidadId:   sesionId,
+        entidadDesc: 'Arqueo fecha: ' + Utilities.formatDate(fecha, Session.getScriptTimeZone(), 'dd/MM/yyyy'),
+        antes:       null,
+        despues:     { registros: registros.length, totalEfectivo: totales.efectivo || 0 },
+        montoImpacto: totales.efectivo || 0
+      });
 
       return {
         success: true,

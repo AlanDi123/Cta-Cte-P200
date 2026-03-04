@@ -275,6 +275,60 @@ const VnStockRepo = {
     this._aumentarStock(ss, productoId, cantidad);
   },
 
+  // ✅ M-03: NUEVO MÉTODO — procesa múltiples descuentos en una sola lectura+escritura
+  /**
+   * Descuenta stock de múltiples productos en una sola operación Sheets.
+   * Reduce N reads + N writes a exactamente 1 read + 1 write.
+   * @param {Array<{prodId: number, qty: number}>} items - Items a descontar
+   * @returns {Object} { success: boolean, insuficiente: Array<number> }
+   *   insuficiente: array de prodIds que quedaron en stock < 0 (advertencia)
+   */
+  descontarStockBatch: function(items) {
+    if (!items || items.length === 0) return { success: true, insuficiente: [] };
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const hoja = ss.getSheetByName(CONFIG_VN.HOJAS.PRODUCTOS);
+    if (!hoja) return { success: false, error: 'Hoja PRODUCTOS no encontrada' };
+
+    const datos = hoja.getDataRange().getValues(); // ← 1 SOLA LECTURA
+    const colStock = CONFIG_VN.COLS_PRODUCTOS.STOCK - 1;
+    const colId    = 0; // ID siempre en columna A (índice 0)
+
+    // Construir mapa prodId → índice de fila para O(1) lookup
+    const indiceProd = new Map();
+    for (let i = 1; i < datos.length; i++) {
+      indiceProd.set(Number(datos[i][colId]), i);
+    }
+
+    const insuficiente = [];
+    const filasMod = new Set(); // filas que fueron modificadas
+
+    for (const item of items) {
+      const idx = indiceProd.get(Number(item.prodId));
+      if (idx === undefined) {
+        Logger.log('[VN_STOCK_BATCH] Producto no encontrado: ' + item.prodId);
+        continue;
+      }
+      const stockActual = Number(datos[idx][colStock]) || 0;
+      const nuevoStock  = stockActual - Number(item.qty);
+      if (nuevoStock < 0) insuficiente.push(item.prodId);
+      datos[idx][colStock] = Math.max(0, nuevoStock);
+      filasMod.add(idx);
+    }
+
+    // Escribir solo las filas que cambiaron, en una sola llamada por fila
+    for (const idx of filasMod) {
+      hoja.getRange(idx + 1, 1, 1, datos[idx].length).setValues([datos[idx]]);
+    }
+    SpreadsheetApp.flush();
+
+    if (insuficiente.length > 0) {
+      Logger.log('[VN_STOCK_BATCH] Stock insuficiente detectado en productos: ' + insuficiente.join(', '));
+    }
+
+    return { success: true, insuficiente };
+  },
+
   // ── Validar stock disponible ─────────────────────────────
   validarStock(items) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();

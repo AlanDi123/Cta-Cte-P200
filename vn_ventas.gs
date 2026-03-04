@@ -68,7 +68,8 @@ const VnVentasRepo = {
       const usuario = Session.getActiveUser().getEmail();
       const subtotal = Number(data.subtotal) || total;
 
-      hoja.appendRow([
+      // M-05: Usar conRetry para el appendRow de la venta
+      conRetry(() => hoja.appendRow([
         nuevoId,
         Number(data.sesionId),
         Utilities.formatDate(ahora, Session.getScriptTimeZone(), 'yyyy-MM-dd'),
@@ -81,12 +82,18 @@ const VnVentasRepo = {
         CONFIG_VN.ESTADOS_VENTA.CONFIRMADA,
         data.obs || '',
         usuario
-      ]);
+      ]), { contexto: 'VN.registrar.appendRow', maxIntentos: 3 });
 
-      // Descontar stock
-      itemsConId.forEach(item => {
-        VnStockRepo.descontarStock(item.prodId, item.qty);
-      });
+      // M-03: Descontar stock (batch: 1 read + 1 write por fila modificada)
+      const batchResult = VnStockRepo.descontarStockBatch(
+        itemsConId.map(i => ({ prodId: i.prodId, qty: i.qty }))
+      );
+      if (!batchResult.success) {
+        throw new Error('Error al descontar stock: ' + (batchResult.error || 'desconocido'));
+      }
+      if (batchResult.insuficiente && batchResult.insuficiente.length > 0) {
+        Logger.log('[VN_VENTAS] Stock negativo evitado en venta #' + nuevoId + ' para prods: ' + batchResult.insuficiente.join(','));
+      }
 
       // Canjear vales usados
       mediosVale.forEach(mv => {

@@ -181,13 +181,21 @@ const CajaDiariaRepository = {
     const hoja = this.getHoja();
     const datos = hoja.getDataRange().getValues();
     const C = CONFIG.COLS_CAJA_DIARIA;
+    const numColumnas = datos[0] ? datos[0].length : 20; // columnas totales de la hoja
 
     for (let i = 1; i < datos.length; i++) {
       if (datos[i][C.ID] === id) {
         const filaHoja = i + 1;
+        // M-02: Copiar la fila actual como base
+        const filaActualizada = datos[i].slice(); // shallow copy del array
+
+        // Aplicar todos los cambios en memoria
         for (const [col, valor] of Object.entries(campos)) {
-          hoja.getRange(filaHoja, Number(col) + 1).setValue(valor);
+          filaActualizada[Number(col)] = valor;
         }
+
+        // M-02: Una única escritura para todos los campos cambiados
+        hoja.getRange(filaHoja, 1, 1, numColumnas).setValues([filaActualizada]);
         return true;
       }
     }
@@ -540,6 +548,17 @@ function cerrarCajaDiaria(id, datos) {
       [C.CAJA_SIGUIENTE]:    datos.cajaSiguiente || 0,
       [C.RAZON_DIFERENCIA]:  datos.razonDiferencia || '',
       [C.TIMESTAMP_CIERRE]:  new Date()
+    });
+
+    // M-06: Auditoría de cierre de caja
+    AuditLogger.registrar({
+      modulo:      'CONTABILIDAD',
+      operacion:   'CERRAR_CAJA',
+      entidadId:   id,
+      entidadDesc: 'Caja fecha: ' + caja.fecha,
+      antes:       { estado: 'ABIERTA' },
+      despues:     { estado: 'CERRADA', cajaFinal: datos.cajaFinal || 0, diferencia: resumen.diferencia },
+      montoImpacto: datos.cajaFinal || 0
     });
 
     lock.releaseLock();
