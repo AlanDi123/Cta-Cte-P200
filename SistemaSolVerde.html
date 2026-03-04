@@ -90,7 +90,7 @@
     }
 
     /* ========================================
-       SPLASH SCREEN
+       SPLASH SCREEN - SELECCIÓN DUAL
        ======================================== */
     #splashScreen {
       position: fixed;
@@ -98,135 +98,203 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, var(--sv-verde-oscuro) 0%, var(--sv-verde-corp) 50%, var(--sv-verde-brillante) 100%);
+      background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 50%, #4CAF50 100%);
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       z-index: 10000;
-      animation: splashFadeIn 0.5s ease-out;
+      transition: opacity 0.5s ease;
     }
 
     #splashScreen.hide {
-      animation: splashFadeOut 0.5s ease-out forwards;
+      opacity: 0;
+      pointer-events: none;
     }
-
-    @keyframes splashFadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
+    
+    /* Intro animations */
+    .splash-anim-logo {
+      animation: logoIntro 1s ease-out forwards;
     }
-
-    @keyframes splashFadeOut {
-      from { opacity: 1; }
-      to { opacity: 0; pointer-events: none; }
+    
+    .splash-anim-title {
+      animation: titleSlideUp 0.8s ease-out 0.3s forwards;
+      opacity: 0;
+    }
+    
+    .splash-anim-subtitle {
+      animation: titleSlideUp 0.8s ease-out 0.5s forwards;
+      opacity: 0;
+    }
+    
+    .splash-anim-creator {
+      animation: fadeIn 0.8s ease-out 0.8s forwards;
+      opacity: 0;
+    }
+    
+    @keyframes logoIntro {
+      0% { 
+        opacity: 0; 
+        transform: scale(0.5) rotate(-10deg);
+      }
+      50% {
+        transform: scale(1.1) rotate(5deg);
+      }
+      100% { 
+        opacity: 1; 
+        transform: scale(1) rotate(0deg);
+      }
+    }
+    
+    @keyframes titleSlideUp {
+      0% {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
     }
 
     .splash-logo-container {
       position: relative;
-      width: 200px;
-      height: 200px;
-      margin-bottom: 30px;
-    }
-
-    .splash-logo {
-      width: 100%;
-      height: 100%;
-      background: white;
-      border-radius: 50%;
-      padding: 20px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      animation: logoFloat 3s ease-in-out infinite;
-    }
-
-    @keyframes logoFloat {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-10px); }
+      width: 180px;
+      height: 180px;
+      margin-bottom: 20px;
     }
 
     .splash-logo-img {
       width: 100%;
       height: 100%;
-      max-width: 200px;
-      max-height: 200px;
       object-fit: contain;
       border-radius: 50%;
       background: white;
-      padding: 20px;
+      padding: 15px;
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-      animation: logoFloat 3s ease-in-out infinite;
     }
-
 
     .splash-title {
       color: white;
-      font-size: 24px;
-      font-weight: 300;
-      letter-spacing: 4px;
-      margin-bottom: 10px;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      text-align: center;
     }
 
-    .splash-version {
+    .splash-subtitle {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+      font-weight: 400;
+      margin-bottom: 5px;
+      text-align: center;
+    }
+    
+    .splash-creator {
       color: rgba(255, 255, 255, 0.7);
-      font-size: 14px;
-      font-weight: 300;
+      font-size: 13px;
+      font-style: italic;
       margin-bottom: 30px;
+      text-align: center;
     }
-
-    .splash-progress {
-      width: 300px;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 2px;
-      overflow: hidden;
+    
+    /* Selection screen */
+    .splash-hidden {
+      display: none !important;
+    }
+    
+    .splash-selection-container {
+      text-align: center;
+      animation: selectionSlideUp 0.6s ease-out;
+    }
+    
+    @keyframes selectionSlideUp {
+      0% {
+        opacity: 0;
+        transform: translateY(50px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .splash-selection-title {
+      color: white;
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    
+    .splash-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    
+    .splash-option-btn {
+      background: rgba(255, 255, 255, 0.15);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 16px;
+      padding: 30px 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: white;
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+    
+    .splash-option-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: white;
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    
+    .splash-option-btn:active {
+      transform: translateY(-2px);
+    }
+    
+    .splash-option-icon {
+      font-size: 48px;
       margin-bottom: 15px;
     }
-
-    .splash-progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, var(--sv-naranja), var(--sv-amarillo), var(--sv-verde-brillante));
-      width: 0%;
-      border-radius: 2px;
-      animation: progressLoad 2s ease-out forwards;
+    
+    .splash-option-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
     }
-
-    @keyframes progressLoad {
-      0% { width: 0%; }
-      25% { width: 30%; }
-      50% { width: 65%; }
-      75% { width: 85%; }
-      100% { width: 100%; }
+    
+    .splash-option-desc {
+      font-size: 13px;
+      opacity: 0.85;
+      line-height: 1.4;
     }
-
-    .splash-loading-text {
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 14px;
-      animation: loadingPulse 1.5s ease-in-out infinite;
-    }
-
-    @keyframes loadingPulse {
-      0%, 100% { opacity: 0.6; }
-      50% { opacity: 1; }
-    }
-
-    /* ========================================
-       LAYOUT PRINCIPAL
-       ======================================== */
-    #appContainer {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      opacity: 0;
-      animation: appFadeIn 0.5s ease-out 2.5s forwards;
-    }
-
-    @keyframes appFadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+    
+    /* Responsive */
+    @media (max-width: 600px) {
+      .splash-options {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
+      
+      .splash-title {
+        font-size: 24px;
+      }
+      
+      .splash-selection-title {
+        font-size: 22px;
+      }
     }
 
     /* ========================================
@@ -2383,25 +2451,41 @@
 <body>
 
   <!-- ═══════════════════════════════════════════════════════════════
-       SPLASH SCREEN
+       SPLASH SCREEN - SELECCIÓN DUAL DE SISTEMAS
        ═══════════════════════════════════════════════════════════════ -->
   <div id="splashScreen">
-    <div class="splash-logo-container">
-      <img
-        src="https://i.imgur.com/tStvmV1.png"
-        alt="Sol & Verde Logo"
-        class="splash-logo-img"
-      />
+    <!-- Fase 1: Animación de logo -->
+    <div id="splashIntro">
+      <div class="splash-logo-container">
+        <img
+          src="https://i.imgur.com/tStvmV1.png"
+          alt="Sol & Verde Logo"
+          class="splash-logo-img splash-anim-logo"
+        />
+      </div>
+      <div class="splash-title splash-anim-title">Sol & Verde</div>
+      <div class="splash-subtitle splash-anim-subtitle">Sistema de Cuentas Corrientes</div>
+      <div class="splash-creator splash-anim-creator">Creado y Programado por Alan</div>
     </div>
-
-    <div class="splash-title">SISTEMA DE CUENTAS CORRIENTES</div>
-    <div class="splash-version">Versión 18.0 Enterprise</div>
-
-    <div class="splash-progress">
-      <div class="splash-progress-bar"></div>
+    
+    <!-- Fase 2: Selección de sistema -->
+    <div id="splashSelection" class="splash-hidden">
+      <div class="splash-selection-container">
+        <h2 class="splash-selection-title">Seleccionar Sistema</h2>
+        <div class="splash-options">
+          <button class="splash-option-btn" onclick="selectSystem('night')" id="btnNightSystem">
+            <div class="splash-option-icon">🌙</div>
+            <div class="splash-option-name">Venta Nocturna</div>
+            <div class="splash-option-desc">Sistema especializado para ventas nocturnas</div>
+          </button>
+          <button class="splash-option-btn" onclick="selectSystem('puesto')" id="btnPuestoSystem">
+            <div class="splash-option-icon">🏪</div>
+            <div class="splash-option-name">Sistema Puesto 200</div>
+            <div class="splash-option-desc">Sistema principal de cuentas corrientes</div>
+          </button>
+        </div>
+      </div>
     </div>
-
-    <div class="splash-loading-text">Inicializando sistema...</div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -4139,6 +4223,110 @@
   </style>
   <button id="debugFetchBtn" title="Debug: fetch raw">🐞 Debug Fetch</button>
 
+  <!-- ========================================
+       SPLASH SCREEN LOGIC
+       ======================================== -->
+  <script>
+    // ========================================
+    // SELECCIÓN DE SISTEMA - SPLASH SCREEN
+    // ========================================
+    
+    /**
+     * Seleccionar sistema y guardar en sessionStorage
+     * @param {string} system - 'night' o 'puesto'
+     */
+    function selectSystem(system) {
+      console.log('📌 Sistema seleccionado:', system);
+      
+      // Guardar selección
+      sessionStorage.setItem('selectedSystem', system);
+      
+      // Animación de salida
+      const splash = document.getElementById('splashScreen');
+      splash.classList.add('hide');
+      
+      // Cargar el sistema seleccionado después de la animación
+      setTimeout(() => {
+        if (system === 'night') {
+          // Cargar Venta Nocturna
+          console.log('🌙 Cargando Venta Nocturna...');
+          loadNightSalesSystem();
+        } else {
+          // Cargar Sistema Puesto 200
+          console.log('🏪 Cargando Sistema Puesto 200...');
+          loadPuesto200System();
+        }
+      }, 500);
+    }
+    
+    /**
+     * Cargar sistema de Venta Nocturna
+     */
+    function loadNightSalesSystem() {
+      // Por ahora, redirigir al módulo de venta nocturna existente
+      // En el futuro, esto cargará el módulo modularizado
+      changeModule('venta-nocturna');
+      initializeApp();
+    }
+    
+    /**
+     * Cargar sistema Puesto 200
+     */
+    function loadPuesto200System() {
+      // Cargar el sistema principal
+      initializeApp();
+    }
+    
+    /**
+     * Inicializar splash screen con animaciones
+     */
+    function initSplashScreen() {
+      console.log('🎬 Inicializando splash screen...');
+      
+      // Verificar si ya hay un sistema seleccionado en esta sesión
+      const savedSystem = sessionStorage.getItem('selectedSystem');
+      
+      if (savedSystem) {
+        console.log('✅ Sistema recuperado de sessionStorage:', savedSystem);
+        // Saltar splash e ir directo al sistema
+        document.getElementById('splashScreen').classList.add('hide');
+        setTimeout(() => {
+          if (savedSystem === 'night') {
+            loadNightSalesSystem();
+          } else {
+            loadPuesto200System();
+          }
+        }, 500);
+        return;
+      }
+      
+      // Mostrar animación intro (2-3 segundos)
+      setTimeout(() => {
+        document.getElementById('splashIntro').classList.add('splash-hidden');
+        document.getElementById('splashSelection').classList.remove('splash-hidden');
+      }, 2500); // 2.5 segundos de animación
+    }
+    
+    /**
+     * Inicializar aplicación principal
+     */
+    function initializeApp() {
+      // Mostrar app container
+      document.getElementById('appContainer').style.opacity = '1';
+      
+      // Inicializar módulos
+      try {
+        initNavigation();
+        initDashboard();
+        initVisualReasoning();
+        initVisorClientes();
+        console.log('✅ Módulos inicializados correctamente.');
+      } catch (error) {
+        console.error('❌ Error durante la inicialización:', error);
+      }
+    }
+  </script>
+
     // Validación de inicialización y robustez de datos
     document.addEventListener('DOMContentLoaded', function() {
       console.log('🚀 Sistema Sol & Verde cargado correctamente.');
@@ -4163,11 +4351,8 @@
       // Inicializar módulos principales
       try {
         initSplashScreen();
-        initNavigation();
-        initDashboard();
-        initVisualReasoning();
-        initVisorClientes();
-        console.log('✅ Módulos inicializados correctamente.');
+        // initNavigation(), initDashboard(), etc. se llaman desde initializeApp()
+        console.log('✅ Splash screen inicializada.');
       } catch (error) {
         console.error('❌ Error durante la inicialización:', error);
         alert('Error crítico durante la inicialización. Consulte la consola para más detalles.');
