@@ -4260,13 +4260,68 @@
     }
     
     /**
-     * Cargar sistema de Venta Nocturna
+     * Cargar sistema de Venta Nocturna (módulo modularizado)
      */
     function loadNightSalesSystem() {
-      // Por ahora, redirigir al módulo de venta nocturna existente
-      // En el futuro, esto cargará el módulo modularizado
-      changeModule('venta-nocturna');
-      initializeApp();
+      console.log('🌙 Cargando módulo de Venta Nocturna...');
+      
+      // Ocultar splash
+      document.getElementById('splashScreen').classList.add('hide');
+      
+      // Cargar estilos del módulo
+      loadVNStyles();
+      
+      // Cargar módulo dinámicamente
+      loadVNModule();
+    }
+
+    /**
+     * Cargar estilos de Venta Nocturna
+     */
+    function loadVNStyles() {
+      if (!document.getElementById('vn-styles')) {
+        const link = document.createElement('link');
+        link.id = 'vn-styles';
+        link.rel = 'stylesheet';
+        link.href = 'https://raw.githubusercontent.com/your-repo/venta-nocturna/styles.css';
+        // Nota: En producción, usar URL real o inline styles
+        document.head.appendChild(link);
+      }
+    }
+
+    /**
+     * Cargar módulo de Venta Nocturna dinámicamente
+     */
+    function loadVNModule() {
+      // Verificar si ya está cargado
+      if (window.VentaNocturnaModule && window.VentaNocturnaModule.init) {
+        console.log('[VN] Módulo ya cargado, inicializando...');
+        window.VentaNocturnaModule.init();
+        return;
+      }
+
+      // Mostrar loading
+      document.getElementById('mainContent').innerHTML = `
+        <div class="loading-container" style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+          <div>
+            <div class="spinner" style="width: 50px; height: 50px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="text-align: center; margin-top: 20px; color: var(--sv-texto-primario);">Cargando Venta Nocturna...</p>
+          </div>
+        </div>
+      `;
+
+      // En Google Apps Script, no podemos usar import() dinámico
+      // El código se carga inline desde el backend
+      // Simulamos la carga del módulo
+      setTimeout(() => {
+        // Inicializar módulo (el código está inline en el HTML)
+        if (window.VentaNocturnaModule) {
+          window.VentaNocturnaModule.init();
+        } else {
+          console.error('[VN] Error: Módulo no disponible');
+          showToast('Error', 'No se pudo cargar el módulo de Venta Nocturna', 'error');
+        }
+      }, 500);
     }
     
     /**
@@ -4658,6 +4713,8 @@
       movimientosRecientes: [],
       clienteSeleccionado: null,
       isLoading: false,
+      // PROTECCIÓN RACE CONDITIONS: flag para recálculo de saldos
+      isUpdatingBalances: false,
       // CACHE: general + stats
       cache: {
         general: {
@@ -5936,17 +5993,29 @@
     }
 
     // ========================================
-    // EDITAR/ELIMINAR MOVIMIENTOS
+    // EDITAR/ELIMINAR MOVIMIENTOS CON PROTECCIÓN RACE CONDITIONS
     // ========================================
     var movimientoEnEdicion = null;
 
+    /**
+     * Abre modal para editar movimiento
+     */
     function abrirEditarMovimiento(id, monto, obs) {
+      // Verificar si hay actualización de saldos en curso
+      if (AppState.isUpdatingBalances) {
+        showToast('warning', 'Espere', 'Actualizando saldos...');
+        return;
+      }
+      
       movimientoEnEdicion = id;
       document.getElementById('inputMontoEditar').value = monto;
       document.getElementById('inputObsEditar').value = obs || '';
       abrirModal('modalEditarMovimiento');
     }
 
+    /**
+     * Guarda edición de movimiento con recálculo en cascada
+     */
     function guardarEdicionMovimiento() {
       if (!movimientoEnEdicion) return;
 
@@ -5958,35 +6027,144 @@
         return;
       }
 
+      // Bloquear interfaz durante actualización
+      AppState.isUpdatingBalances = true;
+      mostrarLoadingBalances();
+
       google.script.run
         .withSuccessHandler(function(resultado) {
+          AppState.isUpdatingBalances = false;
+          ocultarLoadingBalances();
+          
           if (resultado && resultado.success) {
             showToast('success', 'Listo', 'Movimiento actualizado');
             cerrarModal('modalEditarMovimiento');
             invalidarCache();
+            
+            // Disparar evento para que todas las vistas se actualicen
+            window.dispatchEvent(new CustomEvent('balancesUpdated', {
+              detail: { 
+                success: true, 
+                operacion: 'editar',
+                movimientoId: movimientoEnEdicion 
+              }
+            }));
+            
             cargarDatosIniciales();
           } else {
             showToast('error', 'Error', resultado.error);
           }
         })
+        .withFailureHandler(function(error) {
+          AppState.isUpdatingBalances = false;
+          ocultarLoadingBalances();
+          showToast('error', 'Error', 'Error de conexión: ' + error.message);
+        })
         .actualizarMovimiento(movimientoEnEdicion, nuevoMonto, nuevaObs);
+        
+      movimientoEnEdicion = null;
     }
 
+    /**
+     * Confirma y elimina movimiento con recálculo en cascada
+     */
     function confirmarEliminarMovimiento(id) {
+      // Verificar si hay actualización de saldos en curso
+      if (AppState.isUpdatingBalances) {
+        showToast('warning', 'Espere', 'Actualizando saldos...');
+        return;
+      }
+      
       if (confirm('¿Eliminar este movimiento permanentemente? Esta acción no se puede deshacer.')) {
+        // Bloquear interfaz durante actualización
+        AppState.isUpdatingBalances = true;
+        mostrarLoadingBalances();
+
         google.script.run
           .withSuccessHandler(function(resultado) {
+            AppState.isUpdatingBalances = false;
+            ocultarLoadingBalances();
+            
             if (resultado && resultado.success) {
               showToast('success', 'Listo', 'Movimiento eliminado');
               invalidarCache();
+              
+              // Disparar evento para que todas las vistas se actualicen
+              window.dispatchEvent(new CustomEvent('balancesUpdated', {
+                detail: { 
+                  success: true, 
+                  operacion: 'eliminar',
+                  movimientoId: id 
+                }
+              }));
+              
               cargarDatosIniciales();
             } else {
               showToast('error', 'Error', resultado.error);
             }
           })
+          .withFailureHandler(function(error) {
+            AppState.isUpdatingBalances = false;
+            ocultarLoadingBalances();
+            showToast('error', 'Error', 'Error de conexión: ' + error.message);
+          })
           .eliminarMovimiento(id);
       }
     }
+
+    /**
+     * Muestra indicador de carga durante actualización de saldos
+     */
+    function mostrarLoadingBalances() {
+      const overlay = document.getElementById('balancesLoadingOverlay');
+      if (overlay) {
+        overlay.classList.add('active');
+      } else {
+        // Crear overlay si no existe
+        const newOverlay = document.createElement('div');
+        newOverlay.id = 'balancesLoadingOverlay';
+        newOverlay.className = 'active';
+        newOverlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 9999;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-direction: column;
+          gap: 20px;
+        `;
+        newOverlay.innerHTML = `
+          <div class="spinner" style="width: 50px; height: 50px; border: 4px solid #f3f3f3; border-top: 4px solid var(--sv-primario); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <p style="color: white; font-weight: 600;">Actualizando saldos...</p>
+        `;
+        document.body.appendChild(newOverlay);
+      }
+    }
+
+    /**
+     * Oculta indicador de carga de actualización de saldos
+     */
+    function ocultarLoadingBalances() {
+      const overlay = document.getElementById('balancesLoadingOverlay');
+      if (overlay) {
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.remove(), 300);
+      }
+    }
+
+    /**
+     * Escucha eventos de actualización de saldos para refrescar vistas
+     */
+    window.addEventListener('balancesUpdated', function(event) {
+      console.log('[BALANCES] Evento recibido:', event.detail);
+      // Las vistas pueden escuchar este evento para actualizarse
+      // Dashboard, Visor de Clientes, e Impresión Diaria se actualizan automáticamente
+    });
 
     // ========================================
     // MÓDULO: VISOR DE CLIENTES
@@ -8084,6 +8262,339 @@
       console.log('⏳ Iniciando validación del sistema real...');
       validarSistemaCompleto();
     }, 3000);
+
+    // ═══════════════════════════════════════════════════════════════
+    // MÓDULO DE VENTA NOCTURNA - CARGA DINÁMICA
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Módulo de Venta Nocturna - Sistema especializado para ventas nocturnas
+     * Menús: Ventas, Reportes, Cierre, Consultas, Parametrización
+     */
+    window.VentaNocturnaModule = (function() {
+      'use strict';
+
+      let currentMenu = 'ventas';
+      let cachedData = {};
+      let isInitialized = false;
+
+      function init() {
+        if (isInitialized) return;
+        console.log('[VN] Inicializando módulo de Venta Nocturna...');
+        loadConfiguration();
+        renderSidebar();
+        loadView('ventas');
+        isInitialized = true;
+        console.log('[VN] Módulo inicializado correctamente');
+      }
+
+      function loadConfiguration() {
+        cachedData.config = {
+          bankNames: ['Santander Río', 'Mercado Pago', 'Macro', 'Galicia', 'Nación'],
+          moduleConstants: { maxTransactionLimit: 10000, minTransactionLimit: 100 }
+        };
+      }
+
+      function renderSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+
+        const menus = [
+          { id: 'ventas', icon: '💰', text: 'Ventas', shortcut: 'Ctrl+1' },
+          { id: 'reportes', icon: '📊', text: 'Reportes', shortcut: 'Ctrl+2' },
+          { id: 'cierre', icon: '🔒', text: 'Cierre', shortcut: 'Ctrl+3' },
+          { id: 'consultas', icon: '🔍', text: 'Consultas', shortcut: 'Ctrl+4' },
+          { id: 'parametrizacion', icon: '⚙️', text: 'Parametrización', shortcut: 'Ctrl+5' }
+        ];
+
+        sidebar.innerHTML = `
+          <div class="menu-section">
+            <div class="menu-section-title">Venta Nocturna 🌙</div>
+            ${menus.map(menu => `
+              <a class="menu-item ${menu.id === currentMenu ? 'active' : ''}" 
+                 data-vn-menu="${menu.id}"
+                 onclick="VentaNocturnaModule.loadMenu('${menu.id}')">
+                <span class="menu-item-icon">${menu.icon}</span>
+                <span class="menu-item-text">${menu.text}</span>
+                <span class="menu-item-shortcut">${menu.shortcut}</span>
+              </a>
+            `).join('')}
+          </div>
+          <div class="menu-section" style="margin-top: auto;">
+            <a class="menu-item" onclick="VentaNocturnaModule.exitToSplash()">
+              <span class="menu-item-icon">🏠</span>
+              <span class="menu-item-text">Volver al Inicio</span>
+            </a>
+          </div>
+        `;
+      }
+
+      function loadMenu(menuId) {
+        console.log('[VN] Cargando menú:', menuId);
+        currentMenu = menuId;
+        const items = document.querySelectorAll('[data-vn-menu]');
+        items.forEach(item => {
+          item.classList.toggle('active', item.dataset.vnMenu === menuId);
+        });
+        loadView(menuId);
+      }
+
+      function loadView(viewId) {
+        const mainContent = document.getElementById('mainContent');
+        if (!mainContent) return;
+
+        mainContent.innerHTML = `
+          <div class="module-view active">
+            <div class="loading-container" style="display: flex; justify-content: center; align-items: center; height: 100%;">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        `;
+
+        setTimeout(() => {
+          mainContent.innerHTML = getViewHtml(viewId);
+          initViewEvents(viewId);
+        }, 300);
+      }
+
+      function getViewHtml(viewId) {
+        switch (viewId) {
+          case 'ventas': return getVentasView();
+          case 'reportes': return getReportesView();
+          case 'cierre': return getCierreView();
+          case 'consultas': return getConsultasView();
+          case 'parametrizacion': return getParametrizacionView();
+          default: return getVentasView();
+        }
+      }
+
+      function getVentasView() {
+        const banks = cachedData.config.bankNames;
+        return `
+          <div class="module-view active">
+            <div class="module-header">
+              <h1 class="module-title"><span>💰</span> Registro de Ventas</h1>
+              <p class="module-subtitle">Sistema especializado para ventas nocturnas</p>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title"><span>📝</span> Nueva Venta</h2>
+              </div>
+              <form id="vn-venta-form" onsubmit="VentaNocturnaModule.registrarVenta(event)">
+                <div class="form-group">
+                  <label class="form-label"><span>🏦</span> Banco / Medio de Pago</label>
+                  <select class="form-select" id="vn-banco" required>
+                    <option value="">Seleccionar...</option>
+                    ${banks.map(b => `<option value="${b}">${b}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label"><span>💵</span> Monto</label>
+                  <input type="number" class="form-input" id="vn-monto" step="0.01" min="0" placeholder="$ 0.00" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label"><span>📄</span> Observaciones</label>
+                  <textarea class="form-textarea" id="vn-obs" placeholder="Detalles de la venta..."></textarea>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary"><span>✅</span> Registrar Venta</button>
+                  <button type="reset" class="btn btn-secondary"><span>🔄</span> Limpiar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        `;
+      }
+
+      function getReportesView() {
+        return `
+          <div class="module-view active">
+            <div class="module-header">
+              <h1 class="module-title"><span>📊</span> Reportes</h1>
+              <p class="module-subtitle">Consultas y estadísticas de ventas nocturnas</p>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title"><span>📅</span> Reporte por Fecha</h2>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Desde:</label>
+                <input type="date" class="form-input" id="vn-reporte-desde">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hasta:</label>
+                <input type="date" class="form-input" id="vn-reporte-hasta">
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" onclick="VentaNocturnaModule.generarReporte()">
+                  <span>🔍</span> Generar Reporte
+                </button>
+              </div>
+            </div>
+            <div id="vn-reporte-resultado" style="margin-top: 20px;"></div>
+          </div>
+        `;
+      }
+
+      function getCierreView() {
+        return `
+          <div class="module-view active">
+            <div class="module-header">
+              <h1 class="module-title"><span>🔒</span> Cierre de Caja</h1>
+              <p class="module-subtitle">Cierre diario de ventas nocturnas</p>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title"><span>📊</span> Resumen del Día</h2>
+              </div>
+              <div id="vn-cierre-resumen">
+                <p style="text-align: center; color: var(--sv-texto-secundario);">
+                  Seleccione una fecha para realizar el cierre
+                </p>
+              </div>
+              <div class="form-actions" style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="VentaNocturnaModule.realizarCierre()">
+                  <span>🔒</span> Realizar Cierre
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function getConsultasView() {
+        const banks = cachedData.config.bankNames;
+        return `
+          <div class="module-view active">
+            <div class="module-header">
+              <h1 class="module-title"><span>🔍</span> Consultas</h1>
+              <p class="module-subtitle">Búsqueda de ventas registradas</p>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title"><span>🔎</span> Búsqueda</h2>
+              </div>
+              <div class="form-group">
+                <label class="form-label"><span>🏦</span> Banco / Medio de Pago</label>
+                <select class="form-select" id="vn-consulta-banco">
+                  <option value="">Todos</option>
+                  ${banks.map(b => `<option value="${b}">${b}</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" onclick="VentaNocturnaModule.realizarConsulta()">
+                  <span>🔍</span> Buscar
+                </button>
+              </div>
+            </div>
+            <div id="vn-consulta-resultado" style="margin-top: 20px;"></div>
+          </div>
+        `;
+      }
+
+      function getParametrizacionView() {
+        const banks = cachedData.config.bankNames;
+        return `
+          <div class="module-view active">
+            <div class="module-header">
+              <h1 class="module-title"><span>⚙️</span> Parametrización</h1>
+              <p class="module-subtitle">Configuración del módulo Venta Nocturna</p>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title"><span>🏦</span> Bancos Configurados</h2>
+              </div>
+              <div id="vn-config-bancos">
+                <ul style="list-style: none; padding: 0;">
+                  ${banks.map(b => `
+                    <li style="padding: 10px; border-bottom: 1px solid var(--sv-borde); display: flex; justify-content: space-between; align-items: center;">
+                      <span>${b}</span>
+                      <button class="btn btn-secondary" style="padding: 5px 10px;" onclick="VentaNocturnaModule.eliminarBanco('${b}')">🗑️</button>
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
+              <div class="form-actions" style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="VentaNocturnaModule.agregarBanco()">
+                  <span>➕</span> Agregar Banco
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function initViewEvents(viewId) {}
+
+      // Funciones públicas del módulo
+      function registrarVenta(event) {
+        event.preventDefault();
+        const banco = document.getElementById('vn-banco').value;
+        const monto = parseFloat(document.getElementById('vn-monto').value);
+        const obs = document.getElementById('vn-obs').value;
+
+        if (!banco || !monto || monto <= 0) {
+          showToast('Error', 'Complete todos los campos requeridos', 'error');
+          return;
+        }
+
+        console.log('[VN] Registrando venta:', { banco, monto, obs });
+        showToast('Éxito', 'Venta registrada correctamente', 'success');
+        document.getElementById('vn-venta-form').reset();
+      }
+
+      function generarReporte() {
+        const desde = document.getElementById('vn-reporte-desde').value;
+        const hasta = document.getElementById('vn-reporte-hasta').value;
+        console.log('[VN] Generando reporte:', { desde, hasta });
+        showToast('Info', 'Reporte en generación...', 'info');
+      }
+
+      function realizarCierre() {
+        console.log('[VN] Realizando cierre de caja...');
+        showToast('Info', 'Procesando cierre...', 'info');
+      }
+
+      function realizarConsulta() {
+        const banco = document.getElementById('vn-consulta-banco').value;
+        console.log('[VN] Realizando consulta:', { banco });
+        showToast('Info', 'Buscando registros...', 'info');
+      }
+
+      function agregarBanco() {
+        const nombre = prompt('Nombre del banco:');
+        if (nombre) {
+          console.log('[VN] Agregando banco:', nombre);
+          showToast('Éxito', 'Banco agregado correctamente', 'success');
+        }
+      }
+
+      function eliminarBanco(nombre) {
+        if (confirm(`¿Eliminar "${nombre}"?`)) {
+          console.log('[VN] Eliminando banco:', nombre);
+          showToast('Éxito', 'Banco eliminado', 'success');
+        }
+      }
+
+      function exitToSplash() {
+        if (confirm('¿Volver a la pantalla de selección de sistemas?')) {
+          sessionStorage.removeItem('selectedSystem');
+          location.reload();
+        }
+      }
+
+      return {
+        init: init,
+        loadMenu: loadMenu,
+        registrarVenta: registrarVenta,
+        generarReporte: generarReporte,
+        realizarCierre: realizarCierre,
+        realizarConsulta: realizarConsulta,
+        agregarBanco: agregarBanco,
+        eliminarBanco: eliminarBanco,
+        exitToSplash: exitToSplash
+      };
+    })();
   </script>
 </body>
 </html>

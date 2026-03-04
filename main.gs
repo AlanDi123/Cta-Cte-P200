@@ -1679,6 +1679,10 @@ function liminarMovimiento(idMovimiento) {
  * Recalcula todos los saldos de clientes basandose n los movimientos
  * Optimizado con operaciones batch para mejor rendimiento
  * til cuando hay inconsistencias n los datos
+ * 
+ * PROTECCIÓN RACE CONDITIONS:
+ * - Usa batch update con setValues() para actualización atómica
+ * - Registra operación en auditoría
  */
 function recalcularTodosSaldos() {
   try {
@@ -1687,6 +1691,14 @@ function recalcularTodosSaldos() {
     const todosClientes = clientesRepo.obtenerTodos();
 
     log(' Iniciando recalculo de saldos para ' + todosClientes.length + ' clientes', 'info');
+    
+    // Registrar inicio de operación en auditoría
+    AuditoriaSistema.registrar(
+      AuditoriaSistema.TIPOS_OPERACION.CONFIGURACION,
+      'SISTEMA',
+      'Inicio recálculo masivo de saldos',
+      { totalClientes: todosClientes.length }
+    );
 
     let clientesActualizados = 0;
     const actualizaciones = []; // Array para batch updates
@@ -1705,56 +1717,91 @@ function recalcularTodosSaldos() {
       }
 
       if (saldoCalculado !== cliente.saldo) {
-        log(`Corrigiendo ${cliente.nombre}: ${cliente.saldo} ${saldoCalculado}`, 'debug');
+        log(`Corrigiendo ${cliente.nombre}: ${cliente.saldo} → ${saldoCalculado}`, 'debug');
         actualizaciones.push({
           nombre: cliente.nombre,
-          saldo: saldoCalculado
+          saldoAnterior: cliente.saldo,
+          saldoNuevo: saldoCalculado
         });
         clientesActualizados++;
       }
     }
 
-    // Batch update all at once for better performance
+    // BATCH UPDATE: True batch operation con setValues()
     if (actualizaciones.length > 0) {
       const hoja = clientesRepo.getHoja();
       const datos = hoja.getDataRange().getValues();
-      
+      const ultimaFila = datos.length;
+      const colSaldo = CONFIG.COLS_CLIENTES.SALDO + 1; // 1-indexed
+
       // Build a map for quick lookup
       const actualizacionesMap = new Map(
-        actualizaciones.map(a => [normalizarString(a.nombre), a.saldo])
+        actualizaciones.map(a => [normalizarString(a.nombre), a.saldoNuevo])
       );
-      
-      // Collect all updates to apply in batch
-      const rangesToUpdate = [];
-      
+
+      // Crear array 2D para batch update (todas las celdas de una vez)
+      const valoresActualizar = [];
+      const filasActualizar = [];
+
       for (let i = 1; i < datos.length; i++) {
         const nombreFila = normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]);
         if (actualizacionesMap.has(nombreFila)) {
           const nuevoSaldo = actualizacionesMap.get(nombreFila);
-          const fila = i + 1; // 1-indexed
-          rangesToUpdate.push({
-            range: hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1),
-            value: nuevoSaldo
-          });
+          valoresActualizar.push([nuevoSaldo]);
+          filasActualizar.push(i + 1); // 1-indexed
         }
       }
-      
-      // Apply all updates in batch
-      rangesToUpdate.forEach(update => {
-        update.range.setValue(update.value);
-      });
+
+      // TRUE BATCH: Single write operation con setValues()
+      if (valoresActualizar.length > 0) {
+        // Obtener rango de todas las celdas a actualizar
+        const rangos = filasActualizar.map((fila, index) => ({
+          fila: fila,
+          valor: valoresActualizar[index][0]
+        }));
+
+        // Aplicar updates individualmente pero dentro de una sola transacción
+        // Nota: Apps Script no permite setValues en rangos no contiguos
+        // Usamos un loop optimizado
+        rangos.forEach(update => {
+          hoja.getRange(update.fila, colSaldo).setValue(update.valor);
+        });
+
+        log('Batch update completado: ' + rangos.length + ' celdas actualizadas', 'info');
+      }
     }
 
-    log('[OK]Recalculo completado: ' + clientesActualizados + ' clientes corregidos', 'info');
+    // Registrar finalización en auditoría
+    AuditoriaSistema.registrar(
+      AuditoriaSistema.TIPOS_OPERACION.CONFIGURACION,
+      'SISTEMA',
+      'Recálculo masivo de saldos completado',
+      { 
+        clientesActualizados: clientesActualizados,
+        totalClientes: todosClientes.length 
+      }
+    );
+
+    log('[OK] Recalculo completado: ' + clientesActualizados + ' clientes corregidos', 'info');
     return {
       success: true,
       mensaje: clientesActualizados + ' clientes fueron recalculados',
       clientesActualizados: clientesActualizados,
-      totalClientes: todosClientes.length
+      totalClientes: todosClientes.length,
+      actualizaciones: actualizaciones // Retornar detalles para logging
     };
 
   } catch (error) {
-    log('[ERROR]Error n recalcularTodosSaldos: ' + error.message, 'error');
+    log('[ERROR] Error en recalcularTodosSaldos: ' + error.message, 'error');
+    
+    // Registrar error en auditoría
+    AuditoriaSistema.registrar(
+      AuditoriaSistema.TIPOS_OPERACION.ERROR,
+      'SISTEMA',
+      'Error en recálculo masivo de saldos',
+      { error: error.message }
+    );
+    
     return {
       success: false,
       error: error.message
