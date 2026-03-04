@@ -1,0 +1,42 @@
+{
+  "name": "Venta Nocturna Module",
+  "version": "1.0.0",
+  "description": "Módulo especializado para ventas nocturnas - Sol & Verde",
+  "author": "Alan",
+  "menus": [
+    {
+      "id": "ventas",
+      "name": "Ventas",
+      "icon": "💰",
+      "route": "/ventas"
+    },
+    {
+      "id": "reportes",
+      "name": "Reportes",
+      "icon": "📊",
+      "route": "/reportes"
+    },
+    {
+      "id": "cierre",
+      "name": "Cierre",
+      "icon": "🔒",
+      "route": "/cierre"
+    },
+    {
+      "id": "consultas",
+      "name": "Consultas",
+      "icon": "🔍",
+      "route": "/consultas"
+    },
+    {
+      "id": "parametrizacion",
+      "name": "Parametrización",
+      "icon": "⚙️",
+      "route": "/parametrizacion"
+    }
+  ],
+  "dependencies": [
+    "vn_config.gs"
+  ],
+  "loadOrder": 1
+}
