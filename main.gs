@@ -1545,14 +1545,15 @@ function guardarMovimientosDesdeVR(payload) {
 }
 
 /**
- * API 8a: Actualizar movimiento xistente
+ * API 8a: Actualizar movimiento existente
+ * FIX: Recalcular saldos en cascada para todos los movimientos del cliente
  */
 function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
   const lock = LockService.getScriptLock();
-  
+
   try {
-    lock.waitLock(30000); // Timeout de 30 segundos
-    
+    lock.waitLock(30000);
+
     const repo = MovimientosRepository;
     const hoja = repo.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -1567,46 +1568,33 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
     }
 
     if (rowIndex === -1) {
-      throw new Error('Movimiento no ncontrado');
+      throw new Error('Movimiento no encontrado');
     }
 
     const movimientoRow = datos[rowIndex - 1];
     const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
     const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
     const montoAnterior = Number(movimientoRow[CONFIG.COLS_MOVS.MONTO]);
-    const saldoPostAnterior = Number(movimientoRow[CONFIG.COLS_MOVS.SALDO_POST]);
 
-    // Calculate balance difference and new saldoPost
-    const montoDiff = Number(nuevoMonto) - montoAnterior;
-    const nuevoSaldoPost = saldoPostAnterior + (tipoMov === 'DEBE' ? montoDiff : -montoDiff);
-
-    // Update monto, obs, and saldoPost
+    // Update monto and obs first
     hoja.getRange(rowIndex, CONFIG.COLS_MOVS.MONTO + 1).setValue(nuevoMonto);
     hoja.getRange(rowIndex, CONFIG.COLS_MOVS.OBS + 1).setValue(nuevaObs);
-    hoja.getRange(rowIndex, CONFIG.COLS_MOVS.SALDO_POST + 1).setValue(nuevoSaldoPost);
 
-    // Recalculate client balance
-    const clientesRepo = ClientesRepository;
-    const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
-    const nuevoSaldo = tipoMov === 'DEBE' ?
-      (clienteData.saldo + montoDiff) :
-      (clienteData.saldo - montoDiff);
+    // FIX: Recalcular TODOS los saldos del cliente en cascada
+    recalcularSaldosCliente(clienteNombre, hoja);
 
-    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
-
-    log('[OK]Movimiento ' + idMovimiento + ' actualizado', 'debug');
+    log('[OK] Movimiento ' + idMovimiento + ' actualizado con recálculo en cascada', 'debug');
 
     return {
       success: true,
       movimiento: {
         id: idMovimiento,
         monto: nuevoMonto,
-        obs: nuevaObs,
-        nuevoSaldo: nuevoSaldo
+        obs: nuevaObs
       }
     };
   } catch (error) {
-    log('[ERROR]ERROR n actualizarMovimiento: ' + error.message, 'error');
+    log('[ERROR] ERROR en actualizarMovimiento: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -1617,14 +1605,15 @@ function actualizarMovimiento(idMovimiento, nuevoMonto, nuevaObs) {
 }
 
 /**
- * API 8b: liminar movimiento xistente
+ * API 8b: Eliminar movimiento existente
+ * FIX: Recalcular saldos en cascada para todos los movimientos del cliente
  */
-function liminarMovimiento(idMovimiento) {
+function eliminarMovimiento(idMovimiento) {
   const lock = LockService.getScriptLock();
-  
+
   try {
-    lock.waitLock(30000); // Timeout de 30 segundos
-    
+    lock.waitLock(30000);
+
     const repo = MovimientosRepository;
     const hoja = repo.getHoja();
     const datos = hoja.getDataRange().getValues();
@@ -1638,35 +1627,26 @@ function liminarMovimiento(idMovimiento) {
     }
 
     if (rowIndex === -1) {
-      throw new Error('Movimiento no ncontrado');
+      throw new Error('Movimiento no encontrado');
     }
 
     const movimientoRow = datos[rowIndex - 1];
     const clienteNombre = movimientoRow[CONFIG.COLS_MOVS.CLIENTE];
-    const tipoMov = movimientoRow[CONFIG.COLS_MOVS.TIPO];
-    const monto = Number(movimientoRow[CONFIG.COLS_MOVS.MONTO]);
 
     // Delete the row
     hoja.deleteRow(rowIndex);
 
-    // Recalculate client balance (reverse the movement)
-    const clientesRepo = ClientesRepository;
-    const clienteData = clientesRepo.buscarPorNombre(clienteNombre);
-    const nuevoSaldo = tipoMov === 'DEBE' ?
-      (clienteData.saldo - monto) :
-      (clienteData.saldo + monto);
+    // FIX: Recalcular TODOS los saldos del cliente en cascada
+    recalcularSaldosCliente(clienteNombre, hoja);
 
-    ClientesRepository.actualizarSaldoDirecto(clienteNombre, nuevoSaldo);
-
-    log('[OK]Movimiento ' + idMovimiento + ' liminado', 'debug');
+    log('[OK] Movimiento ' + idMovimiento + ' eliminado con recálculo en cascada', 'debug');
 
     return {
       success: true,
-      mensaje: 'Movimiento liminado',
-      nuevoSaldo: nuevoSaldo
+      mensaje: 'Movimiento eliminado'
     };
   } catch (error) {
-    log('[ERROR]ERROR n liminarMovimiento: ' + error.message, 'error');
+    log('[ERROR] ERROR en eliminarMovimiento: ' + error.message, 'error');
     return {
       success: false,
       error: error.message
@@ -1674,6 +1654,80 @@ function liminarMovimiento(idMovimiento) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * FIX: Recalcula todos los saldos (saldoPost) de los movimientos de un cliente
+ * y actualiza el saldo total del cliente
+ * @param {string} clienteNombre - Nombre del cliente
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} hojaMovimientos - Hoja de movimientos
+ */
+function recalcularSaldosCliente(clienteNombre, hojaMovimientos) {
+  const clienteNorm = normalizarString(clienteNombre);
+  
+  // Obtener todos los movimientos del cliente ordenados por ID (cronológico)
+  const datos = hojaMovimientos.getDataRange().getValues();
+  const movimientosCliente = [];
+  
+  for (let i = 1; i < datos.length; i++) {
+    const fila = datos[i];
+    const clienteFila = normalizarString(fila[CONFIG.COLS_MOVS.CLIENTE]);
+    
+    if (clienteFila === clienteNorm) {
+      movimientosCliente.push({
+        id: fila[CONFIG.COLS_MOVS.ID],
+        fila: i + 1,
+        tipo: fila[CONFIG.COLS_MOVS.TIPO],
+        monto: Number(fila[CONFIG.COLS_MOVS.MONTO])
+      });
+    }
+  }
+  
+  // Ordenar por ID ascendente (cronológico)
+  movimientosCliente.sort((a, b) => a.id - b.id);
+  
+  // Obtener saldo inicial del cliente
+  const clienteData = ClientesRepository.buscarPorNombre(clienteNorm);
+  if (!clienteData) {
+    throw new Error('Cliente no encontrado: ' + clienteNorm);
+  }
+  
+  // Calcular running balance para cada movimiento
+  let saldoAcumulado = 0;
+  const actualizacionesSaldo = []; // Batch update para saldoPost
+  
+  for (const mov of movimientosCliente) {
+    if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+      saldoAcumulado += mov.monto;
+    } else {
+      saldoAcumulado -= mov.monto;
+    }
+    
+    actualizacionesSaldo.push([mov.fila, CONFIG.COLS_MOVS.SALDO_POST + 1, saldoAcumulado]);
+  }
+  
+  // Actualizar todos los saldoPost en batch (más eficiente)
+  if (actualizacionesSaldo.length > 0) {
+    const rangeList = actualizacionesSaldo.map(a => 
+      hojaMovimientos.getRange(a[0], a[1]).setValue(a[2])
+    );
+  }
+  
+  // Actualizar saldo total del cliente
+  const hojaClientes = ClientesRepository.getHoja();
+  hojaClientes.getRange(clienteData.fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(saldoAcumulado);
+  
+  // Actualizar contadores
+  hojaClientes.getRange(clienteData.fila, CONFIG.COLS_CLIENTES.TOTAL_MOVS + 1).setValue(movimientosCliente.length);
+  
+  // Actualizar último movimiento
+  if (movimientosCliente.length > 0) {
+    const ultimoMov = movimientosCliente[movimientosCliente.length - 1];
+    const fechaUltimoMov = datos[ultimoMov.fila - 1][CONFIG.COLS_MOVS.FECHA];
+    hojaClientes.getRange(clienteData.fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(fechaUltimoMov);
+  }
+  
+  log('[OK] Recalculados ' + movimientosCliente.length + ' saldos para cliente ' + clienteNorm, 'debug');
 }
 
 /**
