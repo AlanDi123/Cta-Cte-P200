@@ -895,6 +895,50 @@
     .mb-30 { margin-bottom: 30px; }
     .mt-20 { margin-top: 20px; }
     .hidden { display: none !important; }
+    
+    /* ========================================
+       SKELETON LOADING - PERFORMANCE
+       ======================================== */
+    .skeleton-loader {
+      padding: 1rem;
+    }
+    
+    .skeleton-card {
+      background: linear-gradient(
+        90deg,
+        var(--sv-superficie) 0%,
+        var(--sv-borde) 50%,
+        var(--sv-superficie) 100%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      border-radius: var(--sv-radius);
+      height: 120px;
+      margin-bottom: 1rem;
+    }
+    
+    .skeleton-text {
+      background: linear-gradient(
+        90deg,
+        var(--sv-superficie) 0%,
+        var(--sv-borde) 50%,
+        var(--sv-superficie) 100%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      border-radius: 4px;
+      height: 16px;
+      margin-bottom: 8px;
+    }
+    
+    .skeleton-text.short { width: 40%; }
+    .skeleton-text.medium { width: 60%; }
+    .skeleton-text.long { width: 80%; }
+    
+    @keyframes skeleton-shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
 
     /* ========================================
        SCROLLBAR
@@ -4567,16 +4611,65 @@
 
       console.log(`📌 Módulo cambiado a: ${moduleId}`);
 
-      // PERFORMANCE FIX: Load statistics on-demand when user clicks tab
+      // ========================================
+      // PERFORMANCE FIX: Lazy-loading de módulos pesados
+      // ========================================
+      
+      // Módulo de Estadísticas - carga bajo demanda con caché
       if (moduleId === 'estadisticas') {
-        // Check if stats cache is still valid
         if (!AppState.cache.stats ||
             !AppState.cache.stats.timestamp ||
             Date.now() - AppState.cache.stats.timestamp > (10 * 60 * 1000)) { // 10 min cache
           console.log('📊 Cargando estadísticas...');
           cargarEstadisticas();
         } else {
-          console.log('✓ Usando estadísticas en caché');
+          console.log('✓ Usando estadísticas en caché (válido por ' + 
+            Math.round((10 * 60 * 1000 - (Date.now() - AppState.cache.stats.timestamp)) / 1000) + 's)');
+        }
+      }
+      
+      // Módulo de Historial de Caja - carga diferida
+      if (moduleId === 'arqueo-historial') {
+        const container = document.getElementById('module-arqueo-historial');
+        if (container && !container.dataset.loaded) {
+          console.log('📚 Cargando historial de caja...');
+          // Mostrar skeleton
+          container.innerHTML = '<div class="skeleton-loader"><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>';
+          
+          if (typeof google !== 'undefined') {
+            google.script.run
+              .withSuccessHandler(function(entries) {
+                renderArqueoHistory(entries);
+                container.dataset.loaded = 'true';
+              })
+              .getCashHistoryEntries();
+          }
+        }
+      }
+      
+      // Módulo de Gestión de Clientes - carga diferida con caché
+      if (moduleId === 'gestion-clientes') {
+        const container = document.getElementById('module-gestion-clientes');
+        if (container && !container.dataset.loaded) {
+          console.log('👥 Cargando gestión de clientes...');
+          container.innerHTML = '<div class="skeleton-loader"><div class="skeleton-card"></div><div class="skeleton-card"></div></div>';
+          
+          // Usar datos en caché si están disponibles
+          if (AppState.clientesData && AppState.clientesData.length > 0) {
+            cargarTablaGestion();
+            container.dataset.loaded = 'true';
+          } else if (typeof google !== 'undefined') {
+            google.script.run
+              .withSuccessHandler(function(datos) {
+                datos = descomprimirRespuesta(datos);
+                if (datos.success) {
+                  AppState.clientesData = datos.clientes || [];
+                  cargarTablaGestion();
+                  container.dataset.loaded = 'true';
+                }
+              })
+              .obtenerDatosParaHTML();
+          }
         }
       }
 
