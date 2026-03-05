@@ -8089,9 +8089,12 @@
       try {
         // Simular la carga inicial que hace el sistema
         google.script.run
-          .withSuccessHandler(function(datos) {
+          .withSuccessHandler(function(datosCrudos) {
             try {
               console.log('✅ Carga inicial exitosa - Verificando datos...');
+              
+              // DESCOMPRESIÓN: Los datos pueden venir comprimidos del backend
+              const datos = descomprimirRespuesta(datosCrudos);
 
               // Verificar que datos existe y es objeto
               if (!datos) {
