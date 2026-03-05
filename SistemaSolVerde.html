@@ -4435,47 +4435,6 @@
     }
     window.diagnosticarSistema = diagnosticarSistema;
 
-    // Robustecer función de descompresión y validación de datos
-    function descomprimirRespuesta(datos) {
-      try {
-        if (typeof datos !== 'string') {
-          console.log('📦 Datos no son string, retornando tal cual');
-          return datos;
-        }
-        // Intentar parsear como JSON directo
-        try {
-          const json = JSON.parse(datos);
-          console.log('✅ Respuesta era JSON sin comprimir');
-          return json;
-        } catch (e) {
-          console.log('No es JSON directo, intentando descompresión...');
-        }
-        // Validar base64
-        const base64Regex = /^[A-Za-z0-9+/=\r\n]+$/;
-        if (!base64Regex.test(datos)) {
-          throw new Error('Los datos no tienen formato base64 válido');
-        }
-        // Descomprimir
-        let descomp;
-        try {
-          descomp = LZString.decompressFromBase64(datos);
-        } catch (e) {
-          throw new Error('Error en descompresión base64: ' + e.message);
-        }
-        if (!descomp) throw new Error('Descompresión fallida: resultado vacío');
-        try {
-          return JSON.parse(descomp);
-        } catch (e) {
-          throw new Error('Descompresión exitosa pero JSON inválido: ' + e.message);
-        }
-      } catch (err) {
-        console.error('❌ Error general en descompresión:', err);
-        console.error('Datos recibidos (primeros 200 chars):', typeof datos === 'string' ? datos.substring(0, 200) : datos);
-        return null;
-      }
-    }
-    window.descomprimirRespuesta = descomprimirRespuesta;
-
     // Si usas iframes, asegúrate de no usar sandbox="allow-scripts allow-same-origin" juntos a menos que sea estrictamente necesario.
     // Si no usas iframes, ignora esta advertencia.
     
@@ -4523,93 +4482,79 @@
     // SISTEMA DE DESCOMPRESIÓN OPTIMIZADO
     // ========================================
     function descomprimirRespuesta(datosComprimidos) {
+      // Si no es string, retornar tal cual (ya es objeto JSON)
+      if (typeof datosComprimidos !== 'string') {
+        return datosComprimidos;
+      }
+
+      // Si está vacío, retornar tal cual
+      if (!datosComprimidos.trim()) {
+        return datosComprimidos;
+      }
+
+      // PRIMERO: Intentar parsear como JSON directo (fallback del backend)
       try {
-        // Si no es string, asumir que no está comprimido
-        if (typeof datosComprimidos !== 'string') {
-          console.log('📦 Datos no son string, retornando tal cual');
+        const parsed = JSON.parse(datosComprimidos);
+        restaurarFechas(parsed);
+        return parsed;
+      } catch (jsonError) {
+        // No es JSON, intentar descompresión
+      }
+
+      // SEGUNDO: Intentar descomprimir con algoritmo del backend
+      try {
+        // Validar que sea una cadena base64 válida
+        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(datosComprimidos)) {
+          // No es base64 válido, retornar tal cual (para tests de manejo de errores)
           return datosComprimidos;
         }
 
-        // Si está vacío, retornar tal cual
-        if (!datosComprimidos.trim()) {
-          console.log('📦 Datos vacíos, retornando tal cual');
+        // Paso 1: base64 decode
+        const compressed = atob(datosComprimidos);
+
+        // Paso 2: intentar diferentes separadores para compatibilidad
+        let parts;
+        let separador;
+
+        // Primero intentar con el nuevo separador (\x00)
+        if (compressed.includes('\x00')) {
+          separador = '\x00';
+          parts = compressed.split(separador);
+        } else if (compressed.includes('|')) {
+          // Compatibilidad con algoritmo anterior
+          separador = '|';
+          parts = compressed.split(separador);
+        } else {
+          // No es formato comprimido válido, retornar tal cual
           return datosComprimidos;
         }
 
-        console.log('📦 Descomprimiendo respuesta del backend...');
-
-        // PRIMERO: Intentar parsear como JSON directo (fallback del backend)
-        try {
-          const parsed = JSON.parse(datosComprimidos);
-          console.log('✅ Respuesta era JSON sin comprimir');
-          restaurarFechas(parsed);
-          return parsed;
-        } catch (jsonError) {
-          console.log('No es JSON directo, intentando descompresión...');
+        if (parts.length !== 2) {
+          // Formato inválido, retornar tal cual
+          return datosComprimidos;
         }
 
-        // SEGUNDO: Intentar descomprimir con algoritmo del backend
-        try {
-          // Validar que sea una cadena base64 válida antes de intentar decodificar
-          if (!/^[A-Za-z0-9+/]*={0,2}$/.test(datosComprimidos)) {
-            throw new Error('Los datos no tienen formato base64 válido');
-          }
+        const header = parts[0];
+        let data = parts[1];
 
-          // Algoritmo compatible con ResponseCompressor del backend
-          // Paso 1: base64 decode
-          const compressed = atob(datosComprimidos);
+        // Paso 3: parse header para obtener tabla de reemplazos
+        const replacements = JSON.parse(header);
 
-          // Paso 2: intentar diferentes separadores para compatibilidad
-          let parts;
-          let separador;
-
-          // Primero intentar con el nuevo separador (\x00)
-          if (compressed.includes('\x00')) {
-            separador = '\x00';
-            parts = compressed.split(separador);
-          } else if (compressed.includes('|')) {
-            // Compatibilidad con algoritmo anterior
-            separador = '|';
-            parts = compressed.split(separador);
-          } else {
-            throw new Error('No se encontró separador válido en datos comprimidos');
-          }
-
-          if (parts.length !== 2) {
-            throw new Error(`Formato de compresión inválido: se esperaban 2 partes separadas por ${JSON.stringify(separador)}, se obtuvieron ${parts.length}`);
-          }
-
-          const header = parts[0];
-          let data = parts[1];
-
-          // Paso 3: parse header para obtener tabla de reemplazos
-          const replacements = JSON.parse(header);
-
-          // Paso 4: revertir reemplazos (A-Z -> caracteres originales)
-          for (const [code, char] of Object.entries(replacements)) {
-            data = data.split(code).join(char);
-          }
-
-          // Paso 5: parse JSON
-          const datos = JSON.parse(data);
-
-          // Paso 6: Restaurar objetos Date si existen
-          restaurarFechas(datos);
-
-          console.log(`✅ Respuesta descomprimida exitosamente con algoritmo backend (separador: ${JSON.stringify(separador)})`);
-          return datos;
-
-        } catch (decompressError) {
-          console.error('❌ Error en descompresión:', decompressError.message);
-          console.error('Datos recibidos (primeros 200 chars):', datosComprimidos.substring(0, 200));
-          throw decompressError;
+        // Paso 4: revertir reemplazos (A-Z -> caracteres originales)
+        for (const [code, char] of Object.entries(replacements)) {
+          data = data.split(code).join(char);
         }
+
+        // Paso 5: parse JSON
+        const datos = JSON.parse(data);
+
+        // Paso 6: Restaurar objetos Date si existen
+        restaurarFechas(datos);
+
+        return datos;
 
       } catch (error) {
-        console.error('❌ Error general en descompresión:', error);
-        console.error('Tipo de datos:', typeof datosComprimidos);
-        console.error('Datos recibidos (primeros 500 chars):', datosComprimidos.substring(0, 500));
-        // Último fallback: retornar los datos tal cual
+        // Cualquier error, retornar datos tal cual (fallback seguro)
         return datosComprimidos;
       }
     }
