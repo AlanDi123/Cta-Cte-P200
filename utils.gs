@@ -21,6 +21,101 @@ function log(mensaje, nivel = 'info') {
   }
 }
 
+// ============================================================================
+// WRAPPERS EN INGLÉS PARA COMPATIBILIDAD CON TESTS
+// ============================================================================
+
+/**
+ * Normaliza un nombre y lo capitaliza (wrapper en inglés para normalizarString)
+ * @param {string} s - String a normalizar
+ * @returns {string} String normalizado y capitalizado
+ */
+function normalizeName(s) {
+  if (!s) return '';
+  const normalized = normalizarString(s);
+  return normalized.split(' ').map(capitalize).filter(w => w).join(' ');
+}
+
+/**
+ * Capitaliza la primera letra de un string
+ * @param {string} s - String a capitalizar
+ * @returns {string} String capitalizado
+ */
+function capitalize(s) {
+  if (!s || typeof s !== 'string') return '';
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+/**
+ * Búsqueda fuzzy en una lista (wrapper para calcularScoreFuzzy)
+ * @param {string} query - String de búsqueda
+ * @param {Array<string>} list - Lista de strings donde buscar
+ * @param {number} maxResults - Máximo de resultados (default: 50)
+ * @returns {Array<string>} Lista de resultados ordenados por score
+ */
+function fuzzySearch(query, list, maxResults = 50) {
+  if (!query || !list || list.length === 0) return [];
+  
+  const queryNormalized = normalizarString(query);
+  
+  // Calcular scores para cada elemento
+  const scores = list.map(item => ({
+    item: item,
+    score: calcularScoreFuzzy(queryNormalized, normalizarString(item))
+  }));
+  
+  // Filtrar por score mínimo y ordenar
+  const minScore = CONFIG.FUZZY.MIN_SCORE;
+  const results = scores
+    .filter(s => s.score >= minScore)
+    .sort((a, b) => {
+      // Prioridad: startsWith > includes > levenshtein
+      const aStarts = normalizarString(a.item).startsWith(queryNormalized);
+      const bStarts = normalizarString(b.item).startsWith(queryNormalized);
+      if (aStarts && !bStarts) return -1;
+      if (bStarts && !aStarts) return 1;
+      
+      const aIncludes = normalizarString(a.item).includes(queryNormalized);
+      const bIncludes = normalizarString(b.item).includes(queryNormalized);
+      if (aIncludes && !bIncludes) return -1;
+      if (bIncludes && !aIncludes) return 1;
+      
+      return b.score - a.score;
+    })
+    .slice(0, maxResults)
+    .map(s => s.item);
+  
+  return results;
+}
+
+/**
+ * Elimina duplicados de un array
+ * @param {Array} arr - Array con posibles duplicados
+ * @returns {Array} Array sin duplicados
+ */
+function uniqueArray(arr) {
+  if (!arr || !Array.isArray(arr)) return [];
+  return Array.from(new Set(arr));
+}
+
+/**
+ * Función debounce para limitar ejecución de funciones
+ * @param {Function} fn - Función a ejecutar
+ * @param {number} delay - Delay en milisegundos
+ * @returns {Function} Función con debounce
+ */
+function debounce(fn, delay = 250) {
+  let timeoutId;
+  return function(...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+// ============================================================================
+// FUNCIONES UTILITARIAS ORIGINALES (español)
+// ============================================================================
+
 /**
  * Calcula la distancia de Levenshtein entre dos strings
  * Optimizado con early termination para búsquedas fuzzy
@@ -133,7 +228,7 @@ function normalizarString(str) {
  * @param {string} tipo - Tipo a validar
  * @returns {boolean} True si es válido
  */
-function estipoMovimientoValido(tipo) {
+function esTipoMovimientoValido(tipo) {
   return tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE ||
          tipo === CONFIG.TIPOS_MOVIMIENTO.HABER;
 }
@@ -190,7 +285,7 @@ function validarMovimiento(mov) {
     errors.push('Cliente es requerido');
   }
 
-  if (!estipoMovimientoValido(mov.tipo)) {
+  if (!esTipoMovimientoValido(mov.tipo)) {
     errors.push('Tipo de movimiento inválido (debe ser DEBE o HABER)');
   }
 
