@@ -160,14 +160,43 @@ function verificarIntegridadSistema() {
  * Google Apps Script llama a sta funcion cuando se accede a la URL de la app
  * @returns {HtmlOutput} Pagina HTML del sistema
  */
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('SistemaSolVerde')
-    .setTitle('Sol & Verde V18.0 - Sistema de Cuenta Corriente')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+function doGet(e) {
+  try {
+    // Crear template desde archivo HTML principal
+    const template = HtmlService.createTemplateFromFile('SistemaSolVerde');
+    
+    // Pasar datos iniciales si es necesario (opcional)
+    // template.initialData = {...};
+    
+    // Evaluar y configurar la salida
+    return template.evaluate()
+      .setTitle('Sistema Sol & Verde V18.0')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+  } catch (error) {
+    Logger.log('[ERROR] doGet: ' + error.message);
+    return HtmlService.createHtmlOutput('<h1>Error al cargar la aplicación</h1><p>' + error.message + '</p>');
+  }
 }
 
 /**
- * Funcion de diagnonstico que retorna informacion del sistema
+ * Función helper para incluir archivos HTML parciales
+ * Permite modularizar el código HTML usando <?!= include('archivo') ?>
+ * @param {string} filename - Nombre del archivo HTML a incluir (sin extensión)
+ * @returns {string} Contenido HTML del archivo
+ */
+function include(filename) {
+  try {
+    return HtmlService.createTemplateFromFile(filename).evaluate().getContent();
+  } catch (error) {
+    Logger.log('[ERROR] include(' + filename + '): ' + error.message);
+    return '<!-- Error including ' + filename + ': ' + error.message + ' -->';
+  }
+}
+
+/**
+ * Función de diagnóstico que retorna información del sistema
  * Se puede llamar desde la Web App para debugging
  */
 function diagnosticoSistema() {
