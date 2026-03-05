@@ -40,8 +40,7 @@ function validarArchivosGAS() {
     'test.gs',
     'tests_unitarios.gs',
     'update.gs',
-    'vn_config.gs',
-    'vn_backend.gs'
+    'vn_config.gs'
   ];
   
   Logger.log('Validando archivos .gs...\n');
@@ -205,8 +204,8 @@ function imprimirInstruccionesDespliegue() {
   Logger.log('7. Ejecutar ejecutarTestsUnitarios()');
   Logger.log('8. Deploy → Nueva implementación → Web app\n');
   
-  Logger.log('ARCHIVOS A COPIAR (15 total):');
-  Logger.log('  Server-side (.gs): 13 archivos');
+  Logger.log('ARCHIVOS A COPIAR (14 total):');
+  Logger.log('  Server-side (.gs): 12 archivos');
   Logger.log('    - main.gs (tiene doGet e include)');
   Logger.log('    - config.gs (constantes)');
   Logger.log('    - utils.gs (utilidades)');
@@ -219,7 +218,6 @@ function imprimirInstruccionesDespliegue() {
   Logger.log('    - tests_unitarios.gs (tests)');
   Logger.log('    - update.gs (actualizaciones)');
   Logger.log('    - vn_config.gs (config VN)');
-  Logger.log('    - vn_backend.gs (backend VN)');
   Logger.log('  Client-side (.html): 2 archivos');
   Logger.log('    - SistemaSolVerde.html (UI principal)');
   Logger.log('    - diagnostico_sistema.html (diagnóstico)');
