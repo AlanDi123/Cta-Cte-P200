@@ -53,6 +53,7 @@ const MovimientosRepository = {
 
   /**
    * Registra un movimiento individual
+   * IMPORTANTE: Invalida índices después de registrar
    * @param {Object} movimientoData - Datos del movimiento
    * @returns {Object} Movimiento registrado
    */
@@ -72,12 +73,18 @@ const MovimientosRepository = {
         throw new Error(`Cliente "${clienteNorm}" no encontrado`);
       }
 
-      if (!estipoMovimientoValido(movimientoData.tipo)) {
+      if (!esTipoMovimientoValido(movimientoData.tipo)) {
         throw new Error(`Tipo de movimiento inválido: "${movimientoData.tipo}". Debe ser DEBE o HABER`);
       }
 
       if (!esMontoValido(movimientoData.monto)) {
         throw new Error('El monto debe ser un número positivo');
+      }
+
+      // Validar fecha
+      const fechaValida = validarFecha(movimientoData.fecha);
+      if (!fechaValida) {
+        throw new Error('Fecha inválida');
       }
 
       // Calcular nuevo saldo
@@ -92,9 +99,11 @@ const MovimientosRepository = {
 
       // Registrar movimiento
       const hoja = this.getHoja();
-      const nuevoID = this.generarNuevoID();
+      const nuevoID = IndicesCache.indicesValidos() 
+        ? IndicesCache.generarNuevoIdRapido() 
+        : this.generarNuevoID();
       // Use the user-provided date if available, otherwise use current date
-      const fecha = movimientoData.fecha ? new Date(movimientoData.fecha) : new Date();
+      const fecha = fechaValida;
       const usuario = Session.getActiveUser().getEmail();
 
       const nuevaFila = [
@@ -112,6 +121,9 @@ const MovimientosRepository = {
 
       // Actualizar cliente
       ClientesRepository.actualizarSaldoYContadores(clienteNorm, nuevoSaldo, fecha);
+      
+      // INVALIDAR ÍNDICES: Forzar recálculo en próximas lecturas
+      IndicesCache.invalidarIndices();
 
       lock.releaseLock();
 
@@ -134,6 +146,7 @@ const MovimientosRepository = {
 
   /**
    * Registra un lote de movimientos (para Visual Reasoning)
+   * IMPORTANTE: Invalida índices después de registrar lote
    * @param {Array<Object>} movimientos - Array de movimientos
    * @returns {Object} Resultado con movimientos exitosos y errores
    */
@@ -155,6 +168,11 @@ const MovimientosRepository = {
           indice: i
         });
       }
+    }
+    
+    // INVALIDAR ÍNDICES: Si hubo movimientos exitosos
+    if (resultados.exitosos.length > 0) {
+      IndicesCache.invalidarIndices();
     }
 
     return resultados;
@@ -246,6 +264,7 @@ const MovimientosRepository = {
 
   /**
    * Elimina todos los movimientos de un cliente
+   * IMPORTANTE: Invalida índices después de eliminar
    * @param {string} nombreCliente - Nombre del cliente
    */
   eliminarPorCliente: function(nombreCliente) {
@@ -260,6 +279,9 @@ const MovimientosRepository = {
         hoja.deleteRow(i + 1);
       }
     }
+    
+    // INVALIDAR ÍNDICES: Forzar recálculo en próximas lecturas
+    IndicesCache.invalidarIndices();
   },
 
   /**
