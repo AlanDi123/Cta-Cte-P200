@@ -207,6 +207,7 @@ const ClientesRepository = {
 
   /**
    * Actualiza SALDO, TOTAL_MOVS y ULTIMO_MOV de un cliente
+   * IMPORTANTE: Invalida índices después de escribir para forzar recálculo
    * @param {string} nombreCliente - Nombre del cliente
    * @param {number} nuevoSaldo - Nuevo saldo
    * @param {Date} fechaMov - Fecha del movimiento
@@ -230,10 +231,14 @@ const ClientesRepository = {
 
     // Actualizar ULTIMO_MOV
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(fechaMov);
+    
+    // INVALIDAR ÍNDICES: Forzar recálculo en próximas lecturas
+    IndicesCache.invalidarIndices();
   },
 
   /**
    * PERFORMANCE: Actualiza SOLO saldo, contadores y fecha sin recargar todo
+   * IMPORTANTE: Invalida índices después de escribir
    * @param {string} nombreCliente - Nombre del cliente
    * @param {number} nuevoSaldo - Nuevo saldo
    * @param {Date} fechaMov - Fecha del movimiento
@@ -253,6 +258,9 @@ const ClientesRepository = {
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldo);
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.TOTAL_MOVS + 1).setValue((resultado.cliente.totalMovs || 0) + 1);
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(fechaMov);
+    
+    // INVALIDAR ÍNDICES: Forzar recálculo en próximas lecturas
+    IndicesCache.invalidarIndices();
 
     // Retornar cliente actualizado sin recargar del sheet
     return {
@@ -265,6 +273,7 @@ const ClientesRepository = {
 
   /**
    * Actualiza SOLO el saldo (para operaciones de edit/delete de movimientos)
+   * IMPORTANTE: Invalida índices después de escribir
    * @param {string} nombreCliente - Nombre del cliente
    * @param {number} nuevoSaldo - Nuevo saldo
    */
@@ -279,6 +288,9 @@ const ClientesRepository = {
     const fila = resultado.fila;
 
     hoja.getRange(fila, CONFIG.COLS_CLIENTES.SALDO + 1).setValue(nuevoSaldo);
+    
+    // INVALIDAR ÍNDICES: Forzar recálculo en próximas lecturas
+    IndicesCache.invalidarIndices();
   },
 
   /**
