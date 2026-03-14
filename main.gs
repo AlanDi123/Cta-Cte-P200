@@ -2147,23 +2147,25 @@ function analizarImagenConToken(vrDataToken) {
 
 /**
  * API 13: Crea multiples clientes con saldo inicial
+ * OPTIMIZADO: Invalidación de índices batch al final para mejor rendimiento
  * @param {Object} payload - {clientes: Array}
- * @returns {Object} Resultado con xitosos y errores
+ * @returns {Object} Resultado con exitosos y errores
  */
 function crearClientesMasivos(payload) {
   try {
     if (!payload.clientes || !Array.isArray(payload.clientes)) {
-      throw new Error('Payload invalido: se speraba {clientes: Array}');
+      throw new Error('Payload invalido: se esperaba {clientes: Array}');
     }
 
     const resultados = {
-      xitosos: 0,
+      exitosos: 0,
       errores: 0,
-      detallxitosos: [],
-      detallrrores: []
+      detallExitosos: [],
+      detallErrores: []
     };
 
     const lock = LockService.getScriptLock();
+    let necesitaInvalidarIndices = false;
 
     payload.clientes.forEach((clienteData, index) => {
       try {
@@ -2178,7 +2180,9 @@ function crearClientesMasivos(payload) {
           obs: clienteData.obs
         });
 
-        // 2. Si tiene saldo inicial  0, crear movimiento de ajuste
+        necesitaInvalidarIndices = true; // Se creó cliente, necesitará invalidar índices
+
+        // 2. Si tiene saldo inicial != 0, crear movimiento de ajuste
         if (clienteData.saldoInicial && clienteData.saldoInicial !== 0) {
           const tipoMovimiento = clienteData.saldoInicial > 0
             ? CONFIG.TIPOS_MOVIMIENTO.DEBE
@@ -2193,13 +2197,13 @@ function crearClientesMasivos(payload) {
             obs: `SALDO INICIAL (Carga Masiva)`
           });
 
-          resultados.detallxitosos.push({
+          resultados.detallExitosos.push({
             nombre: clienteData.nombre,
             saldoInicial: clienteData.saldoInicial,
             movimientoCreado: true
           });
         } else {
-          resultados.detallxitosos.push({
+          resultados.detallExitosos.push({
             nombre: clienteData.nombre,
             saldoInicial: 0,
             movimientoCreado: false
@@ -2212,7 +2216,7 @@ function crearClientesMasivos(payload) {
       } catch (error) {
         lock.releaseLock();
         resultados.errores++;
-        resultados.detallrrores.push({
+        resultados.detallErrores.push({
           indice: index,
           nombre: clienteData.nombre,
           error: error.message
@@ -2220,16 +2224,22 @@ function crearClientesMasivos(payload) {
       }
     });
 
+    // OPTIMIZACIÓN: Invalidar índices solo una vez al final (no después de cada cliente)
+    if (necesitaInvalidarIndices) {
+      Logger.log('🗑️ Invalidando índices después de carga masiva de ' + resultados.exitosos + ' clientes');
+      IndicesCache.invalidarIndices();
+    }
+
     return {
       success: true,
-      xitosos: resultados.exitosos,
+      exitosos: resultados.exitosos,
       errores: resultados.errores,
-      detallxitosos: resultados.detallxitosos,
-      detallrrores: resultados.detallrrores
+      detallExitosos: resultados.detallExitosos,
+      detallErrores: resultados.detallErrores
     };
 
   } catch (error) {
-    Logger.log('Error n crearClientesMasivos: ' + error.message);
+    Logger.log('Error en crearClientesMasivos: ' + error.message);
     return {
       success: false,
       error: error.message

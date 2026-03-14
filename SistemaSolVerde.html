@@ -6616,11 +6616,11 @@
 
       google.script.run
         .withSuccessHandler((resultado) => {
-          if (resultado.exito) {
+          if (resultado.success) {
             showToast('success', '✅ Eliminado', 'Cliente eliminado del sistema');
             cargarDatosIniciales();
           } else {
-            showToast('error', 'Error', resultado.mensaje || 'No se pudo eliminar');
+            showToast('error', 'Error', resultado.error || 'No se pudo eliminar');
           }
         })
         .withFailureHandler((error) => {
@@ -6635,7 +6635,16 @@
       window.clienteEditandoNombre = null;
     }
 
+    // Variable para prevenir doble envío
+    let clienteGuardandoEnProgreso = false;
+
     function guardarCliente() {
+      // Prevenir doble envío
+      if (clienteGuardandoEnProgreso) {
+        console.log('⚠️ Operación de guardado ya en progreso, ignorando click duplicado');
+        return;
+      }
+
       const nombre = document.getElementById('clienteNombre').value.trim().toUpperCase();
       const tel = document.getElementById('clienteTel').value.trim();
       const email = document.getElementById('clienteEmail').value.trim();
@@ -6648,37 +6657,43 @@
         return;
       }
 
+      // Marcar como en progreso
+      clienteGuardandoEnProgreso = true;
       showToast('info', 'Guardando', 'Procesando...');
 
       if (window.clienteEditandoNombre) {
         google.script.run
           .withSuccessHandler((resultado) => {
-            if (resultado.exito) {
+            clienteGuardandoEnProgreso = false; // Resetear estado
+            if (resultado.success) {
               showToast('success', '✅ Actualizado', 'Cliente actualizado exitosamente');
               cerrarModalCliente();
               invalidarCache();
               cargarDatosIniciales(true);
             } else {
-              showToast('error', 'Error', resultado.mensaje || 'No se pudo actualizar');
+              showToast('error', 'Error', resultado.error || 'No se pudo actualizar');
             }
           })
           .withFailureHandler((error) => {
+            clienteGuardandoEnProgreso = false; // Resetear estado
             showToast('error', 'Error', error.message || 'Error al actualizar');
           })
           .actualizarDatosCliente(window.clienteEditandoNombre, { tel, email, obs });
       } else {
         google.script.run
           .withSuccessHandler((resultado) => {
-            if (resultado.exito) {
+            clienteGuardandoEnProgreso = false; // Resetear estado
+            if (resultado.success) {
               showToast('success', '✅ Creado', `Cliente "${nombre}" creado exitosamente`);
               cerrarModalCliente();
               invalidarCache();
               cargarDatosIniciales(true);
             } else {
-              showToast('error', 'Error', resultado.mensaje || 'No se pudo crear el cliente');
+              showToast('error', 'Error', resultado.error || 'No se pudo crear el cliente');
             }
           })
           .withFailureHandler((error) => {
+            clienteGuardandoEnProgreso = false; // Resetear estado
             showToast('error', 'Error', error.message || 'Error al crear cliente');
           })
           .crearNuevoClienteCompleto({ nombre, tel, email, limite: 100000, obs });
