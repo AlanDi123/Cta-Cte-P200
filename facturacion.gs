@@ -8,7 +8,7 @@
  */
 
 // Configuración del módulo de facturación
-const CONFIG_FACTURACION = {
+var CONFIG_FACTURACION = {
   HOJAS: {
     TRANSFERENCIAS: 'Transferencias',
     PRODUCTOS: 'Productos'
@@ -45,6 +45,7 @@ const CONFIG_FACTURACION = {
     TEMPERATURE: 0.0
   }
 };
+
 
 // ============================================================================
 // REPOSITORIO DE TRANSFERENCIAS

@@ -7,8 +7,7 @@
  * ============================================================================
  */
 
-const CONFIG = {
-  // Nombre del sistema
+var CONFIG = {
   SISTEMA: {
     NOMBRE: 'Sol & Verde',
     VERSION: '2.0.0'
@@ -330,7 +329,7 @@ const CONFIG = {
 };
 
 // Denominaciones de billetes (pesos argentinos - solo billetes)
-const DENOMINACIONES = {
+var DENOMINACIONES = {
   BILLETES: [
     { tipo: 'BILLETE_20000', valor: 20000, nombre: 'Billete $20.000' },
     { tipo: 'BILLETE_10000', valor: 10000, nombre: 'Billete $10.000' },

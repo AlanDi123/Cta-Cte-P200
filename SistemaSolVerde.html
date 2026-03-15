@@ -8267,6 +8267,12 @@
     function guardarCliente(e) {
       e.preventDefault();
 
+      // Prevenir doble envío
+      if (window.clienteGuardandoEnProgreso) {
+        console.log('⚠️ Operación de guardado ya en progreso, ignorando click duplicado');
+        return;
+      }
+
       const editando = document.getElementById('clienteEditando').value;
       const cuitVal = document.getElementById('clienteCuit').value.trim();
       const condicionGuardada = document.getElementById('clienteCondicionFiscal').value.trim();
@@ -8287,14 +8293,17 @@
         return;
       }
 
+      // Marcar como en progreso
+      window.clienteGuardandoEnProgreso = true;
       mostrarLoading(true);
 
-      const accion = editando ?
-        google.script.run.actualizarCliente(editando, datos) :
-        google.script.run.crearCliente(datos);
+      // Ejecutar creación o actualización (CORREGIDO: solo una llamada)
+      const funcion = editando ? 'actualizarCliente' : 'crearCliente';
+      const args = editando ? [editando, datos] : [datos];
 
       google.script.run
         .withSuccessHandler(function(result) {
+          window.clienteGuardandoEnProgreso = false; // Resetear estado
           mostrarLoading(false);
           if (result.success) {
             mostrarToast(result.mensaje, 'success');
@@ -8305,10 +8314,11 @@
           }
         })
         .withFailureHandler(function(error) {
+          window.clienteGuardandoEnProgreso = false; // Resetear estado
           mostrarLoading(false);
           mostrarToast('Error: ' + error.message, 'error');
         })
-        [editando ? 'actualizarCliente' : 'crearCliente'](editando || datos, editando ? datos : undefined);
+        [funcion].apply(google.script.run, args);
     }
 
     function eliminarClienteConfirm(nombre) {

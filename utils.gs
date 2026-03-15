@@ -33,6 +33,20 @@ function normalizarString(str) {
 }
 
 /**
+ * Sanitiza texto para evitar inyección de HTML/XSS
+ * @param {string} str - Texto a sanitizar
+ * @returns {string} Texto seguro
+ */
+function sanitizarTexto(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/[<>]/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Serializa objetos para enviar al frontend (convierte Dates a ISO strings)
  * @param {*} obj - Objeto a serializar
  * @returns {*} Objeto serializado

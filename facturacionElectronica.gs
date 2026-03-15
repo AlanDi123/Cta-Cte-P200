@@ -40,8 +40,7 @@
 // CONFIGURACION AFIP
 // ============================================================================
 
-const CONFIG_AFIP = {
-  // URL base de Afip SDK REST API
+var CONFIG_AFIP = {
   API_URL: 'https://app.afipsdk.com/api/v1/afip',
 
   /**
@@ -125,6 +124,7 @@ const CONFIG_AFIP = {
     USUARIO: 19         // T: email del usuario
   }
 };
+
 
 // ============================================================================
 // SERVICIO AFIP SDK
