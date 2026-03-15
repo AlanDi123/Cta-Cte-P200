@@ -9,6 +9,7 @@
 
 // Configuración del módulo de facturación
 var CONFIG_FACTURACION = {
+  HOJAS: {
     TRANSFERENCIAS: 'Transferencias',
     PRODUCTOS: 'Productos'
   },
