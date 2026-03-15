@@ -16,108 +16,64 @@
  */
 
 // ============================================================================
-// 1️⃣ SESSION CONTEXT MEMORY (TEMPORAL)
+// 1️⃣ SESSION CONTEXT MEMORY (TEMPORAL) - BACKWARD COMPATIBILITY
 // ============================================================================
 
 /**
- * Session context memory - TEMPORARY, IN-MEMORY ONLY
- * Exists ONLY during the chat session
- * NOT persisted to Sheets
- * NOT global across users
- * Cleared when session ends
+ * AISessionContext - BACKWARD COMPATIBILITY WRAPPER
+ * DEPRECATED: Usar SessionManager en su lugar
  * 
- * @type {Object}
+ * Esto mantiene compatibilidad con código existente pero usa SessionManager internamente
+ * para evitar el bug crítico de estado global compartido.
  */
 var AISessionContext = {
-  // Session identifier (per user)
-  sessionId: null,
-  sessionStart: null,
-  
-  // Context memory
-  lastResolvedClient: null,      // Last client name resolved
-  lastResolvedClientId: null,    // Last client ID if available
-  lastActionType: null,          // Last action executed
-  lastAmounts: [],               // Recent amounts (for corrections)
-  pendingConfirmation: null,     // Pending confirmation data
-  lastUserIntent: null,          // Last interpreted intent
-  
-  // Session statistics
-  interactionCount: 0,
-  confirmedClients: {},          // Map of confirmed client mappings
+  // Internal reference to current user session
+  _currentSession: null,
   
   /**
-   * Initialize or reset session context
-   * @param {string} userId - User identifier (email)
+   * Initialize session (DEPRECATED - usar SessionManager.getSession)
+   * @param {string} userId - User identifier
    */
   init: function(userId) {
-    this.sessionId = userId + '_' + new Date().getTime();
-    this.sessionStart = new Date();
-    this.interactionCount = 0;
-    this.lastResolvedClient = null;
-    this.lastResolvedClientId = null;
-    this.lastActionType = null;
-    this.lastAmounts = [];
-    this.pendingConfirmation = null;
-    this.lastUserIntent = null;
-    this.confirmedClients = {};
-    
-    Logger.log('[AI Session] Initialized: ' + this.sessionId + ' for user: ' + userId);
+    this._currentSession = SessionManager.getSession(userId);
+    Logger.log('[AISessionContext] Initialized via SessionManager: ' + this._currentSession.sessionId);
   },
   
   /**
-   * Update context after successful action
-   * @param {Object} actionData - Action that was executed
+   * Get current session (DEPRECATED - usar SessionManager.getSession)
    */
+  getSession: function() {
+    if (!this._currentSession) {
+      var userId = Session.getActiveUser().getEmail();
+      this._currentSession = SessionManager.getSession(userId);
+    }
+    return this._currentSession;
+  },
+  
+  // Delegar métodos a SessionManager para mantener compatibilidad
   updateAfterAction: function(actionData) {
-    this.interactionCount++;
-    
-    if (actionData.client) {
-      this.lastResolvedClient = actionData.client;
-    }
-    
-    if (actionData.type) {
-      this.lastActionType = actionData.type;
-    }
-    
-    if (actionData.amount) {
-      // Keep last 5 amounts for context
-      this.lastAmounts.unshift(actionData.amount);
-      if (this.lastAmounts.length > 5) {
-        this.lastAmounts = this.lastAmounts.slice(0, 5);
-      }
-    }
-    
-    this.pendingConfirmation = null;
+    var userId = Session.getActiveUser().getEmail();
+    SessionManager.updateAfterAction(userId, actionData);
+    this._currentSession = SessionManager.getSession(userId);
   },
   
-  /**
-   * Mark client as confirmed in this session
-   * @param {string} userInput - User input that confirmed
-   * @param {string} clientName - Resolved client name
-   */
   confirmClient: function(userInput, clientName) {
-    this.confirmedClients[clientName.toUpperCase()] = {
-      confirmedAt: new Date(),
-      userInput: userInput,
-      usageCount: (this.confirmedClients[clientName.toUpperCase()] || {}).usageCount || 0 + 1
-    };
-    this.lastResolvedClient = clientName;
+    var userId = Session.getActiveUser().getEmail();
+    SessionManager.confirmClient(userId, clientName);
+    this._currentSession = SessionManager.getSession(userId);
   },
   
-  /**
-   * Get session context summary for debugging
-   * @returns {Object}
-   */
   getSummary: function() {
+    var session = this.getSession();
     return {
-      sessionId: this.sessionId,
-      sessionStart: this.sessionStart,
-      interactionCount: this.interactionCount,
-      lastResolvedClient: this.lastResolvedClient,
-      lastActionType: this.lastActionType,
-      lastAmounts: this.lastAmounts,
-      hasPendingConfirmation: !!this.pendingConfirmation,
-      confirmedClientsCount: Object.keys(this.confirmedClients).length
+      sessionId: session.sessionId,
+      sessionStart: new Date(session.createdAt),
+      interactionCount: session.interactionCount || 0,
+      lastResolvedClient: session.lastResolvedClient,
+      lastActionType: session.lastActionType,
+      lastAmounts: session.lastAmounts || [],
+      hasPendingConfirmation: !!session.pendingConfirmation,
+      confirmedClientsCount: Object.keys(session.confirmedClients || {}).length
     };
   }
 };
@@ -487,48 +443,10 @@ function detectHumanError(amount, clientName, sessionContext) {
 
 /**
  * Get client historical average for comparison (read-only)
- * 
- * @param {string} clientName - Client name
- * @returns {Object} Historical data (read-only)
+ * DEPRECATED: Esta función no se usa actualmente.
+ * Si se necesita en el futuro, integrar con detectHumanError().
  */
-function getClientHistoricalAverage(clientName) {
-  var historical = {
-    averageAmount: 0,
-    transactionCount: 0,
-    maxAmount: 0,
-    lastAmount: 0,
-    available: false
-  };
-  
-  try {
-    // Try to get movements for this client
-    if (typeof MovimientosRepository !== 'undefined') {
-      var movimientos = MovimientosRepository.obtenerPorCliente(clientName);
-      
-      if (movimientos && movimientos.length > 0) {
-        var total = 0;
-        var max = 0;
-        
-        for (var i = 0; i < movimientos.length; i++) {
-          var monto = movimientos[i].monto || 0;
-          total += monto;
-          if (monto > max) max = monto;
-        }
-        
-        historical.averageAmount = total / movimientos.length;
-        historical.transactionCount = movimientos.length;
-        historical.maxAmount = max;
-        historical.lastAmount = movimientos[0].monto || 0;
-        historical.available = true;
-      }
-    }
-  } catch (e) {
-    Logger.log('[AI Error Detection] No se pudo obtener histórico: ' + e.message);
-    // Return empty historical silently - this is a non-critical feature
-  }
-  
-  return historical;
-}
+// function getClientHistoricalAverage(clientName) { ... }  // REMOVIDO - dead code
 
 // ============================================================================
 // 5️⃣ PROACTIVE ASSISTIVE SUGGESTIONS (NON-EXECUTING)
@@ -630,80 +548,16 @@ function generateProactiveSuggestions(lastAction, sessionContext, clientName) {
 }
 
 // ============================================================================
-// INTEGRATION: ENHANCED PROCESAR CONSULTA AI
+// INTEGRATION: USE SessionManager INSTEAD OF GLOBAL AISessionContext
 // ============================================================================
 
 /**
- * Enhanced version of procesarConsultaAI with all 5 intelligence features
- * This is an ADDITIVE wrapper - does not replace existing function
+ * DEPRECATED: procesarConsultaAI_Enhanced fue removido.
+ * Usar SessionManager para gestión de sesiones por usuario.
  * 
- * @param {Object} data - { message: string, contexto: object, userId: string }
- * @returns {Object} Enhanced response with all intelligence features
+ * La lógica de intelligence features ahora está integrada en:
+ * - generateActionPreview()
+ * - recognizeClientWithContext()
+ * - detectHumanError()
+ * - generateProactiveSuggestions()
  */
-function procesarConsultaAI_Enhanced(data) {
-  var userId = data.userId || Session.getActiveUser().getEmail();
-  
-  // Initialize session context if not exists
-  if (!AISessionContext.sessionId || AISessionContext.sessionId.indexOf(userId) === -1) {
-    AISessionContext.init(userId);
-  }
-  
-  // Call original function
-  var originalResponse = procesarConsultaAI(data);
-  
-  // Enhance response with intelligence features
-  if (originalResponse.success && originalResponse.actions && originalResponse.actions.length > 0) {
-    
-    // FEATURE 2: Add action preview for confirmation
-    var preview = generateActionPreview(originalResponse.actions, AISessionContext);
-    
-    if (preview.requires_confirmation && !originalResponse.confirmed) {
-      // Return preview instead of executing
-      return {
-        success: true,
-        requires_confirmation: true,
-        preview: preview,
-        message: '⚠️ Confirmación requerida:\n\n' + preview.summary,
-        actions: originalResponse.actions
-      };
-    }
-    
-    // FEATURE 4: Check for human errors
-    for (var i = 0; i < originalResponse.actions.length; i++) {
-      var action = originalResponse.actions[i];
-      if (action.amount) {
-        var errorCheck = detectHumanError(action.amount, action.client, AISessionContext);
-        if (errorCheck.requires_confirmation) {
-          return {
-            success: true,
-            requires_confirmation: true,
-            warning: errorCheck.message,
-            warnings: errorCheck.warnings,
-            message: '⚠️ ' + errorCheck.message,
-            actions: originalResponse.actions
-          };
-        }
-      }
-    }
-    
-    // Update session context after successful action
-    for (var j = 0; j < originalResponse.actions.length; j++) {
-      AISessionContext.updateAfterAction(originalResponse.actions[j]);
-    }
-    
-    // FEATURE 5: Add proactive suggestions
-    var lastAction = originalResponse.actions[originalResponse.actions.length - 1];
-    var suggestions = generateProactiveSuggestions(
-      lastAction, 
-      AISessionContext, 
-      lastAction.client || AISessionContext.lastResolvedClient
-    );
-    
-    if (suggestions.length > 0) {
-      originalResponse.suggestions = suggestions;
-      originalResponse.message += '\n\n💡 ' + suggestions.map(function(s) { return s.text; }).join('\n💡 ');
-    }
-  }
-  
-  return originalResponse;
-}

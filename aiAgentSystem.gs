@@ -57,6 +57,7 @@ var AI_AGENT_CONFIG = {
  * @returns {Object} Intención normalizada
  */
 function secondaryReasoningAgent(input) {
+  // VALIDACIÓN DE SEGURIDAD: Sanitizar input
   if (!input || typeof input !== 'string') {
     return {
       normalized: '',
@@ -66,7 +67,24 @@ function secondaryReasoningAgent(input) {
     };
   }
   
-  var texto = input.toLowerCase().trim();
+  // Sanitizar: eliminar tags HTML, scripts, y caracteres peligrosos
+  var sanitizedInput = String(input)
+    .replace(/<[^>]*>/g, '')  // Eliminar HTML tags
+    .replace(/javascript:/gi, '')  // Eliminar javascript: protocol
+    .replace(/on\w+\s*=/gi, '')  // Eliminar event handlers (onclick=, etc.)
+    .trim();
+  
+  // Validar longitud máxima (previene DoS)
+  if (sanitizedInput.length > 1000) {
+    return {
+      normalized: '',
+      intent: 'unknown',
+      confidence: 0,
+      notes: 'Input demasiado largo (máximo 1000 caracteres)'
+    };
+  }
+  
+  var texto = sanitizedInput.toLowerCase();
   var result = {
     normalized: texto,
     intent: 'unknown',
@@ -508,55 +526,84 @@ function actionInterpreter(acciones, usuario) {
 
 /**
  * Ejecuta acción: add_charge
+ * CON ERROR BOUNDARIES - Aísla errores de AI de lógica de negocio
  */
 function ejecutarAddCharge(accion, usuario, resultado) {
-  // Validar monto
-  var validacionMonto = validarMonto(accion.amount, 0);
-  if (!validacionMonto.valido) {
-    resultado.mensaje = 'Monto inválido: ' + validacionMonto.error;
-    resultado.errores.push(validacionMonto.error);
-    return resultado;
-  }
-  
-  // Validar cliente
-  var validacionCliente = validarNombreCliente(accion.client);
-  if (!validacionCliente.valido) {
-    resultado.mensaje = 'Cliente inválido: ' + validacionCliente.error;
-    resultado.errores.push(validacionCliente.error);
-    return resultado;
-  }
-  
-  // Verificar límite
-  if (validacionMonto.valor > AI_AGENT_CONFIG.MAX_AMOUNT_PER_ACTION) {
-    resultado.mensaje = 'Monto excede el límite permitido ($' + 
-                       AI_AGENT_CONFIG.MAX_AMOUNT_PER_ACTION + ')';
-    resultado.errores.push('Monto demasiado alto');
-    return resultado;
-  }
-  
-  // Ejecutar usando función existente del sistema
   try {
-    var movimientoData = {
-      cliente: validacionCliente.valor,
-      tipo: CONFIG.TIPOS_MOVIMIENTO.DEBE,
-      monto: validacionMonto.valor,
-      obs: accion.obs || 'Cargo desde AI Agent'
-    };
+    // VALIDACIÓN 1: Validar monto
+    var validacionMonto = validarMonto(accion.amount, 0);
+    if (!validacionMonto.valido) {
+      resultado.mensaje = 'Monto inválido: ' + validacionMonto.error;
+      resultado.errores.push(validacionMonto.error);
+      return resultado;
+    }
     
-    var registrado = MovimientosRepository.registrar(movimientoData);
+    // VALIDACIÓN 2: Validar cliente
+    var validacionCliente = validarNombreCliente(accion.client);
+    if (!validacionCliente.valido) {
+      resultado.mensaje = 'Cliente inválido: ' + validacionCliente.error;
+      resultado.errores.push(validacionCliente.error);
+      return resultado;
+    }
     
-    resultado.exitosa = true;
-    resultado.mensaje = 'Cargo registrado exitosamente';
-    resultado.datos = {
-      id: registrado.id,
-      cliente: registrado.cliente,
-      monto: registrado.monto,
-      saldoPost: registrado.saldoPost
-    };
+    // VALIDACIÓN 3: Verificar límite
+    if (validacionMonto.valor > AI_AGENT_CONFIG.MAX_AMOUNT_PER_ACTION) {
+      resultado.mensaje = 'Monto excede el límite permitido ($' + 
+                         AI_AGENT_CONFIG.MAX_AMOUNT_PER_ACTION + ')';
+      resultado.errores.push('Monto demasiado alto');
+      return resultado;
+    }
     
-  } catch (e) {
-    resultado.mensaje = 'Error al registrar cargo: ' + e.message;
-    resultado.errores.push(e.message);
+    // VALIDACIÓN 4: Verificar que el cliente existe (ERROR BOUNDARY)
+    var clienteInfo;
+    try {
+      clienteInfo = ClientesRepository.buscarPorNombre(validacionCliente.valor);
+    } catch (repoError) {
+      // ERROR BOUNDARY: Error de repositorio no debe propagarse
+      Logger.log('[AI Error Boundary] ClienteRepository error: ' + repoError.message);
+      resultado.mensaje = 'Error al verificar cliente. Intente nuevamente.';
+      resultado.errores.push('Error interno de verificación');
+      return resultado;
+    }
+    
+    if (!clienteInfo) {
+      resultado.mensaje = 'Cliente no encontrado: ' + validacionCliente.valor;
+      resultado.errores.push('El cliente no existe en el sistema');
+      return resultado;
+    }
+    
+    // EJECUCIÓN: Try-catch para aislar errores
+    try {
+      var movimientoData = {
+        cliente: validacionCliente.valor,
+        tipo: CONFIG.TIPOS_MOVIMIENTO.DEBE,
+        monto: validacionMonto.valor,
+        obs: accion.obs || 'Cargo desde AI Agent'
+      };
+      
+      var registrado = MovimientosRepository.registrar(movimientoData);
+      
+      resultado.exitosa = true;
+      resultado.mensaje = 'Cargo registrado exitosamente';
+      resultado.datos = {
+        id: registrado.id,
+        cliente: registrado.cliente,
+        monto: registrado.monto,
+        saldoPost: registrado.saldoPost
+      };
+      
+    } catch (execError) {
+      // ERROR BOUNDARY: Capturar error de ejecución pero no propagar
+      Logger.log('[AI Error Boundary] Ejecución fallida: ' + execError.message);
+      resultado.mensaje = 'Error al registrar cargo: ' + execError.message;
+      resultado.errores.push(execError.message);
+    }
+    
+  } catch (outerError) {
+    // ERROR BOUNDARY: Capturar cualquier error no manejado
+    Logger.log('[AI Error Boundary] Error no capturado en ejecutarAddCharge: ' + outerError.message);
+    resultado.mensaje = 'Error interno inesperado';
+    resultado.errores.push('Error de sistema');
   }
   
   return resultado;
