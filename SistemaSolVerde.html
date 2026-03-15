@@ -15175,13 +15175,20 @@ function toggleAIChat() {
 }
 
 /**
- * Send message to AI
+ * Send message to AI (ENHANCED with confirmation support)
  */
 function sendAIChatMessage() {
   var input = document.getElementById('aiChatInput');
   var message = input.value.trim();
   
   if (!message) return;
+  
+  // Check if this is a confirmation response
+  if (window.aiPendingConfirmation) {
+    handleAIConfirmation(message);
+    input.value = '';
+    return;
+  }
   
   // Add user message to chat
   addAIChatMessage(message, 'user');
@@ -15275,7 +15282,7 @@ function hideAITyping() {
 }
 
 /**
- * Handle AI response
+ * Handle AI response (ENHANCED with intelligence features)
  */
 function handleAIResponse(response) {
   if (!response) {
@@ -15286,6 +15293,42 @@ function handleAIResponse(response) {
   if (!response.success) {
     addAIChatMessage('❌ Error: ' + (response.error || 'Error desconocido'), 'bot', true);
     return;
+  }
+  
+  // =========================================================================
+  // FEATURE 2: ACTION PREVIEW / CONFIRMATION REQUIRED
+  // =========================================================================
+  
+  if (response.requires_confirmation) {
+    // Show confirmation dialog
+    var confirmMessage = response.message || response.preview?.summary || '¿Confirmás esta acción?';
+    
+    if (response.warnings && response.warnings.length > 0) {
+      confirmMessage += '\n\n⚠️ ' + response.warnings.join('\n⚠️ ');
+    }
+    
+    addAIChatMessage(confirmMessage + '\n\n**Respondé "SI" para confirmar o "NO" para cancelar**', 'bot');
+    
+    // Store pending confirmation
+    window.aiPendingConfirmation = {
+      actions: response.actions,
+      confirmed: false
+    };
+    
+    playSound('notification');
+    return;
+  }
+  
+  // =========================================================================
+  // FEATURE 5: PROACTIVE SUGGESTIONS
+  // =========================================================================
+  
+  if (response.suggestions && response.suggestions.length > 0) {
+    var suggestionsHtml = response.suggestions.map(function(s, i) {
+      return (i + 1) + '. ' + s.text;
+    }).join('\n');
+    
+    addAIChatMessage('💡 **Sugerencias**:\n\n' + suggestionsHtml, 'bot');
   }
   
   // Show message from AI
@@ -15311,9 +15354,46 @@ function handleAIResponse(response) {
     // Reload client data after AI actions
     setTimeout(function() {
       if (typeof cargarDatosIniciales === 'function') {
-        cargarDatosInicialles(true);
+        cargarDatosIniciales(true);
       }
     }, 1000);
+  }
+  
+  playSound('success');
+}
+
+/**
+ * Handle confirmation responses
+ */
+function handleAIConfirmation(userResponse) {
+  var normalizedResponse = userResponse.toLowerCase().trim();
+  
+  if (normalizedResponse === 'si' || normalizedResponse === 'sí' || normalizedResponse === 'yes' || normalizedResponse === 'confirmo') {
+    // User confirmed
+    if (window.aiPendingConfirmation && window.aiPendingConfirmation.actions) {
+      addAIChatMessage('✅ Confirmaicón recibida. Ejecutando...', 'bot');
+      
+      // Execute confirmed actions
+      google.script.run
+        .withSuccessHandler(function(response) {
+          handleAIResponse(response);
+          window.aiPendingConfirmation = null;
+        })
+        .withFailureHandler(function(error) {
+          addAIChatMessage('❌ Error al ejecutar: ' + error.message, 'bot', true);
+          window.aiPendingConfirmation = null;
+        })
+        .procesarConsultaAI({
+          message: 'confirmar acciones pendientes',
+          confirmed: true,
+          actions: window.aiPendingConfirmation.actions
+        });
+    }
+  } else if (normalizedResponse === 'no' || normalizedResponse === 'cancelar' || normalizedResponse === 'cancel') {
+    // User cancelled
+    addAIChatMessage('❌ Operación cancelada', 'bot');
+    window.aiPendingConfirmation = null;
+    playSound('error');
   }
 }
 
