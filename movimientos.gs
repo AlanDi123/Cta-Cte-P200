@@ -211,18 +211,29 @@ const MovimientosRepository = {
 
   /**
    * Obtiene todos los movimientos de un cliente
+   * OPTIMIZADO: Usa caché RequestCache para máxima velocidad
    * @param {string} nombreCliente - Nombre del cliente
    * @returns {Array<Object>} Array de movimientos
    */
   obtenerPorCliente: function(nombreCliente) {
     const nombreNorm = normalizarString(nombreCliente);
+    
+    // OPTIMIZACIÓN: Intentar primero con caché RequestCache
+    const cacheKey = 'movimientos_cliente_' + nombreNorm;
+    const cached = RequestCache.get(cacheKey);
+    
+    if (cached !== undefined && Array.isArray(cached)) {
+      // Retornar desde caché (más rápido)
+      return cached;
+    }
+    
+    // Fallback: búsqueda directa en la hoja (más lento pero seguro)
     const hoja = this.getHoja();
     const lastRow = hoja.getLastRow();
 
     if (lastRow <= 1) return [];
 
-    // Leer todas las filas explícitamente desde la fila 2 hasta la última
-    // Número de columnas basado en CONFIG.COLS_MOVS (ID, FECHA, CLIENTE, TIPO, MONTO, SALDO_POST, OBS, USUARIO = 8 columnas)
+    // Leer todas las filas explícitamente
     const numColumnas = 8;
     const datos = hoja.getRange(2, 1, lastRow - 1, numColumnas).getValues();
 
@@ -250,6 +261,9 @@ const MovimientosRepository = {
 
     // Ordenar por ID descendente
     movimientos.sort((a, b) => b.id - a.id);
+    
+    // Guardar en caché para próximas consultas
+    RequestCache.set(cacheKey, movimientos);
 
     return movimientos;
   },

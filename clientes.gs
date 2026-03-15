@@ -177,12 +177,17 @@ const ClientesRepository = {
 
     const nombreNorm = normalizarString(clienteData.nombre);
 
-    // Verificar que no exista
-    if (this.buscarPorNombre(nombreNorm)) {
-      throw new Error('Ya existe un cliente con el nombre: ' + nombreNorm);
+    // VALIDACIÓN CRÍTICA: Verificar duplicados usando búsqueda directa en la hoja
+    // (no confiar en caché que puede estar desactualizado)
+    const hoja = this.getHoja();
+    const datos = hoja.getDataRange().getValues();
+    for (let i = 1; i < datos.length; i++) {
+      const nombreFila = normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]);
+      if (nombreFila === nombreNorm) {
+        throw new Error('Ya existe un cliente con el nombre: ' + nombreNorm);
+      }
     }
 
-    const hoja = this.getHoja();
     const fechaAlta = new Date();
 
     const cuit = clienteData.cuit || '';
@@ -206,9 +211,13 @@ const ClientesRepository = {
 
     hoja.appendRow(nuevaFila);
 
-    // M-01 + M-04: Invalidar ambas capas de caché
+    // CRÍTICO: Invalidar todas las capas de caché para evitar duplicados
     RequestCache.invalidar('clientes_todos', 'clientes_todos_v2', 'clientes_index_nombre');
     SheetsCache.invalidar('clientes_todos_v2');
+    // También invalidar índices si existe IndicesCache
+    if (typeof IndicesCache !== 'undefined') {
+      IndicesCache.invalidarIndices();
+    }
 
     return {
       nombre: nombreNorm,
