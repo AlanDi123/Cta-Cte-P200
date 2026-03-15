@@ -32,7 +32,12 @@ const ClaudeService = {
    */
   tieneApiKey: function() {
     const key = this.getApiKey();
-    return key && key.length > 0;
+    // Protege secrets: nunca loguear ni exponer la API Key
+    if (key && key.length > 0) {
+      // Nunca loguear ni devolver la clave
+      return true;
+    }
+    return false;
   },
 
   /**
@@ -65,19 +70,19 @@ const ClaudeService = {
 
     const fechaHoy = fecha || obtenerFechaHoy();
 
-    // ✅ BLOQUE NUEVO: validación de CONFIG.CLAUDE antes de construir payload
+    // Validación de CONFIG.CLAUDE antes de construir payload
     const claudeConfig = (CONFIG && CONFIG.CLAUDE) ? CONFIG.CLAUDE : null;
-    if (!claudeConfig || !claudeConfig.MODEL || !claudeConfig.API_URL || !claudeConfig.VERSION) {
+    if (!claudeConfig || !claudeConfig.MODEL || !claudeConfig.API_URL || !claudeConfig.VERSION || !claudeConfig.MAX_TOKENS) {
       throw new Error(
         'Configuración de Claude AI incompleta o ausente en config.gs. ' +
         'Verificá que CONFIG.CLAUDE tenga: MODEL, API_URL, MAX_TOKENS y VERSION.'
       );
     }
     const claudeModel    = claudeConfig.MODEL;
-    const claudeMaxTokens = claudeConfig.MAX_TOKENS || 4096;
+    const claudeMaxTokens = claudeConfig.MAX_TOKENS;
     const claudeVersion  = claudeConfig.VERSION;
     const claudeApiUrl   = claudeConfig.API_URL;
-    // FIN BLOQUE NUEVO
+    // FIN BLOQUE NUEVO (completo)
 
     // Construir el prompt optimizado para español/Argentina
     const prompt = `Analiza esta imagen de un libro contable argentino de cuenta corriente.
@@ -136,7 +141,9 @@ Responde SOLO con JSON valido (sin markdown ni explicaciones):
     // Construir payload para Claude API
     const payload = {
       model: claudeModel,        // antes: CONFIG.CLAUDE.MODEL
-      max_tokens: claudeMaxTokens, // antes: CONFIG.CLAUDE.MAX_TOKENS
+      max_tokens: claudeMaxTokens, // timeout mejorado
+      stop: ["\n"], // Mejora timeout: detiene en salto de línea
+      temperature: 0.2,
       messages: [
         {
           role: 'user',
@@ -215,6 +222,13 @@ Responde SOLO con JSON valido (sin markdown ni explicaciones):
       // Detectar timeout de UrlFetchApp
       if (error.message && (error.message.toLowerCase().includes('timed out') || error.message.toLowerCase().includes('timeout'))) {
         throw new Error('La imagen tardó demasiado en procesarse (timeout de 30s). Intentá con una imagen de menor resolución o tamaño.');
+      }
+      if (error.message && error.message.toLowerCase().includes('http')) {
+        throw new Error('Error HTTP al conectar con Claude: ' + error.message);
+      }
+      // Personalización de errores HTTP
+      if (error.message && error.message.match(/\b(401|403|404|429|500|502|503|504)\b/)) {
+        throw new Error('Error HTTP ' + error.message.match(/\b(401|403|404|429|500|502|503|504)\b/)[0] + ' al conectar con Claude.');
       }
       throw error;
     }

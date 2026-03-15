@@ -265,16 +265,16 @@ function agregarMovimientosAPI(movimientos) {
 
     // Adaptar formato de API a formato interno
     const movimientosAdaptados = movimientos.map(m => ({
-      fecha: m.FECHA,
-      cliente: (m.CLIENTE || '').toUpperCase(),
-      tipo: m.TIPO, // DEBE o HABER
-      monto: Number(m.MONTO) || 0,
-      obs: m.OBS || '',
+      fecha: validarFecha(m.FECHA) ? m.FECHA : null,
+      cliente: normalizarString(m.CLIENTE || ''),
+      tipo: ['DEBE','HABER'].includes(m.TIPO) ? m.TIPO : null,
+      monto: typeof m.MONTO === 'number' && m.MONTO > 0 ? m.MONTO : null,
+      obs: sanitizarTexto(m.OBS || ''),
       usuario: m.USUARIO || 'API_EXTERNA'
     }));
 
     // Usar el repositorio existente
-    const resultado = MovimientosRepository.registrarLote(movimientosAdaptados);
+    const resultado = MovimientosRepository.registrarLote(movimientosAdaptados.filter(mov => mov.fecha && mov.cliente && mov.tipo && mov.monto));
 
     Logger.log(`API: ${resultado.exitosos.length} movimientos agregados exitosamente`);
 

@@ -1,0 +1,189 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    AUDITORÍA DE CÓDIGO - RESUMEN EJECUTIVO                ║
+║                          Sol & Verde v2.0.0                                ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+────────────────────────────────────────────────────────────────────────────
+1. ÍNDICES: 0-BASED VS 1-BASED
+────────────────────────────────────────────────────────────────────────────
+
+✓ CONFIG.gs (líneas 29-95)
+  • Índices: 0-BASED (0,1,2,3,4,5,6,7)
+  • Estado: CORRECTO - Sin cambios requeridos
+  • Uso: movimientos.gs, clientes.gs, caja.gs, alquileres.gs
+
+⚠️ CONFIG_VN (ventaNocturna.gs líneas 8-62)
+  • Índices: 1-BASED (1,2,3,4,5...)
+  • getRange() → USA 1-based directamente ✓
+  • array access [] → RESTA 1 para convertir ✓
+  • Funciones de mapeo → RESTAN 1 ✓
+
+🔴 CRÍTICA: ERROR EN main.gs LÍNEA 1752
+  • Problema: Referencia a CONFIG_VN.COLS_SESIONES.APERTURA (NO EXISTE)
+  • Debería ser: CONFIG_VN.COLS_SESIONES.HORA_APERTURA
+  • Impacto: Chequeo de sesiones fantasma falla silenciosamente
+  • Función: Chequeo de salud (healthcheck) línea 1740-1772
+  
+  ANTES: const fechaApertura = f[CONFIG_VN.COLS_SESIONES.APERTURA - 1];
+  DESPUÉS: const fechaApertura = f[CONFIG_VN.COLS_SESIONES.HORA_APERTURA - 1];
+
+────────────────────────────────────────────────────────────────────────────
+2. VALIDACIÓN DE SALDOS
+────────────────────────────────────────────────────────────────────────────
+
+❌ CRÍTICA: NO EXISTE VALIDACIÓN DE SALDOS
+
+Ubicación: movimientos.gs línea 57-139 (función registrar)
+
+Validaciones que EXISTEN ✓:
+  • Cliente existe: línea 72-74
+  • Monto positivo: utils.gs línea 144-145
+  • Tipo válido (DEBE/HABER): utils.gs línea 140-141
+
+Validaciones que FALTAN ❌:
+  • Saldo resultante no supera LÍMITE DE CRÉDITO (para movimientos DEBE)
+  • Saldo resultante no es NEGATIVO (para movimientos HABER)
+  • Coherencia con histórico
+
+IMPACTO: 
+  • Cliente puede acumular deuda ilimitada
+  • Cliente puede "pagar" más de lo que debe
+
+RECOMENDACIÓN:
+  Crear función validarMovimientoConSaldos(mov, cliente) en utils.gs
+  Usar en movimientos.gs línea 64 en lugar de validarMovimiento()
+  Ver documento detallado para código completo
+
+────────────────────────────────────────────────────────────────────────────
+3. VALIDACIÓN DE MOVIMIENTOS API
+────────────────────────────────────────────────────────────────────────────
+
+🔴 CRÍTICA: VALIDACIÓN INSUFICIENTE EN agregarMovimientosAPI
+
+Ubicación: main.gs línea 260-297
+
+Validaciones que EXISTEN ✓:
+  • Array no vacío: línea 262
+
+Validaciones que FALTAN ❌:
+  • FECHA presente y válida
+  • CLIENTE presente y normalizado
+  • TIPO válido (DEBE/HABER)
+  • MONTO positivo
+  • Detalles de error por ÍNDICE
+
+PROBLEMAS ESPECÍFICOS:
+  Línea 268: fecha = m.FECHA
+             → Sin validación, acepta undefined/null
+  
+  Línea 269: cliente = (m.CLIENTE || '').toUpperCase()
+             → Falta .trim() y normalización de acentos
+             → Debería usar normalizarString()
+  
+  Línea 270: tipo = m.TIPO
+             → Sin validar si es DEBE o HABER
+  
+  Línea 271: monto = Number(m.MONTO) || 0
+             → Si m.MONTO = "abc" → NaN || 0 → 0 SILENCIOSO
+             → Debería validar y reportar error
+
+RECOMENDACIÓN:
+  1. Crear función validarMovimientoAPI(m, indice) en main.gs
+  2. Validar ANTES de adaptar formato
+  3. Reportar errores detallados por índice
+  Ver documento detallado para código completo
+
+────────────────────────────────────────────────────────────────────────────
+4. GENERACIÓN Y UNICIDAD DE IDs
+────────────────────────────────────────────────────────────────────────────
+
+✓ FUNCIONAMIENTO: Genera IDs secuenciales correctamente
+
+🟠 PROBLEMA: SIN PROTECCIÓN DE CONCURRENCIA
+
+Ubicación: movimientos.gs línea 33-48 (función generarNuevoID)
+
+RACE CONDITION POSIBLE:
+  Script A: Lee datos → maxId = 100
+  Script B: Lee datos → maxId = 100 (en paralelo)
+  Script A: Retorna ID 101, registra
+  Script B: Retorna ID 101, registra
+  RESULTADO: Dos movimientos con ID 101 → ❌ COLISIÓN
+
+RECOMENDACIÓN:
+  Agregar LockService.getScriptLock() durante lectura y cálculo
+  Ver documento detallado para código completo con lock
+
+────────────────────────────────────────────────────────────────────────────
+5. SANITIZACIÓN DE NOMBRES Y VALIDACIÓN DE FECHAS
+────────────────────────────────────────────────────────────────────────────
+
+✓ normalizarString() - CORRECTO (utils.gs línea 19-32)
+  • Convierte a UPPERCASE
+  • Normaliza acentos (À→A, É→E, Ñ→N, etc.)
+  • Elimina espacios múltiples
+  Usado correctamente en: movimientos.gs:69, clientes.gs:185
+
+✓ validarFecha() - CORRECTO (utils.gs línea 115-126)
+  • Valida rango 1900-2100
+  • Retorna null si inválida
+
+✓ parsearFechaLocal() - CORRECTO (utils.gs línea 338-357)
+  • Maneja YYYY-MM-DD
+  • Maneja ISO strings
+  • Convierte a hora local (no UTC)
+
+❌ INCONSISTENCIAS DETECTADAS:
+
+  main.gs línea 269 (agregarMovimientosAPI):
+    ANTES: cliente = (m.CLIENTE || '').toUpperCase()
+    PROBLEMA: No normaliza acentos
+    DESPUÉS: cliente = normalizarString(m.CLIENTE || '')
+
+  main.gs línea 272 (agregarMovimientosAPI):
+    ANTES: obs = m.OBS || ''
+    PROBLEMA: Sin sanitización HTML (potencial XSS)
+    DESPUÉS: obs = sanitizarTexto(m.OBS || '')
+
+  ventaNocturna.gs línea 262 (vnReabrirSesion):
+    ANTES: .setValue(data.razon.trim())
+    PROBLEMA: No normaliza acentos ni espacios múltiples
+    DESPUÉS: .setValue(normalizarString(data.razon || ''))
+
+RECOMENDACIÓN:
+  Crear función sanitizarTexto() en utils.gs para escapar HTML
+  Usar normalizarString() en todos los campos de entrada
+
+────────────────────────────────────────────────────────────────────────────
+📊 TABLA DE SEVERIDAD Y ACCIONES
+────────────────────────────────────────────────────────────────────────────
+
+SEVERIDAD | PUNTO | ARCHIVO | LÍNEA | ACCIÓN REQUERIDA
+────────────────────────────────────────────────────────────────────────────
+🔴 CRÍTICA| 1     | main.gs | 1752  | Cambiar APERTURA → HORA_APERTURA
+🔴 CRÍTICA| 2     | main.gs | 268-  | Agregar validación exhaustiva API
+          |       |         | 271   |
+🔴 CRÍTICA| 3     | utils.gs| 151+  | Crear validarMovimientoConSaldos()
+          |       |         |       |
+🔴 CRÍTICA| 4     | movimien| 64-   | Usar nueva función de validación
+          |       | tos.gs  | 67    |
+────────────────────────────────────────────────────────────────────────────
+🟠 ALTA   | 5     | main.gs | 269   | normalizarString() en cliente
+🟠 ALTA   | 6     | movimien| 33-48 | Agregar LockService en generarNuevoID
+          |       | tos.gs  |       |
+────────────────────────────────────────────────────────────────────────────
+🟡 MEDIA  | 7     | main.gs | 272   | sanitizarTexto() en obs
+🟡 MEDIA  | 8     | ventaNoc| 262   | normalizarString() en razonReapertura
+          |       | turna   |       |
+          |       | .gs     |       |
+
+════════════════════════════════════════════════════════════════════════════
+
+✅ PRÓXIMOS PASOS:
+  1. Revisar documento ANALISIS_DETALLADO_AUDITORIA.md para código
+  2. Implementar correcciones en orden de severidad
+  3. Realizar pruebas de concurrencia (ID generation)
+  4. Realizar pruebas de API con datos inválidos
+  5. Realizar validación de límites de saldo
+
+════════════════════════════════════════════════════════════════════════════

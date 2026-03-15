@@ -1,0 +1,508 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║          TABLA DE REFERENCIAS EXACTAS - UBICACIONES Y CORRECCIONES         ║
+║                          Sol & Verde v2.0.0                                ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════════════════
+1. PROBLEMA: CONFIG_VN.COLS_SESIONES.APERTURA NO EXISTE
+═══════════════════════════════════════════════════════════════════════════════
+
+ARCHIVO:     main.gs
+LÍNEA:       1752
+FUNCIÓN:     healthcheck() (línea 1670-1797)
+SEVERIDAD:   🔴 CRÍTICA
+
+CONTEXTO (líneas 1750-1758):
+  1750         datos.slice(1).forEach(f => {
+  1751           const estado = f[CONFIG_VN.COLS_SESIONES.ESTADO - 1];
+  1752           const fechaApertura = f[CONFIG_VN.COLS_SESIONES.APERTURA - 1];  // ❌ ERROR
+  1753           if (estado === CONFIG_VN.ESTADOS_SESION.ABIERTA && fechaApertura instanceof Date) {
+
+PROBLEMA:
+  • CONFIG_VN.COLS_SESIONES no tiene propiedad APERTURA
+  • La propiedad correcta es HORA_APERTURA (índice 3 en 1-based)
+  • Se define en ventaNocturna.gs línea 28: HORA_APERTURA: 3
+
+IMPACTO:
+  • f[undefined - 1] = f[-1] → undefined
+  • Siempre retorna false en condición && fechaApertura instanceof Date
+  • Chequeo de sesiones abiertas > 24hs NO funciona
+
+SOLUCIÓN:
+  Cambiar línea 1752:
+  
+  ANTES:
+    const fechaApertura = f[CONFIG_VN.COLS_SESIONES.APERTURA - 1];
+  
+  DESPUÉS:
+    const fechaApertura = f[CONFIG_VN.COLS_SESIONES.HORA_APERTURA - 1];
+
+VALIDACIÓN:
+  • ventaNocturna.gs línea 28: HORA_APERTURA: 3,
+  • Confirmado: Es el índice 3, debería usarse así
+
+═══════════════════════════════════════════════════════════════════════════════
+2. PROBLEMA: SIN VALIDACIÓN DE SALDOS
+═══════════════════════════════════════════════════════════════════════════════
+
+ARCHIVO:     movimientos.gs
+LÍNEA:       64-67 (función registrar())
+SEVERIDAD:   🔴 CRÍTICA
+
+CONTEXTO (líneas 57-140):
+  57    registrar: function(movimientoData) {
+  58      const lock = LockService.getScriptLock();
+  59      try {
+  60        lock.waitLock(30000);
+  61
+  62        // Validar datos
+  63        const validacion = validarMovimiento(movimientoData);  // ← línea 64
+  64        if (!validacion.valid) {
+  65          throw new Error('Movimiento invalido: ' + validacion.errors.join(', '));
+  66        }
+  67
+  68        const clienteNorm = normalizarString(movimientoData.cliente);
+  69        const cliente = ClientesRepository.buscarPorNombre(clienteNorm);
+  70        if (!cliente) {
+  71          throw new Error('Cliente no encontrado: ' + clienteNorm);
+  72        }
+  73
+  74        // Calcular nuevo saldo
+  75        const saldoAnterior = cliente.saldo;
+  76        let nuevoSaldo;
+  77
+  78        if (movimientoData.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+  79          nuevoSaldo = sumaFinanciera(saldoAnterior, movimientoData.monto);  // ❌ SIN VALIDAR LÍMITE
+  80        } else {
+  81          nuevoSaldo = restaFinanciera(saldoAnterior, movimientoData.monto);  // ❌ SIN VALIDAR NEGATIVO
+  82        }
+
+PROBLEMA:
+  • validarMovimiento() solo valida cliente, tipo, monto
+  • NO valida nuevoSaldo vs cliente.limite
+  • NO valida nuevoSaldo < 0 para HABER
+
+IMPACTO:
+  • Cliente DEBE puede exceder límite de crédito ilimitadamente
+  • Cliente puede pagar más de lo que debe (saldo negativo)
+
+FUNCIÓN ACTUAL - utils.gs línea 133-151:
+  function validarMovimiento(mov) {
+    const errors = [];
+    
+    if (!mov.cliente || typeof mov.cliente !== 'string' || mov.cliente.trim() === '') {
+      errors.push('Cliente es requerido');
+    }
+    
+    if (!esTipoMovimientoValido(mov.tipo)) {
+      errors.push('Tipo de movimiento invalido (debe ser DEBE o HABER)');
+    }
+    
+    if (!esMontoValido(mov.monto)) {
+      errors.push('Monto invalido (debe ser un numero positivo)');
+    }
+    
+    return {
+      valid: errors.length === 0,
+      errors: errors
+    };
+  }
+
+SOLUCIÓN - Crear nueva función en utils.gs (DESPUÉS de línea 151):
+
+  /**
+   * Valida un movimiento incluyendo validaciones de saldo
+   * @param {Object} mov - Movimiento
+   * @param {Object} cliente - Cliente
+   * @returns {Object} {valid, errors}
+   */
+  function validarMovimientoConSaldos(mov, cliente) {
+    const errors = [];
+    
+    // Validaciones básicas
+    const validacionBasica = validarMovimiento(mov);
+    errors.push(...validacionBasica.errors);
+    
+    if (cliente && validacionBasica.valid) {
+      let nuevoSaldo;
+      
+      if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+        // FIADO: aumenta saldo (cliente nos debe más)
+        nuevoSaldo = sumaFinanciera(cliente.saldo, mov.monto);
+        
+        // Validar límite de crédito
+        if (nuevoSaldo > cliente.limite) {
+          errors.push(
+            `Saldo resultante ($${nuevoSaldo}) superaría límite de crédito ($${cliente.limite})`
+          );
+        }
+      } else {
+        // PAGO: disminuye saldo
+        nuevoSaldo = restaFinanciera(cliente.saldo, mov.monto);
+        
+        // Validar que no pague más de lo adeudado
+        if (nuevoSaldo < 0) {
+          errors.push(
+            `No puede pagar $${mov.monto}. Saldo actual: $${cliente.saldo}`
+          );
+        }
+      }
+    }
+    
+    return {
+      valid: errors.length === 0,
+      errors: errors
+    };
+  }
+
+LUEGO CAMBIAR en movimientos.gs línea 64:
+  
+  ANTES:
+    const validacion = validarMovimiento(movimientoData);
+  
+  DESPUÉS:
+    const validacion = validarMovimientoConSaldos(movimientoData, cliente);
+
+═══════════════════════════════════════════════════════════════════════════════
+3. PROBLEMA: VALIDACIÓN INSUFICIENTE EN API DE MOVIMIENTOS
+═══════════════════════════════════════════════════════════════════════════════
+
+ARCHIVO:     main.gs
+LÍNEA:       260-297
+FUNCIÓN:     agregarMovimientosAPI()
+SEVERIDAD:   🔴 CRÍTICA
+
+CONTEXTO ACTUAL (líneas 267-274):
+  267       const movimientosAdaptados = movimientos.map(m => ({
+  268         fecha: m.FECHA,                           // ❌ No valida
+  269         cliente: (m.CLIENTE || '').toUpperCase(), // ⚠️ Falta trim + normalización
+  270         tipo: m.TIPO,                             // ❌ No valida DEBE/HABER
+  271         monto: Number(m.MONTO) || 0,              // ❌ Silencia conversiones inválidas
+  272         obs: m.OBS || '',
+  273         usuario: m.USUARIO || 'API_EXTERNA'
+  274       }));
+
+PROBLEMAS ESPECÍFICOS:
+
+  Línea 268: fecha: m.FECHA
+    • Sin validación de existencia
+    • Sin validación de formato (YYYY-MM-DD)
+    • Sin rango de años (1900-2100)
+    • m.FECHA = undefined → pasa sin error
+
+  Línea 269: cliente: (m.CLIENTE || '').toUpperCase()
+    • toUpperCase() sin .trim() → " JUAN " es válido pero mal
+    • Sin normalización de acentos (JUAN ≠ JUÁN)
+    • Debería usar normalizarString()
+
+  Línea 270: tipo: m.TIPO
+    • Sin validación si es DEBE o HABER
+    • m.TIPO = "debe" → pasaría (minúsculas)
+    • m.TIPO = "OTROS" → pasaría (inválido)
+
+  Línea 271: monto: Number(m.MONTO) || 0
+    • Number("abc") = NaN
+    • NaN || 0 = 0 → silencia error
+    • m.MONTO = "abc" registraría movimiento de $0
+
+SOLUCIÓN - Crear función de validación en main.gs (ANTES de agregarMovimientosAPI):
+
+  function validarMovimientoAPI(m, indice) {
+    const errors = [];
+    
+    // FECHA
+    if (!m.FECHA) {
+      errors.push(`[índice ${indice}] FECHA requerida`);
+    } else {
+      const fechaObj = validarFecha(m.FECHA);
+      if (!fechaObj) {
+        errors.push(`[índice ${indice}] FECHA inválida: "${m.FECHA}"`);
+      }
+    }
+    
+    // CLIENTE
+    const clienteStr = String(m.CLIENTE || '').trim();
+    if (!clienteStr) {
+      errors.push(`[índice ${indice}] CLIENTE requerido`);
+    } else if (clienteStr.length < 2) {
+      errors.push(`[índice ${indice}] CLIENTE muy corto: "${clienteStr}"`);
+    }
+    
+    // TIPO
+    const tipoStr = String(m.TIPO || '').toUpperCase();
+    if (!esTipoMovimientoValido(tipoStr)) {
+      errors.push(`[índice ${indice}] TIPO inválido: "${m.TIPO}" (use DEBE o HABER)`);
+    }
+    
+    // MONTO
+    const monto = Number(m.MONTO);
+    if (isNaN(monto) || monto <= 0) {
+      errors.push(`[índice ${indice}] MONTO inválido: "${m.MONTO}" (número positivo requerido)`);
+    }
+    
+    return { valid: errors.length === 0, errors };
+  }
+
+LUEGO REEMPLAZAR función agregarMovimientosAPI COMPLETA (línea 260-297):
+
+  function agregarMovimientosAPI(movimientos) {
+    try {
+      if (!Array.isArray(movimientos) || movimientos.length === 0) {
+        throw new Error('Se requiere un array de movimientos válido');
+      }
+      
+      // Validar TODOS los movimientos primero
+      const erroresValidacion = [];
+      const movimientosValidos = [];
+      
+      for (let i = 0; i < movimientos.length; i++) {
+        const validacion = validarMovimientoAPI(movimientos[i], i);
+        
+        if (!validacion.valid) {
+          erroresValidacion.push({ indice: i, errores: validacion.errors });
+        } else {
+          movimientosValidos.push({
+            fecha: validarFecha(movimientos[i].FECHA),
+            cliente: normalizarString(movimientos[i].CLIENTE),
+            tipo: String(movimientos[i].TIPO).toUpperCase(),
+            monto: Number(movimientos[i].MONTO),
+            obs: sanitizarTexto(movimientos[i].OBS || ''),
+            usuario: movimientos[i].USUARIO || 'API_EXTERNA'
+          });
+        }
+      }
+      
+      // Si hay errores, reportar ANTES de procesar
+      if (erroresValidacion.length > 0) {
+        return ContentService.createTextOutput(
+          JSON.stringify({
+            success: false,
+            error: `${erroresValidacion.length} movimiento(s) inválido(s)`,
+            detalles: erroresValidacion,
+            procesados: 0
+          })
+        ).setMimeType(ContentService.MimeType.JSON);
+      }
+      
+      // Procesar movimientos válidos
+      const resultado = MovimientosRepository.registrarLote(movimientosValidos);
+      
+      return ContentService.createTextOutput(
+        JSON.stringify({
+          success: true,
+          procesados: resultado.exitosos.length,
+          exitosos: resultado.exitosos.length,
+          errores: resultado.errores.length,
+          detalleErrores: resultado.errores
+        })
+      ).setMimeType(ContentService.MimeType.JSON);
+      
+    } catch (error) {
+      Logger.log('Error en agregarMovimientosAPI: ' + error.message);
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: false, error: error.message })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+═══════════════════════════════════════════════════════════════════════════════
+4. PROBLEMA: RACE CONDITION EN generarNuevoID
+═══════════════════════════════════════════════════════════════════════════════
+
+ARCHIVO:     movimientos.gs
+LÍNEA:       33-48
+FUNCIÓN:     generarNuevoID()
+SEVERIDAD:   🟠 ALTA
+
+CONTEXTO ACTUAL:
+  33    generarNuevoID: function() {
+  34      const hoja = this.getHoja();
+  35      const datos = hoja.getDataRange().getValues();
+  36
+  37      if (datos.length <= 1) return 1;
+  38
+  39      let maxId = 0;
+  40      for (let i = 1; i < datos.length; i++) {
+  41        const id = datos[i][CONFIG.COLS_MOVS.ID];
+  42        if (typeof id === 'number' && id > maxId) {
+  43          maxId = id;
+  44        }
+  45      }
+  46
+  47      return maxId + 1;
+  48    },
+
+PROBLEMA:
+  • Sin LockService durante lectura y cálculo
+  • Dos scripts paralelos pueden generar el mismo ID
+
+ESCENARIO:
+  Tiempo | Script A              | Script B              | Estado
+  ─────────────────────────────────────────────────────────────
+  T1     | Lee datos (maxId=100) |                       | datos leídos
+  T2     |                       | Lee datos (maxId=100) | datos leídos
+  T3     | Retorna 101           |                       | A obtiene 101
+  T4     |                       | Retorna 101           | B obtiene 101
+  T5     | Registra ID 101       |                       | A escribe
+  T6     |                       | Registra ID 101       | B escribe
+  RESULTADO: DOS movimientos con ID 101 → COLISIÓN ❌
+
+SOLUCIÓN - Reemplazar función generarNuevoID (línea 33-48):
+
+  generarNuevoID: function() {
+    const lock = LockService.getScriptLock();
+    
+    try {
+      // Esperar hasta obtener lock (máximo 30 segundos)
+      lock.waitLock(30000);
+      
+      const hoja = this.getHoja();
+      const datos = hoja.getDataRange().getValues();
+      
+      if (datos.length <= 1) return 1;
+      
+      let maxId = 0;
+      const idsExistentes = new Set();
+      
+      for (let i = 1; i < datos.length; i++) {
+        const id = datos[i][CONFIG.COLS_MOVS.ID];
+        if (typeof id === 'number' && id > 0) {
+          maxId = Math.max(maxId, id);
+          idsExistentes.add(id);
+        }
+      }
+      
+      const nuevoId = maxId + 1;
+      
+      // Validar que no exista (double-check)
+      if (idsExistentes.has(nuevoId)) {
+        throw new Error(`[BUG] ID generado ${nuevoId} ya existe`);
+      }
+      
+      return nuevoId;
+      
+    } finally {
+      lock.releaseLock();
+    }
+  },
+
+═══════════════════════════════════════════════════════════════════════════════
+5. PROBLEMA: SANITIZACIÓN INCONSISTENTE
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA A - cliente sin normalización en API
+ARCHIVO:     main.gs
+LÍNEA:       269
+FUNCIÓN:     agregarMovimientosAPI()
+SEVERIDAD:   🟠 ALTA
+
+CONTEXTO:
+  269         cliente: (m.CLIENTE || '').toUpperCase(),
+
+PROBLEMA:
+  • Solo .toUpperCase(), sin normalizar acentos
+  • "JUAN" ≠ "JUÁN" en la base de datos
+  • Falta .trim() de espacios
+
+SOLUCIÓN:
+  ANTES:
+    cliente: (m.CLIENTE || '').toUpperCase(),
+  
+  DESPUÉS:
+    cliente: normalizarString(m.CLIENTE || ''),
+
+─────────────────────────────────────────────────────────────────────────────
+
+PROBLEMA B - obs sin sanitización HTML
+ARCHIVO:     main.gs
+LÍNEA:       272
+FUNCIÓN:     agregarMovimientosAPI()
+SEVERIDAD:   🟡 MEDIA (XSS risk si se muestra en HTML)
+
+CONTEXTO:
+  272         obs: m.OBS || '',
+
+PROBLEMA:
+  • Sin escapar caracteres HTML
+  • Si obs = "<script>alert('xss')</script>" y se muestra en HTML, ejecuta
+
+SOLUCIÓN - Crear función en utils.gs (DESPUÉS de normalizarString, línea 32):
+
+  /**
+   * Sanitiza texto escapando caracteres HTML
+   * @param {string} texto - Texto a sanitizar
+   * @returns {string} Texto sanitizado
+   */
+  function sanitizarTexto(texto) {
+    if (!texto) return '';
+    return String(texto)
+      .trim()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  }
+
+LUEGO CAMBIAR en main.gs línea 272:
+  
+  ANTES:
+    obs: m.OBS || '',
+  
+  DESPUÉS:
+    obs: sanitizarTexto(m.OBS || ''),
+
+─────────────────────────────────────────────────────────────────────────────
+
+PROBLEMA C - razonReapertura sin normalización
+ARCHIVO:     ventaNocturna.gs
+LÍNEA:       262
+FUNCIÓN:     vnReabrirSesion()
+SEVERIDAD:   🟡 MEDIA
+
+CONTEXTO:
+  262       hoja.getRange(filaIdx, CONFIG_VN.COLS_SESIONES.RAZON_REAPERTURA)
+  263         .setValue(data.razon.trim());
+
+PROBLEMA:
+  • Solo .trim(), sin normalizar acentos ni espacios múltiples
+  • "razón" ≠ "razon" en búsquedas
+
+SOLUCIÓN:
+  ANTES:
+    .setValue(data.razon.trim());
+  
+  DESPUÉS:
+    .setValue(normalizarString(data.razon || ''));
+
+═══════════════════════════════════════════════════════════════════════════════
+📋 CHECKLIST DE IMPLEMENTACIÓN EN ORDEN
+═══════════════════════════════════════════════════════════════════════════════
+
+PASO 1: Crear funciones de utilidad en utils.gs
+  [ ] Agregar validarMovimientoConSaldos() después de línea 151
+  [ ] Agregar sanitizarTexto() después de línea 32
+
+PASO 2: Corregir función en movimientos.gs
+  [ ] Reemplazar generarNuevoID() (línea 33-48) con versión con LockService
+  [ ] Cambiar validación en registrar() (línea 64) a validarMovimientoConSaldos()
+
+PASO 3: Corregir funciones en main.gs
+  [ ] Agregar validarMovimientoAPI() antes de línea 260
+  [ ] Reemplazar agregarMovimientosAPI() completa (línea 260-297)
+  [ ] Cambiar línea 269: usar normalizarString()
+  [ ] Cambiar línea 272: usar sanitizarTexto()
+  [ ] Cambiar línea 1752: APERTURA → HORA_APERTURA
+
+PASO 4: Corregir función en ventaNocturna.gs
+  [ ] Cambiar línea 262: usar normalizarString() en razonReapertura
+
+PASO 5: Pruebas
+  [ ] Prueba: Crear dos movimientos simultáneamente → verificar IDs diferentes
+  [ ] Prueba: API con FECHA inválida → debe rechazar
+  [ ] Prueba: API con TIPO inválido → debe rechazar
+  [ ] Prueba: API con MONTO "abc" → debe rechazar
+  [ ] Prueba: Cliente con saldo superando límite → debe rechazar
+  [ ] Prueba: Cliente pagando más que debe → debe rechazar
+
+════════════════════════════════════════════════════════════════════════════════

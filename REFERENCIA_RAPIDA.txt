@@ -1,0 +1,223 @@
+═══════════════════════════════════════════════════════════════════════════════
+                         REFERENCIA RÁPIDA - AUDITORÍA
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA #1: CONFIG_VN.COLS_SESIONES.APERTURA NO EXISTE
+─────────────────────────────────────────────────────────────────────────────
+Archivo:        main.gs
+Línea:          1752
+Severidad:      🔴 CRÍTICA
+Acción:         Cambiar "APERTURA" → "HORA_APERTURA"
+
+ANTES:  const fechaApertura = f[CONFIG_VN.COLS_SESIONES.APERTURA - 1];
+DESPUÉS: const fechaApertura = f[CONFIG_VN.COLS_SESIONES.HORA_APERTURA - 1];
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA #2: SIN VALIDACIÓN DE LÍMITE DE CRÉDITO
+─────────────────────────────────────────────────────────────────────────────
+Archivo:        movimientos.gs
+Línea:          64
+Severidad:      🔴 CRÍTICA
+Acción:         Crear función nueva + cambiar validación
+
+PASO 1: Agregar en utils.gs (después de línea 151):
+   function validarMovimientoConSaldos(mov, cliente) {
+     const errors = [];
+     const validacionBasica = validarMovimiento(mov);
+     errors.push(...validacionBasica.errors);
+     
+     if (cliente && validacionBasica.valid) {
+       let nuevoSaldo;
+       if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
+         nuevoSaldo = sumaFinanciera(cliente.saldo, mov.monto);
+         if (nuevoSaldo > cliente.limite) {
+           errors.push(`Saldo resultante ($${nuevoSaldo}) > límite ($${cliente.limite})`);
+         }
+       } else {
+         nuevoSaldo = restaFinanciera(cliente.saldo, mov.monto);
+         if (nuevoSaldo < 0) {
+           errors.push(`No puede pagar $${mov.monto}. Saldo: $${cliente.saldo}`);
+         }
+       }
+     }
+     
+     return { valid: errors.length === 0, errors: errors };
+   }
+
+PASO 2: En movimientos.gs línea 64, cambiar:
+   ANTES: const validacion = validarMovimiento(movimientoData);
+   DESPUÉS: const validacion = validarMovimientoConSaldos(movimientoData, cliente);
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA #3: SIN VALIDACIÓN EN API (FECHA, TIPO, MONTO)
+─────────────────────────────────────────────────────────────────────────────
+Archivo:        main.gs
+Línea:          260-297
+Severidad:      🔴 CRÍTICA
+Acción:         Crear función nueva + reemplazar función
+
+PASO 1: Agregar en main.gs (antes de agregarMovimientosAPI):
+   function validarMovimientoAPI(m, indice) {
+     const errors = [];
+     
+     if (!m.FECHA) {
+       errors.push(`[${indice}] FECHA requerida`);
+     } else {
+       const fechaObj = validarFecha(m.FECHA);
+       if (!fechaObj) {
+         errors.push(`[${indice}] FECHA inválida: "${m.FECHA}"`);
+       }
+     }
+     
+     const clienteStr = String(m.CLIENTE || '').trim();
+     if (!clienteStr) {
+       errors.push(`[${indice}] CLIENTE requerido`);
+     }
+     
+     const tipoStr = String(m.TIPO || '').toUpperCase();
+     if (!esTipoMovimientoValido(tipoStr)) {
+       errors.push(`[${indice}] TIPO inválido: "${m.TIPO}"`);
+     }
+     
+     const monto = Number(m.MONTO);
+     if (isNaN(monto) || monto <= 0) {
+       errors.push(`[${indice}] MONTO inválido: "${m.MONTO}"`);
+     }
+     
+     return { valid: errors.length === 0, errors };
+   }
+
+PASO 2: Reemplazar función completa agregarMovimientosAPI (línea 260-297)
+         [VER TABLA_REFERENCIAS_EXACTAS.txt para código completo]
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA #4: RACE CONDITION EN GENERACIÓN DE IDs
+─────────────────────────────────────────────────────────────────────────────
+Archivo:        movimientos.gs
+Línea:          33-48
+Severidad:      🟠 ALTA
+Acción:         Reemplazar función con versión con LockService
+
+ANTES: generarNuevoID: function() {
+         const hoja = this.getHoja();
+         const datos = hoja.getDataRange().getValues();
+         ...
+       }
+
+DESPUÉS: generarNuevoID: function() {
+           const lock = LockService.getScriptLock();
+           try {
+             lock.waitLock(30000);
+             const hoja = this.getHoja();
+             const datos = hoja.getDataRange().getValues();
+             if (datos.length <= 1) return 1;
+             
+             let maxId = 0;
+             const idsExistentes = new Set();
+             for (let i = 1; i < datos.length; i++) {
+               const id = datos[i][CONFIG.COLS_MOVS.ID];
+               if (typeof id === 'number' && id > 0) {
+                 maxId = Math.max(maxId, id);
+                 idsExistentes.add(id);
+               }
+             }
+             
+             const nuevoId = maxId + 1;
+             if (idsExistentes.has(nuevoId)) {
+               throw new Error(`[BUG] ID ${nuevoId} ya existe`);
+             }
+             
+             return nuevoId;
+           } finally {
+             lock.releaseLock();
+           }
+         }
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA #5: CLIENTE SIN NORMALIZACIÓN EN API
+─────────────────────────────────────────────────────────────────────────────
+Archivo:        main.gs
+Línea:          269
+Severidad:      🟠 ALTA
+Acción:         Usar normalizarString()
+
+ANTES: cliente: (m.CLIENTE || '').toUpperCase(),
+DESPUÉS: cliente: normalizarString(m.CLIENTE || ''),
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA #6: OBS SIN SANITIZACIÓN HTML
+─────────────────────────────────────────────────────────────────────────────
+Archivo:        main.gs
+Línea:          272
+Severidad:      🟡 MEDIA
+Acción:         Crear función + usar
+
+PASO 1: Agregar en utils.gs (después de normalizarString):
+   function sanitizarTexto(texto) {
+     if (!texto) return '';
+     return String(texto)
+       .trim()
+       .replace(/&/g, '&amp;')
+       .replace(/</g, '&lt;')
+       .replace(/>/g, '&gt;')
+       .replace(/"/g, '&quot;')
+       .replace(/'/g, '&#x27;');
+   }
+
+PASO 2: En main.gs línea 272:
+   ANTES: obs: m.OBS || '',
+   DESPUÉS: obs: sanitizarTexto(m.OBS || ''),
+
+═══════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA #7: RAZON_REAPERTURA SIN NORMALIZACIÓN
+─────────────────────────────────────────────────────────────────────────────
+Archivo:        ventaNocturna.gs
+Línea:          262
+Severidad:      🟡 MEDIA
+Acción:         Usar normalizarString()
+
+ANTES: .setValue(data.razon.trim());
+DESPUÉS: .setValue(normalizarString(data.razon || ''));
+
+═══════════════════════════════════════════════════════════════════════════════
+
+CHECKLIST DE IMPLEMENTACIÓN:
+─────────────────────────────────────────────────────────────────────────────
+
+CREAR FUNCIONES EN utils.gs:
+  [ ] validarMovimientoConSaldos() (después línea 151)
+  [ ] sanitizarTexto() (después línea 32)
+
+MODIFICAR ARCHIVOS:
+  [ ] main.gs línea 1752 (APERTURA → HORA_APERTURA)
+  [ ] main.gs línea 269 (usar normalizarString)
+  [ ] main.gs línea 272 (usar sanitizarTexto)
+  [ ] main.gs línea 260-297 (reemplazar agregarMovimientosAPI)
+  [ ] main.gs línea 260 (crear validarMovimientoAPI)
+  [ ] movimientos.gs línea 33-48 (agregar LockService)
+  [ ] movimientos.gs línea 64 (usar validarMovimientoConSaldos)
+  [ ] ventaNocturna.gs línea 262 (usar normalizarString)
+
+VERIFICACIÓN:
+  [ ] Compilar código (sin errores)
+  [ ] Prueba concurrencia (generar 2 IDs paralelos)
+  [ ] Prueba API (datos inválidos)
+  [ ] Prueba saldos (exceder límite)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+ARCHIVOS DE DOCUMENTACIÓN:
+─────────────────────────────────────────────────────────────────────────────
+  1. INDICE_AUDITORIA.txt           → Índice maestro
+  2. RESUMEN_VISUAL.txt             → Resumen con emojis
+  3. RESUMEN_EJECUTIVO_AUDITORIA.txt → Resumen ejecutivo
+  4. TABLA_REFERENCIAS_EXACTAS.txt   → Código completo
+  5. ANALISIS_DETALLADO_AUDITORIA.md → Análisis técnico
+
+═══════════════════════════════════════════════════════════════════════════════

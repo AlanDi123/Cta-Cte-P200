@@ -31,20 +31,24 @@ const MovimientosRepository = {
    * @returns {number} Nuevo ID
    */
   generarNuevoID: function() {
-    const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
-
-    if (datos.length <= 1) return 1;
-
-    let maxId = 0;
-    for (let i = 1; i < datos.length; i++) {
-      const id = datos[i][CONFIG.COLS_MOVS.ID];
-      if (typeof id === 'number' && id > maxId) {
-        maxId = id;
+    const lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(30000);
+      const hoja = this.getHoja();
+      const datos = hoja.getDataRange().getValues();
+      let maxId = 0;
+      for (let i = 1; i < datos.length; i++) {
+        const id = datos[i][CONFIG.COLS_MOVS.ID];
+        if (typeof id === 'number' && id > maxId) {
+          maxId = id;
+        }
       }
+      lock.releaseLock();
+      return maxId + 1;
+    } catch (e) {
+      lock.releaseLock();
+      throw e;
     }
-
-    return maxId + 1;
   },
 
   /**
