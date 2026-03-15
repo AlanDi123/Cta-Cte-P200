@@ -63,7 +63,8 @@ function secondaryReasoningAgent(input) {
       normalized: '',
       intent: 'unknown',
       confidence: 0,
-      notes: 'Input inválido'
+      entities: {},  // DEFENSIVE: Initialize as empty object
+      notes: []  // DEFENSIVE: Initialize as empty array
     };
   }
   
@@ -80,7 +81,8 @@ function secondaryReasoningAgent(input) {
       normalized: '',
       intent: 'unknown',
       confidence: 0,
-      notes: 'Input demasiado largo (máximo 1000 caracteres)'
+      entities: {},
+      notes: ['Input demasiado largo (máximo 1000 caracteres)']
     };
   }
   
@@ -89,8 +91,8 @@ function secondaryReasoningAgent(input) {
     normalized: texto,
     intent: 'unknown',
     confidence: 0,
-    entities: {},
-    notes: []
+    entities: {},  // DEFENSIVE: Always an object
+    notes: []  // DEFENSIVE: Always an array
   };
   
   // =========================================================================
@@ -426,21 +428,46 @@ function primaryAIAgent(userInput, contexto) {
 function actionInterpreter(acciones, usuario) {
   usuario = usuario || Session.getActiveUser().getEmail();
   
+  // DEFENSIVE: Initialize resultados with guaranteed structure
   var resultados = {
     exitosas: 0,
     fallidas: 0,
-    detalles: [],
-    errores: []
+    detalles: [],  // DEFENSIVE: Always an array
+    errores: []    // DEFENSIVE: Always an array
   };
+  
+  // DEFENSIVE: Validate acciones is an array
+  if (!Array.isArray(acciones) || acciones.length === 0) {
+    resultados.mensaje = 'No hay acciones para ejecutar';
+    return resultados;
+  }
   
   for (var i = 0; i < acciones.length; i++) {
     var accion = acciones[i];
+    
+    // DEFENSIVE: Validate action structure
+    if (!accion || typeof accion !== 'object') {
+      var resultadoInvalido = {
+        indice: i,
+        tipo: 'unknown',
+        exitosa: false,
+        mensaje: 'Acción inválida',
+        datos: null,
+        errores: ['La acción no es un objeto válido']
+      };
+      resultados.fallidas++;
+      resultados.detalles.push(resultadoInvalido);
+      resultados.errores.push(resultadoInvalido);
+      continue;
+    }
+    
     var resultado = {
       indice: i,
-      tipo: accion.type,
+      tipo: accion.type || 'unknown',
       exitosa: false,
       mensaje: '',
-      datos: null
+      datos: null,
+      errores: []  // DEFENSIVE: Always an array
     };
     
     // VALIDAR QUE LA ACCIÓN ESTÉ EN LA WHITELIST
@@ -666,67 +693,98 @@ function ejecutarAddPayment(accion, usuario, resultado) {
 
 /**
  * Ejecuta acción: get_client_balance
+ * FIX: Retorna datos inmediatamente, no pide cliente nuevamente
  */
 function ejecutarGetClientBalance(accion, usuario, resultado) {
+  // VALIDACIÓN 1: Validar cliente
   var validacionCliente = validarNombreCliente(accion.client);
   if (!validacionCliente.valido) {
     resultado.mensaje = 'Cliente inválido: ' + validacionCliente.error;
+    resultado.errores.push('Cliente no proporcionado correctamente');
     return resultado;
   }
-  
+
+  // VALIDACIÓN 2: Buscar cliente (UNA SOLA VEZ)
+  var clienteInfo;
   try {
-    var clienteInfo = ClientesRepository.buscarPorNombre(validacionCliente.valor);
-    
-    if (!clienteInfo) {
-      resultado.mensaje = 'Cliente no encontrado: ' + validacionCliente.valor;
-      resultado.errores.push('Cliente no existe');
-      return resultado;
-    }
-    
-    resultado.exitosa = true;
-    resultado.mensaje = 'Saldo consultado exitosamente';
-    resultado.datos = {
-      cliente: clienteInfo.cliente.nombre,
-      saldo: clienteInfo.cliente.saldo,
-      limite: clienteInfo.cliente.limite
-    };
-    
-  } catch (e) {
-    resultado.mensaje = 'Error al consultar saldo: ' + e.message;
-    resultado.errores.push(e.message);
+    clienteInfo = ClientesRepository.buscarPorNombre(validacionCliente.valor);
+  } catch (repoError) {
+    Logger.log('[AI Error Boundary] Error al buscar cliente: ' + repoError.message);
+    resultado.mensaje = 'Error al buscar cliente en el sistema';
+    resultado.errores.push('Error interno de búsqueda');
+    return resultado;
   }
-  
+
+  // VALIDACIÓN 3: Verificar existencia
+  if (!clienteInfo) {
+    resultado.mensaje = '❌ Cliente no encontrado: ' + validacionCliente.valor;
+    resultado.errores.push('El cliente "' + validacionCliente.valor + '" no existe en el sistema');
+    resultado.datos = {
+      clienteBuscado: validacionCliente.valor,
+      existe: false
+    };
+    return resultado;
+  }
+
+  // EJECUCIÓN: Retornar datos INMEDIATAMENTE
+  resultado.exitosa = true;
+  resultado.mensaje = '💰 Saldo de ' + clienteInfo.cliente.nombre + ':\n\n**$' + formatearMonto(clienteInfo.cliente.saldo) + '**';
+  resultado.datos = {
+    cliente: clienteInfo.cliente.nombre,
+    saldo: clienteInfo.cliente.saldo,
+    saldoFormateado: formatearMonto(clienteInfo.cliente.saldo),
+    limite: clienteInfo.cliente.limite,
+    disponible: clienteInfo.cliente.limite - clienteInfo.cliente.saldo
+  };
+
   return resultado;
 }
 
 /**
  * Ejecuta acción: get_client_info
+ * FIX: Retorna datos inmediatamente, no pide cliente nuevamente
  */
 function ejecutarGetClientInfo(accion, usuario, resultado) {
+  // VALIDACIÓN 1: Validar cliente
   var validacionCliente = validarNombreCliente(accion.client);
   if (!validacionCliente.valido) {
-    resultado.mensaje = 'Cliente inválido';
+    resultado.mensaje = 'Cliente inválido: ' + validacionCliente.error;
+    resultado.errores.push('Cliente no proporcionado correctamente');
     return resultado;
   }
-  
+
+  // VALIDACIÓN 2: Buscar cliente (UNA SOLA VEZ)
+  var clienteInfo;
   try {
-    var clienteInfo = ClientesRepository.buscarPorNombre(validacionCliente.valor);
-    
-    if (!clienteInfo) {
-      resultado.mensaje = 'Cliente no encontrado';
-      resultado.errores.push('Cliente no existe');
-      return resultado;
-    }
-    
-    resultado.exitosa = true;
-    resultado.mensaje = 'Información obtenida exitosamente';
-    resultado.datos = clienteInfo.cliente;
-    
-  } catch (e) {
-    resultado.mensaje = 'Error al obtener información: ' + e.message;
-    resultado.errores.push(e.message);
+    clienteInfo = ClientesRepository.buscarPorNombre(validacionCliente.valor);
+  } catch (repoError) {
+    Logger.log('[AI Error Boundary] Error al buscar cliente: ' + repoError.message);
+    resultado.mensaje = 'Error al buscar cliente en el sistema';
+    resultado.errores.push('Error interno de búsqueda');
+    return resultado;
   }
-  
+
+  // VALIDACIÓN 3: Verificar existencia
+  if (!clienteInfo) {
+    resultado.mensaje = '❌ Cliente no encontrado: ' + validacionCliente.valor;
+    resultado.errores.push('El cliente "' + validacionCliente.valor + '" no existe en el sistema');
+    resultado.datos = {
+      clienteBuscado: validacionCliente.valor,
+      existe: false
+    };
+    return resultado;
+  }
+
+  // EJECUCIÓN: Retornar datos INMEDIATAMENTE
+  resultado.exitosa = true;
+  resultado.mensaje = '👤 Información de ' + clienteInfo.cliente.nombre + ':\n\n' +
+    '📞 Teléfono: ' + (clienteInfo.cliente.tel || 'N/A') + '\n' +
+    '📧 Email: ' + (clienteInfo.cliente.email || 'N/A') + '\n' +
+    '💰 Saldo: $' + formatearMonto(clienteInfo.cliente.saldo) + '\n' +
+    '📊 Límite: $' + formatearMonto(clienteInfo.cliente.limite) + '\n' +
+    '✅ Disponible: $' + formatearMonto(clienteInfo.cliente.limite - clienteInfo.cliente.saldo);
+  resultado.datos = clienteInfo.cliente;
+
   return resultado;
 }
 
