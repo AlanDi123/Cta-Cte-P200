@@ -3,73 +3,63 @@
 //  Sol & Verde — Sistema POS Nocturno
 // ============================================================
 
-// Evitar redeclaración si el archivo se carga múltiples veces
-var CONFIG_VN = (function() {
-  if (typeof globalThis._CONFIG_VN_INITIALIZED !== 'undefined') {
-    return globalThis._CONFIG_VN;
-  }
-  
-  const config = {
-    HOJAS: {
-      SESIONES:      'VN_SESIONES',
-      PRODUCTOS:     'VN_PRODUCTOS',
-      VENTAS:        'VN_VENTAS',
-      VALES:         'VN_VALES',
-      PAGOS:         'VN_PAGOS_CUENTA',
-      COMPRAS:       'VN_STOCK_COMPRAS',
-      MERMA:         'VN_STOCK_MERMA',
-      CORRECCIONES:  'VN_STOCK_CORRECCIONES'
-    },
-    BANCOS: ['Santander', 'Mercado Pago', 'Macro'],
-    MEDIOS_PAGO: ['EFECTIVO', 'TRANSFERENCIA', 'VALE', 'FIADO', 'A_CUENTA'],
-    ESTADOS_SESION: { ABIERTA: 'ABIERTA', CERRADA: 'CERRADA' },
-    ESTADOS_VENTA:  { CONFIRMADA: 'CONFIRMADA', CANCELADA: 'CANCELADA' },
-    ESTADOS_VALE:   { DISPONIBLE: 'DISPONIBLE', CANJEADO: 'CANJEADO', ANULADO: 'ANULADO' },
-    TIPOS_PAGO:     { FIADO: 'FIADO', COBRO: 'COBRO', A_CUENTA: 'PAGO_A_CUENTA' },
+// Configuración de Venta Nocturna (accesible globalmente)
+// Usamos asignación directa para evitar problemas con IIFE en GAS
+var CONFIG_VN = {
+  HOJAS: {
+    SESIONES:      'VN_SESIONES',
+    PRODUCTOS:     'VN_PRODUCTOS',
+    VENTAS:        'VN_VENTAS',
+    VALES:         'VN_VALES',
+    PAGOS:         'VN_PAGOS_CUENTA',
+    COMPRAS:       'VN_STOCK_COMPRAS',
+    MERMA:         'VN_STOCK_MERMA',
+    CORRECCIONES:  'VN_STOCK_CORRECCIONES'
+  },
+  BANCOS: ['Santander', 'Mercado Pago', 'Macro'],
+  MEDIOS_PAGO: ['EFECTIVO', 'TRANSFERENCIA', 'VALE', 'FIADO', 'A_CUENTA'],
+  ESTADOS_SESION: { ABIERTA: 'ABIERTA', CERRADA: 'CERRADA' },
+  ESTADOS_VENTA:  { CONFIRMADA: 'CONFIRMADA', CANCELADA: 'CANCELADA' },
+  ESTADOS_VALE:   { DISPONIBLE: 'DISPONIBLE', CANJEADO: 'CANJEADO', ANULADO: 'ANULADO' },
+  TIPOS_PAGO:     { FIADO: 'FIADO', COBRO: 'COBRO', A_CUENTA: 'PAGO_A_CUENTA' },
 
-    // Columnas de cada hoja (índice base 1 para setValues / 0 para array)
-    COLS_SESIONES: {
-      ID: 1, FECHA: 2, HORA_APERTURA: 3, HORA_CIERRE: 4, ESTADO: 5,
-      TOTAL_VENTAS: 6, TOTAL_EFECTIVO: 7, TOTAL_TRANSFERENCIA: 8,
-      TOTAL_VALES: 9, TOTAL_FIADO: 10, TOTAL_A_CUENTA: 11,
-      RAZON_REAPERTURA: 12, USUARIO: 13
-    },
-    COLS_PRODUCTOS: {
-      ID: 1, NOMBRE: 2, PRECIO: 3, STOCK: 4, ACTIVO: 5
-    },
-    COLS_VENTAS: {
-      ID: 1, SESION_ID: 2, FECHA: 3, HORA: 4, CLIENTE: 5,
-      ITEMS_JSON: 6, SUBTOTAL: 7, TOTAL: 8,
-      MEDIOS_PAGO_JSON: 9, ESTADO: 10, OBS: 11, USUARIO: 12
-    },
-    COLS_VALES: {
-      ID: 1, NUMERO: 2, FECHA_EMISION: 3, MONTO: 4, CLIENTE: 5,
-      MOTIVO: 6, ESTADO: 7, FECHA_CANJE: 8, VENTA_ID_CANJE: 9,
-      OBS: 10, USUARIO: 11
-    },
-    COLS_PAGOS: {
-      ID: 1, SESION_ID: 2, FECHA: 3, CLIENTE: 4, TIPO: 5,
-      MONTO: 6, SALDO_DEUDA: 7, VENTA_ID_REF: 8, OBS: 9, USUARIO: 10
-    },
-    COLS_COMPRAS: {
-      ID: 1, FECHA: 2, PROVEEDOR: 3, PRODUCTO_ID: 4, PRODUCTO_NOMBRE: 5,
-      CANTIDAD: 6, COSTO_UNIT: 7, TOTAL: 8, OBS: 9, USUARIO: 10
-    },
-    COLS_MERMA: {
-      ID: 1, FECHA: 2, PRODUCTO_ID: 3, PRODUCTO_NOMBRE: 4,
-      CANTIDAD: 5, RAZON: 6, USUARIO: 7
-    },
-    COLS_CORRECCIONES: {
-      ID: 1, FECHA: 2, PRODUCTO_ID: 3, PRODUCTO_NOMBRE: 4,
-      STOCK_ANTERIOR: 5, STOCK_NUEVO: 6, RAZON: 7, USUARIO: 8
-    }
-  };
-  
-  globalThis._CONFIG_VN = config;
-  globalThis._CONFIG_VN_INITIALIZED = true;
-  
-  return config;
-})();
+  // Columnas de cada hoja (índice base 1 para setValues / 0 para array)
+  COLS_SESIONES: {
+    ID: 1, FECHA: 2, HORA_APERTURA: 3, HORA_CIERRE: 4, ESTADO: 5,
+    TOTAL_VENTAS: 6, TOTAL_EFECTIVO: 7, TOTAL_TRANSFERENCIA: 8,
+    TOTAL_VALES: 9, TOTAL_FIADO: 10, TOTAL_A_CUENTA: 11,
+    RAZON_REAPERTURA: 12, USUARIO: 13
+  },
+  COLS_PRODUCTOS: {
+    ID: 1, NOMBRE: 2, PRECIO: 3, STOCK: 4, ACTIVO: 5
+  },
+  COLS_VENTAS: {
+    ID: 1, SESION_ID: 2, FECHA: 3, HORA: 4, CLIENTE: 5,
+    ITEMS_JSON: 6, SUBTOTAL: 7, TOTAL: 8,
+    MEDIOS_PAGO_JSON: 9, ESTADO: 10, OBS: 11, USUARIO: 12
+  },
+  COLS_VALES: {
+    ID: 1, NUMERO: 2, FECHA_EMISION: 3, MONTO: 4, CLIENTE: 5,
+    MOTIVO: 6, ESTADO: 7, FECHA_CANJE: 8, VENTA_ID_CANJE: 9,
+    OBS: 10, USUARIO: 11
+  },
+  COLS_PAGOS: {
+    ID: 1, SESION_ID: 2, FECHA: 3, CLIENTE: 4, TIPO: 5,
+    MONTO: 6, SALDO_DEUDA: 7, VENTA_ID_REF: 8, OBS: 9, USUARIO: 10
+  },
+  COLS_COMPRAS: {
+    ID: 1, FECHA: 2, PROVEEDOR: 3, PRODUCTO_ID: 4, PRODUCTO_NOMBRE: 5,
+    CANTIDAD: 6, COSTO_UNIT: 7, TOTAL: 8, OBS: 9, USUARIO: 10
+  },
+  COLS_MERMA: {
+    ID: 1, FECHA: 2, PRODUCTO_ID: 3, PRODUCTO_NOMBRE: 4,
+    CANTIDAD: 5, RAZON: 6, USUARIO: 7
+  },
+  COLS_CORRECCIONES: {
+    ID: 1, FECHA: 2, PRODUCTO_ID: 3, PRODUCTO_NOMBRE: 4,
+    STOCK_ANTERIOR: 5, STOCK_NUEVO: 6, RAZON: 7, USUARIO: 8
+  }
+};
 
 // ─────────────────────────────────────────────────────────────
 //  INICIALIZACIÓN DE HOJAS
