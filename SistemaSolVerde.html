@@ -14716,16 +14716,17 @@ body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; marg
     function vnOnActivar() {
       vnInit();
     }
+  </script>
 
-<!-- ============================================================================
-     AI CHATBOT AGENT UI - SISTEMA SOL & VERDE
-     ============================================================================ -->
+  <!-- ============================================================================
+       AI CHATBOT AGENT UI - SISTEMA SOL & VERDE
+       ============================================================================ -->
 
-<!-- AI Chatbot Button (added to header) -->
-<button class="header-btn" id="btnAIChat" title="Asistente AI" aria-label="Asistente AI" onclick="toggleAIChat()">🤖</button>
+  <!-- AI Chatbot Button (added to header) -->
+  <button class="header-btn" id="btnAIChat" title="Asistente AI" aria-label="Asistente AI" onclick="toggleAIChat()" style="display:none;">🤖</button>
 
-<!-- AI Chatbot Panel -->
-<div id="aiChatPanel" class="ai-chat-panel">
+  <!-- AI Chatbot Panel -->
+  <div id="aiChatPanel" class="ai-chat-panel">
   <div class="ai-chat-header">
     <div class="ai-chat-title">
       <span class="ai-chat-icon">🤖</span>
@@ -15422,5 +15423,9 @@ var style = document.createElement('style');
 style.textContent = '@keyframes rippleEffect{to{transform:scale(4);opacity:0;}}';
 document.head.appendChild(style);
 </script>
+
+  </div>
+  <!-- End AI Chatbot Panel -->
+
 </body>
 </html>
