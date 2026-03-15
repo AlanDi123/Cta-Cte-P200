@@ -8,7 +8,12 @@
  */
 
 // Configuración del módulo de facturación
-const CONFIG_FACTURACION = {
+var CONFIG_FACTURACION = (function() {
+  if (typeof globalThis._CONFIG_FACTURACION_INITIALIZED !== 'undefined') {
+    return globalThis._CONFIG_FACTURACION;
+  }
+  
+  const config = {
   HOJAS: {
     TRANSFERENCIAS: 'Transferencias',
     PRODUCTOS: 'Productos'
@@ -45,6 +50,12 @@ const CONFIG_FACTURACION = {
     TEMPERATURE: 0.0
   }
 };
+
+  globalThis._CONFIG_FACTURACION = config;
+  globalThis._CONFIG_FACTURACION_INITIALIZED = true;
+  
+  return config;
+})();
 
 // ============================================================================
 // REPOSITORIO DE TRANSFERENCIAS

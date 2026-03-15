@@ -7,7 +7,12 @@
  * ============================================================================
  */
 
-const CONFIG = {
+var CONFIG = (function() {
+  if (typeof globalThis._CONFIG_INITIALIZED !== 'undefined') {
+    return globalThis._CONFIG;
+  }
+  
+  const config = {
   // Nombre del sistema
   SISTEMA: {
     NOMBRE: 'Sol & Verde',
@@ -329,8 +334,20 @@ const CONFIG = {
   }
 };
 
+  globalThis._CONFIG = config;
+  globalThis._CONFIG_INITIALIZED = true;
+  
+  return config;
+})();
+
 // Denominaciones de billetes (pesos argentinos - solo billetes)
-const DENOMINACIONES = {
+// Evitar redeclaración usando patrón singleton
+var DENOMINACIONES = (function() {
+  if (typeof globalThis._DENOMINACIONES_INITIALIZED !== 'undefined') {
+    return globalThis._DENOMINACIONES;
+  }
+  
+  const denom = {
   BILLETES: [
     { tipo: 'BILLETE_20000', valor: 20000, nombre: 'Billete $20.000' },
     { tipo: 'BILLETE_10000', valor: 10000, nombre: 'Billete $10.000' },
@@ -341,7 +358,13 @@ const DENOMINACIONES = {
     { tipo: 'BILLETE_100', valor: 100, nombre: 'Billete $100' }
   ],
   MONEDAS: [] // Sin monedas segun requerimiento
-};
+  };
+  
+  globalThis._DENOMINACIONES = denom;
+  globalThis._DENOMINACIONES_INITIALIZED = true;
+  
+  return denom;
+})();
 
 // ============================================================================
 // FASE 5: CONFIGURACIÓN VISUAL (colores personalizados + módulos ocultos)
