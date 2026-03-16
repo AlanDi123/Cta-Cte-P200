@@ -349,14 +349,28 @@ const AfipService = {
 
   /**
    * Calcula la fecha válida para ARCA (Concepto=1/Productos): máx 5 días en el pasado.
+   * 
+   * REGLA AFIP/ARCA: Para facturar productos (no servicios), la fecha de emisión
+   * no puede ser anterior a 5 días corridos desde la fecha actual.
+   * 
+   * LÓGICA:
+   * 1. Si no hay fecha de transferencia → usar fecha actual
+   * 2. Si fecha transferencia está dentro de los últimos 5 días → usar esa fecha
+   * 3. Si fecha transferencia es > 5 días atrás → usar el límite de 5 días
+   * 4. Si fecha transferencia es futura → usar fecha actual
+   * 
    * @param {string|null} fechaTransferencia - Fecha en formato YYYY-MM-DD o null
    * @returns {{ fecha: Date, usandoFechaOriginal: boolean, avisoFecha: string|null }}
+   *          - fecha: La fecha calculada para enviar a ARCA
+   *          - usandoFechaOriginal: true si se usa la fecha de transferencia
+   *          - avisoFecha: Mensaje descriptivo si se ajustó la fecha
    */
   calcularFechaValidaArca: function(fechaTransferencia) {
     var hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
     if (!fechaTransferencia) {
+      Logger.log('[CALCULO FECHA ARCA] Sin fecha de transferencia. Usando fecha actual: ' + formatearFechaLocal(hoy));
       return { fecha: hoy, usandoFechaOriginal: false, avisoFecha: null };
     }
 
@@ -364,21 +378,31 @@ const AfipService = {
     fechaTrans.setHours(0, 0, 0, 0);
 
     var diffDias = Math.floor((hoy - fechaTrans) / (1000 * 60 * 60 * 24));
+    
+    Logger.log('[CALCULO FECHA ARCA] Fecha transferencia: ' + formatearFechaLocal(fechaTrans) + ', Días de diferencia: ' + diffDias);
 
     if (diffDias <= 5 && diffDias >= 0) {
+      // Dentro del rango permitido (0-5 días)
+      Logger.log('[CALCULO FECHA ARCA] Fecha dentro de rango permitido. Usando fecha original: ' + formatearFechaLocal(fechaTrans));
       return { fecha: fechaTrans, usandoFechaOriginal: true, avisoFecha: null };
     } else if (diffDias > 5) {
+      // Supera el límite - usar fecha máxima permitida (hoy - 5 días)
       var fechaMinima = new Date(hoy);
       fechaMinima.setDate(fechaMinima.getDate() - 5);
       var fechaOriginalStr = fechaTrans.getDate() + '/' + (fechaTrans.getMonth() + 1) + '/' + fechaTrans.getFullYear();
       var fechaMinimaStr = fechaMinima.getDate() + '/' + (fechaMinima.getMonth() + 1) + '/' + fechaMinima.getFullYear();
+      
+      var aviso = 'La fecha original (' + fechaOriginalStr + ') supera los 5 días permitidos por ARCA para facturar productos. Se usará automáticamente la fecha más antigua válida: ' + fechaMinimaStr + '.';
+      Logger.log('[CALCULO FECHA ARCA] AVISO: ' + aviso);
+      
       return {
         fecha: fechaMinima,
         usandoFechaOriginal: false,
-        avisoFecha: 'La fecha original (' + fechaOriginalStr + ') supera los 5 días permitidos por ARCA para facturar productos. Se usará automáticamente la fecha más antigua válida: ' + fechaMinimaStr + '.'
+        avisoFecha: aviso
       };
     } else {
-      // Fecha futura: usar hoy
+      // Fecha futura (diffDias < 0) - usar hoy
+      Logger.log('[CALCULO FECHA ARCA] Fecha futura detectada. Usando fecha actual: ' + formatearFechaLocal(hoy));
       return { fecha: hoy, usandoFechaOriginal: false, avisoFecha: null };
     }
   },
@@ -392,9 +416,12 @@ const AfipService = {
     const config = this.getConfig();
     const auth = this.autenticar('wsfe');
 
+    Logger.log('[EMISION FACTURA] Iniciando emisión - Tipo: ' + datosFactura.cbteTipo + ', Fecha Transferencia: ' + (datosFactura.fechaTransferencia || 'N/A'));
+
     // Obtener próximo número
     const ultimoNro = this.ultimoComprobante(datosFactura.cbteTipo);
     const proximoNro = ultimoNro + 1;
+    Logger.log('[EMISION FACTURA] Último comprobante: ' + ultimoNro + ', Próximo: ' + proximoNro);
 
     // Fecha en formato YYYYMMDD — respetar fecha de transferencia si es válida para ARCA
     var fechaInfo = this.calcularFechaValidaArca(datosFactura.fechaTransferencia || null);
@@ -402,11 +429,16 @@ const AfipService = {
     const fechaCbte = String(fechaUsada.getFullYear()) +
       String(fechaUsada.getMonth() + 1).padStart(2, '0') +
       String(fechaUsada.getDate()).padStart(2, '0');
+    
+    Logger.log('[EMISION FACTURA] Fecha para ARCA: ' + fechaCbte + 
+      (fechaInfo.usandoFechaOriginal ? ' (fecha original transferencia)' : ' (fecha ajustada)'));
 
     // Calcular importes
     const neto = datosFactura.importeNeto;
     const iva = Math.round(neto * CONFIG_AFIP.getIVA().MULTIPLICADOR * 100) / 100;
     const total = Math.round((neto + iva) * 100) / 100;
+    
+    Logger.log('[EMISION FACTURA] Importes - Neto: ' + neto + ', IVA: ' + iva + ', Total: ' + total);
 
     // Determinar DocTipo según tipo de comprobante
     let docTipo = CONFIG_AFIP.DOC_TIPOS.CONSUMIDOR_FINAL;
@@ -545,7 +577,7 @@ const AfipService = {
   /**
    * Consulta datos de un CUIT en el padrón de ARCA
    * @param {string} cuit - CUIT a consultar (sin guiones)
-   * @returns {Object} Datos del contribuyente
+   * @returns {Object} Datos del contribuyente con mensajes de error específicos
    */
   consultarCUIT: function(cuit) {
     const config = this.getConfig();
@@ -553,8 +585,28 @@ const AfipService = {
     // Limpiar CUIT (quitar guiones)
     const cuitLimpio = String(cuit).replace(/[-\s]/g, '');
 
+    // VALIDACIÓN CRÍTICA: Usar algoritmo oficial AFIP/ARCA
     if (!/^\d{11}$/.test(cuitLimpio)) {
-      throw new Error('CUIT inválido: debe tener 11 dígitos. Recibido: ' + cuit);
+      return { 
+        encontrado: false, 
+        error: 'CUIT inválido',
+        mensaje: 'El CUIT debe tener 11 dígitos numéricos. Verificá el número ingresado.',
+        cuitConsultado: cuitLimpio
+      };
+    }
+
+    // Validar checksum del CUIT (algoritmo módulo 11)
+    // Si la función validarCUIT está disponible, usarla
+    if (typeof validarCUIT === 'function') {
+      const validacion = validarCUIT(cuitLimpio);
+      if (!validacion.valido) {
+        return {
+          encontrado: false,
+          error: 'CUIT inválido',
+          mensaje: validacion.error,
+          cuitConsultado: cuitLimpio
+        };
+      }
     }
 
     const auth = this.autenticar('ws_sr_padron_a13');
@@ -601,7 +653,30 @@ const AfipService = {
 
       if (!datosGenerales || !datosGenerales.idPersona) {
         Logger.log('CUIT ' + cuitLimpio + ' no encontrado en padron. Respuesta completa: ' + JSON.stringify(result).substring(0, 500));
-        return { encontrado: false, error: 'CUIT no encontrado en padrón ARCA' };
+        
+        // Diferenciar entre CUIT válido sin datos públicos vs CUIT inexistente
+        // ARCA devuelve estructura vacía cuando el CUIT existe pero no tiene datos públicos
+        if (result && Object.keys(result).length > 0 && !result.errors) {
+          return {
+            encontrado: true,
+            cuit: cuitLimpio,
+            razonSocial: 'SIN DATOS PÚBLICOS',
+            condicionIVA: 'CF',
+            condicionTexto: 'Consumidor Final (sin datos fiscales públicos)',
+            domicilio: '',
+            tipoPersona: '',
+            estadoContribuyente: 'ACTIVO',
+            mensaje: 'CUIT válido, pero sin datos fiscales públicos en ARCA. Se puede facturar como Consumidor Final.',
+            sinDatosPublicos: true
+          };
+        }
+        
+        return { 
+          encontrado: false, 
+          error: 'CUIT no encontrado',
+          mensaje: 'El CUIT ' + cuitLimpio + ' no existe en el padrón de ARCA. Verificá el número.',
+          cuitConsultado: cuitLimpio
+        };
       }
 
       // Determinar condición IVA
@@ -1088,13 +1163,25 @@ const FacturaPDF = {
       (fechaInicioStr ? '<p><strong>Fecha de Inicio de Actividades:</strong> ' + fechaInicioStr + '</p>' : '') +
       '</div>' +
       // DATOS DEL RECEPTOR
-      '<div class="section">' +
-      '<p><strong>CUIT:</strong> ' + (f.clienteCuit ? formatCUIT(String(f.clienteCuit)) : 'Consumidor Final') + '</p>' +
-      '<p><strong>Apellido y Nombre / Razón Social:</strong> ' + escapeHtmlGS(f.clienteRazonSocial || f.clienteNombre || 'CONSUMIDOR FINAL') + '</p>' +
-      '<p><strong>Condición frente al IVA:</strong> ' + escapeHtmlGS(f.clienteCondicionTexto || f.clienteCondicion || 'Consumidor Final') + '</p>' +
-      (f.clienteDomicilio ? '<p><strong>Domicilio Comercial:</strong> ' + escapeHtmlGS(f.clienteDomicilio) + '</p>' : '') +
-      '<p><strong>Condición de Venta:</strong></p>' +
-      '</div>' +
+      // Para Consumidor Final con CUIT sin razón social: mostrar "CONSUMIDOR FINAL"
+      (function() {
+        var receptorRazonSocial = f.clienteRazonSocial || f.clienteNombre || 'CONSUMIDOR FINAL';
+        var receptorCUIT = f.clienteCuit ? formatCUIT(String(f.clienteCuit)) : 'Consumidor Final';
+        var receptorCondicion = f.clienteCondicionTexto || f.clienteCondicion || 'Consumidor Final';
+        var domicilioHTML = f.clienteDomicilio 
+          ? '<p><strong>Domicilio Comercial:</strong> ' + escapeHtmlGS(f.clienteDomicilio) + '</p>'
+          : (receptorCondicion.indexOf('Consumidor Final') >= 0 
+            ? '<p><em>Domicilio fiscal no requerido para Consumidor Final</em></p>' 
+            : '');
+        
+        return '<div class="section">' +
+          '<p><strong>CUIT:</strong> ' + receptorCUIT + '</p>' +
+          '<p><strong>Apellido y Nombre / Razón Social:</strong> ' + escapeHtmlGS(receptorRazonSocial) + '</p>' +
+          '<p><strong>Condición frente al IVA:</strong> ' + escapeHtmlGS(receptorCondicion) + '</p>' +
+          domicilioHTML +
+          '<p><strong>Condición de Venta:</strong></p>' +
+          '</div>';
+      })() +
       // TABLA DE PRODUCTOS
       '<table class="productos-table">' +
       '<thead><tr>' +
@@ -1631,13 +1718,31 @@ function emitirFacturaElectronica(datos) {
     if (!datosNormalizados.importeNeto || datosNormalizados.importeNeto <= 0) throw new Error('Importe neto debe ser mayor a 0');
     if (!datosNormalizados.clienteNombre) throw new Error('Nombre del cliente requerido');
 
-    // Para Factura A, validar CUIT
+    // Para Factura A, validar CUIT obligatorio
     if ((datosNormalizados.cbteTipo === 1 || datosNormalizados.cbteTipo === 3) && !datosNormalizados.clienteCuit) {
       throw new Error('Factura/NC tipo A requiere CUIT del cliente');
     }
 
-    // Limpiar CUIT
-    var cuitLimpio = datosNormalizados.clienteCuit ? String(datosNormalizados.clienteCuit).replace(/[-\s]/g, '') : '';
+    // VALIDACIÓN DE CUIT (si se proporciona)
+    // Para Factura B, el CUIT es opcional pero si se proporciona debe ser válido
+    // Para Consumidor Final con CUIT: NO se exige razón social ni domicilio fiscal
+    var cuitLimpio = '';
+    if (datosNormalizados.clienteCuit) {
+      cuitLimpio = String(datosNormalizados.clienteCuit).replace(/[-\s]/g, '');
+      
+      // Validar formato y checksum del CUIT usando función oficial
+      if (typeof validarCUIT === 'function') {
+        const validacionCUIT = validarCUIT(cuitLimpio);
+        if (!validacionCUIT.valido) {
+          throw new Error('CUIT inválido: ' + validacionCUIT.error);
+        }
+      } else {
+        // Fallback: validación básica de 11 dígitos
+        if (!/^\d{11}$/.test(cuitLimpio)) {
+          throw new Error('CUIT inválido: debe tener 11 dígitos numéricos');
+        }
+      }
+    }
 
     // Para Factura A, validar stock ANTES de emitir
     if (datosNormalizados.cbteTipo === CONFIG_AFIP.CBTE_TIPOS.FACTURA_A) {
@@ -1794,13 +1899,57 @@ function emitirNotaCredito(facturaOriginalId) {
 }
 
 /**
- * Consulta CUIT en padrón ARCA y devuelve datos fiscales
+ * Consulta CUIT en padrón ARCA y devuelve datos fiscales con mensajes específicos
+ * @param {string} cuit - CUIT a consultar (con o sin guiones)
+ * @returns {Object} {encontrado, cuit, razonSocial, condicionIVA, condicionTexto, domicilio, error, mensaje}
  */
 function consultarCUITArca(cuit) {
   try {
-    return AfipService.consultarCUIT(cuit);
+    // Validación inicial del CUIT
+    if (!cuit) {
+      return { 
+        encontrado: false, 
+        error: 'CUIT no proporcionado',
+        mensaje: 'Debes ingresar un CUIT para consultar.'
+      };
+    }
+
+    const resultado = AfipService.consultarCUIT(cuit);
+    
+    // Si hay error de conexión con ARCA, devolver mensaje específico
+    if (!resultado) {
+      return {
+        encontrado: false,
+        error: 'Error de conexión',
+        mensaje: 'No se pudo conectar con ARCA. Intentá de nuevo en unos segundos.'
+      };
+    }
+    
+    return resultado;
   } catch (error) {
-    return { encontrado: false, error: error.message };
+    Logger.log('Error en consultarCUITArca: ' + error.message);
+    
+    // Detectar tipo de error
+    var mensajeError = error.message;
+    var errorTipo = 'Error de conexión';
+    
+    if (error.message.indexOf('Access Token') >= 0) {
+      errorTipo = 'Error de autenticación';
+      mensajeError = 'El Access Token de ARCA no es válido o expiró. Revisá la configuración en Configuración > Facturación ARCA.';
+    } else if (error.message.indexOf('certificado') >= 0 || error.message.indexOf('cert') >= 0) {
+      errorTipo = 'Error de certificado';
+      mensajeError = 'El certificado digital no es válido o expiró. Generá uno nuevo en Configuración > Facturación ARCA.';
+    } else if (error.message.indexOf('timeout') >= 0 || error.message.indexOf('tiempo') >= 0) {
+      errorTipo = 'Timeout';
+      mensajeError = 'La consulta a ARCA tardó demasiado. Intentá de nuevo en unos segundos.';
+    }
+    
+    return {
+      encontrado: false,
+      error: errorTipo,
+      mensaje: mensajeError,
+      detalleTecnico: error.message
+    };
   }
 }
 

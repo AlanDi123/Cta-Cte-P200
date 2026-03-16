@@ -790,8 +790,9 @@ function obtenerDeudores() {
 
 /**
  * Obtiene saldos de deudores con movimientos del dia especificado
+ * INCLUYE tanto saldos positivos (deuda) como negativos (a favor)
  * @param {string} fecha - Fecha en formato YYYY-MM-DD (opcional, default hoy)
- * @returns {Object} {deudores: [{nombre, saldo, pagosDia, fiadosDia}], totalAdeudado}
+ * @returns {Object} {deudores: [{nombre, saldo, pagosDia, fiadosDia}], totalAdeudado, saldoAFavor}
  */
 function obtenerSaldosConMovimientosDia(fecha) {
   try {
@@ -823,17 +824,32 @@ function obtenerSaldosConMovimientosDia(fecha) {
 
     let resultado;
     let totalAdeudado = 0;
+    let totalAFavor = 0;
 
     if (esHoy) {
-      // Si es hoy, usar saldos actuales (rápido)
-      const deudores = ClientesRepository.obtenerDeudores();
-      resultado = deudores.map(d => ({
-        nombre: d.nombre,
-        saldo: d.saldo,
-        pagosDia: movsPorCliente[d.nombre]?.pagos || 0,
-        fiadosDia: movsPorCliente[d.nombre]?.fiados || 0
-      }));
-      totalAdeudado = deudores.reduce((sum, c) => sum + c.saldo, 0);
+      // Si es hoy, usar TODOS los saldos (positivos y negativos)
+      const clientes = ClientesRepository.obtenerTodos();
+      resultado = [];
+      
+      for (const cliente of clientes) {
+        // Incluir clientes con saldo positivo (deuda) O negativo (a favor)
+        if (cliente.saldo !== 0) {
+          const esAFavor = cliente.saldo < 0;
+          resultado.push({
+            nombre: cliente.nombre,
+            saldo: cliente.saldo,
+            esAFavor: esAFavor,
+            pagosDia: movsPorCliente[cliente.nombre]?.pagos || 0,
+            fiadosDia: movsPorCliente[cliente.nombre]?.fiados || 0
+          });
+          
+          if (esAFavor) {
+            totalAFavor += Math.abs(cliente.saldo);
+          } else {
+            totalAdeudado += cliente.saldo;
+          }
+        }
+      }
     } else {
       // Si es fecha pasada, calcular saldos históricos
       const saldosHistoricos = MovimientosRepository.calcularSaldosHistoricos(fechaFin);
@@ -842,21 +858,33 @@ function obtenerSaldosConMovimientosDia(fecha) {
       resultado = [];
       for (const cliente of clientes) {
         const saldoHistorico = saldosHistoricos[cliente.nombre] || 0;
-        // Solo incluir si tenía saldo positivo en esa fecha
-        if (saldoHistorico > 0) {
+        // Incluir saldos positivos Y negativos (a favor)
+        if (saldoHistorico !== 0) {
+          const esAFavor = saldoHistorico < 0;
           resultado.push({
             nombre: cliente.nombre,
             saldo: saldoHistorico,
+            esAFavor: esAFavor,
             pagosDia: movsPorCliente[cliente.nombre]?.pagos || 0,
             fiadosDia: movsPorCliente[cliente.nombre]?.fiados || 0
           });
-          totalAdeudado += saldoHistorico;
+          
+          if (esAFavor) {
+            totalAFavor += Math.abs(saldoHistorico);
+          } else {
+            totalAdeudado += saldoHistorico;
+          }
         }
       }
     }
 
-    // Ordenar alfabéticamente
-    resultado.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    // Ordenar: primero alfabéticamente, luego por tipo de saldo (deuda antes que a favor)
+    resultado.sort((a, b) => {
+      if (a.esAFavor !== b.esAFavor) {
+        return a.esAFavor ? 1 : -1; // Deuda primero, a favor después
+      }
+      return a.nombre.localeCompare(b.nombre, 'es');
+    });
 
     // Calcular totales del día
     let totalPagos = 0;
@@ -872,8 +900,13 @@ function obtenerSaldosConMovimientosDia(fecha) {
       esHistorico: !esHoy,
       deudores: serializarParaWeb(resultado),
       totalAdeudado: totalAdeudado,
+      saldoAFavor: totalAFavor,
       totalPagosDia: totalPagos,
-      totalFiadosDia: totalFiados
+      totalFiadosDia: totalFiados,
+      resumen: {
+        clientesConDeuda: resultado.filter(r => !r.esAFavor).length,
+        clientesAFavor: resultado.filter(r => r.esAFavor).length
+      }
     };
   } catch (error) {
     Logger.log('Error en obtenerSaldosConMovimientosDia: ' + error.message);

@@ -139,6 +139,90 @@ function validarFecha(fecha) {
   }
 }
 
+// ============================================================================
+// VALIDACION DE CUIT - ALGORITMO OFICIAL AFIP/ARCA
+// ============================================================================
+
+/**
+ * Valida un CUIT argentino usando el algoritmo oficial de AFIP/ARCA (módulo 11).
+ * El CUIT debe tener 11 dígitos: XX-XXXXXXXX-X donde el último dígito es verificador.
+ * 
+ * Algoritmo:
+ * 1. Multiplicar cada uno de los 10 primeros dígitos por los pesos [5,4,3,2,7,6,5,4,3,2]
+ * 2. Sumar los resultados
+ * 3. Calcular módulo 11
+ * 4. Restar de 11 para obtener el dígito verificador esperado
+ * 5. Casos especiales: si resto=0 o 1, ajustar cálculo
+ * 
+ * @param {string|number} cuit - CUIT a validar (con o sin guiones)
+ * @returns {{valido: boolean, error?: string, cuitLimpio: string}} Resultado de validación
+ */
+function validarCUIT(cuit) {
+  if (!cuit) {
+    return { valido: false, error: 'CUIT vacío', cuitLimpio: '' };
+  }
+
+  // Limpiar CUIT: quitar guiones, espacios y puntos
+  const cuitLimpio = String(cuit).replace(/[-\s.]/g, '');
+
+  // Verificar que sean exactamente 11 dígitos numéricos
+  if (!/^\d{11}$/.test(cuitLimpio)) {
+    return { valido: false, error: 'CUIT inválido: debe tener 11 dígitos numéricos', cuitLimpio: cuitLimpio };
+  }
+
+  // Pesos para el cálculo (oficial AFIP)
+  const pesos = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  
+  // Calcular suma ponderada de los primeros 10 dígitos
+  let suma = 0;
+  for (let i = 0; i < 10; i++) {
+    suma += parseInt(cuitLimpio.charAt(i)) * pesos[i];
+  }
+
+  // Calcular dígito verificador según algoritmo módulo 11
+  let digitoVerificador;
+  const resto = suma % 11;
+  
+  if (resto === 0) {
+    digitoVerificador = 0;
+  } else if (resto === 1) {
+    // Caso especial: si resto=1, se usa el método alternativo
+    // Se suma 1 al número de CUIT sin dígito verificador y se recalcula
+    const cuitSinDV = cuitLimpio.substring(0, 10);
+    const cuitIncrementado = String(parseInt(cuitSinDV) + 1).padStart(10, '0');
+    
+    // Recalcular con el número incrementado
+    suma = 0;
+    for (let i = 0; i < 10; i++) {
+      suma += parseInt(cuitIncrementado.charAt(i)) * pesos[i];
+    }
+    
+    const nuevoResto = suma % 11;
+    if (nuevoResto === 0) {
+      digitoVerificador = 0;
+    } else if (nuevoResto === 1) {
+      // Segundo caso especial: CUIT inválido por configuración de dígitos
+      // Esto indica un CUIT mal formado
+      return { valido: false, error: 'CUIT inválido: configuración de dígitos no válida', cuitLimpio: cuitLimpio };
+    } else {
+      digitoVerificador = 11 - nuevoResto;
+    }
+  } else {
+    digitoVerificador = 11 - resto;
+  }
+
+  // Obtener dígito verificador real del CUIT
+  const digitoReal = parseInt(cuitLimpio.charAt(10));
+
+  // Comparar
+  if (digitoVerificador !== digitoReal) {
+    return { valido: false, error: 'CUIT inválido: dígito verificador incorrecto (esperado: ' + digitoVerificador + ', recibido: ' + digitoReal + ')', cuitLimpio: cuitLimpio };
+  }
+
+  // CUIT válido
+  return { valido: true, cuitLimpio: cuitLimpio };
+}
+
 /**
  * Valida un objeto de movimiento completo
  * @param {Object} mov - Objeto movimiento
@@ -185,6 +269,78 @@ function validarCliente(cliente) {
     valid: errors.length === 0,
     errors: errors
   };
+}
+
+/**
+ * Valida datos de cliente para facturación electrónica ARCA/AFIP
+ * 
+ * REGLAS FISCALES ARGENTINAS:
+ * - Responsables Inscriptos (RI): Requieren CUIT válido, razón social y domicilio fiscal
+ * - Monotributistas (M): Requieren CUIT válido, razón social y domicilio fiscal
+ * - Consumidor Final (CF): 
+ *   - Sin CUIT: No requiere datos adicionales
+ *   - Con CUIT: Solo requiere CUIT válido (razón social y domicilio OPCIONALES)
+ * 
+ * @param {Object} cliente - Datos del cliente
+ * @param {string} tipoComprobante - 'A' o 'B' (opcional, default 'B')
+ * @returns {{valid: boolean, errors: Array, advertencias: Array}}
+ */
+function validarClienteFacturacion(cliente, tipoComprobante) {
+  const errors = [];
+  const advertencias = [];
+  const tipo = (tipoComprobante || 'B').toUpperCase();
+  
+  // Validación básica de nombre
+  if (!cliente.nombre || typeof cliente.nombre !== 'string' || cliente.nombre.trim() === '') {
+    errors.push('Nombre del cliente es requerido');
+    return { valid: false, errors: errors, advertencias: advertencias };
+  }
+  
+  // Si tiene CUIT, validarlo con algoritmo oficial
+  if (cliente.cuit) {
+    const validacionCUIT = validarCUIT(cliente.cuit);
+    if (!validacionCUIT.valido) {
+      errors.push('CUIT inválido: ' + validacionCUIT.error);
+    }
+  }
+  
+  // Para Factura A: CUIT obligatorio y debe ser RI o Monotributista
+  if (tipo === 'A') {
+    if (!cliente.cuit) {
+      errors.push('Factura A requiere CUIT del cliente');
+    } else if (!cliente.condicionFiscal || 
+               (cliente.condicionFiscal !== 'RI' && 
+                cliente.condicionFiscal !== 'Responsable Inscripto' &&
+                cliente.condicionFiscal !== 'M' &&
+                cliente.condicionFiscal !== 'Monotributista' &&
+                cliente.condicionFiscal !== 'Monotributo')) {
+      errors.push('Factura A requiere cliente RI o Monotributista. Condición actual: ' + (cliente.condicionFiscal || 'No especificada'));
+    }
+    
+    // Para RI/Monotributo, razón social es obligatoria
+    if (!cliente.razonSocial || cliente.razonSocial.trim() === '') {
+      errors.push('Cliente RI/Monotributista requiere razón social');
+    }
+  }
+  
+  // Para Factura B con CUIT: NO exigir razón social ni domicilio (Consumidor Final válido)
+  if (tipo === 'B' && cliente.cuit) {
+    const esConsumidorFinal = !cliente.condicionFiscal || 
+                              cliente.condicionFiscal === 'CF' ||
+                              cliente.condicionFiscal === 'Consumidor Final';
+    
+    if (esConsumidorFinal) {
+      // VÁLIDO: CF con CUIT sin razón social ni domicilio
+      if (!cliente.razonSocial || cliente.razonSocial.trim() === '') {
+        advertencias.push('Cliente CF con CUIT sin razón social. Se usará el nombre como razón social.');
+      }
+      if (!cliente.domicilioFiscal || cliente.domicilioFiscal.trim() === '') {
+        advertencias.push('Cliente CF con CUIT sin domicilio fiscal. No requerido para Consumidor Final.');
+      }
+    }
+  }
+  
+  return { valid: errors.length === 0, errors: errors, advertencias: advertencias };
 }
 
 // ============================================================================
