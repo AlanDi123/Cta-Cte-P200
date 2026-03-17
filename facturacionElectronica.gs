@@ -245,16 +245,41 @@ const AfipService = {
   },
 
   /**
+   * Wrapper con retry para llamadas HTTP a Afip SDK
+   * @param {string} endpoint - Ruta relativa
+   * @param {Object} payload - Cuerpo del request
+   * @param {string} method - 'post' o 'get'
+   * @param {number} intento - Número de intento (para logging)
+   * @returns {Object} Respuesta parseada
+   */
+  _fetchConRetry: function(endpoint, payload, method, intento) {
+    var intentoStr = intento ? ' (intento ' + intento + ')' : '';
+    Logger.log('[AFIP SDK' + intentoStr + '] ' + method.toUpperCase() + ' ' + endpoint);
+    
+    try {
+      return this._fetch(endpoint, payload, method);
+    } catch (error) {
+      Logger.log('[AFIP SDK' + intentoStr + '] Error: ' + error.message);
+      throw error;
+    }
+  },
+
+  /**
    * Paso 1: Obtener Token y Sign de autenticación ARCA
    *
    * IMPORTANTE: Afip SDK requiere certificado y clave privada para autenticarse.
-   * - En modo DEV con CUIT de test (20409378472): NO necesita cert/key
+   * - En modo DEV con CUIT de test (20409378472): NO necesita cert/key (SOLO TESTING LOCAL)
    * - En modo DEV o PROD con CUIT propio: NECESITA cert/key
+   *
+   * ADVERTENCIA DE SEGURIDAD:
+   * - El modo DEV con CUIT de test NO tiene acceso al padrón real de ARCA
+   * - NO usar en producción bajo ninguna circunstancia
+   * - Para producción, siempre usar environment='prod' con certificado válido
    *
    * Para generar el certificado, usar generarCertificadoAfip() desde Configuración.
    *
    * @param {string} wsid - Web Service ID ('wsfe' para facturación, 'ws_sr_padron_a13' para padrón)
-   * @returns {Object} {token, sign}
+   * @returns {Object} {token, sign, environment, esModoTest}
    */
   autenticar: function(wsid) {
     const config = this.getConfig();
@@ -262,14 +287,29 @@ const AfipService = {
 
     // CUIT de test de Afip SDK (no requiere certificado en dev)
     var CUIT_TEST = '20409378472';
+    var esModoTest = false;
 
     // Determinar qué CUIT usar para auth
     var cuitAuth = config.cuit;
 
-    // Si es modo dev y no tiene certificado, usar CUIT de test
+    // VALIDACIÓN CRÍTICA DE SEGURIDAD
+    // Verificar si estamos en modo test y advertir claramente
     if (config.environment === 'dev' && !this.tieneCertificado()) {
       cuitAuth = CUIT_TEST;
-      Logger.log('Modo dev sin certificado: usando CUIT de test ' + CUIT_TEST);
+      esModoTest = true;
+      
+      // LOG DE ADVERTENCIA CRÍTICA - MODO TEST DETECTADO
+      Logger.log('⚠️ [SEGURIDAD] MODO TEST ACTIVADO - CUIT de test: ' + CUIT_TEST);
+      Logger.log('⚠️ [SEGURIDAD] El modo test NO tiene acceso al padrón real de ARCA');
+      Logger.log('⚠️ [SEGURIDAD] NO usar en producción. Para producción usar environment="prod" con certificado.');
+      
+      // En modo test, algunas funcionalidades están limitadas
+      if (ws === 'ws_sr_padron_a13') {
+        throw new Error(
+          'MODO TEST: El CUIT de test (20409378472) NO tiene acceso al padrón de ARCA. ' +
+          'Para consultar CUITs, usá modo producción con certificado válido.'
+        );
+      }
     }
 
     // Si es modo prod o dev con CUIT propio, verificar certificado
@@ -277,7 +317,16 @@ const AfipService = {
       throw new Error(
         'Se requiere certificado para usar CUIT propio. ' +
         'Ve a Configuración > Facturación ARCA > "Generar Certificado" para crear uno. ' +
-        'O si estás en modo desarrollo, podés probar sin certificado (usará CUIT de test).'
+        'O si estás en modo desarrollo, podés probar sin certificado (usará CUIT de test - limitado).'
+      );
+    }
+
+    // VALIDACIÓN ADICIONAL: Advertir si environment=prod pero sin certificado
+    if (config.environment === 'prod' && !this.tieneCertificado()) {
+      throw new Error(
+        'ERROR CRÍTICO: Modo PRODUCCIÓN requiere certificado válido. ' +
+        'No se puede operar en producción sin certificado digital. ' +
+        'Ve a Configuración > Facturación ARCA > "Generar Certificado".'
       );
     }
 
@@ -302,7 +351,9 @@ const AfipService = {
     return {
       token: result.token,
       sign: result.sign,
-      cuitAuth: cuitAuth  // Devolver el CUIT usado para auth
+      cuitAuth: cuitAuth,
+      environment: config.environment,
+      esModoTest: esModoTest  // ← NUEVO: indica si está en modo test
     };
   },
 
@@ -587,8 +638,8 @@ const AfipService = {
 
     // VALIDACIÓN CRÍTICA: Usar algoritmo oficial AFIP/ARCA
     if (!/^\d{11}$/.test(cuitLimpio)) {
-      return { 
-        encontrado: false, 
+      return {
+        encontrado: false,
         error: 'CUIT inválido',
         mensaje: 'El CUIT debe tener 11 dígitos numéricos. Verificá el número ingresado.',
         cuitConsultado: cuitLimpio
@@ -609,7 +660,26 @@ const AfipService = {
       }
     }
 
-    const auth = this.autenticar('ws_sr_padron_a13');
+    // INTENTO DE AUTENTICACIÓN CON REINTENTO
+    var auth;
+    try {
+      auth = this.autenticar('ws_sr_padron_a13');
+    } catch (authError) {
+      Logger.log('[CONSULTA CUIT] Error autenticación: ' + authError.message);
+      
+      // Si es modo test, devolver error específico
+      if (authError.message.indexOf('MODO TEST') >= 0) {
+        return {
+          encontrado: false,
+          error: 'Modo test',
+          mensaje: authError.message,
+          cuitConsultado: cuitLimpio
+        };
+      }
+      
+      // Para otros errores de autenticación, propagar
+      throw authError;
+    }
 
     // *** FIX: Siempre usar el CUIT REAL del emisor como cuitRepresentada,
     // NO el CUIT de test aunque estemos en modo dev sin certificado.
@@ -634,16 +704,55 @@ const AfipService = {
     if (certValue) payload.cert = certValue;
     if (keyValue) payload.key = keyValue;
 
-    try {
-      const result = this._fetch('/requests', payload);
-      Logger.log('Respuesta padron ARCA para CUIT ' + cuitLimpio + ': ' + JSON.stringify(result).substring(0, 800));
+    // REINTENTO CON BACKOFF EXPONENCIAL PARA CONSULTAS ARCA
+    // Reintentar errores transitorios (timeout, service unavailable)
+    var maxIntentos = 3;
+    var delayBaseMs = 1000;
+    var ultimoError = null;
+    var resultado = null;
 
+    for (var intento = 1; intento <= maxIntentos; intento++) {
+      try {
+        resultado = this._fetchConRetry('/requests', payload, 'post', intento);
+        break; // Éxito, salir del loop
+      } catch (fetchError) {
+        ultimoError = fetchError;
+        var msgLower = (fetchError.message || '').toLowerCase();
+        var esReintentable = msgLower.indexOf('timeout') >= 0 || 
+                             msgLower.indexOf('service unavailable') >= 0 ||
+                             msgLower.indexOf('exceeded') >= 0 ||
+                             msgLower.indexOf('quota') >= 0;
+
+        if (!esReintentable || intento === maxIntentos) {
+          // Error no reintentable o agotamos intentos
+          Logger.log('[CONSULTA CUIT] Error no reintentable o intentos agotados (' + intento + '/' + maxIntentos + '): ' + fetchError.message);
+          break;
+        }
+
+        var delayMs = delayBaseMs * Math.pow(2, intento - 1); // 1s, 2s, 4s
+        Logger.log('[CONSULTA CUIT] Intento ' + intento + '/' + maxIntentos + ' fallido. Reintentando en ' + delayMs + 'ms.');
+        Utilities.sleep(delayMs);
+      }
+    }
+
+    if (!resultado) {
+      return {
+        encontrado: false,
+        error: 'Error de conexión con ARCA',
+        mensaje: 'No se pudo consultar el CUIT después de ' + maxIntentos + ' intentos. ' +
+                 (ultimoError ? 'Detalle: ' + ultimoError.message : 'Intentá de nuevo en unos segundos.'),
+        cuitConsultado: cuitLimpio,
+        detalleTecnico: ultimoError ? ultimoError.message : ''
+      };
+    }
+
+    try {
       // afipsdk puede devolver la persona en distintas estructuras:
       // { personaReturn: {...} }, { persona: {...} }, { data: {...} } o directamente { datosGenerales: {...} }
-      const personaReturn = result.personaReturn
-        || result.persona
-        || result.data
-        || (result.datosGenerales ? result : null)
+      const personaReturn = resultado.personaReturn
+        || resultado.persona
+        || resultado.data
+        || (resultado.datosGenerales ? resultado : null)
         || null;
 
       // datosGenerales debe existir y tener idPersona para ser un resultado válido
@@ -652,11 +761,11 @@ const AfipService = {
         : null;
 
       if (!datosGenerales || !datosGenerales.idPersona) {
-        Logger.log('CUIT ' + cuitLimpio + ' no encontrado en padron. Respuesta completa: ' + JSON.stringify(result).substring(0, 500));
+        Logger.log('CUIT ' + cuitLimpio + ' no encontrado en padron. Respuesta completa: ' + JSON.stringify(resultado).substring(0, 500));
         
         // Diferenciar entre CUIT válido sin datos públicos vs CUIT inexistente
         // ARCA devuelve estructura vacía cuando el CUIT existe pero no tiene datos públicos
-        if (result && Object.keys(result).length > 0 && !result.errors) {
+        if (resultado && Object.keys(resultado).length > 0 && !resultado.errors) {
           return {
             encontrado: true,
             cuit: cuitLimpio,
