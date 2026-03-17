@@ -779,17 +779,67 @@
     @keyframes moduleSlideIn {
       from {
         opacity: 0;
-        transform: translateY(12px);
+        transform: translateY(10px) scale(0.99);
+        filter: blur(1px);
       }
       to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
+        filter: blur(0);
       }
     }
 
     .module-view.active {
-      animation: moduleSlideIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-      will-change: transform, opacity; /* FASE 4: Hardware acceleration */
+      animation: moduleSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: transform, opacity;
+    }
+
+    /* Transición de splash mejorada */
+    #splashScreen {
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #splashScreen.hidden {
+      opacity: 0;
+      transform: scale(1.03);
+      pointer-events: none;
+    }
+
+    /* Skeleton loading para tablas mientras cargan datos */
+    .loading-skeleton tbody tr td {
+      background: linear-gradient(90deg,
+        var(--sv-superficie-elevada) 25%,
+        var(--sv-borde) 50%,
+        var(--sv-superficie-elevada) 75%
+      );
+      background-size: 400% 100%;
+      animation: skeletonPulse 1.4s ease infinite;
+      color: transparent !important;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+
+    @keyframes skeletonPulse {
+      0%   { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    /* Toast con animación mejorada */
+    @keyframes toastIn {
+      from { transform: translateX(110%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+    @keyframes toastOut {
+      from { transform: translateX(0);    opacity: 1; }
+      to   { transform: translateX(110%); opacity: 0; }
+    }
+
+    .toast {
+      animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .toast.fadeOut {
+      animation: toastOut 0.25s ease forwards;
     }
 
     /* Sidebar - transición mejorada */
@@ -5610,6 +5660,63 @@
   </div>
 
   <script>
+    // ─── SISTEMA DE LOGGING EN CONSOLA F12 ─────────────────────────────────────
+    const SysLog = {
+      _prefix: '[SOL&VERDE]',
+      
+      info: function(modulo, mensaje, datos) {
+        console.log(
+          '%c' + this._prefix + ' [' + modulo + '] ' + mensaje,
+          'color: #2E7D32; font-weight: bold;',
+          datos !== undefined ? datos : ''
+        );
+      },
+
+      error: function(modulo, mensaje, error) {
+        console.error(
+          '%c' + this._prefix + ' [' + modulo + '] ❌ ' + mensaje,
+          'color: #C62828; font-weight: bold;',
+          error || ''
+        );
+      },
+
+      warn: function(modulo, mensaje, datos) {
+        console.warn(
+          '%c' + this._prefix + ' [' + modulo + '] ⚠️ ' + mensaje,
+          'color: #F57C00; font-weight: bold;',
+          datos !== undefined ? datos : ''
+        );
+      },
+
+      perf: function(modulo, operacion, ms) {
+        var color = ms < 500 ? '#2E7D32' : ms < 2000 ? '#F57C00' : '#C62828';
+        console.log(
+          '%c' + this._prefix + ' [' + modulo + '] ⏱ ' + operacion + ': ' + ms + 'ms',
+          'color: ' + color + '; font-weight: bold;'
+        );
+      },
+
+      gasCall: function(funcion, params) {
+        console.groupCollapsed(
+          '%c' + this._prefix + ' [GAS] → ' + funcion,
+          'color: #1565C0; font-weight: bold;'
+        );
+        if (params) console.log('Params:', params);
+        console.groupEnd();
+      },
+
+      gasResult: function(funcion, resultado, ms) {
+        var ok = resultado && resultado.success !== false;
+        console.groupCollapsed(
+          '%c' + this._prefix + ' [GAS] ← ' + funcion + ' (' + ms + 'ms) ' + (ok ? '✅' : '❌'),
+          'color: ' + (ok ? '#2E7D32' : '#C62828') + '; font-weight: bold;'
+        );
+        console.log('Resultado:', resultado);
+        console.groupEnd();
+      }
+    };
+    // ─── FIN SISTEMA DE LOGGING ─────────────────────────────────────────────────
+
     // ============================================================================
     // UTILIDADES
     // ============================================================================
@@ -5898,8 +6005,12 @@
     }
 
     function cargarDatosDesdeServidor(enSegundoPlano) {
+      var t0 = Date.now();
+      SysLog.gasCall('obtenerDatosParaHTML');
+      
       google.script.run
         .withSuccessHandler(function(data) {
+          SysLog.gasResult('obtenerDatosParaHTML', data, Date.now() - t0);
           console.log('📊 Datos del servidor recibidos:', data);
 
           if (!data) {
@@ -5940,6 +6051,7 @@
           }
         })
         .withFailureHandler(function(error) {
+          SysLog.error('INIT', 'Error en obtenerDatosParaHTML', error);
           console.error('❌ Error al llamar obtenerDatosParaHTML:', error);
           if (!enSegundoPlano) {
             mostrarToast('Error cargando datos: ' + error.message, 'error');
@@ -5948,6 +6060,23 @@
           }
         })
         .obtenerDatosParaHTML();
+
+      // Cargar movimientos recientes en SEGUNDO PLANO
+      var t1 = Date.now();
+      SysLog.gasCall('obtenerMovimientosRecientes', { limite: 100 });
+      google.script.run
+        .withSuccessHandler(function(result) {
+          SysLog.gasResult('obtenerMovimientosRecientes', result, Date.now() - t1);
+          if (result && result.success) {
+            Estado.movimientos = result.movimientos || [];
+            renderMovimientos();
+            actualizarDatosSistema();
+          }
+        })
+        .withFailureHandler(function(error) {
+          SysLog.warn('INIT', 'Error cargando movimientos en segundo plano', error);
+        })
+        .obtenerMovimientosRecientes(100);
 
       google.script.run
         .withSuccessHandler(function(config) {
@@ -6155,6 +6284,7 @@
         }
 
         // BUGFIX D3: proveedores se serializaban pero nunca se restauraban
+        // BUGFIX B: d.monto es negativo en la hoja (-500); el input espera positivo
         if (datos.proveedores && datos.proveedores.length > 0) {
           document.getElementById('listaProveedores').innerHTML = '';
           datos.proveedores.forEach(p => {
@@ -6166,11 +6296,12 @@
               const descInput = ultimo.querySelector('.prov-desc');
               const montoInput = ultimo.querySelector('.prov-monto');
               if (descInput) descInput.value = p.descripcion || '';
-              if (montoInput) montoInput.value = p.monto || '';
+              if (montoInput) montoInput.value = Math.abs(Number(p.monto)) || 0;
             }
           });
         }
 
+        // BUGFIX B: d.monto es negativo en la hoja; el input espera positivo
         if (datos.gastos && datos.gastos.length > 0) {
           document.getElementById('listaGastos').innerHTML = '';
           datos.gastos.forEach(g => {
@@ -6181,11 +6312,12 @@
             if (ultimo) {
               const inputs = ultimo.querySelectorAll('input');
               if (inputs[0]) inputs[0].value = g.descripcion;
-              if (inputs[1]) inputs[1].value = g.monto;
+              if (inputs[1]) inputs[1].value = Math.abs(Number(g.monto)) || 0;
             }
           });
         }
 
+        // BUGFIX B: d.monto es negativo en la hoja; el input espera positivo
         if (datos.ingresos && datos.ingresos.length > 0) {
           document.getElementById('listaIngresos').innerHTML = '';
           datos.ingresos.forEach(ing => {
@@ -6196,7 +6328,7 @@
             if (ultimo) {
               const inputs = ultimo.querySelectorAll('input');
               if (inputs[0]) inputs[0].value = ing.descripcion;
-              if (inputs[1]) inputs[1].value = ing.monto;
+              if (inputs[1]) inputs[1].value = Math.abs(Number(ing.monto)) || 0;
             }
           });
         }
@@ -6747,6 +6879,7 @@
       ColaMovimientos.agregar(
         datos,
         function(result) {
+          SysLog.info('MOVIMIENTOS', 'Guardado exitoso', { id: result.movimiento && result.movimiento.id });
           // Reemplazar movimiento temporal con el definitivo
           const idx = Estado.movimientos.findIndex(m => m._pendiente && m.cliente === datos.cliente && m.monto === datos.monto && m.tipo === datos.tipo);
           if (idx >= 0 && result.movimiento) {
@@ -6764,6 +6897,7 @@
           actualizarDatosSistema();
         },
         function(errMsg) {
+          SysLog.error('MOVIMIENTOS', 'Error al guardar', errMsg);
           // Quitar el movimiento temporal en caso de error
           const idx = Estado.movimientos.findIndex(m => m._pendiente && m.cliente === datos.cliente && m.monto === datos.monto);
           if (idx >= 0) Estado.movimientos.splice(idx, 1);

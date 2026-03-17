@@ -453,6 +453,9 @@ function guardarPagoAlquiler(datos) {
 
     var config = AlquileresRepository.obtenerConfigInquilino(datos.inquilino);
 
+    // Invalidar cache de alquileres para el año actual
+    SheetsCache.invalidar('alquileres_completos_' + new Date().getFullYear());
+
     return {
       success: true,
       movimiento: serializarParaWeb(resultado),
@@ -495,29 +498,32 @@ function guardarFacturaMensual(datos) {
  */
 function obtenerDatosAlquileresCompletos(anio) {
   try {
-    var inquilinos = AlquileresRepository.obtenerTodosInquilinos();
     var anioConsulta = anio || new Date().getFullYear();
-    var resultado = [];
+    var CACHE_KEY = 'alquileres_completos_' + anioConsulta;
+
+    // Intentar desde SheetsCache primero (TTL 120s)
+    var cached = SheetsCache.get(CACHE_KEY);
+    if (cached) {
+      Logger.log('[ALQUILERES] Cache hit para año ' + anioConsulta);
+      return { success: true, anio: anioConsulta, inquilinos: cached };
+    }
+
+    var inquilinos = AlquileresRepository.obtenerTodosInquilinos();
+    var resultado  = [];
 
     for (var i = 0; i < inquilinos.length; i++) {
       var inq = inquilinos[i];
-      var calendario = AlquileresRepository.obtenerEstadoCalendario(inq.inquilino, anioConsulta);
-      var movimientos = AlquileresRepository.obtenerMovimientos(inq.inquilino, anioConsulta);
+      var calendario    = AlquileresRepository.obtenerEstadoCalendario(inq.inquilino, anioConsulta);
+      var movimientos   = AlquileresRepository.obtenerMovimientos(inq.inquilino, anioConsulta);
       var semanasImpagas = AlquileresRepository.obtenerSemanasImpagas(inq.inquilino, anioConsulta);
-
-      resultado.push({
-        config: inq,
-        calendario: calendario,
-        movimientos: movimientos,
-        semanasImpagas: semanasImpagas
-      });
+      resultado.push({ config: inq, calendario: calendario, movimientos: movimientos, semanasImpagas: semanasImpagas });
     }
 
-    return {
-      success: true,
-      anio: anioConsulta,
-      inquilinos: serializarParaWeb(resultado)
-    };
+    var resultadoSerial = serializarParaWeb(resultado);
+    SheetsCache.set(CACHE_KEY, resultadoSerial, 120); // cache 2 minutos
+
+    return { success: true, anio: anioConsulta, inquilinos: resultadoSerial };
+
   } catch (error) {
     Logger.log('Error en obtenerDatosAlquileresCompletos: ' + error.message);
     return { success: false, error: error.message };

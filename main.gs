@@ -574,27 +574,30 @@ function inicializarSistema() {
  */
 function obtenerDatosParaHTML() {
   try {
-    // Cargar TODOS los clientes (sin límite de paginación) para que el autocomplete funcione
-    const clientes = ClientesRepository.obtenerTodos(0, 0); // 0 = sin límite
-    const movimientos = MovimientosRepository.obtenerRecientes(100);
-    const totalClientes = clientes.length;
-
+    // Solo clientes: es lo que necesita el autocomplete al inicio
+    var clientes = ClientesRepository.obtenerTodos(0, 0);
+    
     return {
-      success: true,
-      clientes: serializarParaWeb(clientes),
-      movimientos: serializarParaWeb(movimientos),
-      totalClientes: totalClientes,
-      timestamp: new Date().toISOString()
+      success:      true,
+      clientes:     serializarParaWeb(clientes),
+      movimientos:  [],   // se cargan en segundo plano por cargarMovimientosRecientes()
+      totalClientes: clientes.length,
+      timestamp:    new Date().toISOString()
     };
-
   } catch (error) {
     Logger.log('Error en obtenerDatosParaHTML: ' + error.message);
-    return {
-      success: false,
-      error: error.message,
-      clientes: [],
-      movimientos: []
-    };
+    return { success: false, error: error.message, clientes: [], movimientos: [] };
+  }
+}
+
+// Nueva función separada para cargar movimientos recientes (llamada asíncrona)
+function obtenerMovimientosRecientes(limite) {
+  try {
+    var movimientos = MovimientosRepository.obtenerRecientes(limite || 100);
+    return { success: true, movimientos: serializarParaWeb(movimientos) };
+  } catch (error) {
+    Logger.log('Error en obtenerMovimientosRecientes: ' + error.message);
+    return { success: false, error: error.message, movimientos: [] };
   }
 }
 
@@ -604,35 +607,34 @@ function obtenerDatosParaHTML() {
  */
 function obtenerEstadisticas() {
   try {
-    const totalClientes = ClientesRepository.contarTotal();
-    const deudores = ClientesRepository.obtenerDeudores();
-    const estadsMov = MovimientosRepository.obtenerEstadisticas();
+    // Reutilizar clientes ya cacheados en RequestCache si están disponibles
+    var CACHE_KEY_EST = 'estadisticas_resultado';
+    var cached = RequestCache.get(CACHE_KEY_EST);
+    if (cached) return cached;
 
-    // Top 10 deudores
-    const topDeudores = deudores.slice(0, 10).map(c => ({
-      nombre: c.nombre,
-      saldo: c.saldo
-    }));
+    var clientes    = ClientesRepository.obtenerTodos(); // usa SheetsCache interno
+    var estadsMov   = MovimientosRepository.obtenerEstadisticas();
+    var deudores    = clientes.filter(function(c) { return c.saldo > 0; })
+                              .sort(function(a, b) { return b.saldo - a.saldo; });
 
-    // Total adeudado
-    const totalAdeudado = deudores.reduce((sum, c) => sum + c.saldo, 0);
-
-    return {
-      success: true,
-      totalClientes: totalClientes,
-      totalDeudores: deudores.length,
-      totalAdeudado: totalAdeudado,
-      topDeudores: topDeudores,
-      movimientos: estadsMov,
-      timestamp: new Date().toISOString()
+    var resultado = {
+      success:        true,
+      totalClientes:  clientes.length,
+      totalDeudores:  deudores.length,
+      totalAdeudado:  deudores.reduce(function(s, c) { return s + c.saldo; }, 0),
+      topDeudores:    deudores.slice(0, 10).map(function(c) {
+                        return { nombre: c.nombre, saldo: c.saldo };
+                      }),
+      movimientos:    estadsMov,
+      timestamp:      new Date().toISOString()
     };
+
+    RequestCache.set(CACHE_KEY_EST, resultado);
+    return resultado;
 
   } catch (error) {
     Logger.log('Error en obtenerEstadisticas: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    return { success: false, error: error.message };
   }
 }
 
@@ -796,126 +798,107 @@ function obtenerDeudores() {
  */
 function obtenerSaldosConMovimientosDia(fecha) {
   try {
-    const fechaFiltro = fecha ? parsearFechaLocal(fecha) : new Date();
+    var fechaFiltro = fecha ? parsearFechaLocal(fecha) : new Date();
     fechaFiltro.setHours(0, 0, 0, 0);
-    const fechaFin = new Date(fechaFiltro);
+    var fechaFin = new Date(fechaFiltro);
     fechaFin.setHours(23, 59, 59, 999);
 
-    // Verificar si es fecha de hoy
-    const hoy = new Date();
+    var hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    const esHoy = fechaFiltro.getTime() === hoy.getTime();
+    var esHoy = fechaFiltro.getTime() === hoy.getTime();
 
-    // Obtener movimientos del dia
-    const movimientosDia = MovimientosRepository.obtenerPorRango(fechaFiltro, fechaFin);
+    // Movimientos del día para cálculo de columnas
+    var movimientosDia = MovimientosRepository.obtenerPorRango(fechaFiltro, fechaFin);
 
-    // Agrupar movimientos por cliente
-    const movsPorCliente = {};
-    for (const mov of movimientosDia) {
+    // Agrupar movimientos del día por cliente
+    var movsPorCliente = {};
+    for (var i = 0; i < movimientosDia.length; i++) {
+      var mov = movimientosDia[i];
       if (!movsPorCliente[mov.cliente]) {
         movsPorCliente[mov.cliente] = { pagos: 0, fiados: 0 };
       }
       if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) {
-        movsPorCliente[mov.cliente].pagos += mov.monto;
+        movsPorCliente[mov.cliente].pagos  += mov.monto;
       } else {
         movsPorCliente[mov.cliente].fiados += mov.monto;
       }
     }
 
-    let resultado;
-    let totalAdeudado = 0;
-    let totalAFavor = 0;
+    // Obtener saldos (actuales o históricos)
+    var clientes = ClientesRepository.obtenerTodos();
+    var saldosPorNombre = {};
 
     if (esHoy) {
-      // Si es hoy, usar TODOS los saldos (positivos y negativos)
-      const clientes = ClientesRepository.obtenerTodos();
-      resultado = [];
-      
-      for (const cliente of clientes) {
-        // Incluir clientes con saldo positivo (deuda) O negativo (a favor)
-        if (cliente.saldo !== 0) {
-          const esAFavor = cliente.saldo < 0;
-          resultado.push({
-            nombre: cliente.nombre,
-            saldo: cliente.saldo,
-            esAFavor: esAFavor,
-            pagosDia: movsPorCliente[cliente.nombre]?.pagos || 0,
-            fiadosDia: movsPorCliente[cliente.nombre]?.fiados || 0
-          });
-          
-          if (esAFavor) {
-            totalAFavor += Math.abs(cliente.saldo);
-          } else {
-            totalAdeudado += cliente.saldo;
-          }
-        }
+      for (var j = 0; j < clientes.length; j++) {
+        saldosPorNombre[clientes[j].nombre] = clientes[j].saldo || 0;
       }
     } else {
-      // Si es fecha pasada, calcular saldos históricos
-      const saldosHistoricos = MovimientosRepository.calcularSaldosHistoricos(fechaFin);
-      const clientes = ClientesRepository.obtenerTodos();
-
-      resultado = [];
-      for (const cliente of clientes) {
-        const saldoHistorico = saldosHistoricos[cliente.nombre] || 0;
-        // Incluir saldos positivos Y negativos (a favor)
-        if (saldoHistorico !== 0) {
-          const esAFavor = saldoHistorico < 0;
-          resultado.push({
-            nombre: cliente.nombre,
-            saldo: saldoHistorico,
-            esAFavor: esAFavor,
-            pagosDia: movsPorCliente[cliente.nombre]?.pagos || 0,
-            fiadosDia: movsPorCliente[cliente.nombre]?.fiados || 0
-          });
-          
-          if (esAFavor) {
-            totalAFavor += Math.abs(saldoHistorico);
-          } else {
-            totalAdeudado += saldoHistorico;
-          }
-        }
-      }
+      saldosPorNombre = MovimientosRepository.calcularSaldosHistoricos(fechaFin);
     }
 
-    // Ordenar: primero alfabéticamente, luego por tipo de saldo (deuda antes que a favor)
-    resultado.sort((a, b) => {
-      if (a.esAFavor !== b.esAFavor) {
-        return a.esAFavor ? 1 : -1; // Deuda primero, a favor después
-      }
-      return a.nombre.localeCompare(b.nombre, 'es');
+    // ─── TOTALES GLOBALES (incluyen a TODOS, incluso saldo=0) ────────────────
+    var totalFiadosDia   = 0;
+    var totalPagosDia    = 0;
+    var totalDeudaActiva = 0;  // suma de saldos > 0
+    var totalAFavor      = 0;  // suma de saldos < 0 (valor absoluto)
+
+    for (var k = 0; k < clientes.length; k++) {
+      var c = clientes[k];
+      var saldo = saldosPorNombre[c.nombre] || 0;
+      var mDia  = movsPorCliente[c.nombre]  || { pagos: 0, fiados: 0 };
+
+      // Sumar en totales independientemente del saldo actual
+      totalFiadosDia += mDia.fiados;
+      totalPagosDia  += mDia.pagos;
+      if (saldo > 0)  totalDeudaActiva += saldo;
+      if (saldo < 0)  totalAFavor      += Math.abs(saldo);
+    }
+
+    // ─── LISTA VISIBLE: solo clientes con saldo != 0 ─────────────────────────
+    var resultado = [];
+
+    for (var l = 0; l < clientes.length; l++) {
+      var cli = clientes[l];
+      var sal = saldosPorNombre[cli.nombre] || 0;
+      if (sal === 0) continue; // ocultar, pero ya sumamos en totales arriba
+
+      var mDiaCli = movsPorCliente[cli.nombre] || { pagos: 0, fiados: 0 };
+      resultado.push({
+        nombre:    cli.nombre,
+        saldo:     sal,
+        esAFavor:  sal < 0,
+        fiadosDia: mDiaCli.fiados,
+        pagosDia:  mDiaCli.pagos
+      });
+    }
+
+    // ─── ORDENAMIENTO ALFABÉTICO ESTRICTO ────────────────────────────────────
+    resultado.sort(function(a, b) {
+      return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
     });
 
-    // Calcular totales del día
-    let totalPagos = 0;
-    let totalFiados = 0;
-    for (const cliente in movsPorCliente) {
-      totalPagos += movsPorCliente[cliente].pagos;
-      totalFiados += movsPorCliente[cliente].fiados;
-    }
-
-    // LOGS DE VALIDACIÓN - Saldo a favor y deuda
-    const clientesConDeuda = resultado.filter(r => !r.esAFavor).length;
-    const clientesAFavor = resultado.filter(r => r.esAFavor).length;
-    Logger.log('[SALDOS] Clientes con deuda: ' + clientesConDeuda);
-    Logger.log('[SALDOS] Clientes con saldo a favor: ' + clientesAFavor);
-    Logger.log('[SALDOS] Total deuda: $' + totalAdeudado);
-    Logger.log('[SALDOS] Total a favor: $' + totalAFavor);
+    Logger.log('[SALDOS] Clientes en lista: ' + resultado.length + 
+               ' | Con deuda: ' + resultado.filter(function(r) { return !r.esAFavor; }).length +
+               ' | A favor: '   + resultado.filter(function(r) { return r.esAFavor; }).length +
+               ' | Total fiados día: $' + totalFiadosDia +
+               ' | Total pagos día: $'  + totalPagosDia);
 
     return {
-      success: true,
-      fecha: formatearFechaLocal(fechaFiltro),
-      esHistorico: !esHoy,
-      deudores: serializarParaWeb(resultado),
-      totalAdeudado: totalAdeudado,
-      saldoAFavor: totalAFavor,
-      totalPagosDia: totalPagos,
-      totalFiadosDia: totalFiados,
+      success:          true,
+      fecha:            formatearFechaLocal(fechaFiltro),
+      esHistorico:      !esHoy,
+      deudores:         serializarParaWeb(resultado),
+      totalAdeudado:    totalDeudaActiva,
+      saldoAFavor:      totalAFavor,
+      totalPagosDia:    totalPagosDia,
+      totalFiadosDia:   totalFiadosDia,
       resumen: {
-        clientesConDeuda: clientesConDeuda,
-        clientesAFavor: clientesAFavor
+        clientesConDeuda:  resultado.filter(function(r) { return !r.esAFavor; }).length,
+        clientesAFavor:    resultado.filter(function(r) { return r.esAFavor; }).length,
+        clientesEnLista:   resultado.length
       }
     };
+
   } catch (error) {
     Logger.log('Error en obtenerSaldosConMovimientosDia: ' + error.message);
     return { success: false, error: error.message, deudores: [] };
