@@ -1829,3 +1829,71 @@ function verificarIntegridadSistema() {
   };
 }
 
+// ============================================================================
+// DIAGNÓSTICO DE INTEGRACIÓN ARCA/AFIP - CUIT
+// ============================================================================
+
+/**
+ * Ejecuta diagnóstico de consulta de CUIT con 3 tests
+ * @param {string} cuit1 - CUIT que históricamente funcionaba
+ * @param {string} cuit2 - CUIT que devuelve "SIN DATOS PÚBLICOS"
+ * @param {string} cuit3 - CUIT inválido para test de error
+ * @returns {Object} Resultados del diagnóstico
+ */
+function diagnosticarConsultaCUIT(cuit1, cuit2, cuit3) {
+  const inicio = Date.now();
+  const cuitTests = [cuit1, cuit2, cuit3].filter(function(c) { return c && c.trim(); });
+
+  if (cuitTests.length === 0) {
+    // Valores por defecto para testing
+    cuitTests.push('20149543407');  // CUIT emisor
+    cuitTests.push('20409378472');  // CUIT test
+    cuitTests.push('00000000000');  // CUIT inválido
+  }
+
+  try {
+    const resultados = AfipService.diagnosticarConsultaCUIT(cuitTests);
+    const estadoCertificado = AfipService.verificarEstadoCertificado();
+
+    return {
+      success: true,
+      timestamp: new Date().toISOString(),
+      duracionMs: Date.now() - inicio,
+      cuitTests: cuitTests,
+      resultados: resultados,
+      estadoConfiguracion: estadoCertificado,
+      instrucciones: 'Revisá los logs de ejecución para ver respuestas raw de ARCA. ' +
+                     'Los resultados se guardaron en PropertiesService con clave CUIT_DIAGNOSTICO_<timestamp>.'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      duracionMs: Date.now() - inicio,
+      instrucciones: 'Error durante el diagnóstico. Verificá que AfipService esté correctamente inicializado.'
+    };
+  }
+}
+
+/**
+ * Verifica el estado de la configuración de ARCA/AFIP
+ * @returns {Object} Estado de la configuración
+ */
+function verificarConfiguracionARCA() {
+  try {
+    const estado = AfipService.verificarEstadoCertificado();
+    return {
+      success: true,
+      timestamp: new Date().toISOString(),
+      configuracion: estado
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
+
