@@ -181,7 +181,7 @@ const AfipService = {
 
   /**
    * Valida un payload de emisión de factura antes de enviar a ARCA
-   * Usado para testing en sandbox y prevención de errores
+   * Validación de prevención de errores para PRODUCCION
    * @param {Object} payload - Payload a validar
    * @returns {{valido: boolean, errores: Array, advertencias: Array}}
    */
@@ -1737,6 +1737,7 @@ function _autorizarUnWebService(params) {
   var url = 'https://app.afipsdk.com/api/v1/afip/ws-auths';
 
   var payload = {
+    environment: 'prod',  // REQUERIDO POR AFIP SDK - SIEMPRE PRODUCCION
     tax_id: params.tax_id,
     username: params.username,
     password: params.password,
