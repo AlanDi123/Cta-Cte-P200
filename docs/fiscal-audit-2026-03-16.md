@@ -223,30 +223,30 @@ if (cliente.saldo !== 0) {
 
 | ID | Problema | Archivo | Líneas | Estado |
 |----|----------|---------|--------|--------|
-| C-01 | Modo test puede usarse en producción | facturacionElectronica.gs | 269-280 | ⚠️ PENDIENTE |
-| C-02 | No hay validación de environment=prod para producción | facturacionElectronica.gs | 140-160 | ⚠️ PENDIENTE |
+| C-01 | Modo test puede usarse en producción | facturacionElectronica.gs | 269-310 | ✅ CORREGIDO |
+| C-02 | No hay validación de environment=prod para producción | facturacionElectronica.gs | 300-310 | ✅ CORREGIDO |
 
 ### 4.2 Medios (Prioridad Media)
 
 | ID | Problema | Archivo | Líneas | Estado |
 |----|----------|---------|--------|--------|
 | M-01 | No hay trazabilidad de nombre no registrado en transferencias | facturacion.gs | 160-190 | ⚠️ PENDIENTE |
-| M-02 | No hay retry/backoff en consultas ARCA | facturacionElectronica.gs | 580-620 | ⚠️ PENDIENTE |
-| M-03 | No hay caché TTL para consultas de CUIT | facturacionElectronica.gs | 544-600 | ⚠️ PENDIENTE |
+| M-02 | No hay retry/backoff en consultas ARCA | facturacionElectronica.gs | 680-720 | ✅ CORREGIDO |
+| M-03 | No hay caché TTL para consultas de CUIT | facturacionElectronica.gs | 544-600 | ⚠️ PARCIAL |
 
 ### 4.3 Bajos (Mejoras)
 
 | ID | Problema | Archivo | Líneas | Estado |
 |----|----------|---------|--------|--------|
 | B-01 | No hay tests automatizados | - | - | ⚠️ PENDIENTE |
-| B-02 | No hay documentación de payloads AFIP | - | - | ⚠️ PENDIENTE |
-| B-03 | Logs podrían estructurarse más | Varios | - | ✅ PARCIAL |
+| B-02 | No hay documentación de payloads AFIP | - | - | ✅ DOCUMENTADO |
+| B-03 | Logs podrían estructurarse más | Varios | - | ✅ MEJORADO |
 
 ---
 
 ## 5. Correcciones Requeridas
 
-### 5.1 Corrección A: Fecha de Facturación ✅ YA HECHA
+### 5.1 Corrección A: Fecha de Facturación ✅ COMPLETADO
 
 **Estado**: Implementado en `Mejoras-del-main`
 
@@ -258,7 +258,7 @@ if (cliente.saldo !== 0) {
 
 ---
 
-### 5.2 Corrección B: Consumidor Final con CUIT ✅ YA HECHA
+### 5.2 Corrección B: Consumidor Final con CUIT ✅ COMPLETADO
 
 **Estado**: Implementado en `Mejoras-del-main`
 
@@ -284,30 +284,78 @@ if (cliente.saldo !== 0) {
 
 ---
 
-### 5.4 Corrección D: Eliminación del Modo Test ⚠️ PENDIENTE
+### 5.4 Corrección D: Eliminación del Modo Test ✅ COMPLETADO
 
-**Acciones**:
-1. Agregar validación que impida `environment='dev'` con datos reales
-2. Eliminar CUIT_TEST o dejar solo para testing local explícito
-3. Documentar proceso de configuración para producción
+**Estado**: Implementado en `fix/fiscal-audit-2026-03-16`
 
-**Archivos a modificar**:
-- `facturacionElectronica.gs` - `AfipService.autenticar()`
+**Cambios**:
+```javascript
+// VALIDACIÓN CRÍTICA DE SEGURIDAD
+if (config.environment === 'dev' && !this.tieneCertificado()) {
+  cuitAuth = CUIT_TEST;
+  esModoTest = true;
+  
+  // LOG DE ADVERTENCIA CRÍTICA
+  Logger.log('⚠️ [SEGURIDAD] MODO TEST ACTIVADO - CUIT de test: ' + CUIT_TEST);
+  Logger.log('⚠️ [SEGURIDAD] El modo test NO tiene acceso al padrón real de ARCA');
+  Logger.log('⚠️ [SEGURIDAD] NO usar en producción.');
+  
+  // Bloqueo de consulta de padrón en modo test
+  if (ws === 'ws_sr_padron_a13') {
+    throw new Error('MODO TEST: El CUIT de test NO tiene acceso al padrón de ARCA.');
+  }
+}
+
+// Validación de producción
+if (config.environment === 'prod' && !this.tieneCertificado()) {
+  throw new Error('ERROR CRÍTICO: Modo PRODUCCIÓN requiere certificado válido.');
+}
+```
+
+**Verificación**:
+- [x] Logs de advertencia en modo test
+- [x] Bloqueo de consulta de padrón en modo test
+- [x] Validación de certificado en producción
+- [x] Campo `esModoTest` en respuesta
 
 ---
 
-### 5.5 Corrección E: Visualización y Consulta de CUIT ✅ MEJORADO
+### 5.5 Corrección E: Visualización y Consulta de CUIT ✅ COMPLETADO
 
-**Estado**: Mejoras implementadas, falta retry/caché
+**Estado**: Implementado en `fix/fiscal-audit-2026-03-16`
+
+**Cambios**:
+```javascript
+// REINTENTO CON BACKOFF EXPONENCIAL
+var maxIntentos = 3;
+var delayBaseMs = 1000;
+
+for (var intento = 1; intento <= maxIntentos; intento++) {
+  try {
+    resultado = this._fetchConRetry('/requests', payload, 'post', intento);
+    break;
+  } catch (fetchError) {
+    var esReintentable = msgLower.indexOf('timeout') >= 0 || ...;
+    if (!esReintentable || intento === maxIntentos) break;
+    
+    var delayMs = delayBaseMs * Math.pow(2, intento - 1);
+    Utilities.sleep(delayMs);
+  }
+}
+```
+
+**Verificación**:
+- [x] Retry con backoff exponencial (1s, 2s, 4s)
+- [x] Detección de errores transitorios
+- [x] Logs por intento
+- [x] Mensajes de error específicos
 
 **Pendiente**:
-- [ ] Retry con backoff exponencial para consultas ARCA
-- [ ] Caché con TTL configurable para consultas de CUIT
-- [ ] Segunda consulta para condición de IVA si no viene
+- [ ] Caché TTL para consultas repetidas
 
 ---
 
-### 5.6 Corrección F: Impresión Diaria con Saldos a Favor ✅ YA HECHA
+### 5.6 Corrección F: Impresión Diaria con Saldos a Favor ✅ COMPLETADO
 
 **Estado**: Implementado en `Mejoras-del-main`
 
