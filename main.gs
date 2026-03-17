@@ -1672,9 +1672,9 @@ function restaurarConfiguracionPorDefecto() {
     // Eliminar todas las configuraciones personalizadas (pero mantener credenciales)
     const keysToKeep = [
       'SPREADSHEET_ID',
-      'EMISOR_CUIT', 'EMISOR_RAZON_SOCIAL', 'EMISOR_NOMBRE_FANTASIA', 
+      'EMISOR_CUIT', 'EMISOR_RAZON_SOCIAL', 'EMISOR_NOMBRE_FANTASIA',
       'EMISOR_DOMICILIO', 'EMISOR_IIBB', 'EMISOR_FECHA_INICIO', 'EMISOR_CONDICION_IVA',
-      'AFIP_ACCESS_TOKEN', 'AFIP_ENVIRONMENT', 'AFIP_PUNTO_VENTA', 'AFIP_CUIT',
+      'AFIP_ACCESS_TOKEN', 'AFIP_PUNTO_VENTA', 'AFIP_CUIT',
       'AFIP_CERT', 'AFIP_KEY',
       'CLAUDE_API_KEY'
     ];
