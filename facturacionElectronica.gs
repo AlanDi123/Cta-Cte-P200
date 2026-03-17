@@ -851,6 +851,9 @@ const AfipService = {
     }
 
     try {
+      // LOG DE DIAGNÓSTICO: Respuesta raw de ARCA para debugging
+      Logger.log('[CONSULTA CUIT ' + cuitLimpio + '] Respuesta raw de ARCA: ' + JSON.stringify(resultado));
+
       // afipsdk puede devolver la persona en distintas estructuras:
       // { personaReturn: {...} }, { persona: {...} }, { data: {...} } o directamente { datosGenerales: {...} }
       const personaReturn = resultado.personaReturn
@@ -865,7 +868,14 @@ const AfipService = {
         : null;
 
       if (!datosGenerales || !datosGenerales.idPersona) {
-        Logger.log('CUIT ' + cuitLimpio + ' no encontrado en padron. Respuesta completa: ' + JSON.stringify(resultado).substring(0, 500));
+        Logger.log('[CONSULTA CUIT ' + cuitLimpio + '] No encontrado. Estructura respuesta: ' + JSON.stringify({
+          tienePersonaReturn: !!resultado.personaReturn,
+          tienePersona: !!resultado.persona,
+          tieneData: !!resultado.data,
+          tieneDatosGenerales: !!resultado.datosGenerales,
+          tieneErrors: !!resultado.errors,
+          keys: Object.keys(resultado || {})
+        }));
         
         // Diferenciar entre CUIT válido sin datos públicos vs CUIT inexistente
         // ARCA devuelve estructura vacía cuando el CUIT existe pero no tiene datos públicos
@@ -1006,6 +1016,82 @@ const AfipService = {
         error: 'No se pudo consultar: ' + error.message
       };
     }
+  },
+
+  /**
+   * DIAGNÓSTICO: Test de consulta de CUIT con logging extendido
+   * Esta función permite testear la consulta con 3 CUITs diferentes y guardar logs
+   * @param {string[]} cuitTests - Array de CUITs a testear
+   * @returns {Object[]} Resultados de cada consulta
+   */
+  diagnosticarConsultaCUIT: function(cuitTests) {
+    var resultados = [];
+    var timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+    Logger.log('[DIAGNÓSTICO CUIT] Iniciando test con ' + cuitTests.length + ' CUITs');
+    Logger.log('[DIAGNÓSTICO CUIT] Timestamp: ' + timestamp);
+
+    for (var i = 0; i < cuitTests.length; i++) {
+      var cuit = cuitTests[i];
+      Logger.log('[DIAGNÓSTICO CUIT] Test ' + (i + 1) + '/' + cuitTests.length + ': CUIT ' + cuit);
+
+      try {
+        var resultado = this.consultarCUIT(cuit);
+        resultados.push({
+          cuit: cuit,
+          timestamp: new Date().toISOString(),
+          exito: true,
+          resultado: resultado
+        });
+        Logger.log('[DIAGNÓSTICO CUIT] Resultado: ' + JSON.stringify({
+          encontrado: resultado.encontrado,
+          error: resultado.error,
+          sinDatosPublicos: resultado.sinDatosPublicos,
+          condicionFiscal: resultado.condicionFiscal
+        }));
+      } catch (error) {
+        resultados.push({
+          cuit: cuit,
+          timestamp: new Date().toISOString(),
+          exito: false,
+          error: error.message
+        });
+        Logger.log('[DIAGNÓSTICO CUIT] Error: ' + error.message);
+      }
+    }
+
+    // Guardar resultados en PropertiesService para recuperación posterior
+    try {
+      PropertiesService.getScriptProperties().setProperty(
+        'CUIT_DIAGNOSTICO_' + timestamp,
+        JSON.stringify(resultados)
+      );
+      Logger.log('[DIAGNÓSTICO CUIT] Resultados guardados en PropertiesService');
+    } catch (e) {
+      Logger.log('[DIAGNÓSTICO CUIT] No se pudieron guardar los resultados: ' + e.message);
+    }
+
+    return resultados;
+  },
+
+  /**
+   * Verifica el estado del certificado y la configuración de ARCA
+   * @returns {Object} Estado del certificado y configuración
+   */
+  verificarEstadoCertificado: function() {
+    const config = this.getConfig();
+    const emisor = CONFIG_AFIP.getEmisor();
+
+    return {
+      environment: config.environment || 'no configurado',
+      cuitEmisor: config.cuit || emisor.CUIT,
+      tieneAccessToken: !!(config.accessToken && config.accessToken.trim()),
+      tieneCertificado: this.tieneCertificado(),
+      tieneKey: !!(config.key && config.key.trim()),
+      puntoVenta: config.puntoVenta || 'no configurado',
+      estadoCertificado: this.tieneCertificado() ? 'VÁLIDO' : 'NO CONFIGURADO',
+      advertencias: []
+    };
   }
 };
 
