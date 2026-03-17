@@ -1214,27 +1214,6 @@ function obtenerHistorialCaja(limite) {
 }
 
 /**
- * Genera hoja de ruta del dia
- * @param {string} fecha - Fecha en formato YYYY-MM-DD
- * @returns {Object} Datos de la hoja de ruta
- */
-function obtenerHojaRuta(fecha) {
-  try {
-    const hojaRuta = generarHojaRuta(fecha);
-    return {
-      success: true,
-      ...serializarParaWeb(hojaRuta)
-    };
-  } catch (error) {
-    Logger.log('Error en obtenerHojaRuta: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
  * Genera resumen de arqueo para impresion
  * @param {string} sesionId - ID de sesion (opcional)
  * @returns {Object} Resumen del arqueo

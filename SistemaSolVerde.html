@@ -3456,14 +3456,6 @@
                 <label class="form-label">Punto de Venta</label>
                 <input type="number" class="form-input" id="inputAfipPtoVta" placeholder="11" value="11" min="1" max="99999">
               </div>
-              <div class="form-group">
-                <label class="form-label">Entorno</label>
-                <div class="btn-group">
-                  <button class="btn btn-outline" id="btnAfipDev" onclick="setAfipEnv('dev')">Dev (Pruebas)</button>
-                  <button class="btn btn-outline" id="btnAfipProd" onclick="setAfipEnv('prod')">Produccion</button>
-                </div>
-                <input type="hidden" id="inputAfipEnv" value="dev">
-              </div>
               <button class="btn btn-primary" onclick="guardarConfigAfipFront()" style="width: 100%;">Guardar Config ARCA</button>
               <button class="btn btn-outline" onclick="probarConexionAfipFront()" style="width: 100%; margin-top: 0.5rem;">Probar Conexion</button>
               <p id="estadoAfip" style="margin-top: 0.5rem; font-size: 0.8rem;"></p>
@@ -3472,7 +3464,8 @@
               <div style="background: var(--sv-fondo); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--sv-borde);">
                 <p style="font-weight: bold; margin-bottom: 0.5rem; font-size: 0.85rem;">Certificado Digital (obligatorio para CUIT propio)</p>
                 <p style="font-size: 0.75rem; color: var(--sv-texto-secundario); margin-bottom: 0.5rem;">
-                  Sin certificado, el modo desarrollo usa CUIT de test (20409378472). Para usar tu CUIT real necesitas generar un certificado con tu clave fiscal de ARCA.
+                  Para operar necesitás generar un certificado digital con tu clave fiscal de ARCA.
+                  El sistema opera siempre en modo <strong>Producción</strong>.
                 </p>
                 <p id="estadoCert" style="font-size: 0.8rem; margin-bottom: 0.5rem;"></p>
                 <div class="form-group" style="margin-bottom: 0.5rem;">
@@ -4625,7 +4618,7 @@
         <div style="text-align:center; padding:2rem; color:var(--sv-texto-muted);">Cargando...</div>
       </div>
       <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:flex-end;" class="no-print">
-        <button class="btn btn-outline" onclick="imprimirCajaDiaria(null, 1)">🖨️ Imprimir</button>
+        <button class="btn btn-outline" onclick="imprimirCajaDiaria(EstadoCajaDiaria.cajaDetalleModal ? EstadoCajaDiaria.cajaDetalleModal.id : null, 1)">🖨️ Imprimir</button>
         <button class="btn btn-outline" onclick="cerrarModal('modalDetalleCaja')">Cerrar</button>
       </div>
     </div>
@@ -6774,6 +6767,7 @@
       if (modulo === 'contabilidad') cargarContabilidad();
       if (modulo === 'configuracion') {
         cargarDatosEmisor();
+        cargarConfigAfip();
         // Renderizar toggles con el estado guardado en localStorage (fix definitivo)
         var _cfgVis = {};
         try { _cfgVis = JSON.parse(localStorage.getItem('sv_config_visual') || '{}'); } catch(e) {}
@@ -10260,8 +10254,6 @@
           if (result.success) {
             document.getElementById('inputAfipCuit').value = result.cuit || '20149543407';
             document.getElementById('inputAfipPtoVta').value = result.puntoVenta || 11;
-            document.getElementById('inputAfipEnv').value = result.environment || 'dev';
-            setAfipEnv(result.environment || 'dev');
 
             var estado = document.getElementById('estadoAfip');
             if (result.configurado) {
@@ -10276,7 +10268,7 @@
               if (result.tieneCert) {
                 estadoCert.innerHTML = '<span style="color:var(--sv-exito);">Certificado instalado (' + result.certPreview + ')</span>';
               } else {
-                estadoCert.innerHTML = '<span style="color:var(--sv-advertencia);">Sin certificado - modo dev usara CUIT de test</span>';
+                estadoCert.innerHTML = '<span style="color:var(--sv-advertencia);">Sin certificado</span>';
               }
             }
           }
@@ -10285,38 +10277,20 @@
         .obtenerConfigAfip();
     }
 
-    function setAfipEnv(env) {
-      document.getElementById('inputAfipEnv').value = env;
-      document.getElementById('btnAfipDev').className = 'btn ' + (env === 'dev' ? 'btn-primary' : 'btn-outline');
-      document.getElementById('btnAfipProd').className = 'btn ' + (env === 'prod' ? 'btn-primary' : 'btn-outline');
-    }
-
     function guardarConfigAfipFront() {
       var token = document.getElementById('inputAfipToken').value.trim();
       var cuit = document.getElementById('inputAfipCuit').value.trim();
       var ptoVta = parseInt(document.getElementById('inputAfipPtoVta').value) || 11;
-      var env = document.getElementById('inputAfipEnv').value || 'dev';
-
-      if (!token) {
-        // Si no ingresó token nuevo, solo guardar los otros campos
-      }
-
-      var config = {
-        environment: env,
-        puntoVenta: ptoVta,
-        cuit: cuit
-      };
-
-      if (token) {
-        config.accessToken = token;
-      }
+      // environment siempre prod — no configurable desde UI
+      var config = { puntoVenta: ptoVta, cuit: cuit };
+      if (token) config.accessToken = token;
 
       mostrarLoading(true);
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           if (result.success) {
-            mostrarToast('Configuracion ARCA guardada', 'success');
+            mostrarToast('Configuración ARCA guardada (Producción)', 'success');
             document.getElementById('inputAfipToken').value = '';
             cargarConfigAfip();
           } else {
@@ -10388,18 +10362,15 @@
       }
 
       if (!confirm(
-        'Generar certificado digital?\n\n' +
-        'Se usara tu clave fiscal de ARCA para generar el certificado automaticamente.\n' +
-        'La clave NO se guarda, solo se usa una vez.\n' +
-        'Este proceso tarda entre 10 y 60 segundos.\n\n' +
-        'Continuar?'
+        'Generar certificado digital de Producción?\\n\\n' +
+        'Se usará tu clave fiscal de ARCA (no se guarda).\\n' +
+        'Este proceso tarda entre 30 y 90 segundos.\\n\\n¿Continuar?'
       )) return;
 
-      var env = document.getElementById('inputAfipEnv').value || 'dev';
       var estadoCert = document.getElementById('estadoCert');
       var btn = document.getElementById('btnGenerarCert');
 
-      estadoCert.innerHTML = '<span style="color:var(--sv-info);">Generando certificado ' + env.toUpperCase() + '... (puede tardar hasta 60 seg)</span>';
+      estadoCert.innerHTML = '<span style="color:var(--sv-info);">Generando certificado PRODUCCIÓN... (hasta 90 seg)</span>';
       btn.disabled = true;
       btn.textContent = 'Generando...';
       mostrarLoading(true);
@@ -10414,13 +10385,6 @@
           if (result.success) {
             estadoCert.innerHTML = '<span style="color:var(--sv-exito);">' + result.mensaje + '</span>';
             mostrarToast(result.mensaje, 'success');
-            // Mostrar estado de WS si hubo error en autorización
-            var estadoWS = document.getElementById('estadoWS');
-            if (result.authError && estadoWS) {
-              estadoWS.innerHTML = '<span style="color:var(--sv-advertencia);">WS: ' + result.authError + ' - Usa "Autorizar Web Services"</span>';
-            } else if (result.wsAutorizados && estadoWS) {
-              estadoWS.innerHTML = '<span style="color:var(--sv-exito);">WS autorizados: ' + result.wsAutorizados.join(', ') + '</span>';
-            }
           } else {
             estadoCert.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + result.error + '</span>';
             mostrarToast('Error: ' + result.error, 'error');
@@ -10437,7 +10401,6 @@
         .generarCertificadoAfip({
           username: username,
           password: password,
-          environment: env,
           alias: 'solyverde'
         });
     }
@@ -10452,17 +10415,15 @@
       }
 
       if (!confirm(
-        'Autorizar web services wsfe y ws_sr_padron_a5?\n\n' +
-        'Esto es necesario después de generar un certificado nuevo.\n' +
-        'El proceso tarda entre 30 y 120 segundos.\n\n' +
-        'Continuar?'
+        'Autorizar web services wsfe y ws_sr_constancia_inscripcion?\\n\\n' +
+        'Necesario después de generar un certificado nuevo.\\n' +
+        'Tarda entre 60 y 120 segundos.\\n\\n¿Continuar?'
       )) return;
 
-      var env = document.getElementById('inputAfipEnv').value || 'dev';
       var estadoWS = document.getElementById('estadoWS');
       var btn = document.getElementById('btnAutorizarWS');
 
-      estadoWS.innerHTML = '<span style="color:var(--sv-info);">Autorizando web services ' + env.toUpperCase() + '... (puede tardar hasta 2 min)</span>';
+      estadoWS.innerHTML = '<span style="color:var(--sv-info);">Autorizando servicios en PRODUCCIÓN... (hasta 2 min)</span>';
       btn.disabled = true;
       btn.textContent = 'Autorizando...';
       mostrarLoading(true);
@@ -10493,7 +10454,6 @@
         .autorizarWebServicesAfip({
           username: username,
           password: password,
-          environment: env,
           alias: 'solyverde'
         });
     }
