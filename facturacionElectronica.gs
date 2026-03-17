@@ -182,6 +182,92 @@ const AfipService = {
   // --------------------------------------------------------------------------
 
   /**
+   * Valida un payload de emisión de factura antes de enviar a ARCA
+   * Usado para testing en sandbox y prevención de errores
+   * @param {Object} payload - Payload a validar
+   * @returns {{valido: boolean, errores: Array, advertencias: Array}}
+   */
+  validarPayloadEmision: function(payload) {
+    const errores = [];
+    const advertencias = [];
+    
+    // Validaciones básicas
+    if (!payload.params || !payload.params.FECAEReq) {
+      errores.push('Payload mal formado: falta FECAEReq');
+      return { valido: false, errores: errores, advertencias: advertencias };
+    }
+    
+    const feDetReq = payload.params.FECAEReq.FeDetReq;
+    if (!feDetReq || !feDetReq.FECAEDetRequest) {
+      errores.push('Payload mal formado: falta FeDetReq');
+      return { valido: false, errores: errores, advertencias: advertencias };
+    }
+    
+    const cbte = feDetReq.FECAEDetRequest;
+    
+    // Validar fecha del comprobante (no más de 5 días atrás para productos)
+    if (cbte.CbteFch) {
+      const fechaCbte = new Date(
+        parseInt(cbte.CbteFch.substring(0, 4)),
+        parseInt(cbte.CbteFch.substring(4, 6)) - 1,
+        parseInt(cbte.CbteFch.substring(6, 8))
+      );
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const diffDias = Math.floor((hoy - fechaCbte) / (1000 * 60 * 60 * 24));
+      
+      if (cbte.Concepto === 1 && diffDias > 5) {
+        errores.push('Fecha de comprobante (' + cbte.CbteFch + ') supera los 5 días permitidos para productos. Días: ' + diffDias);
+      } else if (diffDias < 0) {
+        advertencias.push('Fecha de comprobante (' + cbte.CbteFch + ') es futura. Esto puede causar rechazo.');
+      }
+    }
+    
+    // Validar importes
+    if (cbte.ImpTotal !== undefined && cbte.ImpNeto !== undefined && cbte.ImpIVA !== undefined) {
+      const sumaEsperada = cbte.ImpNeto + cbte.ImpIVA;
+      if (Math.abs(cbte.ImpTotal - sumaEsperada) > 0.01) {
+        errores.push('Importes inconsistentes: Total (' + cbte.ImpTotal + ') ≠ Neto (' + cbte.ImpNeto + ') + IVA (' + cbte.ImpIVA + ')');
+      }
+    }
+    
+    // Validar CUIT del receptor para Factura A
+    if (payload.params.FECAEReq.FeCabReq.CbteTipo === 1 ||  // Factura A
+        payload.params.FECAEReq.FeCabReq.CbteTipo === 3) {  // NC A
+      if (!cbte.DocNro || cbte.DocNro === 0) {
+        errores.push('Factura A/NC A requiere DocNro (CUIT del receptor)');
+      }
+      if (cbte.DocTipo !== 80) {  // 80 = CUIT
+        advertencias.push('Factura A/NC A debería usar DocTipo 80 (CUIT), usa: ' + cbte.DocTipo);
+      }
+    }
+    
+    // Validar alícuota de IVA
+    if (cbte.Iva && cbte.Iva.AlicIva) {
+      const alicuotas = Array.isArray(cbte.Iva.AlicIva) ? cbte.Iva.AlicIva : [cbte.Iva.AlicIva];
+      for (var i = 0; i < alicuotas.length; i++) {
+        var alic = alicuotas[i];
+        if (alic.Id === undefined || alic.BaseImp === undefined || alic.Importe === undefined) {
+          errores.push('Alícuota ' + (i+1) + ' incompleta: faltan campos');
+        }
+        // Validar cálculo de IVA (10.5% es lo común para este sistema)
+        if (alic.BaseImp !== undefined && alic.Importe !== undefined) {
+          var ivaEsperado = Math.round(alic.BaseImp * 0.105 * 100) / 100;  // 10.5%
+          if (Math.abs(alic.Importe - ivaEsperado) > 1) {  // Tolerancia de $1
+            advertencias.push('IVA calculado (' + alic.Importe + ') difiere del esperado (' + ivaEsperado + ') para base ' + alic.BaseImp);
+          }
+        }
+      }
+    }
+    
+    return {
+      valido: errores.length === 0,
+      errores: errores,
+      advertencias: advertencias
+    };
+  },
+
+  /**
    * Realiza una llamada HTTP a Afip SDK
    * @param {string} endpoint - Ruta relativa (ej: '/auth', '/requests')
    * @param {Object} payload - Cuerpo del request (null para GET)
@@ -245,16 +331,41 @@ const AfipService = {
   },
 
   /**
+   * Wrapper con retry para llamadas HTTP a Afip SDK
+   * @param {string} endpoint - Ruta relativa
+   * @param {Object} payload - Cuerpo del request
+   * @param {string} method - 'post' o 'get'
+   * @param {number} intento - Número de intento (para logging)
+   * @returns {Object} Respuesta parseada
+   */
+  _fetchConRetry: function(endpoint, payload, method, intento) {
+    var intentoStr = intento ? ' (intento ' + intento + ')' : '';
+    Logger.log('[AFIP SDK' + intentoStr + '] ' + method.toUpperCase() + ' ' + endpoint);
+    
+    try {
+      return this._fetch(endpoint, payload, method);
+    } catch (error) {
+      Logger.log('[AFIP SDK' + intentoStr + '] Error: ' + error.message);
+      throw error;
+    }
+  },
+
+  /**
    * Paso 1: Obtener Token y Sign de autenticación ARCA
    *
    * IMPORTANTE: Afip SDK requiere certificado y clave privada para autenticarse.
-   * - En modo DEV con CUIT de test (20409378472): NO necesita cert/key
+   * - En modo DEV con CUIT de test (20409378472): NO necesita cert/key (SOLO TESTING LOCAL)
    * - En modo DEV o PROD con CUIT propio: NECESITA cert/key
+   *
+   * ADVERTENCIA DE SEGURIDAD:
+   * - El modo DEV con CUIT de test NO tiene acceso al padrón real de ARCA
+   * - NO usar en producción bajo ninguna circunstancia
+   * - Para producción, siempre usar environment='prod' con certificado válido
    *
    * Para generar el certificado, usar generarCertificadoAfip() desde Configuración.
    *
    * @param {string} wsid - Web Service ID ('wsfe' para facturación, 'ws_sr_padron_a13' para padrón)
-   * @returns {Object} {token, sign}
+   * @returns {Object} {token, sign, environment, esModoTest}
    */
   autenticar: function(wsid) {
     const config = this.getConfig();
@@ -262,14 +373,29 @@ const AfipService = {
 
     // CUIT de test de Afip SDK (no requiere certificado en dev)
     var CUIT_TEST = '20409378472';
+    var esModoTest = false;
 
     // Determinar qué CUIT usar para auth
     var cuitAuth = config.cuit;
 
-    // Si es modo dev y no tiene certificado, usar CUIT de test
+    // VALIDACIÓN CRÍTICA DE SEGURIDAD
+    // Verificar si estamos en modo test y advertir claramente
     if (config.environment === 'dev' && !this.tieneCertificado()) {
       cuitAuth = CUIT_TEST;
-      Logger.log('Modo dev sin certificado: usando CUIT de test ' + CUIT_TEST);
+      esModoTest = true;
+      
+      // LOG DE ADVERTENCIA CRÍTICA - MODO TEST DETECTADO
+      Logger.log('⚠️ [SEGURIDAD] MODO TEST ACTIVADO - CUIT de test: ' + CUIT_TEST);
+      Logger.log('⚠️ [SEGURIDAD] El modo test NO tiene acceso al padrón real de ARCA');
+      Logger.log('⚠️ [SEGURIDAD] NO usar en producción. Para producción usar environment="prod" con certificado.');
+      
+      // En modo test, algunas funcionalidades están limitadas
+      if (ws === 'ws_sr_padron_a13') {
+        throw new Error(
+          'MODO TEST: El CUIT de test (20409378472) NO tiene acceso al padrón de ARCA. ' +
+          'Para consultar CUITs, usá modo producción con certificado válido.'
+        );
+      }
     }
 
     // Si es modo prod o dev con CUIT propio, verificar certificado
@@ -277,7 +403,16 @@ const AfipService = {
       throw new Error(
         'Se requiere certificado para usar CUIT propio. ' +
         'Ve a Configuración > Facturación ARCA > "Generar Certificado" para crear uno. ' +
-        'O si estás en modo desarrollo, podés probar sin certificado (usará CUIT de test).'
+        'O si estás en modo desarrollo, podés probar sin certificado (usará CUIT de test - limitado).'
+      );
+    }
+
+    // VALIDACIÓN ADICIONAL: Advertir si environment=prod pero sin certificado
+    if (config.environment === 'prod' && !this.tieneCertificado()) {
+      throw new Error(
+        'ERROR CRÍTICO: Modo PRODUCCIÓN requiere certificado válido. ' +
+        'No se puede operar en producción sin certificado digital. ' +
+        'Ve a Configuración > Facturación ARCA > "Generar Certificado".'
       );
     }
 
@@ -302,7 +437,9 @@ const AfipService = {
     return {
       token: result.token,
       sign: result.sign,
-      cuitAuth: cuitAuth  // Devolver el CUIT usado para auth
+      cuitAuth: cuitAuth,
+      environment: config.environment,
+      esModoTest: esModoTest  // ← NUEVO: indica si está en modo test
     };
   },
 
@@ -532,6 +669,22 @@ const AfipService = {
     if (config.cert) payload.cert = config.cert;
     if (config.key) payload.key = config.key;
 
+    // VALIDACIÓN DE PAYLOAD EN SANDBOX (PREVENCIÓN DE ERRORES)
+    // Validar payload antes de enviar a ARCA
+    var validacionPayload = this.validarPayloadEmision(payload);
+    
+    if (!validacionPayload.valido) {
+      Logger.log('[EMISION FACTURA] PAYLOAD INVALIDO - Errores: ' + JSON.stringify(validacionPayload.errores));
+      throw new Error('Payload inválido para ARCA: ' + validacionPayload.errores.join('; '));
+    }
+    
+    // Loguear advertencias del payload (no bloquean, pero informan)
+    if (validacionPayload.advertencias.length > 0) {
+      Logger.log('[EMISION FACTURA] Advertencias de payload: ' + validacionPayload.advertencias.join('; '));
+    }
+    
+    Logger.log('[EMISION FACTURA] Payload validado OK - Enviando a ARCA...');
+
     const result = this._fetch('/requests', payload);
 
     // Parsear respuesta
@@ -558,6 +711,8 @@ const AfipService = {
         : 'Sin observaciones';
       throw new Error('Comprobante rechazado por ARCA: ' + obsMsg);
     }
+
+    Logger.log('[EMISION FACTURA] CAE OBTENIDO EXITOSAMENTE - CAE: ' + detResp.CAE + ', CbteNro: ' + proximoNro);
 
     return {
       cae: detResp.CAE,
@@ -587,8 +742,8 @@ const AfipService = {
 
     // VALIDACIÓN CRÍTICA: Usar algoritmo oficial AFIP/ARCA
     if (!/^\d{11}$/.test(cuitLimpio)) {
-      return { 
-        encontrado: false, 
+      return {
+        encontrado: false,
         error: 'CUIT inválido',
         mensaje: 'El CUIT debe tener 11 dígitos numéricos. Verificá el número ingresado.',
         cuitConsultado: cuitLimpio
@@ -609,7 +764,26 @@ const AfipService = {
       }
     }
 
-    const auth = this.autenticar('ws_sr_padron_a13');
+    // INTENTO DE AUTENTICACIÓN CON REINTENTO
+    var auth;
+    try {
+      auth = this.autenticar('ws_sr_padron_a13');
+    } catch (authError) {
+      Logger.log('[CONSULTA CUIT] Error autenticación: ' + authError.message);
+      
+      // Si es modo test, devolver error específico
+      if (authError.message.indexOf('MODO TEST') >= 0) {
+        return {
+          encontrado: false,
+          error: 'Modo test',
+          mensaje: authError.message,
+          cuitConsultado: cuitLimpio
+        };
+      }
+      
+      // Para otros errores de autenticación, propagar
+      throw authError;
+    }
 
     // *** FIX: Siempre usar el CUIT REAL del emisor como cuitRepresentada,
     // NO el CUIT de test aunque estemos en modo dev sin certificado.
@@ -634,16 +808,55 @@ const AfipService = {
     if (certValue) payload.cert = certValue;
     if (keyValue) payload.key = keyValue;
 
-    try {
-      const result = this._fetch('/requests', payload);
-      Logger.log('Respuesta padron ARCA para CUIT ' + cuitLimpio + ': ' + JSON.stringify(result).substring(0, 800));
+    // REINTENTO CON BACKOFF EXPONENCIAL PARA CONSULTAS ARCA
+    // Reintentar errores transitorios (timeout, service unavailable)
+    var maxIntentos = 3;
+    var delayBaseMs = 1000;
+    var ultimoError = null;
+    var resultado = null;
 
+    for (var intento = 1; intento <= maxIntentos; intento++) {
+      try {
+        resultado = this._fetchConRetry('/requests', payload, 'post', intento);
+        break; // Éxito, salir del loop
+      } catch (fetchError) {
+        ultimoError = fetchError;
+        var msgLower = (fetchError.message || '').toLowerCase();
+        var esReintentable = msgLower.indexOf('timeout') >= 0 || 
+                             msgLower.indexOf('service unavailable') >= 0 ||
+                             msgLower.indexOf('exceeded') >= 0 ||
+                             msgLower.indexOf('quota') >= 0;
+
+        if (!esReintentable || intento === maxIntentos) {
+          // Error no reintentable o agotamos intentos
+          Logger.log('[CONSULTA CUIT] Error no reintentable o intentos agotados (' + intento + '/' + maxIntentos + '): ' + fetchError.message);
+          break;
+        }
+
+        var delayMs = delayBaseMs * Math.pow(2, intento - 1); // 1s, 2s, 4s
+        Logger.log('[CONSULTA CUIT] Intento ' + intento + '/' + maxIntentos + ' fallido. Reintentando en ' + delayMs + 'ms.');
+        Utilities.sleep(delayMs);
+      }
+    }
+
+    if (!resultado) {
+      return {
+        encontrado: false,
+        error: 'Error de conexión con ARCA',
+        mensaje: 'No se pudo consultar el CUIT después de ' + maxIntentos + ' intentos. ' +
+                 (ultimoError ? 'Detalle: ' + ultimoError.message : 'Intentá de nuevo en unos segundos.'),
+        cuitConsultado: cuitLimpio,
+        detalleTecnico: ultimoError ? ultimoError.message : ''
+      };
+    }
+
+    try {
       // afipsdk puede devolver la persona en distintas estructuras:
       // { personaReturn: {...} }, { persona: {...} }, { data: {...} } o directamente { datosGenerales: {...} }
-      const personaReturn = result.personaReturn
-        || result.persona
-        || result.data
-        || (result.datosGenerales ? result : null)
+      const personaReturn = resultado.personaReturn
+        || resultado.persona
+        || resultado.data
+        || (resultado.datosGenerales ? resultado : null)
         || null;
 
       // datosGenerales debe existir y tener idPersona para ser un resultado válido
@@ -652,11 +865,11 @@ const AfipService = {
         : null;
 
       if (!datosGenerales || !datosGenerales.idPersona) {
-        Logger.log('CUIT ' + cuitLimpio + ' no encontrado en padron. Respuesta completa: ' + JSON.stringify(result).substring(0, 500));
+        Logger.log('CUIT ' + cuitLimpio + ' no encontrado en padron. Respuesta completa: ' + JSON.stringify(resultado).substring(0, 500));
         
         // Diferenciar entre CUIT válido sin datos públicos vs CUIT inexistente
         // ARCA devuelve estructura vacía cuando el CUIT existe pero no tiene datos públicos
-        if (result && Object.keys(result).length > 0 && !result.errors) {
+        if (resultado && Object.keys(resultado).length > 0 && !resultado.errors) {
           return {
             encontrado: true,
             cuit: cuitLimpio,
@@ -679,9 +892,10 @@ const AfipService = {
         };
       }
 
-      // Determinar condición IVA
+      // Determinar condición IVA con AUTO-DETECCIÓN MEJORADA
       var condicionIVA = 'CF'; // Default: Consumidor Final
       var condicionTexto = 'Consumidor Final';
+      var pendienteVerificacion = false;  // ← NUEVO: indica si la condición es incierta
 
       // Buscar en datosRegimenGeneral - el impuesto puede ser array o un único objeto
       var impuestosRaw = personaReturn.datosRegimenGeneral && personaReturn.datosRegimenGeneral.impuesto
@@ -695,6 +909,10 @@ const AfipService = {
       var tieneMonotributo = !!(personaReturn.datosMonotributo &&
         personaReturn.datosMonotributo.categoriaMonotributo);
 
+      // IDs de impuestos según AFIP:
+      // 30 = IVA (Responsable Inscripto)
+      // 32 = Ganancias (Responsable Inscripto)
+      // 20 = Monotributo
       var esRI = impuestos.some(function(imp) {
         var idImp = Number(imp.idImpuesto || imp.id || 0);
         return idImp === 30 || idImp === 32;
@@ -710,7 +928,38 @@ const AfipService = {
         esMonotributo = true;
       }
 
-      if (esRI) {
+      // AUTO-DETECCIÓN CON HEURÍSTICA ADICIONAL
+      // Si no se detectó RI ni Monotributo, usar heurística para determinar condición
+      if (!esRI && !esMonotributo) {
+        // Verificar si hay datos que sugieren actividad comercial
+        var tieneActividadComercial = personaReturn.datosRegimenGeneral && 
+                                      personaReturn.datosRegimenGeneral.actividadesEconomica &&
+                                      personaReturn.datosRegimenGeneral.actividadesEconomica.length > 0;
+        
+        // Verificar si es persona jurídica (más probable que sea RI)
+        var esPersonaJuridica = datosGenerales.tipoPersona === 'JURIDICA';
+        
+        // Si es persona jurídica con actividad comercial pero sin inscripción → PENDIENTE
+        if (esPersonaJuridica && tieneActividadComercial) {
+          pendienteVerificacion = true;
+          condicionIVA = 'CF';  // Fallback seguro: no bloquear facturación
+          condicionTexto = 'Consumidor Final (pendiente verificación - persona jurídica)';
+          Logger.log('[AUTO-DETECCION] CUIT ' + cuitLimpio + ': Persona jurídica sin inscripción detectada. Marcado como pendiente verificación.');
+        }
+        // Si tiene actividad comercial pero no está inscripto → PENDIENTE
+        else if (tieneActividadComercial) {
+          pendienteVerificacion = true;
+          condicionIVA = 'CF';  // Fallback seguro
+          condicionTexto = 'Consumidor Final (pendiente verificación - con actividad)';
+          Logger.log('[AUTO-DETECCION] CUIT ' + cuitLimpio + ': Actividad comercial detectada sin inscripción. Marcado como pendiente verificación.');
+        }
+        // Sin actividad comercial detectada → CF estándar
+        else {
+          condicionIVA = 'CF';
+          condicionTexto = 'Consumidor Final';
+        }
+      }
+      else if (esRI) {
         condicionIVA = 'RI';
         condicionTexto = 'Responsable Inscripto';
       } else if (esMonotributo) {
@@ -745,7 +994,9 @@ const AfipService = {
         domicilio: domicilio,
         tipoPersona: datosGenerales.tipoPersona || '',
         categoriaMonotributo: personaReturn.datosMonotributo ? personaReturn.datosMonotributo.categoriaMonotributo : null,
-        estadoContribuyente: datosGenerales.estadoClave || 'ACTIVO'
+        estadoContribuyente: datosGenerales.estadoClave || 'ACTIVO',
+        pendienteVerificacion: pendienteVerificacion,  // ← NUEVO: para UI y tracking
+        fuenteDeteccion: esRI ? 'RI' : (esMonotributo ? 'Monotributo' : (pendienteVerificacion ? 'Heurística' : 'Default'))  // ← NUEVO: trazabilidad
       };
     } catch (error) {
       // Si falla la consulta de padrón, no es un error crítico
