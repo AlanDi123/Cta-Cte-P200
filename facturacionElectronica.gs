@@ -321,83 +321,218 @@ function probarConexionAfip() {
 }
 
 /**
- * Genera certificado digital via AfipSDK automation.
+ * Genera certificado de producción via AfipSDK Automations.
+ * Endpoint correcto: POST /api/v1/automations (ASYNC — requiere polling)
  * Llamada desde: generarCertificadoFront()
  */
 function generarCertificadoAfip(datos) {
-  try {
-    if (!datos.username || !datos.password) {
-      return { success: false, error: 'CUIT y clave fiscal requeridos.' };
-    }
-    var creds = afipGetCredentials();
-    if (!creds.accessToken) {
-      return { success: false, error: 'Configurá el Access Token de AfipSDK primero.' };
-    }
-
-    var payload = {
-      environment: AFIP_CONFIG.ENVIRONMENT,
-      username:    datos.username.replace(/[-\s]/g, ''),
-      password:    datos.password,
-      alias:       datos.alias || 'solyverde'
-    };
-
-    var headers = {
-      'Authorization': 'Bearer ' + creds.accessToken,
-      'Content-Type':  'application/json'
-    };
-
-    var response = afipFetch('/automations/create-cert-prod', payload, headers);
-
-    if (!response.cert || !response.key) {
-      throw new Error('AfipSDK no devolvió certificado. Respuesta: ' + JSON.stringify(response).substring(0, 200));
-    }
-
-    PropertiesService.getScriptProperties().setProperties({
-      'AFIP_CERT': response.cert,
-      'AFIP_KEY':  response.key
-    });
-
-    return {
-      success: true,
-      mensaje: 'Certificado generado y guardado en ScriptProperties.',
-      wsAutorizados: response.wsAutorizados || []
-    };
-  } catch (error) {
-    Logger.log('[CERT] Error: ' + error.message);
-    return { success: false, error: 'Error al generar certificado: ' + error.message };
+  if (!datos.username || !datos.password) {
+    return { success: false, error: 'CUIT y clave fiscal requeridos.' };
   }
+  var creds = afipGetCredentials();
+  if (!creds.accessToken) {
+    return { success: false, error: 'Configurá el Access Token de AfipSDK primero.' };
+  }
+
+  var cuitEmisor = (datos.cuit || creds.cuit || datos.username).replace(/[-\s]/g, '');
+  var alias      = datos.alias || 'solyverde';
+  var headers    = { 'Authorization': 'Bearer ' + creds.accessToken, 'Content-Type': 'application/json' };
+
+  // Paso 1: Iniciar la automatización (POST /api/v1/automations)
+  var initPayload = {
+    automation: 'create-cert-prod',
+    params: {
+      tax_id:   cuitEmisor,
+      username: datos.username.replace(/[-\s]/g, ''),
+      password: datos.password,
+      alias:    alias
+    }
+  };
+
+  var initResp;
+  try {
+    initResp = _afipAutomationPost(initPayload, creds.accessToken);
+  } catch (e) {
+    Logger.log('[CERT] Error iniciando automatización: ' + e.message);
+    return { success: false, error: 'Error al iniciar automatización: ' + e.message };
+  }
+
+  if (!initResp || !initResp.id) {
+    return { success: false, error: 'AfipSDK no inició la automatización. Respuesta: ' + JSON.stringify(initResp).substring(0, 200) };
+  }
+
+  var jobId = initResp.id;
+  Logger.log('[CERT] Automatización iniciada ID: ' + jobId);
+
+  // Paso 2: Polling hasta completar (máx 90 segundos, cada 10s)
+  var maxIntentos = 9;
+  var resultado   = null;
+  for (var i = 0; i < maxIntentos; i++) {
+    Utilities.sleep(10000); // 10 segundos entre intentos
+    try {
+      resultado = _afipAutomationGet(jobId, creds.accessToken);
+      Logger.log('[CERT] Intento ' + (i + 1) + ' status: ' + (resultado ? resultado.status : 'null'));
+      if (resultado && resultado.status === 'complete') break;
+      if (resultado && resultado.status === 'error') {
+        return { success: false, error: 'Error en automatización: ' + (resultado.error || JSON.stringify(resultado)) };
+      }
+    } catch (e) {
+      Logger.log('[CERT] Error en polling intento ' + (i + 1) + ': ' + e.message);
+    }
+  }
+
+  if (!resultado || resultado.status !== 'complete') {
+    return { success: false, error: 'Timeout: la automatización no completó en 90 segundos. Verificá manualmente en app.afipsdk.com' };
+  }
+
+  var certData = resultado.data;
+  if (!certData || !certData.cert || !certData.key) {
+    return { success: false, error: 'AfipSDK completó pero no devolvió certificado. Data: ' + JSON.stringify(certData).substring(0, 200) };
+  }
+
+  // Guardar cert y key en ScriptProperties
+  PropertiesService.getScriptProperties().setProperties({
+    'AFIP_CERT': certData.cert,
+    'AFIP_KEY':  certData.key
+  });
+
+  Logger.log('[CERT] Certificado generado y guardado exitosamente para CUIT ' + cuitEmisor);
+  return {
+    success: true,
+    mensaje: 'Certificado generado y guardado correctamente para CUIT ' + cuitEmisor
+  };
 }
 
 /**
- * Autoriza web services en ARCA.
+ * Autoriza web services wsfe y ws_sr_constancia_inscripcion en ARCA (prod).
+ * Endpoint correcto: POST /api/v1/automations (ASYNC — requiere polling)
  * Llamada desde: autorizarWebServicesFront()
  */
 function autorizarWebServicesAfip(datos) {
-  try {
-    var creds = afipGetCredentials();
-    if (!creds.accessToken) return { success: false, error: 'Access Token no configurado.' };
-
-    var payload = {
-      environment: AFIP_CONFIG.ENVIRONMENT,
-      username:    (datos.username || '').replace(/[-\s]/g, ''),
-      password:    datos.password,
-      services:    ['wsfe', 'ws_sr_padron_a13']
-    };
-
-    var headers = {
-      'Authorization': 'Bearer ' + creds.accessToken,
-      'Content-Type':  'application/json'
-    };
-
-    var response = afipFetch('/automations/wsaa', payload, headers);
-
-    return {
-      success: true,
-      mensaje: 'Web services autorizados: wsfe, ws_sr_padron_a13'
-    };
-  } catch (error) {
-    return { success: false, error: 'Error al autorizar: ' + error.message };
+  if (!datos.username || !datos.password) {
+    return { success: false, error: 'CUIT y clave fiscal requeridos.' };
   }
+  var creds = afipGetCredentials();
+  if (!creds.accessToken) {
+    return { success: false, error: 'Access Token no configurado.' };
+  }
+
+  var cuitEmisor = (datos.cuit || creds.cuit || datos.username).replace(/[-\s]/g, '');
+  var alias      = datos.alias || 'solyverde';
+  // Los servicios que necesitamos autorizar
+  var wsids      = ['wsfe', 'ws_sr_constancia_inscripcion'];
+  var resultados = [];
+
+  for (var i = 0; i < wsids.length; i++) {
+    var wsid = wsids[i];
+    Logger.log('[AUTH_WS] Autorizando ' + wsid + '...');
+
+    var initPayload = {
+      automation: 'auth-web-service-prod',
+      params: {
+        tax_id:   cuitEmisor,
+        username: datos.username.replace(/[-\s]/g, ''),
+        password: datos.password,
+        alias:    alias,
+        wsid:     wsid
+      }
+    };
+
+    try {
+      var initResp = _afipAutomationPost(initPayload, creds.accessToken);
+
+      if (!initResp || !initResp.id) {
+        resultados.push({ wsid: wsid, ok: false, error: 'No se inició la automatización' });
+        continue;
+      }
+
+      var jobId = initResp.id;
+      Logger.log('[AUTH_WS] Job ' + wsid + ' ID: ' + jobId);
+
+      // Polling (máx 90s)
+      var resultado = null;
+      for (var j = 0; j < 9; j++) {
+        Utilities.sleep(10000);
+        try {
+          resultado = _afipAutomationGet(jobId, creds.accessToken);
+          Logger.log('[AUTH_WS] ' + wsid + ' intento ' + (j+1) + ' status: ' + (resultado ? resultado.status : 'null'));
+          if (resultado && resultado.status === 'complete') break;
+          if (resultado && resultado.status === 'error') break;
+        } catch (e) {
+          Logger.log('[AUTH_WS] Error polling ' + wsid + ': ' + e.message);
+        }
+      }
+
+      if (resultado && resultado.status === 'complete') {
+        resultados.push({ wsid: wsid, ok: true });
+      } else {
+        var err = (resultado && resultado.error) ? resultado.error : 'Timeout o error desconocido';
+        resultados.push({ wsid: wsid, ok: false, error: err });
+      }
+    } catch (e) {
+      resultados.push({ wsid: wsid, ok: false, error: e.message });
+    }
+  }
+
+  var exitosos = resultados.filter(function(r) { return r.ok; }).map(function(r) { return r.wsid; });
+  var fallidos  = resultados.filter(function(r) { return !r.ok; });
+
+  if (exitosos.length === 0) {
+    return { success: false, error: 'No se pudo autorizar ningún servicio. ' + JSON.stringify(fallidos) };
+  }
+
+  var msg = 'Servicios autorizados: ' + exitosos.join(', ');
+  if (fallidos.length > 0) {
+    msg += '. Con errores: ' + fallidos.map(function(f) { return f.wsid + ' (' + f.error + ')'; }).join(', ');
+  }
+
+  return { success: true, mensaje: msg };
+}
+
+// ─── HELPERS PRIVADOS para Automations API ──────────────────────────────────
+
+/**
+ * POST a /api/v1/automations (endpoint distinto a /api/v1/afip/*)
+ */
+function _afipAutomationPost(payload, accessToken) {
+  var url = 'https://app.afipsdk.com/api/v1/automations';
+  var options = {
+    method:      'post',
+    contentType: 'application/json',
+    headers:     { 'Authorization': 'Bearer ' + accessToken },
+    payload:     JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  var response = UrlFetchApp.fetch(url, options);
+  var code     = response.getResponseCode();
+  var text     = response.getContentText();
+
+  Logger.log('[AUTOMATION POST] HTTP ' + code + ': ' + text.substring(0, 300));
+
+  if (code !== 200 && code !== 201) {
+    throw new Error('Error HTTP ' + code + ' en automations: ' + text.substring(0, 200));
+  }
+  return JSON.parse(text);
+}
+
+/**
+ * GET a /api/v1/automations/{id} para polling del resultado
+ */
+function _afipAutomationGet(jobId, accessToken) {
+  var url = 'https://app.afipsdk.com/api/v1/automations/' + jobId;
+  var options = {
+    method:      'get',
+    headers:     { 'Authorization': 'Bearer ' + accessToken },
+    muteHttpExceptions: true
+  };
+  var response = UrlFetchApp.fetch(url, options);
+  var code     = response.getResponseCode();
+  var text     = response.getContentText();
+
+  if (code !== 200) {
+    throw new Error('Error HTTP ' + code + ' en GET automation: ' + text.substring(0, 200));
+  }
+  return JSON.parse(text);
 }
 
 /**

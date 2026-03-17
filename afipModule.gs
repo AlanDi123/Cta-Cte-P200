@@ -132,18 +132,35 @@ function afipFetchConRetry(endpoint, payload, headers, method) {
 
 function afipGetAuth(wsid) {
   var config = afipVerificarConfiguracion();
-  if (!config.configurado)    throw new Error('AFIP no configurado: ' + config.error);
+  if (!config.configurado)      throw new Error('AFIP no configurado: ' + config.error);
   if (!config.tieneCertificado) throw new Error('Se requiere certificado para operar con AFIP.');
 
-  var creds   = afipGetCredentials();
-  var payload = { tax_id: creds.cuit, wsid: wsid, cert: creds.cert, key: creds.key };
-  var headers = { 'Authorization': 'Bearer ' + creds.accessToken, 'Content-Type': 'application/json' };
+  var creds = afipGetCredentials();
+
+  var payload = {
+    environment: AFIP_CONFIG.ENVIRONMENT,
+    tax_id:      creds.cuit,
+    wsid:        wsid,
+    cert:        creds.cert,
+    key:         creds.key
+  };
+  var headers = {
+    'Authorization': 'Bearer ' + creds.accessToken,
+    'Content-Type':  'application/json'
+  };
+
   var response = afipFetch('/auth', payload, headers);
 
   if (!response.token || !response.sign) {
-    throw new Error('Error de autenticación AFIP: no se recibieron token/sign');
+    throw new Error('Error de autenticación AFIP: no se recibieron token/sign. Respuesta: ' +
+                    JSON.stringify(response).substring(0, 300));
   }
-  return { token: response.token, sign: response.sign, cuit: creds.cuit, environment: AFIP_CONFIG.ENVIRONMENT };
+  return {
+    token:       response.token,
+    sign:        response.sign,
+    cuit:        creds.cuit,
+    environment: AFIP_CONFIG.ENVIRONMENT
+  };
 }
 
 // ─── SECCIÓN 4: ERRORES ──────────────────────────────────────────────────────
@@ -191,7 +208,9 @@ function afipRegistrarError(operacion, error, contexto) {
   if (contexto) Logger.log('[AFIP ERROR] Contexto: ' + JSON.stringify(contexto).substring(0, 200));
 }
 
-// ─── SECCIÓN 5: PADRÓN (consulta CUIT) ──────────────────────────────────────
+// ─── SECCIÓN 5: PADRÓN — ws_sr_constancia_inscripcion + getPersona_v2 ────────
+// IMPORTANTE: ws_sr_padron_a13 NO devuelve condición IVA (RI/M/CF).
+// El correcto para datos fiscales completos es ws_sr_constancia_inscripcion.
 
 function afipConsultarCUIT(cuit) {
   var cuitLimpio = String(cuit).replace(/[-\s]/g, '');
@@ -204,67 +223,125 @@ function afipConsultarCUIT(cuit) {
     if (!v.valido) return { encontrado: false, error: 'CUIT inválido', mensaje: v.error, cuit: cuitLimpio };
   }
 
-  var auth    = afipGetAuth(AFIP_CONFIG.WS.PADRON_A13);
-  var creds   = afipGetCredentials();
+  // ws_sr_constancia_inscripcion devuelve condición IVA, impuestos, monotributo
+  var WS_PADRON = 'ws_sr_constancia_inscripcion';
+  var auth      = afipGetAuth(WS_PADRON);
+  var creds     = afipGetCredentials();
+
   var payload = {
     environment: AFIP_CONFIG.ENVIRONMENT,
-    method:      'getPersona',
-    wsid:        AFIP_CONFIG.WS.PADRON_A13,
+    method:      'getPersona_v2',
+    wsid:        WS_PADRON,
     params: {
-      token:             auth.token,
-      sign:              auth.sign,
-      cuitRepresentada:  auth.cuit,
-      idPersona:         cuitLimpio
+      token:            auth.token,
+      sign:             auth.sign,
+      cuitRepresentada: auth.cuit,
+      idPersona:        parseInt(cuitLimpio, 10)  // debe ser número, no string
     }
   };
   if (creds.cert && creds.key) { payload.cert = creds.cert; payload.key = creds.key; }
 
-  var headers  = { 'Authorization': 'Bearer ' + creds.accessToken, 'Content-Type': 'application/json' };
-  var resultado = afipFetchConRetry('/requests', payload, headers);
-  Logger.log('[AFIP PADRON] CUIT ' + cuitLimpio + ': ' + JSON.stringify(resultado).substring(0, 300));
-  return afipParsearRespuestaPadron(resultado, cuitLimpio);
+  var headers = {
+    'Authorization': 'Bearer ' + creds.accessToken,
+    'Content-Type':  'application/json'
+  };
+
+  try {
+    var resultado = afipFetchConRetry('/requests', payload, headers);
+    Logger.log('[AFIP PADRON] CUIT ' + cuitLimpio + ': ' + JSON.stringify(resultado).substring(0, 500));
+    return afipParsearRespuestaPadron(resultado, cuitLimpio);
+  } catch (error) {
+    Logger.log('[AFIP PADRON] Error consultando CUIT ' + cuitLimpio + ': ' + error.message);
+    return { encontrado: false, error: error.message, cuit: cuitLimpio };
+  }
 }
 
 function afipParsearRespuestaPadron(resultado, cuitLimpio) {
-  var persona = resultado.personaReturn || resultado.persona || resultado.data || null;
+  // getPersona_v2 devuelve { persona: { datosGenerales, datosMonotributo, datosRegimenGeneral, ... } }
+  var persona = resultado.persona ||
+                resultado.personaReturn ||
+                resultado.data ||
+                null;
 
   if (!persona) {
-    if (resultado && Object.keys(resultado).length > 0 && !resultado.errors) {
-      return { encontrado: true, cuit: cuitLimpio, razonSocial: 'SIN DATOS PUBLICOS', tipoPersona: '', domicilio: '', impuestos: [], categorias: [], estadoClave: 'ACTIVO', condicionIVA: 'CF', condicionTexto: 'Consumidor Final', mensaje: 'CUIT válido sin datos públicos', rawResponse: resultado };
+    // Puede ser respuesta vacía con clave "personaNoRegistrada"
+    if (resultado.personaNoRegistrada) {
+      return { encontrado: false, error: 'CUIT no registrado en ARCA', cuit: cuitLimpio };
     }
-    return { encontrado: false, error: 'CUIT no encontrado', mensaje: 'El CUIT no existe en el padrón AFIP', cuit: cuitLimpio, rawResponse: resultado };
+    // Si hay otros campos pero sin persona, es CUIT válido sin datos públicos
+    if (resultado && Object.keys(resultado).length > 0) {
+      return {
+        encontrado:     true,
+        cuit:           cuitLimpio,
+        razonSocial:    'SIN DATOS PUBLICOS',
+        tipoPersona:    '',
+        domicilio:      '',
+        impuestos:      [],
+        condicionIVA:   'CF',
+        condicionTexto: 'Consumidor Final',
+        estadoClave:    'ACTIVO',
+        mensaje:        'CUIT válido pero sin datos públicos',
+        rawResponse:    resultado
+      };
+    }
+    return { encontrado: false, error: 'CUIT no encontrado en ARCA', cuit: cuitLimpio };
   }
 
-  var datosGenerales = persona.datosGenerales || persona;
-  var razonSocial    = datosGenerales.razonSocial || '';
-  var tipoPersona    = datosGenerales.tipoPersona || '';
-  var estadoClave    = datosGenerales.estadoClave  || 'ACTIVO';
+  var dg  = persona.datosGenerales || persona;
 
+  // Razón social: para personas físicas = apellido + nombre
+  var razonSocial = dg.razonSocial || '';
+  if (!razonSocial && dg.apellido) {
+    razonSocial = (dg.apellido + (dg.nombre ? ', ' + dg.nombre : '')).trim();
+  }
+
+  var tipoPersona = dg.tipoPersona || '';
+  var estadoClave = dg.estadoClave || 'ACTIVO';
+
+  // Domicilio fiscal
   var domicilio = '';
-  if (datosGenerales.domicilioFiscal) {
-    var partes = [
-      datosGenerales.domicilioFiscal.direccion || '',
-      datosGenerales.domicilioFiscal.localidad || '',
-      datosGenerales.domicilioFiscal.descripcionProvincia || ''
-    ].filter(function(p) { return p.trim(); });
-    domicilio = partes.join(', ');
+  if (dg.domicilioFiscal) {
+    var df = dg.domicilioFiscal;
+    domicilio = [df.direccion || '', df.localidad || '', df.descripcionProvincia || '']
+      .map(function(p) { return (p || '').trim(); })
+      .filter(function(p) { return p; })
+      .join(', ');
   }
 
+  // Impuestos (dentro de datosRegimenGeneral)
   var impuestos = [];
   if (persona.datosRegimenGeneral && persona.datosRegimenGeneral.impuesto) {
     var raw = persona.datosRegimenGeneral.impuesto;
     impuestos = Array.isArray(raw) ? raw : [raw];
   }
 
-  var condicionIVA  = afipDeterminarCondicionIVA(impuestos, persona);
-  var condicionTexto = condicionIVA === 'RI' ? 'Responsable Inscripto' :
-                       condicionIVA === 'M'  ? 'Monotributista' : 'Consumidor Final';
-
-  // Categoría monotributo (si aplica)
+  // Monotributo
   var categoriaMonotributo = '';
-  if (persona.datosMonotributo && persona.datosMonotributo.categoriaMonotributo) {
-    categoriaMonotributo = persona.datosMonotributo.categoriaMonotributo;
+  var esMonotributo = false;
+  if (persona.datosMonotributo) {
+    esMonotributo = true;
+    categoriaMonotributo = persona.datosMonotributo.categoriaMonotributo || '';
   }
+  // También verificar por impuesto ID 20
+  if (!esMonotributo) {
+    esMonotributo = impuestos.some(function(imp) {
+      return Number(imp.idImpuesto || imp.id || 0) === 20;
+    });
+  }
+
+  // Responsable Inscripto: impuesto ID 30 (IVA) o 32 (Ganancias)
+  var esRI = impuestos.some(function(imp) {
+    var id = Number(imp.idImpuesto || imp.id || 0);
+    return id === 30 || id === 32;
+  });
+
+  var condicionIVA;
+  if (esRI)          condicionIVA = 'RI';
+  else if (esMonotributo) condicionIVA = 'M';
+  else               condicionIVA = 'CF';
+
+  var condicionTexto = condicionIVA === 'RI' ? 'Responsable Inscripto' :
+                       condicionIVA === 'M'  ? 'Monotributista'        : 'Consumidor Final';
 
   return {
     encontrado:           true,
@@ -273,12 +350,11 @@ function afipParsearRespuestaPadron(resultado, cuitLimpio) {
     tipoPersona:          tipoPersona,
     domicilio:            domicilio,
     impuestos:            impuestos,
-    categorias:           persona.categorias || [],
     condicionIVA:         condicionIVA,
     condicionTexto:       condicionTexto,
     categoriaMonotributo: categoriaMonotributo,
-    estadoContribuyente:  estadoClave,
     estadoClave:          estadoClave,
+    estadoContribuyente:  estadoClave,
     rawResponse:          resultado
   };
 }
