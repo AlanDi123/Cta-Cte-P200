@@ -6155,6 +6155,55 @@
         });
       }
 
+      // ── Advertencia al intentar cerrar con operaciones pendientes ──────────
+      window.addEventListener('beforeunload', function(e) {
+        var pendientes = ColaTareas ? ColaTareas.pendientes : 0;
+        var colaMovs = ColaMovimientos ? ColaMovimientos.cola.length : 0;
+        if (pendientes > 0 || colaMovs > 0) {
+          var total = pendientes + colaMovs;
+          var msg = '⚠️ Hay ' + total + ' operación(es) en proceso. Si cerrás ahora se pueden perder datos.';
+          e.returnValue = msg;
+          return msg;
+        }
+      });
+
+      // ── Optimización: precarga agresiva en idle ───────────────────────────
+      var _idleRegistrado = false;
+      function _registrarPrecargaIdle() {
+        if (_idleRegistrado) return;
+        _idleRegistrado = true;
+        var tareasPendientes = [
+          function() { if (!EstadoFacturacionUnif.cargado) cargarTransferenciasUnificadas(); },
+          function() { if (!CacheModulos.estadisticas.cargado) precargarEstadisticas(); },
+          function() { if (!CacheModulos.historialCaja.cargado) precargarHistorialCaja(); }
+        ];
+        var i = 0;
+        function _ejecutarSiguiente(deadline) {
+          while (i < tareasPendientes.length && (deadline.timeRemaining() > 5 || deadline.didTimeout)) {
+            tareasPendientes[i++]();
+          }
+          if (i < tareasPendientes.length) {
+            if ('requestIdleCallback' in window) {
+              requestIdleCallback(_ejecutarSiguiente, { timeout: 2000 });
+            }
+          }
+        }
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(_ejecutarSiguiente, { timeout: 3000 });
+        }
+      }
+      // Iniciar precarga cuando el splash desaparece
+      var _splashObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+          if (m.target.classList.contains('hidden')) {
+            setTimeout(_registrarPrecargaIdle, 500);
+            _splashObserver.disconnect();
+          }
+        });
+      });
+      var _splashEl = document.getElementById('splashScreen');
+      if (_splashEl) _splashObserver.observe(_splashEl, { attributes: true, attributeFilter: ['class'] });
+
       // Cerrar sugerencias al hacer clic fuera
       document.addEventListener('click', function(e) {
         if (!e.target.closest('.form-group-autocomplete')) {
@@ -7302,14 +7351,15 @@
                 '</tr>';
               }).join('');
 
-              // Calcular totales
-              var totalFiados = result.deudores.reduce(function(sum, d) { return sum + (d.fiadosDia || 0); }, 0);
-              var totalPagos = result.deudores.reduce(function(sum, d) { return sum + (d.pagosDia || 0); }, 0);
-              var totalSaldos = result.totalAdeudado - result.saldoAFavor; // Neto final
+              // CORRECCIÓN: Usar totales del backend que incluyen TODOS los movimientos
+              // incluyendo clientes que saldaron su deuda (saldo=0, no aparecen en la lista)
+              var totalFiados = result.totalFiadosDia || 0;
+              var totalPagos  = result.totalPagosDia  || 0;
+              var totalSaldos = result.totalAdeudado - result.saldoAFavor;
 
               document.getElementById('totalFiadosDia').textContent = formatearMonto(totalFiados);
-              document.getElementById('totalPagosDia').textContent = formatearMonto(totalPagos);
-              document.getElementById('totalSaldos').textContent = formatearMonto(totalSaldos);
+              document.getElementById('totalPagosDia').textContent  = formatearMonto(totalPagos);
+              document.getElementById('totalSaldos').textContent    = formatearMonto(totalSaldos);
             }
 
             document.getElementById('fechaImpresion').textContent = 'Fecha: ' + formatearFecha(fecha);
@@ -8740,6 +8790,13 @@
       itemsFacturaA: [],
       cargado: false,
       cargando: false
+    };
+
+    // Estado de paginación para transferencias unificadas
+    const TransfUnifPag = {
+      pagina: 1,
+      porPagina: 10,
+      todasFiltradas: []  // snapshot del filtro actual
     };
 
     // Cargar datos de facturación
@@ -10959,20 +11016,34 @@
       if (!tbody) return;
 
       let transferencias = EstadoFacturacionUnif.transferencias;
+      const mesFiltro = document.getElementById('filtroMesTransfUnif').value; // e.g. "2026-03"
 
-      // Aplicar filtro
+      // Aplicar filtro de estado
       if (EstadoFacturacionUnif.filtroEstado === 'pendientes') {
         transferencias = transferencias.filter(t => !t.facturada);
       } else if (EstadoFacturacionUnif.filtroEstado === 'facturadas') {
         transferencias = transferencias.filter(t => t.facturada);
       }
 
+      // Aplicar filtro de mes
+      if (mesFiltro) {
+        transferencias = transferencias.filter(t => t.fecha && t.fecha.startsWith(mesFiltro));
+      }
+
       if (transferencias.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay transferencias</td></tr>';
+        _renderPaginacionTransf(0, 0, 0);
         return;
       }
 
-      tbody.innerHTML = transferencias.map(function(t) {
+      const total = transferencias.length;
+      const porPagina = mesFiltro ? total : TransfUnifPag.porPagina; // mes seleccionado → todo
+      const totalPaginas = Math.max(1, Math.ceil(total / porPagina));
+      TransfUnifPag.pagina = Math.min(TransfUnifPag.pagina, totalPaginas);
+      const inicio = (TransfUnifPag.pagina - 1) * porPagina;
+      const slice  = transferencias.slice(inicio, inicio + porPagina);
+
+      tbody.innerHTML = slice.map(function(t) {
         return '<tr style="animation: fadeIn 0.3s ease;">' +
           '<td data-label="Fecha">' + formatearFecha(t.fecha) + '</td>' +
           '<td data-label="Cliente"><strong>' + escapeHtml(t.cliente) + '</strong></td>' +
@@ -10991,7 +11062,73 @@
           '</td>' +
         '</tr>';
       }).join('');
+
+      _renderPaginacionTransf(TransfUnifPag.pagina, totalPaginas, total);
     }
+
+    function _renderPaginacionTransf(pagina, totalPaginas, total) {
+      // Buscar o crear el contenedor de paginación
+      var contenedor = document.getElementById('paginacionTransfUnif');
+      if (!contenedor) {
+        var card = document.querySelector('#module-facturacion-unificada .card:last-child');
+        if (card) {
+          contenedor = document.createElement('div');
+          contenedor.id = 'paginacionTransfUnif';
+          contenedor.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;margin-top:.5rem;flex-wrap:wrap;gap:.5rem;';
+          card.appendChild(contenedor);
+        }
+      }
+      if (!contenedor) return;
+
+      var mesFiltro = document.getElementById('filtroMesTransfUnif').value;
+      if (mesFiltro || totalPaginas <= 1) {
+        // Con filtro de mes: sin paginación
+        contenedor.innerHTML = total > 0 ? '<span style="font-size:.85rem;color:var(--sv-texto-secundario);">' + total + ' transferencia(s)</span>' : '';
+        return;
+      }
+
+      contenedor.innerHTML =
+        '<span style="font-size:.85rem;color:var(--sv-texto-secundario);">' +
+          'Página ' + pagina + ' de ' + totalPaginas + ' · ' + total + ' total' +
+        '</span>' +
+        '<div class="btn-group">' +
+          '<button class="btn btn-outline btn-sm" onclick="transfUnifIrPagina(' + (pagina - 1) + ')" ' + (pagina <= 1 ? 'disabled' : '') + '>&#8592; Anterior</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="transfUnifIrPagina(' + (pagina + 1) + ')" ' + (pagina >= totalPaginas ? 'disabled' : '') + '>Siguiente &#8594;</button>' +
+        '</div>';
+    }
+
+    function transfUnifIrPagina(pagina) {
+      const total = EstadoFacturacionUnif.transferencias.length;
+      const totalPaginas = Math.max(1, Math.ceil(total / TransfUnifPag.porPagina));
+      if (pagina < 1 || pagina > totalPaginas) return;
+      TransfUnifPag.pagina = pagina;
+      renderTransferenciasUnificadas();
+      // Scroll suave al inicio de la tabla
+      var modulo = document.getElementById('module-facturacion-unificada');
+      if (modulo) modulo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Resetear a página 1 al cambiar filtros
+    var _filtrarTransferenciasUnifOriginal = filtrarTransferenciasUnif;
+    filtrarTransferenciasUnif = function(estado) {
+      TransfUnifPag.pagina = 1;
+      EstadoFacturacionUnif.filtroEstado = estado;
+      ['tabTodasUnif','tabPendientesUnif','tabFacturadasUnif'].forEach(id => {
+        var btn = document.getElementById(id);
+        if (btn) {
+          btn.classList.remove('btn-primary');
+          btn.classList.add('btn-outline');
+        }
+      });
+      var botonActivo = estado === 'todas' ? 'tabTodasUnif' :
+                        estado === 'pendientes' ? 'tabPendientesUnif' : 'tabFacturadasUnif';
+      var btnActivo = document.getElementById(botonActivo);
+      if (btnActivo) {
+        btnActivo.classList.remove('btn-outline');
+        btnActivo.classList.add('btn-primary');
+      }
+      renderTransferenciasUnificadas();
+    };
 
     // Seleccionar Consumidor Final rápido en formulario unificado
     function seleccionarCFUnif() {

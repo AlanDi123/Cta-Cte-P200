@@ -455,7 +455,7 @@ function afipConstruirFECAEDetRequest(datosFactura, fechaCbte, emisor) {
     MonCotiz:  1,
     Observaciones: [],
     Tributos:  [],
-    AlicuotasIVA: [{ Id: 5, BaseImp: neto, Alicuota: 21 }],
+    AlicuotasIVA: [{ Id: parseInt(CONFIG.getIVA().ALICUOTA_ID || '4'), BaseImp: neto, Alicuota: parseFloat(CONFIG.getIVA().PORCENTAJE || '10.5') }],
     Compradores: [],
     PeriodoAsoc: null
   };
