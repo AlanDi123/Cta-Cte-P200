@@ -1855,13 +1855,32 @@ function diagnosticarConsultaCUIT(cuit1, cuit2, cuit3) {
   if (cuitTests.length === 0) {
     // Valores por defecto para testing
     cuitTests.push('20149543407');  // CUIT emisor
-    cuitTests.push('20409378472');  // CUIT test
+    cuitTests.push('20409378472');  // CUIT test (solo para referencia)
     cuitTests.push('00000000000');  // CUIT inválido
   }
 
   try {
-    const resultados = AfipService.diagnosticarConsultaCUIT(cuitTests);
-    const estadoCertificado = AfipService.verificarEstadoCertificado();
+    // Usar nuevas funciones afip*
+    var resultados = cuitTests.map(function(cuit) {
+      try {
+        var resultado = afipConsultarCUIT(cuit);
+        return {
+          cuit: cuit,
+          timestamp: new Date().toISOString(),
+          exito: true,
+          resultado: resultado
+        };
+      } catch (error) {
+        return {
+          cuit: cuit,
+          timestamp: new Date().toISOString(),
+          exito: false,
+          error: error.message
+        };
+      }
+    });
+
+    var estadoConfig = afipVerificarConfiguracion();
 
     return {
       success: true,
@@ -1869,9 +1888,8 @@ function diagnosticarConsultaCUIT(cuit1, cuit2, cuit3) {
       duracionMs: Date.now() - inicio,
       cuitTests: cuitTests,
       resultados: resultados,
-      estadoConfiguracion: estadoCertificado,
-      instrucciones: 'Revisá los logs de ejecución para ver respuestas raw de ARCA. ' +
-                     'Los resultados se guardaron en PropertiesService con clave CUIT_DIAGNOSTICO_<timestamp>.'
+      estadoConfiguracion: estadoConfig,
+      instrucciones: 'Revisá los logs de ejecución para ver respuestas raw de AFIP.'
     };
   } catch (error) {
     return {
@@ -1879,7 +1897,7 @@ function diagnosticarConsultaCUIT(cuit1, cuit2, cuit3) {
       error: error.message,
       timestamp: new Date().toISOString(),
       duracionMs: Date.now() - inicio,
-      instrucciones: 'Error durante el diagnóstico. Verificá que AfipService esté correctamente inicializado.'
+      instrucciones: 'Error durante el diagnóstico. Verificá la configuración de AFIP.'
     };
   }
 }
@@ -1890,7 +1908,7 @@ function diagnosticarConsultaCUIT(cuit1, cuit2, cuit3) {
  */
 function verificarConfiguracionARCA() {
   try {
-    const estado = AfipService.verificarEstadoCertificado();
+    const estado = afipVerificarConfiguracion();
     return {
       success: true,
       timestamp: new Date().toISOString(),
@@ -1904,171 +1922,3 @@ function verificarConfiguracionARCA() {
     };
   }
 }
-
-// ============================================================================
-// IMPRESIÓN DE SALDOS - GENERAR HTML PARA IMPRIMIR
-// ============================================================================
-
-/**
- * Genera HTML para impresión de saldos pendientes
- * Incluye saldos positivos (deuda) y negativos (a favor)
- * NO modifica datos almacenados - solo cálculo para presentación
- * @param {string} fechaISO - Fecha en formato YYYY-MM-DD (opcional, default hoy)
- * @returns {Object} {success, html, fecha, totales}
- */
-function generarImpresionSaldosPendientes(fechaISO) {
-  try {
-    const fecha = fechaISO || obtenerFechaHoy();
-    
-    // Obtener todos los clientes
-    const clientes = ClientesRepository.obtenerTodos();
-    
-    // Calcular saldos para cada cliente
-    const saldos = clientes.map(function(c) {
-      // Intentar usar campo saldo si existe
-      let saldo = Number(c.saldo || 0);
-      
-      // Fallback: calcular desde movimientos si saldo es 0 o no existe
-      if (!saldo || saldo === 0) {
-        try {
-          const movs = MovimientosRepository.obtenerPorCliente(c.nombre);
-          const total = movs.reduce(function(acc, m) {
-            return acc + ((m.tipo === 'DEBE') ? Number(m.monto || 0) : -Number(m.monto || 0));
-          }, 0);
-          saldo = total;
-        } catch (e) {
-          Logger.log('[IMPRESION SALDOS] Error calculando saldo para ' + c.nombre + ': ' + e.message);
-        }
-      }
-      
-      return {
-        nombre: c.nombre,
-        cuit: c.cuit || '',
-        saldo: Number(saldo)
-      };
-    });
-    
-    // Filtrar solo clientes con saldo !== 0
-    const saldosConSaldo = saldos.filter(function(s) { return s.saldo !== 0; });
-    
-    // Orden alfabético (A → Z)
-    saldosConSaldo.sort(function(a, b) {
-      return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' });
-    });
-    
-    // Calcular totales
-    let totalDeuda = 0;
-    let totalAFavor = 0;
-    
-    saldosConSaldo.forEach(function(s) {
-      if (s.saldo > 0) {
-        totalDeuda += s.saldo;
-      } else {
-        totalAFavor += s.saldo; // negativo
-      }
-    });
-    
-    const netTotal = totalDeuda + totalAFavor;
-    
-    // Construir filas de la tabla
-    let rowsHtml = '';
-    if (saldosConSaldo.length === 0) {
-      rowsHtml = '<tr><td colspan="3" style="text-align:center;padding:2rem;color:#666;">No hay saldos pendientes en la fecha seleccionada</td></tr>';
-    } else {
-      rowsHtml = saldosConSaldo.map(function(s) {
-        const esAFavor = s.saldo < 0;
-        return '<tr>' +
-          '<td>' + sanitizarTexto(s.nombre) + '</td>' +
-          '<td style="text-align:right;font-weight:bold;' + (esAFavor ? 'color:var(--sv-exito)' : 'color:var(--sv-peligro)') + '">' + 
-            formatearMonto(Math.abs(s.saldo)) + 
-            (esAFavor ? ' <span style="font-size:0.75em">(a favor)</span>' : '') +
-          '</td>' +
-          '<td style="text-align:right;font-size:0.875rem;color:#666;">' + (s.cuit || '-') + '</td>' +
-        '</tr>';
-      }).join('');
-    }
-    
-    // HTML completo con estilos del sistema
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Saldos Pendientes - Sol & Verde</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 2rem; }
-          h1 { font-size: 16pt; text-align: center; margin-bottom: 0.5rem; }
-          .fecha { text-align: center; font-size: 10pt; color: #666; margin-bottom: 2rem; }
-          table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-          th { background: #2E7D32; color: white; padding: 0.75rem; text-align: left; }
-          td { padding: 0.75rem; border-bottom: 1px solid #eee; }
-          tr:hover { background: #f5f5f5; }
-          .totales { background: #f9f9f9; font-weight: bold; }
-          .a-favor { color: #4CAF50; }
-          .deuda { color: #C62828; }
-          @media print {
-            .no-print { display: none; }
-            body { padding: 0; }
-          }
-        </style>
-      </head>
-      <body>
-        <h1>Saldos Pendientes - Sol & Verde</h1>
-        <p class="fecha">Fecha: ${fecha}</p>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th style="text-align:right;">Saldo</th>
-              <th style="text-align:right;">CUIT</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-          ${saldosConSaldo.length > 0 ? `
-          <tfoot>
-            <tr class="totales">
-              <td>TOTAL</td>
-              <td style="text-align:right;">
-                <span class="deuda">Deuda: ${formatearMonto(totalDeuda)}</span> | 
-                <span class="a-favor">A Favor: ${formatearMonto(Math.abs(totalAFavor))}</span> | 
-                <strong>Net: ${formatearMonto(netTotal)}</strong>
-              </td>
-              <td></td>
-            </tr>
-          </tfoot>
-          ` : ''}
-        </table>
-        
-        <div class="no-print" style="margin-top:2rem;text-align:center;">
-          <button onclick="window.print()" style="padding:0.75rem 1.5rem;font-size:1rem;background:#2E7D32;color:white;border:none;border-radius:4px;cursor:pointer;">🖨️ Imprimir</button>
-        </div>
-      </body>
-      </html>
-    `;
-    
-    Logger.log('[IMPRESION SALDOS] Generado HTML para ' + saldosConSaldo.length + ' clientes');
-    Logger.log('[IMPRESION SALDOS] Total deuda: ' + totalDeuda + ', Total a favor: ' + totalAFavor);
-    
-    return {
-      success: true,
-      html: html,
-      fecha: fecha,
-      totales: {
-        deuda: totalDeuda,
-        aFavor: totalAFavor,
-        net: netTotal,
-        clientesConSaldo: saldosConSaldo.length
-      }
-    };
-  } catch (e) {
-    Logger.log('[IMPRESION SALDOS] Error: ' + e.message);
-    return {
-      success: false,
-      error: e.message
-    };
-  }
-}
-
