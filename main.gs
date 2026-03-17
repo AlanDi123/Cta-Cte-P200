@@ -894,6 +894,14 @@ function obtenerSaldosConMovimientosDia(fecha) {
       totalFiados += movsPorCliente[cliente].fiados;
     }
 
+    // LOGS DE VALIDACIÓN - Saldo a favor y deuda
+    const clientesConDeuda = resultado.filter(r => !r.esAFavor).length;
+    const clientesAFavor = resultado.filter(r => r.esAFavor).length;
+    Logger.log('[SALDOS] Clientes con deuda: ' + clientesConDeuda);
+    Logger.log('[SALDOS] Clientes con saldo a favor: ' + clientesAFavor);
+    Logger.log('[SALDOS] Total deuda: $' + totalAdeudado);
+    Logger.log('[SALDOS] Total a favor: $' + totalAFavor);
+
     return {
       success: true,
       fecha: formatearFechaLocal(fechaFiltro),
@@ -904,8 +912,8 @@ function obtenerSaldosConMovimientosDia(fecha) {
       totalPagosDia: totalPagos,
       totalFiadosDia: totalFiados,
       resumen: {
-        clientesConDeuda: resultado.filter(r => !r.esAFavor).length,
-        clientesAFavor: resultado.filter(r => r.esAFavor).length
+        clientesConDeuda: clientesConDeuda,
+        clientesAFavor: clientesAFavor
       }
     };
   } catch (error) {
