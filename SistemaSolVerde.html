@@ -2726,26 +2726,61 @@
           <h3 class="print-header" style="text-align: center; margin-bottom: 0.5rem;">Saldos Pendientes - Sol & Verde</h3>
           <p style="text-align: center; margin-bottom: 1rem; font-size: 0.875rem;" id="fechaImpresion"></p>
 
-          <div class="table-container">
-            <table class="table table-print">
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th style="text-align: right;">Fiados (DEBE)</th>
-                  <th style="text-align: right;">Pagos (HABER)</th>
-                  <th style="text-align: right;">Saldo</th>
-                </tr>
-              </thead>
-              <tbody id="tbodySaldos"></tbody>
-              <tfoot>
-                <tr style="font-weight: bold;">
-                  <td>TOTAL</td>
-                  <td style="text-align: right;" id="totalFiadosDia">$0</td>
-                  <td style="text-align: right;" id="totalPagosDia">$0</td>
-                  <td style="text-align: right;" id="totalSaldos">$0</td>
-                </tr>
-              </tfoot>
-            </table>
+          <!-- Sección CLIENTES CON DEUDA -->
+          <div id="seccionDeudores" style="display: none;">
+            <h4 style="text-align: center; margin: 1.5rem 0 0.75rem; color: var(--sv-peligro);">CLIENTES CON DEUDA</h4>
+            <div class="table-container">
+              <table class="table table-print">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th style="text-align: right;">Fiados (DEBE)</th>
+                    <th style="text-align: right;">Pagos (HABER)</th>
+                    <th style="text-align: right;">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyDeudores"></tbody>
+                <tfoot>
+                  <tr style="font-weight: bold;">
+                    <td>TOTAL DEUDA</td>
+                    <td style="text-align: right;" id="totalFiadosDeudores">$0</td>
+                    <td style="text-align: right;" id="totalPagosDeudores">$0</td>
+                    <td style="text-align: right; color: var(--sv-peligro);" id="totalDeuda">$0</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Sección CLIENTES CON SALDO A FAVOR -->
+          <div id="seccionAFavor" style="display: none;">
+            <h4 style="text-align: center; margin: 1.5rem 0 0.75rem; color: var(--sv-exito);">CLIENTES CON SALDO A FAVOR</h4>
+            <div class="table-container">
+              <table class="table table-print">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th style="text-align: right;">Fiados (DEBE)</th>
+                    <th style="text-align: right;">Pagos (HABER)</th>
+                    <th style="text-align: right;">Saldo a Favor</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAFavor"></tbody>
+                <tfoot>
+                  <tr style="font-weight: bold;">
+                    <td>TOTAL A FAVOR</td>
+                    <td style="text-align: right;" id="totalFiadosAFavor">$0</td>
+                    <td style="text-align: right;" id="totalPagosAFavor">$0</td>
+                    <td style="text-align: right; color: var(--sv-exito);" id="totalAFavor">$0</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Mensaje sin saldos -->
+          <div id="mensajeSinSaldos" style="display: none; text-align: center; padding: 2rem; color: var(--sv-texto);">
+            <p style="font-size: 1rem; margin: 0;">No hay saldos pendientes en la fecha seleccionada</p>
           </div>
         </div>
       </div>
@@ -7143,22 +7178,61 @@
         .withSuccessHandler(function(result) {
           if (mostrarSpinner) mostrarLoading(false);
           if (result.success) {
-            if (result.deudores.length === 0) {
-              document.getElementById('tbodySaldos').innerHTML = '<tr><td colspan="4" class="empty-state">No hay deudores</td></tr>';
+            // Logs de validación
+            console.log('[SALDOS] Clientes con deuda: ' + (result.resumen?.clientesConDeuda || 0));
+            console.log('[SALDOS] Clientes con saldo a favor: ' + (result.resumen?.clientesAFavor || 0));
+            console.log('[SALDOS] Total deuda: ' + result.totalAdeudado);
+            console.log('[SALDOS] Total a favor: ' + result.saldoAFavor);
+
+            // Ocultar todas las secciones primero
+            document.getElementById('seccionDeudores').style.display = 'none';
+            document.getElementById('seccionAFavor').style.display = 'none';
+            document.getElementById('mensajeSinSaldos').style.display = 'none';
+
+            const hayDeudores = result.deudores && result.deudores.some(d => !d.esAFavor);
+            const hayAFavor = result.deudores && result.deudores.some(d => d.esAFavor);
+
+            if (!hayDeudores && !hayAFavor) {
+              // No hay saldos
+              document.getElementById('mensajeSinSaldos').style.display = 'block';
             } else {
-              document.getElementById('tbodySaldos').innerHTML = result.deudores.map(function(d) {
-                return '<tr>' +
-                  '<td>' + escapeHtml(d.nombre) + '</td>' +
-                  '<td style="text-align: right; color: var(--sv-peligro);">' + (d.fiadosDia > 0 ? formatearMonto(d.fiadosDia) : '-') + '</td>' +
-                  '<td style="text-align: right; color: var(--sv-exito);">' + (d.pagosDia > 0 ? formatearMonto(d.pagosDia) : '-') + '</td>' +
-                  '<td style="text-align: right; font-weight: bold;">' + formatearMonto(d.saldo) + '</td>' +
-                '</tr>';
-              }).join('');
+              // Separar deudores y clientes con saldo a favor
+              const deudores = result.deudores.filter(d => !d.esAFavor);
+              const aFavor = result.deudores.filter(d => d.esAFavor);
+
+              // Renderizar deudores
+              if (deudores.length > 0) {
+                document.getElementById('seccionDeudores').style.display = 'block';
+                document.getElementById('tbodyDeudores').innerHTML = deudores.map(function(d) {
+                  return '<tr>' +
+                    '<td>' + escapeHtml(d.nombre) + '</td>' +
+                    '<td style="text-align: right; color: var(--sv-peligro);">' + (d.fiadosDia > 0 ? formatearMonto(d.fiadosDia) : '-') + '</td>' +
+                    '<td style="text-align: right; color: var(--sv-exito);">' + (d.pagosDia > 0 ? formatearMonto(d.pagosDia) : '-') + '</td>' +
+                    '<td style="text-align: right; font-weight: bold; color: var(--sv-peligro);">' + formatearMonto(d.saldo) + '</td>' +
+                  '</tr>';
+                }).join('');
+                document.getElementById('totalFiadosDeudores').textContent = formatearMonto(deudores.reduce((sum, d) => sum + d.fiadosDia, 0));
+                document.getElementById('totalPagosDeudores').textContent = formatearMonto(deudores.reduce((sum, d) => sum + d.pagosDia, 0));
+                document.getElementById('totalDeuda').textContent = formatearMonto(result.totalAdeudado);
+              }
+
+              // Renderizar clientes con saldo a favor
+              if (aFavor.length > 0) {
+                document.getElementById('seccionAFavor').style.display = 'block';
+                document.getElementById('tbodyAFavor').innerHTML = aFavor.map(function(d) {
+                  return '<tr>' +
+                    '<td>' + escapeHtml(d.nombre) + '</td>' +
+                    '<td style="text-align: right; color: var(--sv-peligro);">' + (d.fiadosDia > 0 ? formatearMonto(d.fiadosDia) : '-') + '</td>' +
+                    '<td style="text-align: right; color: var(--sv-exito);">' + (d.pagosDia > 0 ? formatearMonto(d.pagosDia) : '-') + '</td>' +
+                    '<td style="text-align: right; font-weight: bold; color: var(--sv-exito);">' + formatearMonto(d.saldo) + '</td>' +
+                  '</tr>';
+                }).join('');
+                document.getElementById('totalFiadosAFavor').textContent = formatearMonto(aFavor.reduce((sum, d) => sum + d.fiadosDia, 0));
+                document.getElementById('totalPagosAFavor').textContent = formatearMonto(aFavor.reduce((sum, d) => sum + d.pagosDia, 0));
+                document.getElementById('totalAFavor').textContent = formatearMonto(result.saldoAFavor);
+              }
             }
 
-            document.getElementById('totalFiadosDia').textContent = formatearMonto(result.totalFiadosDia || 0);
-            document.getElementById('totalPagosDia').textContent = formatearMonto(result.totalPagosDia || 0);
-            document.getElementById('totalSaldos').textContent = formatearMonto(result.totalAdeudado);
             document.getElementById('fechaImpresion').textContent = 'Fecha: ' + formatearFecha(fecha);
           }
         })
