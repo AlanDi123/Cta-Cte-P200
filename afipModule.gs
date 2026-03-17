@@ -427,35 +427,61 @@ function afipFormatoFecha(fecha) {
 }
 
 function afipConstruirFECAEDetRequest(datosFactura, fechaCbte, emisor) {
-  var creds   = afipGetCredentials();
+  var creds  = afipGetCredentials();
   var docTipo = AFIP_CONFIG.DOC_TIPOS.CONSUMIDOR_FINAL;
   var docNro  = '0';
   if (datosFactura.clienteCuit) {
     docTipo = AFIP_CONFIG.DOC_TIPOS.CUIT;
     docNro  = String(datosFactura.clienteCuit).replace(/[-\s]/g, '');
   }
+
   var neto  = Number(datosFactura.neto)  || 0;
   var iva   = Number(datosFactura.iva)   || 0;
   var total = Number(datosFactura.total) || 0;
 
+  // ── CondicionIVAReceptorId: OBLIGATORIO desde 15/04/2025, excluyente desde 01/04/2026
+  // IDs según tabla oficial FEParamGetCondicionIvaReceptor:
+  //   1  = IVA Responsable Inscripto  (Factura A)
+  //   6  = Responsable Monotributo    (Factura A)
+  //  13  = Monotributista Social      (Factura A)
+  //   5  = Consumidor Final           (Factura B)
+  //   4  = IVA Sujeto Exento          (Factura B)
+  var condRaw = String(datosFactura.clienteCondicion || 'CF').toUpperCase();
+  var condicionIVAReceptorId;
+  if (condRaw === 'RI' || condRaw.indexOf('RESPONSABLE INSCRIPTO') >= 0) {
+    condicionIVAReceptorId = 1;
+  } else if (condRaw === 'M' || condRaw.indexOf('MONOTRIBUT') >= 0) {
+    condicionIVAReceptorId = 6;
+  } else if (condRaw.indexOf('EXENTO') >= 0) {
+    condicionIVAReceptorId = 4;
+  } else {
+    condicionIVAReceptorId = 5; // Consumidor Final (default seguro)
+  }
+
+  // ── Alícuota IVA correcta (Id: 4 = 10.5%, Id: 5 = 21%) ──────────────────
+  // El bug original tenía Id: 5 (21%) que es incorrecto para el sistema
+  var ivaAlicuotaId = parseInt(CONFIG.get('IVA_ALICUOTA_ID', '4'));   // 4 = 10.5%
+  var ivaPorcentaje = parseFloat(CONFIG.get('IVA_PORCENTAJE', '10.5')); // 10.5
+
   return {
-    Concepto: AFIP_CONFIG.CONCEPTO.PRODUCTOS,
-    DocTipo:  docTipo,
-    DocNro:   docNro,
-    CbteDesde: 0,
-    CbteHasta: 0,
-    CbteFch:   fechaCbte,
-    ImpTotal:  total,
-    ImpTotConc: 0,
-    ImpNeto:   neto,
-    ImpOpEx:   0,
-    ImpIVA:    iva,
-    ImpTrib:   0,
-    MonId:     AFIP_CONFIG.MONEDA.PESOS,
-    MonCotiz:  1,
+    Concepto:    AFIP_CONFIG.CONCEPTO.PRODUCTOS,
+    DocTipo:     docTipo,
+    DocNro:      docNro,
+    CbteDesde:   0,
+    CbteHasta:   0,
+    CbteFch:     fechaCbte,
+    ImpTotal:    total,
+    ImpTotConc:  0,
+    ImpNeto:     neto,
+    ImpOpEx:     0,
+    ImpIVA:      iva,
+    ImpTrib:     0,
+    MonId:       AFIP_CONFIG.MONEDA.PESOS,
+    MonCotiz:    1,
+    CondicionIVAReceptorId: condicionIVAReceptorId,  // ← OBLIGATORIO RG 5616/2024
     Observaciones: [],
-    Tributos:  [],
-    AlicuotasIVA: [{ Id: parseInt(CONFIG.getIVA().ALICUOTA_ID || '4'), BaseImp: neto, Alicuota: parseFloat(CONFIG.getIVA().PORCENTAJE || '10.5') }],
+    Tributos:    [],
+    AlicuotasIVA: [{ Id: ivaAlicuotaId, BaseImp: neto, Alicuota: ivaPorcentaje }],
     Compradores: [],
     PeriodoAsoc: null
   };

@@ -6069,7 +6069,7 @@
         .withFailureHandler(function(error) {
           SysLog.warn('INIT', 'Error cargando movimientos en segundo plano', error);
         })
-        .obtenerMovimientosRecientes(0);
+        .obtenerMovimientosRecientes(100);
 
       google.script.run
         .withSuccessHandler(function(config) {
@@ -6155,54 +6155,10 @@
         });
       }
 
-      // ── Advertencia al intentar cerrar con operaciones pendientes ──────────
-      window.addEventListener('beforeunload', function(e) {
-        var pendientes = ColaTareas ? ColaTareas.pendientes : 0;
-        var colaMovs = ColaMovimientos ? ColaMovimientos.cola.length : 0;
-        if (pendientes > 0 || colaMovs > 0) {
-          var total = pendientes + colaMovs;
-          var msg = '⚠️ Hay ' + total + ' operación(es) en proceso. Si cerrás ahora se pueden perder datos.';
-          e.returnValue = msg;
-          return msg;
-        }
-      });
-
-      // ── Optimización: precarga agresiva en idle ───────────────────────────
-      var _idleRegistrado = false;
-      function _registrarPrecargaIdle() {
-        if (_idleRegistrado) return;
-        _idleRegistrado = true;
-        var tareasPendientes = [
-          function() { if (!EstadoFacturacionUnif.cargado) cargarTransferenciasUnificadas(); },
-          function() { if (!CacheModulos.estadisticas.cargado) precargarEstadisticas(); },
-          function() { if (!CacheModulos.historialCaja.cargado) precargarHistorialCaja(); }
-        ];
-        var i = 0;
-        function _ejecutarSiguiente(deadline) {
-          while (i < tareasPendientes.length && (deadline.timeRemaining() > 5 || deadline.didTimeout)) {
-            tareasPendientes[i++]();
-          }
-          if (i < tareasPendientes.length) {
-            if ('requestIdleCallback' in window) {
-              requestIdleCallback(_ejecutarSiguiente, { timeout: 2000 });
-            }
-          }
-        }
-        if ('requestIdleCallback' in window) {
-          requestIdleCallback(_ejecutarSiguiente, { timeout: 3000 });
-        }
-      }
-      // Iniciar precarga cuando el splash desaparece
-      var _splashObserver = new MutationObserver(function(mutations) {
-        mutations.forEach(function(m) {
-          if (m.target.classList.contains('hidden')) {
-            setTimeout(_registrarPrecargaIdle, 500);
-            _splashObserver.disconnect();
-          }
-        });
-      });
-      var _splashEl = document.getElementById('splashScreen');
-      if (_splashEl) _splashObserver.observe(_splashEl, { attributes: true, attributeFilter: ['class'] });
+      // Precarga conservadora: UN módulo a la vez, con demora escalonada
+      // Máximo 2 llamadas extra para no saturar el límite de 6 simultáneas de GAS
+      setTimeout(function() { precargarEstadisticas(); }, 4000);
+      setTimeout(function() { precargarHistorialCaja(); }, 7000);
 
       // Cerrar sugerencias al hacer clic fuera
       document.addEventListener('click', function(e) {
@@ -9033,7 +8989,15 @@
         return '<tr>' +
           '<td data-label="Producto"><strong>' + escapeHtml(p.nombre) + '</strong></td>' +
           '<td data-label="Precio">' + formatearMonto(p.precio) + '</td>' +
-          '<td data-label="Stock">' + (p.stock === 999999 ? '&#8734;' : p.stock) + '</td>' +
+          '<td data-label="Stock">' +
+            (p.stock === 999999
+              ? '<span style="color:var(--sv-primario);">&#8734; Ilimitado</span>'
+              : p.stock <= 0
+                ? '<span style="color:var(--sv-peligro);font-weight:700;">SIN STOCK (0)</span>'
+                : p.stock <= 3
+                  ? '<span style="color:var(--sv-advertencia);font-weight:600;">&#9888; ' + p.stock + '</span>'
+                  : p.stock) +
+          '</td>' +
           '<td data-label="Estado">' + (p.activo ? '<span style="color: var(--sv-exito);">Activo</span>' : '<span style="color: var(--sv-texto-muted);">Inactivo</span>') + '</td>' +
           '<td data-label="Acciones">' +
             '<div class="btn-group">' +

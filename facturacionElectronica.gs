@@ -123,7 +123,7 @@ function emitirFacturaElectronica(datosFactura) {
       clienteRazonSocial: datos.clienteRazonSocial || datos.clienteNombre,
       clienteDomicilio:  datos.clienteDomicilio || '',
       clienteCuit:       datos.clienteCuit || '',
-      clienteCondicion:  datos.clienteCondicion || 'CF',
+      clienteCondicion:  datos.clienteCondicion || 'CF',   // ← threaded al builder
       neto:              neto,
       iva:               iva,
       total:             total,
@@ -133,6 +133,24 @@ function emitirFacturaElectronica(datosFactura) {
     });
 
     if (!resultado.success) return resultado;
+
+    // ── Descontar stock de los productos facturados ──────────────────────────
+    // Solo aplica para ítems que tienen productoId (vienen del catálogo de Productos)
+    if (datos.detalle && datos.detalle.length > 0) {
+      datos.detalle.forEach(function(item) {
+        if (item.productoId) {
+          try {
+            var cant = parseInt(item.cantidad) || 1;
+            ProductosRepository.descontarStock(parseInt(item.productoId), cant);
+            Logger.log('[FACTURACION] Stock descontado: producto ' + item.productoId + ' × ' + cant);
+          } catch (stockErr) {
+            // No bloqueamos la factura por error de stock; solo logueamos
+            Logger.log('[FACTURACION] ADVERTENCIA stock producto ' +
+                       item.productoId + ': ' + stockErr.message);
+          }
+        }
+      });
+    }
 
     // Persistir en hoja FACTURAS_EMITIDAS
     _guardarFacturaEnHoja({
