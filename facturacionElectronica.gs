@@ -182,6 +182,92 @@ const AfipService = {
   // --------------------------------------------------------------------------
 
   /**
+   * Valida un payload de emisión de factura antes de enviar a ARCA
+   * Usado para testing en sandbox y prevención de errores
+   * @param {Object} payload - Payload a validar
+   * @returns {{valido: boolean, errores: Array, advertencias: Array}}
+   */
+  validarPayloadEmision: function(payload) {
+    const errores = [];
+    const advertencias = [];
+    
+    // Validaciones básicas
+    if (!payload.params || !payload.params.FECAEReq) {
+      errores.push('Payload mal formado: falta FECAEReq');
+      return { valido: false, errores: errores, advertencias: advertencias };
+    }
+    
+    const feDetReq = payload.params.FECAEReq.FeDetReq;
+    if (!feDetReq || !feDetReq.FECAEDetRequest) {
+      errores.push('Payload mal formado: falta FeDetReq');
+      return { valido: false, errores: errores, advertencias: advertencias };
+    }
+    
+    const cbte = feDetReq.FECAEDetRequest;
+    
+    // Validar fecha del comprobante (no más de 5 días atrás para productos)
+    if (cbte.CbteFch) {
+      const fechaCbte = new Date(
+        parseInt(cbte.CbteFch.substring(0, 4)),
+        parseInt(cbte.CbteFch.substring(4, 6)) - 1,
+        parseInt(cbte.CbteFch.substring(6, 8))
+      );
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const diffDias = Math.floor((hoy - fechaCbte) / (1000 * 60 * 60 * 24));
+      
+      if (cbte.Concepto === 1 && diffDias > 5) {
+        errores.push('Fecha de comprobante (' + cbte.CbteFch + ') supera los 5 días permitidos para productos. Días: ' + diffDias);
+      } else if (diffDias < 0) {
+        advertencias.push('Fecha de comprobante (' + cbte.CbteFch + ') es futura. Esto puede causar rechazo.');
+      }
+    }
+    
+    // Validar importes
+    if (cbte.ImpTotal !== undefined && cbte.ImpNeto !== undefined && cbte.ImpIVA !== undefined) {
+      const sumaEsperada = cbte.ImpNeto + cbte.ImpIVA;
+      if (Math.abs(cbte.ImpTotal - sumaEsperada) > 0.01) {
+        errores.push('Importes inconsistentes: Total (' + cbte.ImpTotal + ') ≠ Neto (' + cbte.ImpNeto + ') + IVA (' + cbte.ImpIVA + ')');
+      }
+    }
+    
+    // Validar CUIT del receptor para Factura A
+    if (payload.params.FECAEReq.FeCabReq.CbteTipo === 1 ||  // Factura A
+        payload.params.FECAEReq.FeCabReq.CbteTipo === 3) {  // NC A
+      if (!cbte.DocNro || cbte.DocNro === 0) {
+        errores.push('Factura A/NC A requiere DocNro (CUIT del receptor)');
+      }
+      if (cbte.DocTipo !== 80) {  // 80 = CUIT
+        advertencias.push('Factura A/NC A debería usar DocTipo 80 (CUIT), usa: ' + cbte.DocTipo);
+      }
+    }
+    
+    // Validar alícuota de IVA
+    if (cbte.Iva && cbte.Iva.AlicIva) {
+      const alicuotas = Array.isArray(cbte.Iva.AlicIva) ? cbte.Iva.AlicIva : [cbte.Iva.AlicIva];
+      for (var i = 0; i < alicuotas.length; i++) {
+        var alic = alicuotas[i];
+        if (alic.Id === undefined || alic.BaseImp === undefined || alic.Importe === undefined) {
+          errores.push('Alícuota ' + (i+1) + ' incompleta: faltan campos');
+        }
+        // Validar cálculo de IVA (10.5% es lo común para este sistema)
+        if (alic.BaseImp !== undefined && alic.Importe !== undefined) {
+          var ivaEsperado = Math.round(alic.BaseImp * 0.105 * 100) / 100;  // 10.5%
+          if (Math.abs(alic.Importe - ivaEsperado) > 1) {  // Tolerancia de $1
+            advertencias.push('IVA calculado (' + alic.Importe + ') difiere del esperado (' + ivaEsperado + ') para base ' + alic.BaseImp);
+          }
+        }
+      }
+    }
+    
+    return {
+      valido: errores.length === 0,
+      errores: errores,
+      advertencias: advertencias
+    };
+  },
+
+  /**
    * Realiza una llamada HTTP a Afip SDK
    * @param {string} endpoint - Ruta relativa (ej: '/auth', '/requests')
    * @param {Object} payload - Cuerpo del request (null para GET)
@@ -583,6 +669,22 @@ const AfipService = {
     if (config.cert) payload.cert = config.cert;
     if (config.key) payload.key = config.key;
 
+    // VALIDACIÓN DE PAYLOAD EN SANDBOX (PREVENCIÓN DE ERRORES)
+    // Validar payload antes de enviar a ARCA
+    var validacionPayload = this.validarPayloadEmision(payload);
+    
+    if (!validacionPayload.valido) {
+      Logger.log('[EMISION FACTURA] PAYLOAD INVALIDO - Errores: ' + JSON.stringify(validacionPayload.errores));
+      throw new Error('Payload inválido para ARCA: ' + validacionPayload.errores.join('; '));
+    }
+    
+    // Loguear advertencias del payload (no bloquean, pero informan)
+    if (validacionPayload.advertencias.length > 0) {
+      Logger.log('[EMISION FACTURA] Advertencias de payload: ' + validacionPayload.advertencias.join('; '));
+    }
+    
+    Logger.log('[EMISION FACTURA] Payload validado OK - Enviando a ARCA...');
+
     const result = this._fetch('/requests', payload);
 
     // Parsear respuesta
@@ -609,6 +711,8 @@ const AfipService = {
         : 'Sin observaciones';
       throw new Error('Comprobante rechazado por ARCA: ' + obsMsg);
     }
+
+    Logger.log('[EMISION FACTURA] CAE OBTENIDO EXITOSAMENTE - CAE: ' + detResp.CAE + ', CbteNro: ' + proximoNro);
 
     return {
       cae: detResp.CAE,
@@ -788,9 +892,10 @@ const AfipService = {
         };
       }
 
-      // Determinar condición IVA
+      // Determinar condición IVA con AUTO-DETECCIÓN MEJORADA
       var condicionIVA = 'CF'; // Default: Consumidor Final
       var condicionTexto = 'Consumidor Final';
+      var pendienteVerificacion = false;  // ← NUEVO: indica si la condición es incierta
 
       // Buscar en datosRegimenGeneral - el impuesto puede ser array o un único objeto
       var impuestosRaw = personaReturn.datosRegimenGeneral && personaReturn.datosRegimenGeneral.impuesto
@@ -804,6 +909,10 @@ const AfipService = {
       var tieneMonotributo = !!(personaReturn.datosMonotributo &&
         personaReturn.datosMonotributo.categoriaMonotributo);
 
+      // IDs de impuestos según AFIP:
+      // 30 = IVA (Responsable Inscripto)
+      // 32 = Ganancias (Responsable Inscripto)
+      // 20 = Monotributo
       var esRI = impuestos.some(function(imp) {
         var idImp = Number(imp.idImpuesto || imp.id || 0);
         return idImp === 30 || idImp === 32;
@@ -819,7 +928,38 @@ const AfipService = {
         esMonotributo = true;
       }
 
-      if (esRI) {
+      // AUTO-DETECCIÓN CON HEURÍSTICA ADICIONAL
+      // Si no se detectó RI ni Monotributo, usar heurística para determinar condición
+      if (!esRI && !esMonotributo) {
+        // Verificar si hay datos que sugieren actividad comercial
+        var tieneActividadComercial = personaReturn.datosRegimenGeneral && 
+                                      personaReturn.datosRegimenGeneral.actividadesEconomica &&
+                                      personaReturn.datosRegimenGeneral.actividadesEconomica.length > 0;
+        
+        // Verificar si es persona jurídica (más probable que sea RI)
+        var esPersonaJuridica = datosGenerales.tipoPersona === 'JURIDICA';
+        
+        // Si es persona jurídica con actividad comercial pero sin inscripción → PENDIENTE
+        if (esPersonaJuridica && tieneActividadComercial) {
+          pendienteVerificacion = true;
+          condicionIVA = 'CF';  // Fallback seguro: no bloquear facturación
+          condicionTexto = 'Consumidor Final (pendiente verificación - persona jurídica)';
+          Logger.log('[AUTO-DETECCION] CUIT ' + cuitLimpio + ': Persona jurídica sin inscripción detectada. Marcado como pendiente verificación.');
+        }
+        // Si tiene actividad comercial pero no está inscripto → PENDIENTE
+        else if (tieneActividadComercial) {
+          pendienteVerificacion = true;
+          condicionIVA = 'CF';  // Fallback seguro
+          condicionTexto = 'Consumidor Final (pendiente verificación - con actividad)';
+          Logger.log('[AUTO-DETECCION] CUIT ' + cuitLimpio + ': Actividad comercial detectada sin inscripción. Marcado como pendiente verificación.');
+        }
+        // Sin actividad comercial detectada → CF estándar
+        else {
+          condicionIVA = 'CF';
+          condicionTexto = 'Consumidor Final';
+        }
+      }
+      else if (esRI) {
         condicionIVA = 'RI';
         condicionTexto = 'Responsable Inscripto';
       } else if (esMonotributo) {
@@ -854,7 +994,9 @@ const AfipService = {
         domicilio: domicilio,
         tipoPersona: datosGenerales.tipoPersona || '',
         categoriaMonotributo: personaReturn.datosMonotributo ? personaReturn.datosMonotributo.categoriaMonotributo : null,
-        estadoContribuyente: datosGenerales.estadoClave || 'ACTIVO'
+        estadoContribuyente: datosGenerales.estadoClave || 'ACTIVO',
+        pendienteVerificacion: pendienteVerificacion,  // ← NUEVO: para UI y tracking
+        fuenteDeteccion: esRI ? 'RI' : (esMonotributo ? 'Monotributo' : (pendienteVerificacion ? 'Heurística' : 'Default'))  // ← NUEVO: trazabilidad
       };
     } catch (error) {
       // Si falla la consulta de padrón, no es un error crítico

@@ -142,40 +142,104 @@ const TransferenciasRepository = {
   },
 
   /**
+   * Parsea metadata de cliente no registrado desde observaciones
+   * @param {string} obs - Campo obs de la transferencia
+   * @returns {{esNoRegistrado: boolean, nombreOriginal: string, cuitProporcionado: string|null, fechaIngreso: string}|null}
+   */
+  parsearMetadataNoRegistrado: function(obs) {
+    if (!obs || obs.indexOf('[NO_REGISTRADO] ') !== 0) {
+      return null;
+    }
+    
+    try {
+      // Extraer JSON entre el prefix y el primer '|' o fin del string
+      const prefix = '[NO_REGISTRADO] ';
+      const jsonEnd = obs.indexOf(' | ');
+      const jsonStr = obs.substring(prefix.length, jsonEnd !== -1 ? jsonEnd : obs.length);
+      
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      Logger.log('Error parseando metadata no registrado: ' + e.message);
+      return null;
+    }
+  },
+
+  /**
+   * Obtiene transferencias de clientes no registrados
+   * @param {number} limite - Máximo de registros (0 = todos)
+   * @returns {Array<Object>}
+   */
+  obtenerNoRegistradas: function(limite = 0) {
+    const todas = this.obtenerTodas(limite);
+    return todas.filter(t => t.esNoRegistrado);
+  },
+
+  /**
    * Agrega una nueva transferencia
+   * SOPORTE PARA CLIENTES NO REGISTRADOS:
+   * - Si el cliente no existe, se guarda el nombre original proporcionado
+   * - Se marca como 'noRegistrado' para trazabilidad
+   * - Permite CUIT opcional para facturación como Consumidor Final
    */
   agregar: function(datos) {
     const hoja = this.getHoja();
     const id = this.getSiguienteId();
 
-    // Determinar condición fiscal del cliente
+    // Determinar si el cliente está registrado
+    let clienteRegistrado = false;
+    let clienteData = null;
     let condicion = datos.condicion || 'Consumidor Final';
+    let cuit = datos.cuit || '';
+    let nombreOriginal = (datos.cliente || '').toUpperCase();
+    
+    // Buscar cliente registrado
     if (datos.cliente) {
-      const cliente = ClientesRepository.buscarPorNombre(datos.cliente);
-      if (cliente) {
-        condicion = cliente.condicionFiscal || (cliente.cuit ? 'Responsable Inscripto' : 'Consumidor Final');
+      clienteData = ClientesRepository.buscarPorNombre(datos.cliente);
+      if (clienteData) {
+        clienteRegistrado = true;
+        condicion = clienteData.condicionFiscal || (clienteData.cuit ? 'Responsable Inscripto' : 'Consumidor Final');
+        cuit = clienteData.cuit || cuit;
       }
     }
 
     // Determinar tipo de factura según condición
     // Factura A: Responsables Inscriptos o Monotributistas con CUIT
     // Factura B: Consumidores Finales
-    const tipoFactura = (condicion === 'Responsable Inscripto' || 
-                         condicion === 'RI' || 
+    const tipoFactura = (condicion === 'Responsable Inscripto' ||
+                         condicion === 'RI' ||
                          condicion === 'Monotributista' ||
                          condicion === 'Monotributo') ? 'A' : 'B';
+
+    // TRAZABILIDAD PARA CLIENTES NO REGISTRADOS:
+    // Guardar nombre original y CUIT opcional en observaciones (formato estructurado)
+    let obs = datos.obs || '';
+    if (!clienteRegistrado) {
+      // Agregar metadata estructurada para trazabilidad
+      const metadataNoRegistrado = {
+        noRegistrado: true,
+        nombreOriginal: nombreOriginal,
+        cuitProporcionado: cuit || null,
+        fechaIngreso: formatearFechaLocal(new Date())
+      };
+      
+      // Prefix para identificar rápidamente clientes no registrados
+      const prefix = '[NO_REGISTRADO] ';
+      if (obs.indexOf(prefix) !== 0) {
+        obs = prefix + JSON.stringify(metadataNoRegistrado) + (obs ? ' | ' + obs : '');
+      }
+    }
 
     const nuevaFila = [
       id,
       datos.fecha ? parsearFechaLocal(datos.fecha) : new Date(),
-      (datos.cliente || '').toUpperCase(),
+      nombreOriginal,
       datos.monto || 0,
       datos.banco || '',
       condicion,
       tipoFactura,
       false,
       '',
-      datos.obs || ''
+      obs
     ];
 
     hoja.appendRow(nuevaFila);
@@ -183,12 +247,16 @@ const TransferenciasRepository = {
     return {
       id: id,
       fecha: datos.fecha,
-      cliente: datos.cliente,
+      cliente: nombreOriginal,
+      clienteRegistrado: clienteRegistrado,
+      nombreOriginal: nombreOriginal,  // Trazabilidad
+      cuitProporcionado: cuit,  // Para facturación
       monto: datos.monto,
       banco: datos.banco,
       condicion: condicion,
       tipoFactura: tipoFactura,
-      facturada: false
+      facturada: false,
+      esNoRegistrado: !clienteRegistrado  // Flag explícito
     };
   },
 
