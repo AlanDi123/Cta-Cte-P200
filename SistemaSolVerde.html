@@ -6076,7 +6076,7 @@
         .withFailureHandler(function(error) {
           SysLog.warn('INIT', 'Error cargando movimientos en segundo plano', error);
         })
-        .obtenerMovimientosRecientes(100);
+        .obtenerMovimientosRecientes(0);
 
       google.script.run
         .withSuccessHandler(function(config) {
@@ -6916,7 +6916,7 @@
         return;
       }
 
-      tbody.innerHTML = Estado.movimientos.slice(0, 50).map(m => {
+      tbody.innerHTML = Estado.movimientos.map(m => {
         const esPendiente = m._pendiente;
         const rowStyle = esPendiente ? 'opacity: 0.6; background: var(--sv-superficie-elevada);' : '';
         const pendienteBadge = esPendiente ? '<span style="font-size:0.65rem;background:#FFF3E0;color:#E65100;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:4px;">guardando...</span>' : '';

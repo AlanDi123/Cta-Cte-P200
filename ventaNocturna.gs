@@ -23,12 +23,12 @@ var CONFIG_VN = {
   ESTADOS_VALE:   { DISPONIBLE: 'DISPONIBLE', CANJEADO: 'CANJEADO', ANULADO: 'ANULADO' },
   TIPOS_PAGO:     { FIADO: 'FIADO', COBRO: 'COBRO', A_CUENTA: 'PAGO_A_CUENTA' },
 
-  // Columnas de cada hoja (índice base 0 para arrays, 1 para setValues)
+  // Columnas de cada hoja (índice base 1 para setValues/getValues)
   COLS_SESIONES: {
-    ID: 0, FECHA: 1, HORA_APERTURA: 2, HORA_CIERRE: 3, ESTADO: 4,
-    TOTAL_VENTAS: 5, TOTAL_EFECTIVO: 6, TOTAL_TRANSFERENCIA: 7,
-    TOTAL_VALES: 8, TOTAL_FIADO: 9, TOTAL_A_CUENTA: 10,
-    RAZON_REAPERTURA: 11, USUARIO: 12
+    ID: 1, FECHA: 2, HORA_APERTURA: 3, HORA_CIERRE: 4, ESTADO: 5,
+    TOTAL_VENTAS: 6, TOTAL_EFECTIVO: 7, TOTAL_TRANSFERENCIA: 8,
+    TOTAL_VALES: 9, TOTAL_FIADO: 10, TOTAL_A_CUENTA: 11,
+    RAZON_REAPERTURA: 12, USUARIO: 13
   },
   COLS_PRODUCTOS: {
     ID: 1, NOMBRE: 2, PRECIO: 3, STOCK: 4, ACTIVO: 5
@@ -386,10 +386,19 @@ function vnGetClientes(termino) {
     if (!termino || termino.trim().length < 2) {
       return { success: true, clientes: [] };
     }
-    // Reutiliza la función de búsqueda existente del sistema
-    const resultado = ClientesRepo.buscarConSugerencias(termino.trim());
-    return { success: true, clientes: resultado };
+    // FIX: era ClientesRepo (indefinido) → ClientesRepository
+    var resultado = ClientesRepository.buscarConSugerencias(termino.trim());
+    var lista = [];
+    if (resultado.exacto) lista.push(resultado.exacto.nombre);
+    if (resultado.sugerencias) {
+      resultado.sugerencias.forEach(function(c) {
+        var nombre = typeof c === 'string' ? c : (c.nombre || '');
+        if (nombre && lista.indexOf(nombre) === -1) lista.push(nombre);
+      });
+    }
+    return { success: true, clientes: lista };
   } catch (e) {
+    Logger.log('[VN] vnGetClientes error: ' + e.message);
     return { success: false, error: e.message, clientes: [] };
   }
 }
@@ -399,14 +408,16 @@ function vnCrearClienteRapido(data) {
     return { success: false, error: 'El nombre es requerido.' };
   }
   try {
-    const resultado = ClientesRepo.crear({
+    // FIX: era ClientesRepo (indefinido) → ClientesRepository
+    var resultado = ClientesRepository.crear({
       nombre: data.nombre.toUpperCase().trim(),
-      tel: data.tel || '',
-      email: data.email || '',
-      obs: 'Creado desde Venta Nocturna'
+      tel:    data.tel   || '',
+      email:  data.email || '',
+      obs:    'Creado desde Venta Nocturna'
     });
     return resultado;
   } catch (e) {
+    Logger.log('[VN] vnCrearClienteRapido error: ' + e.message);
     return { success: false, error: e.message };
   }
 }

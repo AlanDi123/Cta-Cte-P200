@@ -590,11 +590,20 @@ function obtenerDatosParaHTML() {
   }
 }
 
-// Nueva función separada para cargar movimientos recientes (llamada asíncrona)
+/**
+ * Obtiene movimientos para el frontend.
+ * @param {number} limite - 0 o sin parámetro = TODOS los movimientos
+ */
 function obtenerMovimientosRecientes(limite) {
   try {
-    var movimientos = MovimientosRepository.obtenerRecientes(limite || 100);
-    return { success: true, movimientos: serializarParaWeb(movimientos) };
+    // Si llega undefined o null, cargar todos (0 = sin límite)
+    var limiteNum = (typeof limite === 'number') ? limite : 0;
+    var movimientos = MovimientosRepository.obtenerRecientes(limiteNum);
+    return {
+      success:     true,
+      movimientos: serializarParaWeb(movimientos),
+      total:       movimientos.length
+    };
   } catch (error) {
     Logger.log('Error en obtenerMovimientosRecientes: ' + error.message);
     return { success: false, error: error.message, movimientos: [] };
@@ -1773,7 +1782,7 @@ function verificarIntegridadSistema() {
 
       datos.slice(1).forEach(f => {
         const estado = f[CONFIG_VN.COLS_SESIONES.ESTADO - 1];
-        const fechaApertura = f[CONFIG_VN.COLS_SESIONES.APERTURA - 1];
+        const fechaApertura = f[CONFIG_VN.COLS_SESIONES.HORA_APERTURA - 1];
         if (estado === CONFIG_VN.ESTADOS_SESION.ABIERTA && fechaApertura instanceof Date) {
           const hs = (ahora - fechaApertura) / 3600000;
           if (hs > 24) {

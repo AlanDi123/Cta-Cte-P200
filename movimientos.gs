@@ -174,39 +174,50 @@ const MovimientosRepository = {
   },
 
   /**
-   * Obtiene los movimientos mas recientes
-   * @param {number} limite - Cantidad maxima
-   * @returns {Array<Object>} Array de movimientos
+   * Obtiene movimientos. limite=0 → carga TODOS sin restricción.
+   * @param {number} limite - 0 = todos, >0 = últimos N
    */
-  obtenerRecientes: function(limite = 50) {
-    const hoja = this.getHoja();
-    const lastRow = hoja.getLastRow();
+  obtenerRecientes: function(limite) {
+    // Normalizar: undefined/null → 0 (cargar todos)
+    if (limite === undefined || limite === null) limite = 0;
+    limite = parseInt(limite) || 0;
 
+    var hoja    = this.getHoja();
+    var lastRow = hoja.getLastRow();
     if (lastRow <= 1) return [];
 
-    // Leer solo las ultimas filas necesarias
-    const rowsToRead = Math.min(limite + 10, lastRow - 1);
-    const startRow = Math.max(2, lastRow - rowsToRead + 1);
-    const datos = hoja.getRange(startRow, 1, rowsToRead, 8).getValues();
+    var numRows    = lastRow - 1;
+    var cargarTodos = limite <= 0;
 
-    const movimientos = [];
+    // Si carga total: leer desde fila 2. Si parcial: leer últimas N+10 filas.
+    var rowsToRead = cargarTodos
+      ? numRows
+      : Math.min(limite + 10, numRows);
+    var startRow = cargarTodos
+      ? 2
+      : Math.max(2, lastRow - rowsToRead + 1);
 
-    // Recorrer desde el final (mas recientes primero)
-    for (let i = datos.length - 1; i >= 0 && movimientos.length < limite; i--) {
-      const fila = datos[i];
+    var datos       = hoja.getRange(startRow, 1, rowsToRead, 8).getValues();
+    var movimientos = [];
+
+    // Recorrer desde el final (más recientes primero)
+    for (var i = datos.length - 1; i >= 0; i--) {
+      // Si tiene límite y ya alcanzamos el máximo, cortar
+      if (!cargarTodos && movimientos.length >= limite) break;
+
+      var fila = datos[i];
       if (!fila[CONFIG.COLS_MOVS.ID]) continue;
 
-      const fecha = fila[CONFIG.COLS_MOVS.FECHA];
-
+      var fecha = fila[CONFIG.COLS_MOVS.FECHA];
       movimientos.push({
-        id: fila[CONFIG.COLS_MOVS.ID],
-        fecha: fecha instanceof Date ? formatearFechaLocal(fecha) : fecha,
-        cliente: fila[CONFIG.COLS_MOVS.CLIENTE],
-        tipo: fila[CONFIG.COLS_MOVS.TIPO],
-        monto: fila[CONFIG.COLS_MOVS.MONTO],
+        id:       fila[CONFIG.COLS_MOVS.ID],
+        fecha:    fecha instanceof Date ? formatearFechaLocal(fecha) : fecha,
+        cliente:  fila[CONFIG.COLS_MOVS.CLIENTE],
+        tipo:     fila[CONFIG.COLS_MOVS.TIPO],
+        monto:    fila[CONFIG.COLS_MOVS.MONTO],
         saldoPost: fila[CONFIG.COLS_MOVS.SALDO_POST],
-        obs: fila[CONFIG.COLS_MOVS.OBS] || '',
-        usuario: fila[CONFIG.COLS_MOVS.USUARIO] || ''
+        obs:      fila[CONFIG.COLS_MOVS.OBS]    || '',
+        usuario:  fila[CONFIG.COLS_MOVS.USUARIO] || ''
       });
     }
 
