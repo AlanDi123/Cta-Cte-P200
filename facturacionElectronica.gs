@@ -676,6 +676,65 @@ const AfipService = {
   },
 
   /**
+   * Helper: Extraer datos de persona desde respuesta AFIP/ARCA
+   * Recorre posibles estructuras y normaliza campos comunes
+   * @param {Object} resultado - Respuesta raw de ARCA
+   * @returns {Object|null} Datos normalizados o null si no hay datos
+   */
+  extraerDatosPersona: function(resultado) {
+    if (!resultado) return null;
+
+    // Recorrer posibles paths y obtener el objeto "persona" real
+    var candidates = [
+      resultado.personaReturn,
+      resultado.persona,
+      resultado.data,
+      resultado.datosGenerales,
+      (resultado.personaReturn && resultado.personaReturn.datosGenerales) ? resultado.personaReturn.datosGenerales : null,
+      (resultado.persona && resultado.persona.datosGenerales) ? resultado.persona.datosGenerales : null
+    ];
+
+    var persona = null;
+    for (var i = 0; i < candidates.length; i++) {
+      var c = candidates[i];
+      if (c && Object.keys(c).length > 0) {
+        persona = c;
+        break;
+      }
+    }
+
+    // Si no encontré 'persona', intentar buscar campos sueltos en la raíz
+    if (!persona) {
+      var keys = Object.keys(resultado || {});
+      for (var j = 0; j < keys.length; j++) {
+        var k = keys[j];
+        if (/razon|nombre|nombre_comercial/i.test(k)) {
+          persona = resultado;
+          break;
+        }
+      }
+    }
+
+    if (!persona) return null;
+
+    // Normalizar nombres de campos comunes
+    var razonSocial = persona.razonSocial || persona.nombre || persona.nombre_comercial || persona.razon || '';
+    var domicilio = persona.domicilioFiscal || persona.direccion || persona.domicilio || persona.domicilio_completo || '';
+    var condicion = persona.condicionIVA || persona.condicion || persona.categoriaIVA || '';
+    var estado = persona.estadoContribuyente || persona.estado || persona.situacion || '';
+    var idPersona = persona.idPersona || persona.cuit || persona.cuil || '';
+
+    return {
+      razonSocial: String(razonSocial || '').trim(),
+      domicilio: String(domicilio || '').trim(),
+      condicionIVA: String(condicion || '').trim(),
+      estadoContribuyente: String(estado || '').trim(),
+      idPersona: String(idPersona || '').trim(),
+      raw: persona
+    };
+  },
+
+  /**
    * Consulta datos de un CUIT en el padrón de ARCA
    * @param {string} cuit - CUIT a consultar (sin guiones)
    * @returns {Object} Datos del contribuyente con mensajes de error específicos
@@ -707,6 +766,17 @@ const AfipService = {
           mensaje: validacion.error,
           cuitConsultado: cuitLimpio
         };
+      }
+    }
+
+    // CACHE: Verificar si hay consulta reciente en cache (TTL 60s)
+    var cacheKey = 'CUIT_' + cuitLimpio;
+    var cacheado = SheetsCache.get(cacheKey);
+    if (cacheado && cacheado.timestamp) {
+      var edadMs = Date.now() - cacheado.timestamp;
+      if (edadMs < 60000) { // 60 segundos
+        Logger.log('[CONSULTA CUIT ' + cuitLimpio + '] Cache hit (edad: ' + Math.round(edadMs/1000) + 's)');
+        return cacheado.data;
       }
     }
 
@@ -753,7 +823,7 @@ const AfipService = {
       } catch (fetchError) {
         ultimoError = fetchError;
         var msgLower = (fetchError.message || '').toLowerCase();
-        var esReintentable = msgLower.indexOf('timeout') >= 0 || 
+        var esReintentable = msgLower.indexOf('timeout') >= 0 ||
                              msgLower.indexOf('service unavailable') >= 0 ||
                              msgLower.indexOf('exceeded') >= 0 ||
                              msgLower.indexOf('quota') >= 0;
@@ -785,159 +855,91 @@ const AfipService = {
       // LOG DE DIAGNÓSTICO: Respuesta raw de ARCA para debugging
       Logger.log('[CONSULTA CUIT ' + cuitLimpio + '] Respuesta raw de ARCA: ' + JSON.stringify(resultado));
 
-      // afipsdk puede devolver la persona en distintas estructuras:
-      // { personaReturn: {...} }, { persona: {...} }, { data: {...} } o directamente { datosGenerales: {...} }
-      const personaReturn = resultado.personaReturn
-        || resultado.persona
-        || resultado.data
-        || (resultado.datosGenerales ? resultado : null)
-        || null;
+      // EXTRAER DATOS CON HELPER ROBUSTO
+      var datos = this.extraerDatosPersona(resultado);
 
-      // datosGenerales debe existir y tener idPersona para ser un resultado válido
-      const datosGenerales = personaReturn && personaReturn.datosGenerales
-        ? personaReturn.datosGenerales
-        : null;
+      if (datos && datos.idPersona) {
+        // Determinar condición IVA con auto-detección
+        var condicionIVA = 'CF';
+        var condicionTexto = 'Consumidor Final';
+        var personaReturn = resultado.personaReturn || resultado.persona || resultado.data || resultado;
 
-      if (!datosGenerales || !datosGenerales.idPersona) {
-        Logger.log('[CONSULTA CUIT ' + cuitLimpio + '] No encontrado. Estructura respuesta: ' + JSON.stringify({
-          tienePersonaReturn: !!resultado.personaReturn,
-          tienePersona: !!resultado.persona,
-          tieneData: !!resultado.data,
-          tieneDatosGenerales: !!resultado.datosGenerales,
-          tieneErrors: !!resultado.errors,
-          keys: Object.keys(resultado || {})
-        }));
-        
+        // Buscar datos de régimen general para detectar RI/Monotributo
+        var impuestosRaw = personaReturn.datosRegimenGeneral && personaReturn.datosRegimenGeneral.impuesto
+          ? personaReturn.datosRegimenGeneral.impuesto
+          : null;
+        var impuestos = impuestosRaw
+          ? (Array.isArray(impuestosRaw) ? impuestosRaw : [impuestosRaw])
+          : [];
+        var tieneMonotributo = !!(personaReturn.datosMonotributo && personaReturn.datosMonotributo.categoriaMonotributo);
+
+        // IDs de impuestos según AFIP: 30=IVA, 32=Ganancias, 20=Monotributo
+        var esRI = impuestos.some(function(imp) {
+          var idImp = Number(imp.idImpuesto || imp.id || 0);
+          return idImp === 30 || idImp === 32;
+        });
+        var esMonotributo = tieneMonotributo || impuestos.some(function(imp) {
+          var idImp = Number(imp.idImpuesto || imp.id || 0);
+          return idImp === 20;
+        });
+
+        if (esRI) {
+          condicionIVA = 'RI';
+          condicionTexto = 'Responsable Inscripto';
+        } else if (esMonotributo) {
+          condicionIVA = 'M';
+          condicionTexto = 'Monotributista';
+        }
+
+        var resultadoFinal = {
+          encontrado: true,
+          cuit: cuitLimpio,
+          razonSocial: datos.razonSocial || '—',
+          condicionIVA: condicionIVA,
+          condicionTexto: condicionTexto,
+          domicilio: datos.domicilio || '',
+          tipoPersona: personaReturn.tipoPersona || '',
+          estadoContribuyente: datos.estadoContribuyente || 'ACTIVO',
+          mensaje: 'CUIT encontrado en ARCA. Datos extraídos.',
+          sinDatosPublicos: false,
+          detalleRaw: datos.raw
+        };
+
+        // GUARDAR EN CACHE (TTL 60s)
+        SheetsCache.set(cacheKey, {
+          timestamp: Date.now(),
+          data: resultadoFinal
+        }, 60);
+
+        return resultadoFinal;
+      }
+
+      // Si la respuesta tiene keys pero no datos útiles => guardar para debug y devolver mensaje claro
+      if (resultado && Object.keys(resultado).length > 0 && !resultado.errors) {
+        Logger.log('[CONSULTA CUIT ' + cuitLimpio + '] Respuesta sin estructura conocida: ' + JSON.stringify(resultado));
+
         // Diferenciar entre CUIT válido sin datos públicos vs CUIT inexistente
         // ARCA devuelve estructura vacía cuando el CUIT existe pero no tiene datos públicos
-        if (resultado && Object.keys(resultado).length > 0 && !resultado.errors) {
-          return {
-            encontrado: true,
-            cuit: cuitLimpio,
-            razonSocial: 'SIN DATOS PÚBLICOS',
-            condicionIVA: 'CF',
-            condicionTexto: 'Consumidor Final (sin datos fiscales públicos)',
-            domicilio: '',
-            tipoPersona: '',
-            estadoContribuyente: 'ACTIVO',
-            mensaje: 'CUIT válido, pero sin datos fiscales públicos en ARCA. Se puede facturar como Consumidor Final.',
-            sinDatosPublicos: true
-          };
-        }
-        
-        return { 
-          encontrado: false, 
-          error: 'CUIT no encontrado',
-          mensaje: 'El CUIT ' + cuitLimpio + ' no existe en el padrón de ARCA. Verificá el número.',
-          cuitConsultado: cuitLimpio
+        return {
+          encontrado: true,
+          cuit: cuitLimpio,
+          razonSocial: 'SIN DATOS PÚBLICOS',
+          condicionIVA: 'CF',
+          condicionTexto: 'Consumidor Final (sin datos fiscales públicos)',
+          domicilio: '',
+          tipoPersona: '',
+          estadoContribuyente: 'ACTIVO',
+          mensaje: 'CUIT válido pero ARCA no devolvió datos fiscales legibles. Revisar raw en logs.',
+          sinDatosPublicos: true,
+          detalleRaw: resultado
         };
       }
 
-      // Determinar condición IVA con AUTO-DETECCIÓN MEJORADA
-      var condicionIVA = 'CF'; // Default: Consumidor Final
-      var condicionTexto = 'Consumidor Final';
-      var pendienteVerificacion = false;  // ← NUEVO: indica si la condición es incierta
-
-      // Buscar en datosRegimenGeneral - el impuesto puede ser array o un único objeto
-      var impuestosRaw = personaReturn.datosRegimenGeneral && personaReturn.datosRegimenGeneral.impuesto
-        ? personaReturn.datosRegimenGeneral.impuesto
-        : null;
-      var impuestos = impuestosRaw
-        ? (Array.isArray(impuestosRaw) ? impuestosRaw : [impuestosRaw])
-        : [];
-
-      // Detectar monotributo por estructura alternativa
-      var tieneMonotributo = !!(personaReturn.datosMonotributo &&
-        personaReturn.datosMonotributo.categoriaMonotributo);
-
-      // IDs de impuestos según AFIP:
-      // 30 = IVA (Responsable Inscripto)
-      // 32 = Ganancias (Responsable Inscripto)
-      // 20 = Monotributo
-      var esRI = impuestos.some(function(imp) {
-        var idImp = Number(imp.idImpuesto || imp.id || 0);
-        return idImp === 30 || idImp === 32;
-      });
-
-      var esMonotributo = tieneMonotributo || impuestos.some(function(imp) {
-        var idImp = Number(imp.idImpuesto || imp.id || 0);
-        return idImp === 20;
-      });
-
-      // Fallback: si tiene datosMonotributo o categorias es monotributista
-      if (!esMonotributo && (personaReturn.datosMonotributo || personaReturn.categorias)) {
-        esMonotributo = true;
-      }
-
-      // AUTO-DETECCIÓN CON HEURÍSTICA ADICIONAL
-      // Si no se detectó RI ni Monotributo, usar heurística para determinar condición
-      if (!esRI && !esMonotributo) {
-        // Verificar si hay datos que sugieren actividad comercial
-        var tieneActividadComercial = personaReturn.datosRegimenGeneral && 
-                                      personaReturn.datosRegimenGeneral.actividadesEconomica &&
-                                      personaReturn.datosRegimenGeneral.actividadesEconomica.length > 0;
-        
-        // Verificar si es persona jurídica (más probable que sea RI)
-        var esPersonaJuridica = datosGenerales.tipoPersona === 'JURIDICA';
-        
-        // Si es persona jurídica con actividad comercial pero sin inscripción → PENDIENTE
-        if (esPersonaJuridica && tieneActividadComercial) {
-          pendienteVerificacion = true;
-          condicionIVA = 'CF';  // Fallback seguro: no bloquear facturación
-          condicionTexto = 'Consumidor Final (pendiente verificación - persona jurídica)';
-          Logger.log('[AUTO-DETECCION] CUIT ' + cuitLimpio + ': Persona jurídica sin inscripción detectada. Marcado como pendiente verificación.');
-        }
-        // Si tiene actividad comercial pero no está inscripto → PENDIENTE
-        else if (tieneActividadComercial) {
-          pendienteVerificacion = true;
-          condicionIVA = 'CF';  // Fallback seguro
-          condicionTexto = 'Consumidor Final (pendiente verificación - con actividad)';
-          Logger.log('[AUTO-DETECCION] CUIT ' + cuitLimpio + ': Actividad comercial detectada sin inscripción. Marcado como pendiente verificación.');
-        }
-        // Sin actividad comercial detectada → CF estándar
-        else {
-          condicionIVA = 'CF';
-          condicionTexto = 'Consumidor Final';
-        }
-      }
-      else if (esRI) {
-        condicionIVA = 'RI';
-        condicionTexto = 'Responsable Inscripto';
-      } else if (esMonotributo) {
-        condicionIVA = 'M';
-        condicionTexto = 'Monotributista';
-      }
-      // else: CF (Consumidor Final) - persona con CUIT/CUIL sin inscripción activa
-
-      // Razón social: para JURIDICA viene razonSocial, para FISICA viene apellido + nombre
-      var razonSocial = datosGenerales.razonSocial ||
-        ((datosGenerales.apellido || '') + ' ' + (datosGenerales.nombre || '')).trim() ||
-        '';
-
-      // Domicilio: filtrar partes vacías para evitar ", , " cuando faltan campos
-      var domicilio = '';
-      var domFiscal = datosGenerales.domicilioFiscal || personaReturn.domicilioFiscal || null;
-      if (domFiscal) {
-        var partesDom = [
-          domFiscal.direccion || '',
-          domFiscal.localidad || '',
-          domFiscal.descripcionProvincia || ''
-        ].filter(function(p) { return p.trim() !== ''; });
-        domicilio = partesDom.join(', ');
-      }
-
       return {
-        encontrado: true,
-        cuit: cuitLimpio,
-        razonSocial: razonSocial.toUpperCase(),
-        condicionIVA: condicionIVA,
-        condicionTexto: condicionTexto,
-        domicilio: domicilio,
-        tipoPersona: datosGenerales.tipoPersona || '',
-        categoriaMonotributo: personaReturn.datosMonotributo ? personaReturn.datosMonotributo.categoriaMonotributo : null,
-        estadoContribuyente: datosGenerales.estadoClave || 'ACTIVO',
-        pendienteVerificacion: pendienteVerificacion,  // ← NUEVO: para UI y tracking
-        fuenteDeteccion: esRI ? 'RI' : (esMonotributo ? 'Monotributo' : (pendienteVerificacion ? 'Heurística' : 'Default'))  // ← NUEVO: trazabilidad
+        encontrado: false,
+        error: 'CUIT no encontrado',
+        mensaje: 'El CUIT ' + cuitLimpio + ' no existe en el padrón de ARCA. Verificá el número.',
+        cuitConsultado: cuitLimpio
       };
     } catch (error) {
       // Si falla la consulta de padrón, no es un error crítico
