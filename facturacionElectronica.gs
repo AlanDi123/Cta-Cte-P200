@@ -130,13 +130,15 @@ var CONFIG_AFIP = {
 const AfipService = {
   /**
    * Obtiene las credenciales de Afip SDK desde ScriptProperties
-   * @returns {Object} {accessToken, puntoVenta, cuit, cert, key}
+   * SISTEMA OPERA SIEMPRE EN PRODUCCION - NO HAY MODO TEST
+   * @returns {Object} {accessToken, environment, puntoVenta, cuit, cert, key}
    */
   getConfig: function() {
     const props = PropertiesService.getScriptProperties();
     const emisor = CONFIG_AFIP.getEmisor();
     return {
       accessToken: props.getProperty('AFIP_ACCESS_TOKEN') || '',
+      environment: 'prod',  // FIJO: PRODUCCION EXCLUSIVAMENTE
       puntoVenta: parseInt(props.getProperty('AFIP_PUNTO_VENTA') || '11'),
       cuit: props.getProperty('AFIP_CUIT') || emisor.CUIT,
       cert: props.getProperty('AFIP_CERT') || '',
@@ -154,6 +156,7 @@ const AfipService = {
     if (config.cuit !== undefined) props.setProperty('AFIP_CUIT', config.cuit);
     if (config.cert !== undefined) props.setProperty('AFIP_CERT', config.cert);
     if (config.key !== undefined) props.setProperty('AFIP_KEY', config.key);
+    // environment es SIEMPRE 'prod' - no se guarda ni se modifica
   },
 
   /**
@@ -401,6 +404,7 @@ const AfipService = {
     const auth = this.autenticar('wsfe');
 
     const payload = {
+      environment: config.environment,  // REQUERIDO POR AFIP SDK
       method: 'FECompUltimoAutorizado',
       wsid: 'wsfe',
       params: {
@@ -590,6 +594,7 @@ const AfipService = {
     }
 
     const payload = {
+      environment: config.environment,  // REQUERIDO POR AFIP SDK
       method: 'FECAESolicitar',
       wsid: 'wsfe',
       params: {
@@ -793,6 +798,7 @@ const AfipService = {
     const cuitRepresentada = config.cuit || CONFIG_AFIP.getEmisor().CUIT;
 
     const payload = {
+      environment: config.environment,  // REQUERIDO POR AFIP SDK
       method: 'getPersona',
       wsid: 'ws_sr_padron_a13',
       params: {
