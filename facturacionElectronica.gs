@@ -1305,142 +1305,51 @@ function obtenerDatosParaImpresion(facturaId) {
 }
 
 /**
- * Lee configuración del emisor desde múltiples fuentes en cascada:
- * 1. PropertiesService (todas las propiedades, sin filtrar)
- * 2. AFIP_CONFIG global (siempre tiene el CUIT)
- * 3. Hoja "Configuracion" del Sheets (cualquier formato)
+ * Lee configuración del emisor desde PropertiesService
  */
 function _leerConfiguracionEmisor() {
-  var raw = {};
-
-  // ── Fuente 1: PropertiesService (todas las propiedades, sin filtrar) ────────
+  var props = {};
   try {
-    var todas = PropertiesService.getScriptProperties().getProperties();
-    Object.keys(todas).forEach(function(k) {
-      // Normalizar clave: minúsculas, sin espacios ni guiones ni puntos
-      var kn = k.toLowerCase().replace(/[\s\-_.]+/g, '');
-      raw[kn] = String(todas[k] || '').trim();
-      // También guardar la clave original para casos exactos
-      raw[k] = String(todas[k] || '').trim();
-    });
+    props = PropertiesService.getScriptProperties().getProperties();
   } catch(e) {
-    Logger.log('[_leerConfiguracionEmisor] PropertiesService error: ' + e.message);
+    Logger.log('[_leerConfiguracionEmisor] Error leyendo PropertiesService: ' + e.message);
   }
 
-  // ── Fuente 2: AFIP_CONFIG global (siempre tiene el CUIT) ───────────────────
-  try {
-    if (typeof AFIP_CONFIG !== 'undefined' && AFIP_CONFIG) {
-      var ac = AFIP_CONFIG;
-      // CUIT puede estar en distintas posiciones del objeto
-      var cuitCandidatos = [
-        ac.CUIT, ac.cuit, ac.Cuit,
-        ac.CUIT_EMISOR, ac.cuitEmisor,
-        (ac.credentials && ac.credentials.cuit),
-        (ac.auth && ac.auth.cuit)
-      ];
-      cuitCandidatos.forEach(function(v) {
-        if (v && !raw['cuit']) raw['cuit'] = String(v).trim();
-      });
-
-      // Razón social puede estar también
-      ['RAZON_SOCIAL','razonSocial','razon_social','empresa','EMPRESA','nombre'].forEach(function(k) {
-        if (ac[k] && !raw['razonsocial']) raw['razonsocial'] = String(ac[k]).trim();
-      });
-    }
-  } catch(e) {}
-
-  // ── Fuente 3: Hoja Configuracion ───────────────────────────────────────────
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var hojaConfig = ss.getSheetByName('Configuracion')
-    || ss.getSheetByName('CONFIGURACION')
-    || ss.getSheetByName('Configuración')
-    || ss.getSheetByName('Config')
-    || ss.getSheetByName('CONFIG')
-    || ss.getSheetByName('Ajustes')
-    || ss.getSheetByName('Sistema');
-
-  if (hojaConfig) {
-    var datos = hojaConfig.getDataRange().getValues();
-
-    // Detectar formato automáticamente
-    var col0 = String(datos[0] ? datos[0][0] : '').trim().toLowerCase();
-
-    // FORMATO A: fila de encabezado en fila 1, valores debajo
-    if (['razon_social','razonsocial','empresa','nombre_empresa',
-         'razon social','cuit','domicilio','nombre'].indexOf(col0) > -1) {
-      var heads = datos[0].map(function(h) { return String(h).trim().toLowerCase().replace(/[\s_-]+/g,''); });
-      for (var r = 1; r < datos.length; r++) {
-        var fila = datos[r];
-        heads.forEach(function(h, ci) {
-          if (fila[ci] !== '' && fila[ci] !== null && fila[ci] !== undefined) {
-            var hn = h.toLowerCase().replace(/[\s_-]+/g,'');
-            if (!raw[hn]) raw[hn] = String(fila[ci]).trim();
-          }
-        });
-        break;
-      }
-    }
-    // FORMATO B: dos columnas CLAVE | VALOR
-    else {
-      datos.forEach(function(fila) {
-        if (!fila[0] || !fila[1]) return;
-        var clave = String(fila[0]).trim().toLowerCase().replace(/[\s_-]+/g,'');
-        var valor = String(fila[1]).trim();
-        if (valor && !raw[clave]) raw[clave] = valor;
-      });
-    }
-
-    Logger.log('[_leerConfiguracionEmisor] Hoja encontrada: ' + hojaConfig.getName());
+  function p(clave, defecto) {
+    return String(props[clave] || defecto || '').trim();
   }
 
-  // ── Helper: buscar valor por lista de aliases normalizados ─────────────────
-  function buscar() {
-    var aliases = Array.prototype.slice.call(arguments);
-    for (var i = 0; i < aliases.length; i++) {
-      var kn = aliases[i].toLowerCase().replace(/[\s\-_.]+/g, '');
-      if (raw[kn]) return raw[kn];
-      // También intentar la clave tal cual (sin normalizar)
-      if (raw[aliases[i]]) return raw[aliases[i]];
-    }
-    return '';
-  }
-
-  // ── Formatear CUIT con guiones ─────────────────────────────────────────────
   function formatearCuit(v) {
-    var soloNum = String(v || '').replace(/[^0-9]/g, '');
-    if (soloNum.length === 11) {
-      return soloNum.substring(0,2) + '-' + soloNum.substring(2,10) + '-' + soloNum.substring(10);
-    }
-    return v || '';
+    var n = String(v).replace(/[^0-9]/g,'');
+    return n.length === 11
+      ? n.substring(0,2) + '-' + n.substring(2,10) + '-' + n.substring(10)
+      : v;
   }
 
-  var cuitRaw = buscar('cuit','CUIT','cuit_emisor','CUIT_EMISOR','cuitEmisor',
-                       'cuit_empresa','CUIT_EMPRESA','cuitEmpresa','afip_cuit','AFIP_CUIT');
+  function formatearFecha(v) {
+    if (!v) return '';
+    // Convierte "2012-08-01" → "01/08/2012"
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      var p2 = v.split('-');
+      return p2[2] + '/' + p2[1] + '/' + p2[0];
+    }
+    return v;
+  }
 
-  var resultado = {
-    razonSocial:       buscar('razon_social','razonSocial','RAZON_SOCIAL','razon social',
-                              'empresa','EMPRESA','nombre_empresa','NOMBRE_EMPRESA',
-                              'company','nombre','NOMBRE','business_name'),
-    cuit:              formatearCuit(cuitRaw),
-    domicilio:         buscar('domicilio','DOMICILIO','domicilio_comercial','DOMICILIO_COMERCIAL',
-                              'direccion','DIRECCION','address','domicilio_fiscal','calle'),
-    localidad:         buscar('localidad','LOCALIDAD','ciudad','CIUDAD','city','poblacion'),
-    provincia:         buscar('provincia','PROVINCIA','province','estado','ESTADO'),
-    condicionIVA:      buscar('condicion_iva','condicionIVA','CONDICION_IVA','condicion_frente_iva',
-                              'condicion','CONDICION','iva_condicion') || 'RESPONSABLE INSCRIPTO',
-    ingBrutos:         buscar('ing_brutos','ingBrutos','ING_BRUTOS','iibb','IIBB',
-                              'ingresos_brutos','ingresosBrutos','nro_iibb','numero_iibb'),
-    inicioActividades: buscar('inicio_actividades','inicioActividades','INICIO_ACTIVIDADES',
-                              'fecha_inicio','fechaInicio','inicio','INICIO'),
-    logoUrl:           buscar('logo_url','logoUrl','LOGO_URL','logo','LOGO',
-                              'logo_link','logoLink','url_logo','image_url'),
-    telefono:          buscar('telefono','TELEFONO','phone','PHONE','tel','TEL','celular'),
-    email:             buscar('email','EMAIL','mail','MAIL','correo','CORREO'),
-    web:               buscar('web','WEB','sitio_web','sitioWeb','SITIO_WEB','website','WEBSITE','url')
+  return {
+    razonSocial:       p('EMISOR_RAZON_SOCIAL'),
+    nombreFantasia:    p('EMISOR_NOMBRE_FANTASIA', p('SISTEMA_NOMBRE')),
+    cuit:              formatearCuit(p('EMISOR_CUIT', p('AFIP_CUIT'))),
+    domicilio:         p('EMISOR_DOMICILIO'),
+    localidad:         '',   // incluido dentro de EMISOR_DOMICILIO
+    provincia:         '',
+    condicionIVA:      p('EMISOR_CONDICION_IVA', 'RESPONSABLE INSCRIPTO'),
+    ingBrutos:         p('EMISOR_IIBB'),
+    inicioActividades: formatearFecha(p('EMISOR_FECHA_INICIO')),
+    logoUrl:           p('LOGO_URL'),
+    ptoVta:            p('AFIP_PUNTO_VENTA', '1'),
+    telefono:          p('EMISOR_TELEFONO'),
+    email:             p('EMISOR_EMAIL'),
+    web:               p('EMISOR_WEB')
   };
-
-  Logger.log('[_leerConfiguracionEmisor] razonSocial="' + resultado.razonSocial +
-             '" | cuit="' + resultado.cuit + '" | keys_encontradas=' + Object.keys(raw).length);
-
-  return resultado;
 }
