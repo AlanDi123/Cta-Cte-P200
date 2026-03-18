@@ -3422,11 +3422,6 @@
               </div>
 
               <div class="form-group">
-                <label class="form-label">Nombre de Fantasía</label>
-                <input type="text" class="form-input" id="inputEmisorFantasia" placeholder="Opcional">
-              </div>
-
-              <div class="form-group">
                 <label class="form-label">Domicilio Comercial *</label>
                 <input type="text" class="form-input" id="inputEmisorDomicilio" placeholder="Calle Nro - Ciudad, Provincia">
               </div>
@@ -11207,7 +11202,6 @@
           if (result.success && result.datos) {
             document.getElementById('inputEmisorCuit').value = result.datos.cuit || '';
             document.getElementById('inputEmisorRazonSocial').value = result.datos.razonSocial || '';
-            document.getElementById('inputEmisorFantasia').value = result.datos.nombreFantasia || '';
             document.getElementById('inputEmisorDomicilio').value = result.datos.domicilio || '';
             document.getElementById('inputEmisorIIBB').value = result.datos.ingresosBrutos || '';
             document.getElementById('inputEmisorFechaInicio').value = result.datos.fechaInicio || '';
@@ -11258,7 +11252,6 @@
       const datos = {
         cuit: document.getElementById('inputEmisorCuit').value.trim(),
         razonSocial: document.getElementById('inputEmisorRazonSocial').value.trim(),
-        nombreFantasia: document.getElementById('inputEmisorFantasia').value.trim(),
         domicilio: document.getElementById('inputEmisorDomicilio').value.trim(),
         ingresosBrutos: document.getElementById('inputEmisorIIBB').value.trim(),
         fechaInicio: document.getElementById('inputEmisorFechaInicio').value,

@@ -1281,7 +1281,6 @@ function guardarDatosEmisor(datos) {
     // Guardar en ScriptProperties
     props.setProperty('EMISOR_CUIT', datos.cuit.trim());
     props.setProperty('EMISOR_RAZON_SOCIAL', datos.razonSocial.trim());
-    props.setProperty('EMISOR_NOMBRE_FANTASIA', datos.nombreFantasia ? datos.nombreFantasia.trim() : '');
     props.setProperty('EMISOR_DOMICILIO', datos.domicilio.trim());
     props.setProperty('EMISOR_IIBB', datos.ingresosBrutos ? datos.ingresosBrutos.trim() : '');
     props.setProperty('EMISOR_FECHA_INICIO', datos.fechaInicio || '');
@@ -1313,7 +1312,6 @@ function obtenerDatosEmisor() {
     const datos = {
       cuit: props.getProperty('EMISOR_CUIT') || '',
       razonSocial: props.getProperty('EMISOR_RAZON_SOCIAL') || '',
-      nombreFantasia: props.getProperty('EMISOR_NOMBRE_FANTASIA') || '',
       domicilio: props.getProperty('EMISOR_DOMICILIO') || '',
       ingresosBrutos: props.getProperty('EMISOR_IIBB') || '',
       fechaInicio: props.getProperty('EMISOR_FECHA_INICIO') || '',
@@ -1639,11 +1637,11 @@ function guardarConfiguracionGeneral(config) {
 function restaurarConfiguracionPorDefecto() {
   try {
     const props = PropertiesService.getScriptProperties();
-    
+
     // Eliminar todas las configuraciones personalizadas (pero mantener credenciales)
     const keysToKeep = [
       'SPREADSHEET_ID',
-      'EMISOR_CUIT', 'EMISOR_RAZON_SOCIAL', 'EMISOR_NOMBRE_FANTASIA',
+      'EMISOR_CUIT', 'EMISOR_RAZON_SOCIAL',
       'EMISOR_DOMICILIO', 'EMISOR_IIBB', 'EMISOR_FECHA_INICIO', 'EMISOR_CONDICION_IVA',
       'AFIP_ACCESS_TOKEN', 'AFIP_PUNTO_VENTA', 'AFIP_CUIT',
       'AFIP_CERT', 'AFIP_KEY',

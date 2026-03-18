@@ -1338,7 +1338,6 @@ function _leerConfiguracionEmisor() {
 
   return {
     razonSocial:       p('EMISOR_RAZON_SOCIAL'),
-    nombreFantasia:    p('EMISOR_NOMBRE_FANTASIA', p('SISTEMA_NOMBRE')),
     cuit:              formatearCuit(p('EMISOR_CUIT', p('AFIP_CUIT'))),
     domicilio:         p('EMISOR_DOMICILIO'),
     localidad:         '',   // incluido dentro de EMISOR_DOMICILIO
