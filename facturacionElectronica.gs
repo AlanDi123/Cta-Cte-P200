@@ -80,100 +80,108 @@ function consultarCUITArca(cuit) {
  */
 function emitirFacturaElectronica(datosFactura) {
   try {
-    // Normalizar y validar datos de entrada
     var datos = _normalizarDatosFactura(datosFactura);
-    var validacion = validarClienteFacturacion(
-      { 
-        nombre: datos.clienteNombre,
-        cuit: datos.clienteCuit,
-        condicionFiscal: datos.clienteCondicion,
-        razonSocial: datos.clienteRazonSocial,
-        domicilioFiscal: datos.clienteDomicilio
-      },
-      datos.cbteTipo === 1 ? 'A' : 'B'
-    );
-    
-    if (!validacion.valid) {
-      return { success: false, error: validacion.errors.join(' | ') };
+
+    // ── Validación inline (sin depender de utils.gs) ─────────────────────────
+    var erroresValidacion = [];
+
+    if (!datos.clienteNombre || datos.clienteNombre.trim() === '') {
+      erroresValidacion.push('Nombre del cliente requerido.');
     }
 
-    var ivaConfig = CONFIG.getIVA();
-
-    // ── Cálculo de importes con manejo correcto de Factura B (total con IVA) ──
-    var neto, iva, total;
-    if (datos.importeNeto > 0) {
-      // Tenemos el neto explícito (Factura A o módulo ARCA standalone)
-      neto  = Math.round(datos.importeNeto * 100) / 100;
-      iva   = Math.round(neto * ivaConfig.MULTIPLICADOR * 100) / 100;
-      total = Math.round((neto + iva) * 100) / 100;
-    } else if (datos.detalle.length > 0) {
-      // Calcular desde ítems (precio unitario SIN IVA × cantidad)
-      neto  = datos.detalle.reduce(function(s, i) {
-        return s + (Number(i.precioUnitario || 0) * Number(i.cantidad || 1));
-      }, 0);
-      neto  = Math.round(neto * 100) / 100;
-      iva   = Math.round(neto * ivaConfig.MULTIPLICADOR * 100) / 100;
-      total = Math.round((neto + iva) * 100) / 100;
-    } else {
-      return { success: false, error: 'No se pudo determinar el importe: no hay items ni importeNeto.' };
-    }
-
-    if (total <= 0) {
-      return { success: false, error: 'El importe total calculado es $0. Revisá los productos o el monto.' };
-    }
-
-    Logger.log('[FACT] Emitiendo cbteTipo=' + datos.cbteTipo +
-               ' cliente=' + datos.clienteNombre +
-               ' neto=$' + neto + ' iva=$' + iva + ' total=$' + total);
-
-    // Calcular fecha válida para ARCA (máx 5 días atrás para productos)
-    var fechaCbte = _calcularFechaValidaArca(datos.fechaTransferencia);
-    var avisoFecha = null;
-    if (datos.fechaTransferencia) {
-      var fechaTrans = parsearFechaLocal(datos.fechaTransferencia);
-      var hoy = new Date();
-      var diffDias = Math.floor((hoy - fechaTrans) / 86400000);
-      if (diffDias > 5) {
-        avisoFecha = 'La fecha de transferencia supera 5 días. ARCA usará: ' + 
-                     formatearFecha(parsearFechaLocal(fechaCbte.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')));
+    // Factura A requiere CUIT y condición RI/Monotributo
+    if (datos.cbteTipo === 1) {
+      if (!datos.clienteCuit || datos.clienteCuit.trim() === '') {
+        erroresValidacion.push('Factura A requiere CUIT del cliente.');
+      }
+      var condUp = String(datos.clienteCondicion || '').toUpperCase();
+      var esRIoM = condUp === 'RI' ||
+                   condUp === 'M'  ||
+                   condUp.indexOf('RESPONSABLE INSCRIPTO') >= 0 ||
+                   condUp.indexOf('MONOTRIBUT') >= 0;
+      if (!esRIoM) {
+        erroresValidacion.push('Factura A solo para Responsable Inscripto o Monotributista. Condición actual: ' + (datos.clienteCondicion || 'no especificada'));
+      }
+      if (!datos.clienteRazonSocial || datos.clienteRazonSocial.trim() === '') {
+        erroresValidacion.push('Factura A requiere Razón Social del cliente.');
       }
     }
 
-    // Delegación a capa AFIP
+    if (erroresValidacion.length > 0) {
+      return { success: false, error: erroresValidacion.join(' | ') };
+    }
+
+    // ── Calcular importes ────────────────────────────────────────────────────
+    var ivaPct = parseFloat(PropertiesService.getScriptProperties()
+                   .getProperty('IVA_PORCENTAJE') || '10.5') / 100;
+
+    var neto, iva, total;
+
+    if (datos.importeNeto > 0) {
+      neto  = Math.round(datos.importeNeto * 100) / 100;
+      iva   = Math.round(neto * ivaPct * 100) / 100;
+      total = Math.round((neto + iva) * 100) / 100;
+    } else if (datos.detalle && datos.detalle.length > 0) {
+      neto = datos.detalle.reduce(function(s, item) {
+        return s + (Number(item.precioUnitario || item.precio || 0) * Number(item.cantidad || 1));
+      }, 0);
+      neto  = Math.round(neto * 100) / 100;
+      iva   = Math.round(neto * ivaPct * 100) / 100;
+      total = Math.round((neto + iva) * 100) / 100;
+    } else {
+      return { success: false, error: 'No se pudo calcular el importe: no hay items ni importeNeto.' };
+    }
+
+    if (total <= 0) {
+      return { success: false, error: 'El total calculado es $0. Revisá los productos o el monto.' };
+    }
+
+    Logger.log('[FACT] cbteTipo=' + datos.cbteTipo +
+               ' cliente=' + datos.clienteNombre +
+               ' neto=$' + neto + ' iva=$' + iva + ' total=$' + total);
+
+    // ── Fecha válida para ARCA (máx 5 días atrás) ───────────────────────────
+    var fechaCbte  = _calcularFechaValidaArca(datos.fechaTransferencia);
+    var avisoFecha = null;
+    if (datos.fechaTransferencia) {
+      var fTrans   = parsearFechaLocal(datos.fechaTransferencia);
+      var diffDias = Math.floor((new Date() - fTrans) / 86400000);
+      if (diffDias > 5) {
+        avisoFecha = 'Transferencia de hace ' + diffDias +
+                     ' días. ARCA usará la fecha máxima permitida (5 días).';
+      }
+    }
+
+    // ── Llamada a AFIP ───────────────────────────────────────────────────────
     var resultado = afipEmitirFacturaWrapper({
-      cbteTipo:          datos.cbteTipo,
-      clienteNombre:     datos.clienteNombre,
-      clienteRazonSocial: datos.clienteRazonSocial || datos.clienteNombre,
-      clienteDomicilio:  datos.clienteDomicilio || '',
-      clienteCuit:       datos.clienteCuit || '',
-      clienteCondicion:  datos.clienteCondicion || 'CF',   // ← threaded al builder
-      neto:              neto,
-      iva:               iva,
-      total:             total,
+      cbteTipo:         datos.cbteTipo,
+      clienteNombre:    datos.clienteNombre,
+      clienteCuit:      datos.clienteCuit,
+      clienteCondicion: datos.clienteCondicion,
+      neto:             neto,
+      iva:              iva,
+      total:            total,
       fechaTransferencia: datos.fechaTransferencia
     });
 
     if (!resultado.success) return resultado;
 
-    // ── Descontar stock de los productos facturados ──────────────────────────
-    // Solo aplica para ítems que tienen productoId (vienen del catálogo de Productos)
+    // ── Descontar stock de productos facturados ──────────────────────────────
     if (datos.detalle && datos.detalle.length > 0) {
       datos.detalle.forEach(function(item) {
-        if (item.productoId) {
+        var prodId = parseInt(item.productoId || item.id || 0);
+        if (prodId > 0) {
           try {
-            var cant = parseInt(item.cantidad) || 1;
-            ProductosRepository.descontarStock(parseInt(item.productoId), cant);
-            Logger.log('[FACTURACION] Stock descontado: producto ' + item.productoId + ' × ' + cant);
-          } catch (stockErr) {
-            // No bloqueamos la factura por error de stock; solo logueamos
-            Logger.log('[FACTURACION] ADVERTENCIA stock producto ' +
-                       item.productoId + ': ' + stockErr.message);
+            ProductosRepository.descontarStock(prodId, parseInt(item.cantidad) || 1);
+            Logger.log('[FACT] Stock descontado: prodId=' + prodId);
+          } catch (e) {
+            Logger.log('[FACT] Aviso stock prodId=' + prodId + ': ' + e.message);
           }
         }
       });
     }
 
-    // Persistir en hoja FACTURAS_EMITIDAS
+    // ── Guardar en hoja FACTURAS_EMITIDAS ────────────────────────────────────
     _guardarFacturaEnHoja({
       id:            Utilities.getUuid().substring(0, 8).toUpperCase(),
       fecha:         formatearFechaLocal(new Date()),
@@ -196,13 +204,13 @@ function emitirFacturaElectronica(datosFactura) {
       ptoVta:     resultado.ptoVta || resultado.puntoVenta,
       cbteNro:    resultado.cbteNro,
       total:      total,
-      mensaje:    'Comprobante emitido exitosamente',
+      mensaje:    'Comprobante emitido correctamente',
       avisoFecha: avisoFecha
     };
 
   } catch (error) {
-    Logger.log('[FACTURACION] Error en emitirFacturaElectronica: ' + error.message);
-    return { success: false, error: afipFormatearErrorUsuario(error) };
+    Logger.log('[FACT] Error en emitirFacturaElectronica: ' + error.message);
+    return { success: false, error: 'Error al conectar con AFIP: ' + error.message };
   }
 }
 
