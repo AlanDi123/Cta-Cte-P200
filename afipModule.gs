@@ -376,13 +376,46 @@ function afipDeterminarCondicionIVA(impuestos, persona) {
 // ─── SECCIÓN 6: FACTURACIÓN ELECTRÓNICA (WSFE) ───────────────────────────────
 
 function afipEmitirFactura(datosFactura) {
-  if (!datosFactura.cbteTipo || !datosFactura.total) throw new Error('Datos de factura inválidos');
+  if (!datosFactura.cbteTipo || !datosFactura.total) {
+    throw new Error('Datos de factura inválidos: cbteTipo y total son requeridos');
+  }
 
   var auth   = afipGetAuth(AFIP_CONFIG.WS.FE);
   var creds  = afipGetCredentials();
   var emisor = afipGetEmisorConfig();
+  var headers = {
+    'Authorization': 'Bearer ' + creds.accessToken,
+    'Content-Type':  'application/json'
+  };
+
+  // ── Paso 1: Obtener el próximo número de comprobante (FECompUltimoAutorizado) ──
+  var nextNro = 1;
+  try {
+    var payloadUltimo = {
+      environment: AFIP_CONFIG.ENVIRONMENT,
+      method:      'FECompUltimoAutorizado',
+      wsid:        AFIP_CONFIG.WS.FE,
+      params: {
+        Auth:    { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
+        PtoVta:  creds.puntoVenta,
+        CbteTipo: datosFactura.cbteTipo
+      }
+    };
+    if (creds.cert && creds.key) { payloadUltimo.cert = creds.cert; payloadUltimo.key = creds.key; }
+    var resUltimo = afipFetch('/requests', payloadUltimo, headers);
+    var ultimoNro = 0;
+    if (resUltimo && resUltimo.FECompUltimoAutorizadoResult) {
+      ultimoNro = Number(resUltimo.FECompUltimoAutorizadoResult.CbteNro) || 0;
+    }
+    nextNro = ultimoNro + 1;
+    Logger.log('[AFIP] Próximo número de comprobante: ' + nextNro + ' (tipo ' + datosFactura.cbteTipo + ')');
+  } catch (e) {
+    Logger.log('[AFIP] Error obteniendo último comprobante: ' + e.message + '. Usando 1.');
+  }
+
+  // ── Paso 2: Construir y enviar FECAESolicitar ────────────────────────────────
   var fechaCbte    = afipCalcularFechaValida(datosFactura.fechaTransferencia);
-  var feDetRequest = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, emisor);
+  var feDetRequest = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, emisor, nextNro);
 
   var payload = {
     environment: AFIP_CONFIG.ENVIRONMENT,
@@ -391,17 +424,23 @@ function afipEmitirFactura(datosFactura) {
     params: {
       Auth: { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
       FeCAEReq: {
-        FeCabReq: { CantReg: 1, PtoVta: creds.puntoVenta, CbteTipo: datosFactura.cbteTipo },
+        FeCabReq: {
+          CantReg:  1,
+          PtoVta:   creds.puntoVenta,
+          CbteTipo: datosFactura.cbteTipo
+        },
         FeDetReq: { FECAEDetRequest: feDetRequest }
       }
     }
   };
   if (creds.cert && creds.key) { payload.cert = creds.cert; payload.key = creds.key; }
 
-  var headers = { 'Authorization': 'Bearer ' + creds.accessToken, 'Content-Type': 'application/json' };
-  Logger.log('[AFIP FACTURA] Enviando comprobante tipo ' + datosFactura.cbteTipo);
+  Logger.log('[AFIP] Enviando FECAESolicitar tipo ' + datosFactura.cbteTipo +
+             ' neto=$' + datosFactura.neto + ' iva=$' + datosFactura.iva +
+             ' total=$' + datosFactura.total + ' cbteNro=' + nextNro);
+
   var resultado = afipFetchConRetry('/requests', payload, headers);
-  return afipParsearRespuestaFactura(resultado, datosFactura);
+  return afipParsearRespuestaFactura(resultado, datosFactura, nextNro);
 }
 
 function afipCalcularFechaValida(fechaTransferencia) {
@@ -426,8 +465,7 @@ function afipFormatoFecha(fecha) {
          String(fecha.getDate()).padStart(2, '0');
 }
 
-function afipConstruirFECAEDetRequest(datosFactura, fechaCbte, emisor) {
-  var creds  = afipGetCredentials();
+function afipConstruirFECAEDetRequest(datosFactura, fechaCbte, emisor, cbteNro) {
   var docTipo = AFIP_CONFIG.DOC_TIPOS.CONSUMIDOR_FINAL;
   var docNro  = '0';
   if (datosFactura.clienteCuit) {
@@ -439,73 +477,108 @@ function afipConstruirFECAEDetRequest(datosFactura, fechaCbte, emisor) {
   var iva   = Number(datosFactura.iva)   || 0;
   var total = Number(datosFactura.total) || 0;
 
-  // ── CondicionIVAReceptorId: OBLIGATORIO desde 15/04/2025, excluyente desde 01/04/2026
-  // IDs según tabla oficial FEParamGetCondicionIvaReceptor:
-  //   1  = IVA Responsable Inscripto  (Factura A)
-  //   6  = Responsable Monotributo    (Factura A)
-  //  13  = Monotributista Social      (Factura A)
-  //   5  = Consumidor Final           (Factura B)
-  //   4  = IVA Sujeto Exento          (Factura B)
+  // Verificación de consistencia: neto + iva debe igualar total (tolerancia 1 centavo)
+  var calculado = Math.round((neto + iva) * 100);
+  var enviado   = Math.round(total * 100);
+  if (Math.abs(calculado - enviado) > 1) {
+    Logger.log('[AFIP] ADVERTENCIA: neto(' + neto + ') + iva(' + iva + ') = ' +
+               (neto + iva) + ' ≠ total(' + total + ')');
+    // Forzar total coherente para que ARCA lo acepte
+    total = Math.round((neto + iva) * 100) / 100;
+  }
+
+  // ── CondicionIVAReceptorId (OBLIGATORIO desde RG ARCA 5616/2024) ─────────
+  // IDs: 1=RI, 6=Monotributo, 13=Monotributo Social, 5=CF, 4=Exento
   var condRaw = String(datosFactura.clienteCondicion || 'CF').toUpperCase();
   var condicionIVAReceptorId;
   if (condRaw === 'RI' || condRaw.indexOf('RESPONSABLE INSCRIPTO') >= 0) {
     condicionIVAReceptorId = 1;
   } else if (condRaw === 'M' || condRaw.indexOf('MONOTRIBUT') >= 0) {
     condicionIVAReceptorId = 6;
+  } else if (condRaw.indexOf('SOCIAL') >= 0) {
+    condicionIVAReceptorId = 13;
   } else if (condRaw.indexOf('EXENTO') >= 0) {
     condicionIVAReceptorId = 4;
   } else {
-    condicionIVAReceptorId = 5; // Consumidor Final (default seguro)
+    condicionIVAReceptorId = 5; // Consumidor Final (seguro para Factura B)
   }
 
-  // ── Alícuota IVA correcta (Id: 4 = 10.5%, Id: 5 = 21%) ──────────────────
-  // El bug original tenía Id: 5 (21%) que es incorrecto para el sistema
-  var ivaAlicuotaId = parseInt(CONFIG.get('IVA_ALICUOTA_ID', '4'));   // 4 = 10.5%
-  var ivaPorcentaje = parseFloat(CONFIG.get('IVA_PORCENTAJE', '10.5')); // 10.5
+  // ── Alícuota IVA (estructura correcta según docs afipsdk.com) ────────────
+  // Id: 3=0%, 4=10.5%, 5=21%, 6=27%
+  // Importe = monto en pesos (NO el porcentaje)
+  var ivaAlicuotaId = parseInt(CONFIG.get('IVA_ALICUOTA_ID', '4')); // 4 = 10.5%
+  var ivaImporte    = Math.round(iva * 100) / 100;  // monto real en pesos
 
-  return {
-    Concepto:    AFIP_CONFIG.CONCEPTO.PRODUCTOS,
-    DocTipo:     docTipo,
-    DocNro:      docNro,
-    CbteDesde:   0,
-    CbteHasta:   0,
-    CbteFch:     fechaCbte,
-    ImpTotal:    total,
-    ImpTotConc:  0,
-    ImpNeto:     neto,
-    ImpOpEx:     0,
-    ImpIVA:      iva,
-    ImpTrib:     0,
-    MonId:       AFIP_CONFIG.MONEDA.PESOS,
-    MonCotiz:    1,
-    CondicionIVAReceptorId: condicionIVAReceptorId,  // ← OBLIGATORIO RG 5616/2024
-    Observaciones: [],
-    Tributos:    [],
-    AlicuotasIVA: [{ Id: ivaAlicuotaId, BaseImp: neto, Alicuota: ivaPorcentaje }],
-    Compradores: [],
-    PeriodoAsoc: null
+  var detRequest = {
+    Concepto:              AFIP_CONFIG.CONCEPTO.PRODUCTOS,
+    DocTipo:               docTipo,
+    DocNro:                docNro,
+    CbteDesde:             cbteNro,
+    CbteHasta:             cbteNro,
+    CbteFch:               fechaCbte,
+    ImpTotal:              total,
+    ImpTotConc:            0,
+    ImpNeto:               neto,
+    ImpOpEx:               0,
+    ImpIVA:                iva,
+    ImpTrib:               0,
+    MonId:                 AFIP_CONFIG.MONEDA.PESOS,
+    MonCotiz:              1,
+    CondicionIVAReceptorId: condicionIVAReceptorId
   };
+
+  // Solo incluir bloque Iva si neto > 0 (Consumidor Final puede ir sin IVA desglosado)
+  if (neto > 0) {
+    detRequest.Iva = {
+      AlicIva: [{
+        Id:      ivaAlicuotaId,
+        BaseImp: neto,
+        Importe: ivaImporte
+      }]
+    };
+  }
+
+  return detRequest;
 }
 
-function afipParsearRespuestaFactura(resultado, datosFactura) {
+function afipParsearRespuestaFactura(resultado, datosFactura, cbteNro) {
+  Logger.log('[AFIP] Respuesta raw: ' + JSON.stringify(resultado).substring(0, 500));
+
   var feResp = resultado.FECAESolicitarResult || resultado;
+
   if (feResp.Errors) {
-    var errMsg = feResp.Errors.Err ? feResp.Errors.Err.map(function(e) {
-      return '(' + e.Code + ') ' + e.Msg;
-    }).join(', ') : 'Error desconocido';
-    throw new Error('AFIP rechazó la factura: ' + errMsg);
+    var errores = feResp.Errors.Err;
+    if (errores) {
+      var arr  = Array.isArray(errores) ? errores : [errores];
+      var msgs = arr.map(function(e) { return '(' + e.Code + ') ' + e.Msg; }).join(' | ');
+      throw new Error('ARCA rechazó el comprobante: ' + msgs);
+    }
   }
-  var detalle  = feResp.FeDetResp || feResp.FECAEDetResponse;
-  if (!detalle || !detalle.FECAEDetResponse) throw new Error('Respuesta inválida de AFIP');
-  var cbteResp = Array.isArray(detalle.FECAEDetResponse) ?
-                 detalle.FECAEDetResponse[0] : detalle.FECAEDetResponse;
+
+  var feDetResp = feResp.FeDetResp || feResp.FECAEDetResponse;
+  if (!feDetResp) throw new Error('Respuesta ARCA inválida: sin FeDetResp');
+
+  var cbteResp = feDetResp.FECAEDetResponse;
+  if (Array.isArray(cbteResp)) cbteResp = cbteResp[0];
+  if (!cbteResp) throw new Error('Respuesta ARCA inválida: FECAEDetResponse vacío');
+
+  if (cbteResp.Resultado === 'R') {
+    var obs = cbteResp.Observaciones && cbteResp.Observaciones.Obs
+      ? (Array.isArray(cbteResp.Observaciones.Obs)
+          ? cbteResp.Observaciones.Obs.map(function(o) { return o.Msg; }).join(' | ')
+          : cbteResp.Observaciones.Obs.Msg)
+      : 'Rechazado por ARCA';
+    throw new Error('ARCA rechazó el comprobante: ' + obs);
+  }
+
+  var creds = afipGetCredentials();
   return {
     success:        true,
-    cae:            cbteResp.CAE || '',
-    caeVencimiento: cbteResp.CAEFchVto || '',
-    cbteNro:        cbteResp.CbteDesde || 0,
+    cae:            cbteResp.CAE            || '',
+    caeVencimiento: cbteResp.CAEFchVto      || '',
+    cbteNro:        cbteResp.CbteDesde      || cbteNro,
     cbteTipo:       datosFactura.cbteTipo,
-    puntoVenta:     cbteResp.PtoVta || 0,
-    mensaje:        'Factura autorizada con CAE: ' + cbteResp.CAE
+    puntoVenta:     creds.puntoVenta,
+    mensaje:        'Comprobante autorizado. CAE: ' + cbteResp.CAE
   };
 }

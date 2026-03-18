@@ -11345,71 +11345,50 @@
     }
 
     function emitirFacturaB() {
-      const transferencia = EstadoFacturacionUnif.transferenciaActual;
-      const cliente = EstadoFacturacionUnif.clienteActual;
-
+      var transferencia = EstadoFacturacionUnif.transferenciaActual;
+      var cliente       = EstadoFacturacionUnif.clienteActual;
       if (!transferencia || !cliente) {
         mostrarToast('Error: datos no disponibles', 'error');
         return;
       }
+      if (!confirm('¿Emitir Factura B en ARCA?\n\nEsta acción NO se puede deshacer.')) return;
 
-      if (!confirm('¿Emitir Factura B en ARCA?\n\nEsta acción NO se puede deshacer.')) {
-        return;
+      // Factura B: el monto de transferencia es el TOTAL con IVA incluido
+      // neto = total / (1 + iva%), iva = total - neto
+      var ivaPct  = 0.105;  // 10.5%
+      var total   = Number(transferencia.monto) || 0;
+      var neto    = Math.round((total / (1 + ivaPct)) * 100) / 100;
+      var iva     = Math.round((total - neto) * 100) / 100;
+      // Ajuste de centavo para que neto + iva == total exacto
+      if (Math.round((neto + iva) * 100) !== Math.round(total * 100)) {
+        iva = Math.round((total - neto) * 100) / 100;
       }
 
-      const btnEmitir = document.getElementById('btnEmitirFacturaB');
+      var btnEmitir = document.getElementById('btnEmitirFacturaB');
       btnEmitir.disabled = true;
       btnEmitir.textContent = 'Emitiendo...';
       mostrarLoading(true);
 
-      // Preparar datos para ARCA
-      const datosFactura = {
-        cbteTipo: 6, // Factura B
-        cliente: {
-          nombre: cliente.nombre,
-          razonSocial: cliente.razonSocial || cliente.nombre,
-          domicilio: cliente.domicilioFiscal || '',
-          condicion: 'CF', // Consumidor Final
-          cuit: cliente.cuit || null
-        },
-        items: [{
-          descripcion: 'Venta de Productos',
-          cantidad: 1,
-          precioUnitario: transferencia.monto // Incluye IVA
-        }],
-        fechaTransferencia: transferencia.fecha || null,
-        obs: 'Transferencia: ' + (transferencia.banco || '') + ' - ID: ' + transferencia.id
-      };
-
+      // Estructura PLANA — compatible con _normalizarDatosFactura
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           btnEmitir.disabled = false;
           btnEmitir.textContent = '✅ Emitir Factura B en ARCA';
-
           if (result.success) {
-            if (result.avisoFecha) {
-              mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
-            } else {
-              mostrarToast('¡Factura B emitida exitosamente!', 'success');
-            }
-
-            // Marcar transferencia como facturada
+            if (result.avisoFecha) mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
+            else mostrarToast('¡Factura B emitida! CAE: ' + result.cae, 'success');
             transferencia.facturada = true;
-            transferencia.fechaFactura = new Date().toISOString();
-
-            // Actualizar en servidor
             marcarTransferenciaFacturadaEnServidor(transferencia.id);
-
             renderTransferenciasUnificadas();
             cerrarModal('modalFacturaB');
-
-            // Mostrar resultado
-            setTimeout(() => {
-              alert('Factura B emitida correctamente\\n\\nCAE: ' + result.cae + '\\nNúmero: ' + result.ptoVta + '-' + result.cbteNro + (result.avisoFecha ? '\\n\\n⚠️ ' + result.avisoFecha : ''));
-            }, 500);
+            setTimeout(function() {
+              alert('Factura B emitida correctamente\n\nCAE: ' + result.cae +
+                    '\nNúmero: ' + result.ptoVta + '-' + result.cbteNro +
+                    (result.avisoFecha ? '\n\n⚠️ ' + result.avisoFecha : ''));
+            }, 300);
           } else {
-            mostrarToast('Error al emitir factura: ' + result.error, 'error');
+            mostrarToast('Error: ' + result.error, 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -11418,7 +11397,22 @@
           btnEmitir.textContent = '✅ Emitir Factura B en ARCA';
           mostrarToast('Error: ' + error.message, 'error');
         })
-        .emitirFacturaElectronica(datosFactura);
+        .emitirFacturaElectronica({
+          // ESTRUCTURA PLANA — compatible con _normalizarDatosFactura
+          cbteTipo:           6,
+          clienteNombre:      cliente.nombre || 'CONSUMIDOR FINAL',
+          clienteRazonSocial: cliente.razonSocial || cliente.nombre || 'CONSUMIDOR FINAL',
+          clienteDomicilio:   cliente.domicilioFiscal || '',
+          clienteCuit:        cliente.cuit || '',
+          clienteCondicion:   'CF',
+          importeNeto:        neto,
+          detalle: [{
+            descripcion:  'Venta de Productos - Transferencia ' + (transferencia.banco || ''),
+            cantidad:     1,
+            precioUnitario: neto  // sin IVA
+          }],
+          fechaTransferencia: transferencia.fecha || null
+        });
     }
 
     // ============================================================================
@@ -11578,89 +11572,45 @@
     }
 
     function emitirFacturaA() {
-      const transferencia = EstadoFacturacionUnif.transferenciaActual;
-      const cliente = EstadoFacturacionUnif.clienteActual;
-      const items = EstadoFacturacionUnif.itemsFacturaA;
-
+      var transferencia = EstadoFacturacionUnif.transferenciaActual;
+      var cliente       = EstadoFacturacionUnif.clienteActual;
+      var items         = EstadoFacturacionUnif.itemsFacturaA;
       if (!transferencia || !cliente || items.length === 0) {
         mostrarToast('Error: datos no disponibles', 'error');
         return;
       }
+      if (!confirm('¿Emitir Factura A en ARCA?\n\nEsta acción NO se puede deshacer.')) return;
 
-      if (!confirm('¿Emitir Factura A en ARCA?\n\nEsta acción NO se puede deshacer.')) {
-        return;
-      }
+      // Calcular neto desde los items (precios SIN IVA)
+      var neto  = items.reduce(function(s, i) { return s + i.subtotal; }, 0);
+      neto      = Math.round(neto * 100) / 100;
+      var iva   = Math.round(neto * 0.105 * 100) / 100;
+      var total = Math.round((neto + iva) * 100) / 100;
 
-      const btnEmitir = document.getElementById('btnEmitirFacturaA');
+      var btnEmitir = document.getElementById('btnEmitirFacturaA');
       btnEmitir.disabled = true;
       btnEmitir.textContent = 'Emitiendo...';
       mostrarLoading(true);
-
-      // Validar que el cliente tenga Razón Social y Domicilio Fiscal
-      if (!cliente.razonSocial) {
-        mostrarLoading(false);
-        btnEmitir.disabled = false;
-        btnEmitir.textContent = '✓ Emitir Factura A';
-        mostrarToast('El cliente debe tener Razón Social para emitir Factura A', 'error');
-        return;
-      }
-
-      if (!cliente.domicilioFiscal) {
-        mostrarLoading(false);
-        btnEmitir.disabled = false;
-        btnEmitir.textContent = '✓ Emitir Factura A';
-        mostrarToast('El cliente debe tener Domicilio Fiscal para emitir Factura A', 'error');
-        return;
-      }
-
-      // Preparar datos para ARCA
-      const datosFactura = {
-        cbteTipo: 1, // Factura A
-        cliente: {
-          nombre: cliente.nombre,
-          razonSocial: cliente.razonSocial,
-          domicilio: cliente.domicilioFiscal,
-          condicion: 'RI', // Responsable Inscripto
-          cuit: cliente.cuit
-        },
-        items: items.map(item => ({
-          descripcion: item.descripcion,
-          cantidad: item.cantidad,
-          precioUnitario: item.precioUnitario // Sin IVA
-        })),
-        fechaTransferencia: transferencia.fecha || null,
-        obs: 'Transferencia: ' + (transferencia.banco || '') + ' - ID: ' + transferencia.id
-      };
 
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           btnEmitir.disabled = false;
           btnEmitir.textContent = '✅ Emitir Factura A en ARCA';
-
           if (result.success) {
-            if (result.avisoFecha) {
-              mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
-            } else {
-              mostrarToast('¡Factura A emitida exitosamente!', 'success');
-            }
-
-            // Marcar transferencia como facturada
+            if (result.avisoFecha) mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
+            else mostrarToast('¡Factura A emitida! CAE: ' + result.cae, 'success');
             transferencia.facturada = true;
-            transferencia.fechaFactura = new Date().toISOString();
-
-            // Actualizar en servidor
             marcarTransferenciaFacturadaEnServidor(transferencia.id);
-
             renderTransferenciasUnificadas();
             cerrarModal('modalFacturaA');
-
-            // Mostrar resultado
-            setTimeout(() => {
-              alert('Factura A emitida correctamente\\n\\nCAE: ' + result.cae + '\\nNúmero: ' + result.ptoVta + '-' + result.cbteNro + (result.avisoFecha ? '\\n\\n⚠️ ' + result.avisoFecha : ''));
-            }, 500);
+            setTimeout(function() {
+              alert('Factura A emitida correctamente\n\nCAE: ' + result.cae +
+                    '\nNúmero: ' + result.ptoVta + '-' + result.cbteNro +
+                    (result.avisoFecha ? '\n\n⚠️ ' + result.avisoFecha : ''));
+            }, 300);
           } else {
-            mostrarToast('Error al emitir factura: ' + result.error, 'error');
+            mostrarToast('Error: ' + result.error, 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -11669,7 +11619,26 @@
           btnEmitir.textContent = '✅ Emitir Factura A en ARCA';
           mostrarToast('Error: ' + error.message, 'error');
         })
-        .emitirFacturaElectronica(datosFactura);
+        .emitirFacturaElectronica({
+          // ESTRUCTURA PLANA — compatible con _normalizarDatosFactura
+          cbteTipo:           1,
+          clienteNombre:      cliente.nombre,
+          clienteRazonSocial: cliente.razonSocial || cliente.nombre,
+          clienteDomicilio:   cliente.domicilioFiscal || '',
+          clienteCuit:        cliente.cuit || '',
+          clienteCondicion:   cliente.condicionFiscal || 'RI',
+          importeNeto:        neto,
+          // Items con productoId para descontar stock
+          detalle: items.map(function(item) {
+            return {
+              descripcion:    item.descripcion,
+              cantidad:       item.cantidad,
+              precioUnitario: item.precioUnitario,
+              productoId:     item.productoId || null
+            };
+          }),
+          fechaTransferencia: transferencia.fecha || null
+        });
     }
 
     // Marcar transferencia como facturada en el servidor

@@ -97,11 +97,34 @@ function emitirFacturaElectronica(datosFactura) {
       return { success: false, error: validacion.errors.join(' | ') };
     }
 
-    // Calcular importes con IVA configurable
     var ivaConfig = CONFIG.getIVA();
-    var neto  = Number(datos.importeNeto) || 0;
-    var iva   = Math.round(neto * ivaConfig.MULTIPLICADOR * 100) / 100;
-    var total = Math.round((neto + iva) * 100) / 100;
+
+    // ── Cálculo de importes con manejo correcto de Factura B (total con IVA) ──
+    var neto, iva, total;
+    if (datos.importeNeto > 0) {
+      // Tenemos el neto explícito (Factura A o módulo ARCA standalone)
+      neto  = Math.round(datos.importeNeto * 100) / 100;
+      iva   = Math.round(neto * ivaConfig.MULTIPLICADOR * 100) / 100;
+      total = Math.round((neto + iva) * 100) / 100;
+    } else if (datos.detalle.length > 0) {
+      // Calcular desde ítems (precio unitario SIN IVA × cantidad)
+      neto  = datos.detalle.reduce(function(s, i) {
+        return s + (Number(i.precioUnitario || 0) * Number(i.cantidad || 1));
+      }, 0);
+      neto  = Math.round(neto * 100) / 100;
+      iva   = Math.round(neto * ivaConfig.MULTIPLICADOR * 100) / 100;
+      total = Math.round((neto + iva) * 100) / 100;
+    } else {
+      return { success: false, error: 'No se pudo determinar el importe: no hay items ni importeNeto.' };
+    }
+
+    if (total <= 0) {
+      return { success: false, error: 'El importe total calculado es $0. Revisá los productos o el monto.' };
+    }
+
+    Logger.log('[FACT] Emitiendo cbteTipo=' + datos.cbteTipo +
+               ' cliente=' + datos.clienteNombre +
+               ' neto=$' + neto + ' iva=$' + iva + ' total=$' + total);
 
     // Calcular fecha válida para ARCA (máx 5 días atrás para productos)
     var fechaCbte = _calcularFechaValidaArca(datos.fechaTransferencia);
@@ -127,9 +150,7 @@ function emitirFacturaElectronica(datosFactura) {
       neto:              neto,
       iva:               iva,
       total:             total,
-      items:             datos.detalle || [],
-      fechaTransferencia: datos.fechaTransferencia,
-      fechaCbte:         fechaCbte
+      fechaTransferencia: datos.fechaTransferencia
     });
 
     if (!resultado.success) return resultado;
@@ -591,15 +612,48 @@ function actualizarCondicionesFiscalesDesdeArca() {
 // ─── SECCIÓN 3: HELPERS PRIVADOS ────────────────────────────────────────────
 
 function _normalizarDatosFactura(datos) {
+  // Soporta AMBAS estructuras:
+  //   A) Plana: { clienteNombre, clienteCondicion, importeNeto, ... }
+  //   B) Anidada: { cliente: {nombre, condicion, cuit}, items: [...] }
+
+  var clienteObj = datos.cliente || {};
+  var esAnidado  = (typeof clienteObj === 'object' && clienteObj !== null && !Array.isArray(clienteObj));
+
+  var clienteNombre    = datos.clienteNombre    || (esAnidado ? clienteObj.nombre    : '') || '';
+  var clienteCondicion = datos.clienteCondicion || (esAnidado ? clienteObj.condicion : '') || 'CF';
+  var clienteCuit      = datos.clienteCuit      || (esAnidado ? clienteObj.cuit      : '') || '';
+  var clienteRS        = datos.clienteRazonSocial || (esAnidado ? clienteObj.razonSocial : '') || clienteNombre;
+  var clienteDom       = datos.clienteDomicilio  || (esAnidado ? clienteObj.domicilio  : '') || '';
+
+  // Normalizar condición
+  if (!clienteCondicion || clienteCondicion === '') clienteCondicion = 'CF';
+
+  var detalle = datos.detalle || datos.items || [];
+
+  // Calcular importeNeto desde items si no viene explícito
+  var importeNetoExplicito = Number(datos.importeNeto || datos.neto) || 0;
+  var importeNeto = importeNetoExplicito;
+
+  if (importeNeto <= 0 && detalle.length > 0) {
+    // Suma los subtotales de los ítems (precioUnitario × cantidad = precio SIN IVA)
+    importeNeto = detalle.reduce(function(sum, item) {
+      var pu  = Number(item.precioUnitario || item.precio || 0);
+      var qty = Number(item.cantidad || 1);
+      return sum + (pu * qty);
+    }, 0);
+    importeNeto = Math.round(importeNeto * 100) / 100;
+    Logger.log('[NORM] importeNeto calculado desde items: $' + importeNeto);
+  }
+
   return {
     cbteTipo:          Number(datos.cbteTipo) || 6,
-    clienteNombre:     (datos.clienteNombre  || datos.cliente || '').toUpperCase().trim(),
-    clienteRazonSocial: datos.clienteRazonSocial || datos.clienteNombre || '',
-    clienteDomicilio:  datos.clienteDomicilio || datos.domicilio || '',
-    clienteCuit:       (datos.clienteCuit || datos.cuit || '').replace(/[-\s]/g, ''),
-    clienteCondicion:  datos.clienteCondicion || datos.condicion || 'CF',
-    importeNeto:       Number(datos.importeNeto || datos.neto) || 0,
-    detalle:           datos.detalle || datos.items || [],
+    clienteNombre:     clienteNombre.toString().toUpperCase().trim(),
+    clienteRazonSocial: clienteRS,
+    clienteDomicilio:  clienteDom,
+    clienteCuit:       clienteCuit.toString().replace(/[-\s]/g, ''),
+    clienteCondicion:  clienteCondicion,
+    importeNeto:       importeNeto,
+    detalle:           detalle,
     fechaTransferencia: datos.fechaTransferencia || null
   };
 }
