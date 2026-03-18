@@ -3251,25 +3251,92 @@
       <div class="module-view" id="module-historial-facturas">
         <h2 style="margin-bottom: 1rem;">Historial de Comprobantes ARCA</h2>
 
+        <!-- Barra de acciones -->
         <div class="card" style="margin-bottom: 1rem;">
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-            <button class="btn btn-primary" onclick="cargarHistorialFacturas()">Actualizar</button>
-            <button class="btn btn-outline" onclick="navegarA('facturacion-arca')">+ Nuevo Comprobante</button>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+              <button class="btn btn-primary" onclick="cargarHistorialFacturas(true)">🔄 Actualizar</button>
+              <button class="btn btn-outline" onclick="navegarA('facturacion-arca')">+ Nuevo Comprobante</button>
+              <button class="btn btn-outline btn-sm" onclick="hfExportarCSV()" id="btnHfExportCSV" style="display:none;">📥 Exportar CSV</button>
+            </div>
             <span style="font-size: 0.85rem; color: var(--sv-texto-muted);" id="historialFacturasCount"></span>
           </div>
         </div>
 
+        <!-- Stats cards -->
+        <div id="hfStatsCards" style="display:none; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+          <div class="stat-card" style="border-left: 3px solid var(--sv-primario);">
+            <div class="stat-value" id="hfStatTotal" style="font-size:1.4rem;">0</div>
+            <div class="stat-label">Emitidos</div>
+          </div>
+          <div class="stat-card" style="border-left: 3px solid var(--sv-exito);">
+            <div class="stat-value" id="hfStatMonto" style="font-size:1.1rem;">$0</div>
+            <div class="stat-label">Total Facturado</div>
+          </div>
+          <div class="stat-card" style="border-left: 3px solid var(--sv-peligro);">
+            <div class="stat-value" id="hfStatAnuladas" style="font-size:1.4rem;">0</div>
+            <div class="stat-label">Anuladas</div>
+          </div>
+          <div class="stat-card" style="border-left: 3px solid var(--sv-info);">
+            <div class="stat-value" id="hfStatNC" style="font-size:1.4rem;">0</div>
+            <div class="stat-label">Notas Crédito</div>
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card" id="hfFiltrosPanel" style="display:none; margin-bottom: 1rem; padding: 0.75rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; align-items: end;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:0.8rem;">Búsqueda rápida</label>
+              <input type="text" class="form-input" id="hfBusqueda" placeholder="Cliente, CAE..."
+                oninput="hfAplicarFiltros()" style="font-size:0.85rem;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:0.8rem;">Tipo comprobante</label>
+              <select class="form-input" id="hfFiltroTipo" onchange="hfAplicarFiltros()" style="font-size:0.85rem;">
+                <option value="">Todos</option>
+                <option value="1">Factura A</option>
+                <option value="6">Factura B</option>
+                <option value="3">N. Crédito A</option>
+                <option value="8">N. Crédito B</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:0.8rem;">Estado</label>
+              <select class="form-input" id="hfFiltroEstado" onchange="hfAplicarFiltros()" style="font-size:0.85rem;">
+                <option value="">Todos</option>
+                <option value="EMITIDA">Emitidas</option>
+                <option value="ANULADA">Anuladas</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:0.8rem;">Desde</label>
+              <input type="date" class="form-input" id="hfFiltroDesde" onchange="hfAplicarFiltros()" style="font-size:0.85rem;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:0.8rem;">Hasta</label>
+              <input type="date" class="form-input" id="hfFiltroHasta" onchange="hfAplicarFiltros()" style="font-size:0.85rem;">
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <button class="btn btn-outline btn-sm" onclick="hfLimpiarFiltros()" style="flex:1;">✕ Limpiar</button>
+            </div>
+          </div>
+          <div id="hfFiltrosActivos" style="margin-top:0.5rem; font-size:0.78rem; color:var(--sv-info);"></div>
+        </div>
+
+        <!-- Tabla principal -->
         <div class="card">
           <div class="table-container">
-            <table class="table table-responsive-cards">
+            <table class="table table-responsive-cards" id="hfTabla">
               <thead>
                 <tr>
-                  <th>Fecha</th>
+                  <th style="cursor:pointer;" onclick="hfOrdenar('fecha')">Fecha ↕</th>
                   <th>Tipo</th>
-                  <th>Numero</th>
+                  <th>Número</th>
                   <th>Cliente</th>
-                  <th style="text-align:right">Total</th>
+                  <th style="text-align:right; cursor:pointer;" onclick="hfOrdenar('total')">Total ↕</th>
                   <th>CAE</th>
+                  <th>Vto. CAE</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -4723,6 +4790,23 @@
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal Detalle Comprobante ARCA -->
+  <div class="modal" id="modalDetalleComprobante">
+    <div class="modal-content" style="max-width:580px;">
+      <div class="modal-header">
+        <div class="modal-title" id="modalDetalleTitle">Detalle del Comprobante</div>
+        <button class="modal-close" onclick="cerrarModal('modalDetalleComprobante')">&times;</button>
+      </div>
+      <div id="modalDetalleBody" style="font-size:0.9rem;">
+        <div style="text-align:center;padding:2rem;color:var(--sv-texto-muted);">Cargando...</div>
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:0.5rem;justify-content:flex-end;" class="no-print">
+        <button class="btn btn-outline btn-sm" id="btnVerificarARCA" onclick="hfVerificarEnARCA()" style="display:none;">🔍 Verificar en ARCA</button>
+        <button class="btn btn-outline" onclick="cerrarModal('modalDetalleComprobante')">Cerrar</button>
+      </div>
     </div>
   </div>
 
@@ -10082,18 +10166,29 @@
     }
 
     // ============================================================================
-    // HISTORIAL FACTURAS ARCA
+    // HISTORIAL FACTURAS ARCA — corregido y mejorado
     // ============================================================================
 
-    function cargarHistorialFacturas(forzar = false) {
-      // Si ya hay datos en caché y no se fuerza recarga, usar caché
+    var _HF = {
+      todas: [],
+      filtradas: [],
+      ordenCampo: 'fecha',
+      ordenDir: 'desc'
+    };
+
+    function cargarHistorialFacturas(forzar) {
+      forzar = forzar === true;
+
       if (CacheModulos.historialFacturas.cargado && !forzar) {
-        renderHistorialFacturas(CacheModulos.historialFacturas.datos.facturas || []);
+        _HF.todas = CacheModulos.historialFacturas.datos.facturas || [];
+        _HF.filtradas = _HF.todas.slice();
+        _hfRenderizarTabla();
+        _hfRenderizarStats();
+        _hfMostrarPaneles();
         return;
       }
 
-      // Mostrar loading suave
-      const container = document.getElementById('module-historial-facturas');
+      var container = document.getElementById('module-historial-facturas');
       if (container) container.style.opacity = '0.6';
 
       google.script.run
@@ -10102,9 +10197,13 @@
           if (result.success) {
             CacheModulos.historialFacturas.datos = result;
             CacheModulos.historialFacturas.cargado = true;
-            renderHistorialFacturas(result.facturas || []);
+            _HF.todas = result.facturas || [];
+            _HF.filtradas = _HF.todas.slice();
+            _hfRenderizarTabla();
+            _hfRenderizarStats();
+            _hfMostrarPaneles();
           } else {
-            mostrarToast('Error cargando historial: ' + result.error, 'error');
+            mostrarToast('Error cargando historial: ' + (result.error || ''), 'error');
           }
         })
         .withFailureHandler(function(error) {
@@ -10114,58 +10213,308 @@
         .obtenerHistorialFacturas();
     }
 
-    function renderHistorialFacturas(facturas) {
-      document.getElementById('historialFacturasCount').textContent = facturas.length + ' comprobantes';
-      var tbody = document.getElementById('tbodyHistorialFacturas');
+    function _hfMostrarPaneles() {
+      var stats    = document.getElementById('hfStatsCards');
+      var filtros  = document.getElementById('hfFiltrosPanel');
+      var exportBtn = document.getElementById('btnHfExportCSV');
+      if (stats)    stats.style.display = 'grid';
+      if (filtros)  filtros.style.display = '';
+      if (exportBtn) exportBtn.style.display = '';
+    }
+
+    function _hfRenderizarTabla() {
+      var tbody   = document.getElementById('tbodyHistorialFacturas');
+      var countEl = document.getElementById('historialFacturasCount');
+      if (!tbody) return;
+
+      var facturas = _HF.filtradas;
+      if (countEl) {
+        countEl.textContent = facturas.length + ' de ' + _HF.todas.length + ' comprobante(s)';
+      }
 
       if (facturas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--sv-texto-muted);padding:2rem;">No hay comprobantes emitidos aun</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--sv-texto-muted);padding:2rem;">No hay comprobantes que coincidan.</td></tr>';
         return;
       }
 
       tbody.innerHTML = facturas.map(function(f) {
-        var estadoColor = f.estado === 'EMITIDA' ? 'var(--sv-exito)' : (f.estado === 'ANULADA' ? 'var(--sv-peligro)' : 'var(--sv-advertencia)');
-        var pv = String(f.ptoVta || 0).padStart(5, '0');
+        // FIX Bug 3: cbteTipo puede ser string — usar Number()
+        var cbteTipoNum = Number(f.cbteTipo) || 0;
+        var pv  = String(f.ptoVta  || 0).padStart(5, '0');
         var nro = String(f.cbteNro || 0).padStart(8, '0');
-        var pdfLink = f.pdfUrl ? '<a href="' + f.pdfUrl + '" target="_blank" style="color:var(--sv-primario);">PDF</a>' : '';
-        var ncBtn = (f.estado === 'EMITIDA' && (f.cbteTipo === 1 || f.cbteTipo === 6))
-          ? '<button class="btn btn-outline" style="padding:2px 6px;font-size:0.7rem;" onclick="emitirNCDesdeHistorial(' + f.id + ')">NC</button>'
+
+        // Badge estado
+        var estadoHtml;
+        if (f.estado === 'EMITIDA') {
+          estadoHtml = '<span style="background:rgba(46,125,50,0.12);color:var(--sv-exito);padding:2px 10px;border-radius:999px;font-weight:700;font-size:0.78rem;">✓ EMITIDA</span>';
+        } else if (f.estado === 'ANULADA') {
+          estadoHtml = '<span style="background:rgba(198,40,40,0.12);color:var(--sv-peligro);padding:2px 10px;border-radius:999px;font-weight:700;font-size:0.78rem;">✗ ANULADA</span>';
+        } else {
+          estadoHtml = '<span style="color:var(--sv-texto-muted);">' + escapeHtml(f.estado || '-') + '</span>';
+        }
+
+        // Badge tipo
+        var tipoBg    = (cbteTipoNum === 1 || cbteTipoNum === 3) ? 'rgba(0,172,193,0.12)' : 'rgba(255,111,0,0.1)';
+        var tipoColor = (cbteTipoNum === 1 || cbteTipoNum === 3) ? 'var(--sv-info)' : 'var(--sv-secundario)';
+        var tipoHtml  = '<span style="background:' + tipoBg + ';color:' + tipoColor + ';padding:1px 7px;border-radius:4px;font-size:0.78rem;font-weight:600;">' +
+          escapeHtml(f.cbteTipoNombre || 'Comp.') + '</span>';
+
+        // CAE truncado con tooltip
+        var caeStr   = String(f.cae || '-');
+        var caeCorto = caeStr.length > 14 ? caeStr.substring(0, 8) + '…' + caeStr.slice(-4) : caeStr;
+        var caeHtml  = '<span title="' + escapeHtml(caeStr) + '" style="font-family:monospace;font-size:0.8rem;cursor:help;">' + escapeHtml(caeCorto) + '</span>';
+
+        // Vencimiento CAE con colores
+        var caeVtoStr = String(f.caeVto || '');
+        var caeVtoHtml = '-';
+        if (caeVtoStr.length === 8) {
+          var caeVtoFmt  = caeVtoStr.substring(6,8) + '/' + caeVtoStr.substring(4,6) + '/' + caeVtoStr.substring(0,4);
+          var caeVtoDate = new Date(caeVtoStr.substring(0,4) + '-' + caeVtoStr.substring(4,6) + '-' + caeVtoStr.substring(6,8));
+          var diffDias   = Math.floor((caeVtoDate - new Date()) / 86400000);
+          var vtoColor   = diffDias < 0 ? 'var(--sv-peligro)' : (diffDias <= 30 ? 'var(--sv-advertencia)' : 'var(--sv-texto-muted)');
+          caeVtoHtml = '<span style="font-size:0.8rem;color:' + vtoColor + ';">' + caeVtoFmt + '</span>';
+        }
+
+        // FIX Bug 2: f.id es string — escaparlo con comillas en el onclick
+        var idEscapado = escapeHtml(String(f.id || ''));
+
+        // Botón NC solo para facturas emitidas (no notas de crédito)
+        var ncBtn = (f.estado === 'EMITIDA' && (cbteTipoNum === 1 || cbteTipoNum === 6))
+          ? '<button class="btn btn-outline" style="padding:2px 7px;font-size:0.72rem;color:var(--sv-peligro);border-color:var(--sv-peligro);" onclick="emitirNCDesdeHistorial(\'' + idEscapado + '\')" title="Emitir Nota de Crédito">NC</button>'
           : '';
 
-        return '<tr>' +
-          '<td>' + escapeHtml(f.fecha || '') + '</td>' +
-          '<td>' + escapeHtml(f.cbteTipoNombre || '') + '</td>' +
-          '<td>' + pv + '-' + nro + '</td>' +
-          '<td>' + escapeHtml(f.clienteNombre || '') + '</td>' +
-          '<td style="text-align:right">$' + (f.total || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
-          '<td style="font-size:0.75rem;">' + escapeHtml(String(f.cae || '-')) + '</td>' +
-          '<td><span style="color:' + estadoColor + ';font-weight:bold;">' + (f.estado || '-') + '</span></td>' +
-          '<td>' + pdfLink + ' ' + ncBtn + '</td>' +
-          '</tr>';
+        return '<tr style="' + (f.estado === 'ANULADA' ? 'opacity:0.6;' : '') + '">' +
+          '<td data-label="Fecha" style="white-space:nowrap;">'  + escapeHtml(f.fecha || '-') + '</td>' +
+          '<td data-label="Tipo">'    + tipoHtml + '</td>' +
+          '<td data-label="Número" style="font-family:monospace;font-size:0.85rem;">' + pv + '-' + nro + '</td>' +
+          '<td data-label="Cliente" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(f.clienteNombre || '') + '">' + escapeHtml(f.clienteNombre || '') + '</td>' +
+          '<td data-label="Total" style="text-align:right;font-weight:700;color:var(--sv-primario);">$' + (Number(f.total) || 0).toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
+          '<td data-label="CAE">'     + caeHtml + '</td>' +
+          '<td data-label="Vto.CAE">' + caeVtoHtml + '</td>' +
+          '<td data-label="Estado">'  + estadoHtml + '</td>' +
+          '<td data-label="Acciones" style="white-space:nowrap;">' +
+            '<div class="btn-group">' +
+              '<button class="btn btn-outline" style="padding:2px 7px;font-size:0.72rem;" onclick="hfVerDetalle(\'' + idEscapado + '\')" title="Ver detalle">👁</button>' +
+              ncBtn +
+            '</div>' +
+          '</td>' +
+        '</tr>';
       }).join('');
     }
 
-    function emitirNCDesdeHistorial(facturaId) {
-      if (!confirm('Emitir Nota de Credito para anular esta factura?\n\nEsta accion NO se puede deshacer y quedara registrada en ARCA.')) {
-        return;
+    function _hfRenderizarStats() {
+      var todas     = _HF.todas;
+      var emitidas  = todas.filter(function(f) { return f.estado === 'EMITIDA'; });
+      var anuladas  = todas.filter(function(f) { return f.estado === 'ANULADA'; });
+      var notasCred = todas.filter(function(f) { return Number(f.cbteTipo) === 3 || Number(f.cbteTipo) === 8; });
+      var montoTotal = emitidas
+        .filter(function(f) { return Number(f.cbteTipo) === 1 || Number(f.cbteTipo) === 6; })
+        .reduce(function(s, f) { return s + (Number(f.total) || 0); }, 0);
+
+      var elTotal    = document.getElementById('hfStatTotal');
+      var elMonto    = document.getElementById('hfStatMonto');
+      var elAnuladas = document.getElementById('hfStatAnuladas');
+      var elNC       = document.getElementById('hfStatNC');
+      if (elTotal)    elTotal.textContent    = emitidas.length;
+      if (elMonto)    elMonto.textContent    = '$' + montoTotal.toLocaleString('es-AR', {minimumFractionDigits:0});
+      if (elAnuladas) elAnuladas.textContent = anuladas.length;
+      if (elNC)       elNC.textContent       = notasCred.length;
+    }
+
+    function hfAplicarFiltros() {
+      var busqueda = (document.getElementById('hfBusqueda').value || '').toLowerCase().trim();
+      var tipo     = document.getElementById('hfFiltroTipo').value;
+      var estado   = document.getElementById('hfFiltroEstado').value;
+      var desde    = document.getElementById('hfFiltroDesde').value;
+      var hasta    = document.getElementById('hfFiltroHasta').value;
+
+      _HF.filtradas = _HF.todas.filter(function(f) {
+        if (busqueda) {
+          var hayMatch = (f.clienteNombre || '').toLowerCase().includes(busqueda) ||
+                         String(f.cae || '').includes(busqueda) ||
+                         (f.clienteCuit || '').includes(busqueda) ||
+                         (f.cbteTipoNombre || '').toLowerCase().includes(busqueda);
+          if (!hayMatch) return false;
+        }
+        if (tipo   && String(Number(f.cbteTipo)) !== tipo)  return false;
+        if (estado && f.estado !== estado)                  return false;
+        if (desde  && (f.fecha || '') < desde)              return false;
+        if (hasta  && (f.fecha || '') > hasta)              return false;
+        return true;
+      });
+
+      var activos = [];
+      if (busqueda) activos.push('Búsqueda: "' + busqueda + '"');
+      if (tipo) {
+        var nombres = {'1':'Factura A','6':'Factura B','3':'N.Crédito A','8':'N.Crédito B'};
+        activos.push('Tipo: ' + (nombres[tipo] || tipo));
+      }
+      if (estado) activos.push('Estado: ' + estado);
+      if (desde)  activos.push('Desde: ' + desde);
+      if (hasta)  activos.push('Hasta: ' + hasta);
+      var actEl = document.getElementById('hfFiltrosActivos');
+      if (actEl) actEl.textContent = activos.length ? 'Filtros activos: ' + activos.join(' | ') : '';
+
+      _hfRenderizarTabla();
+    }
+
+    function hfLimpiarFiltros() {
+      document.getElementById('hfBusqueda').value     = '';
+      document.getElementById('hfFiltroTipo').value   = '';
+      document.getElementById('hfFiltroEstado').value = '';
+      document.getElementById('hfFiltroDesde').value  = '';
+      document.getElementById('hfFiltroHasta').value  = '';
+      var actEl = document.getElementById('hfFiltrosActivos');
+      if (actEl) actEl.textContent = '';
+      _HF.filtradas = _HF.todas.slice();
+      _hfRenderizarTabla();
+    }
+
+    function hfOrdenar(campo) {
+      if (_HF.ordenCampo === campo) {
+        _HF.ordenDir = _HF.ordenDir === 'desc' ? 'asc' : 'desc';
+      } else {
+        _HF.ordenCampo = campo;
+        _HF.ordenDir   = 'desc';
+      }
+      var dir = _HF.ordenDir;
+      _HF.filtradas.sort(function(a, b) {
+        var va, vb;
+        if (campo === 'fecha') {
+          va = a.fecha || ''; vb = b.fecha || '';
+          return dir === 'desc' ? vb.localeCompare(va) : va.localeCompare(vb);
+        }
+        if (campo === 'total') {
+          va = Number(a.total) || 0; vb = Number(b.total) || 0;
+          return dir === 'desc' ? vb - va : va - vb;
+        }
+        return 0;
+      });
+      _hfRenderizarTabla();
+    }
+
+    function hfExportarCSV() {
+      var datos = _HF.filtradas;
+      if (datos.length === 0) { mostrarToast('No hay datos para exportar', 'warning'); return; }
+
+      var cabecera = ['Fecha','Tipo','Punto_Venta','Nro','Cliente','CUIT','Total','CAE','Vto_CAE','Estado'];
+      var filas = datos.map(function(f) {
+        var pv  = String(f.ptoVta  || 0).padStart(5, '0');
+        var nro = String(f.cbteNro || 0).padStart(8, '0');
+        return [
+          f.fecha || '',
+          f.cbteTipoNombre || '',
+          pv, nro,
+          '"' + (f.clienteNombre || '').replace(/"/g, '""') + '"',
+          f.clienteCuit || '',
+          (Number(f.total) || 0).toFixed(2),
+          f.cae || '',
+          f.caeVto || '',
+          f.estado || ''
+        ].join(',');
+      });
+
+      var csv  = '\ufeff' + cabecera.join(',') + '\n' + filas.join('\n');
+      var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'facturas_arca_' + obtenerFechaLocal() + '.csv';
+      link.click();
+      mostrarToast(datos.length + ' comprobantes exportados', 'success');
+    }
+
+    var _hfFacturaDetalle = null;
+
+    function hfVerDetalle(facturaId) {
+      var f = _HF.todas.find(function(x) { return String(x.id) === String(facturaId); });
+      if (!f) { mostrarToast('Comprobante no encontrado', 'error'); return; }
+      _hfFacturaDetalle = f;
+
+      var cbteTipoNum = Number(f.cbteTipo) || 0;
+      var pv  = String(f.ptoVta  || 0).padStart(5, '0');
+      var nro = String(f.cbteNro || 0).padStart(8, '0');
+
+      var estadoColor = f.estado === 'EMITIDA' ? '#2E7D32' : (f.estado === 'ANULADA' ? '#C62828' : '#777');
+      var estadoIcon  = f.estado === 'EMITIDA' ? '✓' : '✗';
+
+      var caeVtoStr = String(f.caeVto || '');
+      var caeVtoFmt = caeVtoStr.length === 8
+        ? caeVtoStr.substring(6,8) + '/' + caeVtoStr.substring(4,6) + '/' + caeVtoStr.substring(0,4)
+        : '-';
+
+      var html =
+        '<div style="background:var(--sv-fondo);border-radius:8px;padding:1rem;margin-bottom:1rem;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">' +
+            '<div>' +
+              '<div style="font-size:1.1rem;font-weight:700;">' + escapeHtml(f.cbteTipoNombre || 'Comprobante') + '</div>' +
+              '<div style="font-family:monospace;font-size:0.9rem;color:var(--sv-texto-secundario);">N° ' + pv + '-' + nro + '</div>' +
+            '</div>' +
+            '<span style="background:' + estadoColor + ';color:white;padding:3px 12px;border-radius:999px;font-weight:700;font-size:0.82rem;">' + estadoIcon + ' ' + escapeHtml(f.estado || '-') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:0.875rem;">' +
+          _hfFilaDetalle('📅 Fecha',    escapeHtml(f.fecha || '-')) +
+          _hfFilaDetalle('👤 Cliente',  escapeHtml(f.clienteNombre || '-')) +
+          _hfFilaDetalle('🔢 CUIT',     escapeHtml(f.clienteCuit || 'Consumidor Final')) +
+          _hfFilaDetalle('💰 Total',    '$' + (Number(f.total) || 0).toLocaleString('es-AR', {minimumFractionDigits:2})) +
+          _hfFilaDetalle('🔑 CAE',      '<span style="font-family:monospace;">' + escapeHtml(String(f.cae || '-')) + '</span>') +
+          _hfFilaDetalle('📆 Vto. CAE', escapeHtml(caeVtoFmt)) +
+          _hfFilaDetalle('👤 Usuario',  escapeHtml(f.usuario || '-')) +
+        '</table>';
+
+      var btnVerificar = document.getElementById('btnVerificarARCA');
+      if (btnVerificar) {
+        var puedeVerificar = f.estado === 'EMITIDA' && f.cbteNro && Number(f.cbteNro) > 0 &&
+                             (cbteTipoNum === 1 || cbteTipoNum === 6);
+        btnVerificar.style.display = puedeVerificar ? '' : 'none';
       }
 
-      mostrarLoading(true);
+      document.getElementById('modalDetalleTitle').textContent = 'Detalle — ' + (f.cbteTipoNombre || 'Comprobante');
+      document.getElementById('modalDetalleBody').innerHTML = html;
+      abrirModal('modalDetalleComprobante');
+    }
+
+    function _hfFilaDetalle(label, valor) {
+      return '<tr style="border-bottom:1px solid var(--sv-borde);">' +
+        '<td style="padding:7px 8px;font-weight:600;color:var(--sv-texto-secundario);white-space:nowrap;">' + label + '</td>' +
+        '<td style="padding:7px 8px;">' + valor + '</td>' +
+        '</tr>';
+    }
+
+    function hfVerificarEnARCA() {
+      if (!_hfFacturaDetalle) return;
+      var f      = _hfFacturaDetalle;
+      var bodyEl = document.getElementById('modalDetalleBody');
+      var btnVer = document.getElementById('btnVerificarARCA');
+
+      if (btnVer) { btnVer.disabled = true; btnVer.textContent = '⏳ Consultando…'; }
+
       google.script.run
         .withSuccessHandler(function(result) {
-          mostrarLoading(false);
+          if (btnVer) { btnVer.disabled = false; btnVer.textContent = '🔍 Verificar en ARCA'; }
           if (result.success) {
-            mostrarToast('Nota de Credito emitida - CAE: ' + result.cae, 'success');
-            cargarHistorialFacturas(); // Recargar
+            bodyEl.insertAdjacentHTML('beforeend',
+              '<div style="margin-top:0.75rem;padding:0.75rem;background:rgba(46,125,50,0.1);border-left:3px solid var(--sv-exito);border-radius:4px;font-size:0.85rem;">' +
+                '<strong>✅ Verificado en ARCA</strong><br>' +
+                'CAE: <span style="font-family:monospace;">' + escapeHtml(String(result.cae || '-')) + '</span><br>' +
+                'Estado: ' + escapeHtml(result.estado || 'APROBADO') +
+              '</div>'
+            );
+            mostrarToast('Comprobante verificado en ARCA', 'success');
           } else {
-            mostrarToast('Error: ' + result.error, 'error');
+            bodyEl.insertAdjacentHTML('beforeend',
+              '<div style="margin-top:0.75rem;padding:0.75rem;background:rgba(198,40,40,0.1);border-left:3px solid var(--sv-peligro);border-radius:4px;font-size:0.85rem;">' +
+                '<strong>⚠️ No se pudo verificar</strong><br>' + escapeHtml(result.error || '') +
+              '</div>'
+            );
+            mostrarToast('Error al verificar: ' + (result.error || ''), 'warning');
           }
         })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
+        .withFailureHandler(function(err) {
+          if (btnVer) { btnVer.disabled = false; btnVer.textContent = '🔍 Verificar en ARCA'; }
+          mostrarToast('Error de conexión: ' + err.message, 'error');
         })
-        .emitirNotaCredito(facturaId);
+        .verificarComprobanteARCA(Number(f.cbteTipo), Number(f.cbteNro), Number(f.ptoVta));
     }
 
     // ============================================================================

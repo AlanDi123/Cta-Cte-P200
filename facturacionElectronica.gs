@@ -718,3 +718,63 @@ function _guardarFacturaEnHoja(datos) {
     datos.total, datos.cae, datos.caeVto, datos.estado, datos.usuario
   ]);
 }
+
+/**
+ * Verifica un comprobante emitido consultando FECompConsultar en ARCA.
+ * Llamada desde: hfVerificarEnARCA() en el frontend.
+ */
+function verificarComprobanteARCA(cbteTipo, cbteNro, ptoVta) {
+  try {
+    if (!cbteTipo || !cbteNro || !ptoVta) {
+      return { success: false, error: 'Parámetros incompletos.' };
+    }
+
+    var config = afipVerificarConfiguracion();
+    if (!config.configurado)      return { success: false, error: 'AFIP no configurado: ' + config.error };
+    if (!config.tieneCertificado) return { success: false, error: 'Sin certificado digital instalado.' };
+
+    var auth  = afipGetAuth(AFIP_CONFIG.WS.FE);
+    var creds = afipGetCredentials();
+    var headers = {
+      'Authorization': 'Bearer ' + creds.accessToken,
+      'Content-Type':  'application/json'
+    };
+
+    var payload = {
+      environment: AFIP_CONFIG.ENVIRONMENT,
+      method:      'FECompConsultar',
+      wsid:        AFIP_CONFIG.WS.FE,
+      params: {
+        Auth: { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
+        FeCompConsReq: {
+          CbteTipo: Number(cbteTipo),
+          CbteNro:  Number(cbteNro),
+          PtoVta:   Number(ptoVta)
+        }
+      },
+      cert: creds.cert,
+      key:  creds.key
+    };
+
+    var resultado = afipFetch('/requests', payload, headers);
+    Logger.log('[VERIFICAR_ARCA] Respuesta: ' + JSON.stringify(resultado).substring(0, 400));
+
+    var res = resultado.FECompConsultarResult || resultado;
+    if (res.Errors && res.Errors.Err) {
+      var errArr = Array.isArray(res.Errors.Err) ? res.Errors.Err : [res.Errors.Err];
+      return { success: false, error: 'ARCA: ' + errArr.map(function(e) { return '(' + e.Code + ') ' + e.Msg; }).join(' | ') };
+    }
+
+    var comp = res.ResultGet || {};
+    return {
+      success: true,
+      cae:    String(comp.CodAutorizacion || ''),
+      caeVto: String(comp.CAEFchVto || ''),
+      estado: comp.Resultado || 'APROBADO'
+    };
+
+  } catch (error) {
+    Logger.log('[VERIFICAR_ARCA] Error: ' + error.message);
+    return { success: false, error: afipFormatearErrorUsuario(error) };
+  }
+}
