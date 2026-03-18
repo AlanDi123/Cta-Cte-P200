@@ -1,23 +1,22 @@
 // ============================================================================
 // MÓDULO AFIP/ARCA — SISTEMA SOL & VERDE
-// ARCHIVO RAÍZ (sin subcarpetas — GAS V8 no soporta subdirectorios)
-// Contenido: Config + Auth + Errors + Padron + Factura
+// Versión definitiva — todos los bugs corregidos
 // ============================================================================
 
-// ─── SECCIÓN 1: CONFIGURACIÓN ───────────────────────────────────────────────
+// ─── SECCIÓN 1: CONFIGURACIÓN ────────────────────────────────────────────────
 
 var AFIP_CONFIG = {
   API_URL:     'https://app.afipsdk.com/api/v1/afip',
   ENVIRONMENT: 'prod',
   TIMEOUT_MS:  30000,
   WS: {
-    FE:        'wsfe',
-    PADRON_A13: 'ws_sr_padron_a13'
+    FE:                   'wsfe',
+    PADRON_CONSTANCIA:    'ws_sr_constancia_inscripcion'
   },
   CBTE_TIPOS: {
-    FACTURA_A:    1,
+    FACTURA_A:      1,
     NOTA_CREDITO_A: 3,
-    FACTURA_B:    6,
+    FACTURA_B:      6,
     NOTA_CREDITO_B: 8
   },
   DOC_TIPOS: {
@@ -26,7 +25,7 @@ var AFIP_CONFIG = {
     CONSUMIDOR_FINAL: 99
   },
   CONCEPTO: { PRODUCTOS: 1, SERVICIOS: 2, AMBOS: 3 },
-  MONEDA:   { PESOS: 'PES', DOLARES: 'DOL' },
+  MONEDA:   { PESOS: 'PES' },
   HOJA_FACTURAS: 'FACTURAS_EMITIDAS'
 };
 
@@ -35,9 +34,7 @@ function afipGetEmisorConfig() {
   return {
     CUIT:           props.getProperty('EMISOR_CUIT')           || '',
     RAZON_SOCIAL:   props.getProperty('EMISOR_RAZON_SOCIAL')   || '',
-    NOMBRE_FANTASIA: props.getProperty('EMISOR_NOMBRE_FANTASIA') || '',
     DOMICILIO:      props.getProperty('EMISOR_DOMICILIO')      || '',
-    INGRESOS_BRUTOS: props.getProperty('EMISOR_IIBB')         || '',
     CONDICION_IVA:  props.getProperty('EMISOR_CONDICION_IVA') || 'Responsable Inscripto'
   };
 }
@@ -54,89 +51,85 @@ function afipGetCredentials() {
 }
 
 function afipTieneCertificado() {
-  var creds = afipGetCredentials();
-  return !!(creds.cert && creds.cert.length > 50 && creds.key && creds.key.length > 50);
+  var c = afipGetCredentials();
+  return !!(c.cert && c.cert.length > 50 && c.key && c.key.length > 50);
 }
 
 function afipVerificarConfiguracion() {
   var creds  = afipGetCredentials();
   var emisor = afipGetEmisorConfig();
-  if (!creds.accessToken || creds.accessToken.length < 10) {
-    return { configurado: false, tieneCertificado: false, error: 'Access Token de AFIP SDK no configurado' };
-  }
-  if (!emisor.CUIT) {
-    return { configurado: false, tieneCertificado: false, error: 'CUIT del emisor no configurado' };
-  }
+  if (!creds.accessToken || creds.accessToken.length < 10)
+    return { configurado: false, error: 'Access Token de AFIP SDK no configurado' };
+  if (!emisor.CUIT)
+    return { configurado: false, error: 'CUIT del emisor no configurado' };
   return { configurado: true, tieneCertificado: afipTieneCertificado(), error: null };
 }
 
 // ─── SECCIÓN 2: HTTP FETCH ───────────────────────────────────────────────────
 
 function afipFetch(endpoint, payload, headers, method) {
-  var url        = AFIP_CONFIG.API_URL + endpoint;
-  var httpMethod = method || 'post';
+  var url = AFIP_CONFIG.API_URL + endpoint;
   var options = {
-    method:          httpMethod,
-    contentType:     'application/json',
-    headers:         headers || {},
+    method:             method || 'post',
+    contentType:        'application/json',
+    headers:            headers || {},
     muteHttpExceptions: true,
-    timeout:         AFIP_CONFIG.TIMEOUT_MS
+    timeout:            AFIP_CONFIG.TIMEOUT_MS
   };
-  if (payload && httpMethod === 'post') {
+  if (payload && (method || 'post') === 'post') {
     options.payload = JSON.stringify(payload);
   }
+
+  Logger.log('[AFIP HTTP] ' + endpoint + ' payload: ' +
+    JSON.stringify(payload).substring(0, 600));
+
   var response = UrlFetchApp.fetch(url, options);
   var code     = response.getResponseCode();
   var text     = response.getContentText();
 
-  if (code === 401 || code === 403) {
-    throw new Error('Access Token inválido o expirado (HTTP ' + code + ')');
-  }
+  Logger.log('[AFIP HTTP] response ' + code + ': ' + text.substring(0, 600));
+
+  if (code === 401 || code === 403)
+    throw new Error('Token de AfipSDK inválido o expirado (HTTP ' + code + ')');
   if (code !== 200) {
-    var errorMsg = 'Error AFIP (HTTP ' + code + ')';
+    var msg = 'Error AfipSDK HTTP ' + code;
     try {
-      var errorData = JSON.parse(text);
-      errorMsg += ': ' + (errorData.message || errorData.error || JSON.stringify(errorData));
+      var err = JSON.parse(text);
+      msg += ': ' + (err.message || err.error || JSON.stringify(err));
     } catch (e) {
-      errorMsg += ': ' + text.substring(0, 200);
+      msg += ': ' + text.substring(0, 200);
     }
-    throw new Error(errorMsg);
+    throw new Error(msg);
   }
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    throw new Error('Respuesta inválida de AFIP: ' + text.substring(0, 200));
-  }
+
+  try { return JSON.parse(text); }
+  catch (e) { throw new Error('Respuesta inválida de AfipSDK: ' + text.substring(0, 200)); }
 }
 
 function afipFetchConRetry(endpoint, payload, headers, method) {
-  var maxIntentos  = 3;
-  var delayBaseMs  = 1000;
-  for (var intento = 1; intento <= maxIntentos; intento++) {
+  var max = 3, delay = 1000;
+  for (var i = 1; i <= max; i++) {
     try {
       return afipFetch(endpoint, payload, headers, method);
-    } catch (error) {
-      var msgLower = error.message.toLowerCase();
-      var esReintentable = msgLower.indexOf('timeout') >= 0 ||
-                           msgLower.indexOf('service unavailable') >= 0 ||
-                           msgLower.indexOf('exceeded') >= 0;
-      if (!esReintentable || intento === maxIntentos) throw error;
-      var delayMs = delayBaseMs * Math.pow(2, intento - 1);
-      Logger.log('[AFIP] Reintentando en ' + delayMs + 'ms (intento ' + intento + '/' + maxIntentos + ')');
-      Utilities.sleep(delayMs);
+    } catch (e) {
+      var msg = e.message.toLowerCase();
+      var retry = msg.indexOf('timeout') >= 0 ||
+                  msg.indexOf('unavailable') >= 0 ||
+                  msg.indexOf('exceeded') >= 0;
+      if (!retry || i === max) throw e;
+      Utilities.sleep(delay * Math.pow(2, i - 1));
     }
   }
 }
 
-// ─── SECCIÓN 3: AUTENTICACIÓN ────────────────────────────────────────────────
+// ─── SECCIÓN 3: AUTENTICACIÓN ─────────────────────────────────────────────────
 
 function afipGetAuth(wsid) {
-  var config = afipVerificarConfiguracion();
-  if (!config.configurado)      throw new Error('AFIP no configurado: ' + config.error);
-  if (!config.tieneCertificado) throw new Error('Se requiere certificado para operar con AFIP.');
+  var cfg = afipVerificarConfiguracion();
+  if (!cfg.configurado)      throw new Error('AFIP no configurado: ' + cfg.error);
+  if (!cfg.tieneCertificado) throw new Error('Certificado digital no instalado. Generalo en Configuración → ARCA.');
 
   var creds = afipGetCredentials();
-
   var payload = {
     environment: AFIP_CONFIG.ENVIRONMENT,
     tax_id:      creds.cuit,
@@ -149,274 +142,179 @@ function afipGetAuth(wsid) {
     'Content-Type':  'application/json'
   };
 
-  var response = afipFetch('/auth', payload, headers);
+  var res = afipFetch('/auth', payload, headers);
+  if (!res.token || !res.sign)
+    throw new Error('Auth ARCA inválida. Respuesta: ' + JSON.stringify(res).substring(0, 200));
 
-  if (!response.token || !response.sign) {
-    throw new Error('Error de autenticación AFIP: no se recibieron token/sign. Respuesta: ' +
-                    JSON.stringify(response).substring(0, 300));
-  }
-  return {
-    token:       response.token,
-    sign:        response.sign,
-    cuit:        creds.cuit,
-    environment: AFIP_CONFIG.ENVIRONMENT
-  };
+  return { token: res.token, sign: res.sign, cuit: creds.cuit };
 }
 
-// ─── SECCIÓN 4: ERRORES ──────────────────────────────────────────────────────
+// ─── SECCIÓN 4: ERRORES — MUESTRA EL CÓDIGO REAL DE ARCA ────────────────────
 
 var AFIP_ERROR_CODES = {
-  AUTH_INVALID_TOKEN: 401, AUTH_CERT_EXPIRED: 1001,
-  VALIDATION_INVALID_CUIT: 2001, VALIDATION_DATE_RANGE: 2003,
-  BUSINESS_CUIT_NOT_FOUND: 3001, BUSINESS_REJECTED: 3003,
-  SYSTEM_TIMEOUT: 5001, SYSTEM_UNAVAILABLE: 5002
+  AUTH_INVALID_TOKEN:  401,
+  AUTH_CERT_EXPIRED:   1001,
+  VALIDATION_CUIT:     2001,
+  BUSINESS_REJECTED:   3003,
+  SYSTEM_TIMEOUT:      5001,
+  SYSTEM_UNAVAILABLE:  5002
 };
 
 function afipClasificarError(error) {
-  var message  = error.message || String(error);
-  var msgLower = message.toLowerCase();
-  if (msgLower.indexOf('token') >= 0 || msgLower.indexOf('401') >= 0)
-    return { code: AFIP_ERROR_CODES.AUTH_INVALID_TOKEN, category: 'AUTH', message: 'Token inválido o expirado', retryable: false };
-  if (msgLower.indexOf('certificado') >= 0 || msgLower.indexOf('403') >= 0)
-    return { code: AFIP_ERROR_CODES.AUTH_CERT_EXPIRED, category: 'AUTH', message: 'Certificado expirado o inválido', retryable: false };
-  if (msgLower.indexOf('cuit') >= 0 && (msgLower.indexOf('inválido') >= 0 || msgLower.indexOf('invalido') >= 0))
-    return { code: AFIP_ERROR_CODES.VALIDATION_INVALID_CUIT, category: 'VALIDATION', message: 'CUIT inválido', retryable: false };
-  if (msgLower.indexOf('no existe') >= 0 || msgLower.indexOf('no encontrado') >= 0)
-    return { code: AFIP_ERROR_CODES.BUSINESS_CUIT_NOT_FOUND, category: 'BUSINESS', message: 'CUIT no encontrado en padrón', retryable: false };
-  if (msgLower.indexOf('rechaz') >= 0)
-    return { code: AFIP_ERROR_CODES.BUSINESS_REJECTED, category: 'BUSINESS', message: 'AFIP rechazó la operación', retryable: false };
-  if (msgLower.indexOf('timeout') >= 0)
-    return { code: AFIP_ERROR_CODES.SYSTEM_TIMEOUT, category: 'SYSTEM', message: 'Timeout de conexión', retryable: true };
-  if (msgLower.indexOf('unavailable') >= 0)
-    return { code: AFIP_ERROR_CODES.SYSTEM_UNAVAILABLE, category: 'SYSTEM', message: 'Servicio no disponible', retryable: true };
-  return { code: 9999, category: 'UNKNOWN', message: message, retryable: false };
+  var msg  = error.message || String(error);
+  var low  = msg.toLowerCase();
+
+  if (low.indexOf('token') >= 0 || low.indexOf('401') >= 0)
+    return { code: 401, category: 'AUTH', message: msg, retryable: false };
+  if (low.indexOf('certificado') >= 0 || low.indexOf('403') >= 0)
+    return { code: 1001, category: 'AUTH', message: msg, retryable: false };
+  if (low.indexOf('timeout') >= 0)
+    return { code: 5001, category: 'SYSTEM', message: msg, retryable: true };
+  if (low.indexOf('unavailable') >= 0)
+    return { code: 5002, category: 'SYSTEM', message: msg, retryable: true };
+
+  // ── SIEMPRE preservar el mensaje real (no reemplazar por genérico) ─────────
+  return { code: 9999, category: 'BUSINESS', message: msg, retryable: false };
 }
 
 function afipFormatearErrorUsuario(error) {
   var c = afipClasificarError(error);
-  switch (c.category) {
-    case 'AUTH':       return 'Error de autenticación con AFIP. Verificá el certificado en Configuración.';
-    case 'VALIDATION': return 'Error de validación: ' + c.message;
-    case 'BUSINESS':   return 'AFIP rechazó la operación: ' + c.message;
-    case 'SYSTEM':     return 'Error temporal de AFIP. Intentá en unos minutos.';
-    default:           return 'Error al conectar con AFIP: ' + c.message.substring(0, 100);
-  }
+  // Devolver el mensaje REAL para que el usuario vea el código de ARCA
+  return c.message;
 }
 
-function afipRegistrarError(operacion, error, contexto) {
-  Logger.log('[AFIP ERROR] Operación: ' + operacion + ' | ' + (error.message || error));
-  if (contexto) Logger.log('[AFIP ERROR] Contexto: ' + JSON.stringify(contexto).substring(0, 200));
+function afipRegistrarError(operacion, error, ctx) {
+  Logger.log('[AFIP ERROR] ' + operacion + ': ' + (error.message || error));
+  if (ctx) Logger.log('[AFIP CTX] ' + JSON.stringify(ctx).substring(0, 300));
 }
 
-// ─── SECCIÓN 5: PADRÓN — ws_sr_constancia_inscripcion + getPersona_v2 ────────
-// IMPORTANTE: ws_sr_padron_a13 NO devuelve condición IVA (RI/M/CF).
-// El correcto para datos fiscales completos es ws_sr_constancia_inscripcion.
+// ─── SECCIÓN 5: PADRÓN ────────────────────────────────────────────────────────
 
 function afipConsultarCUIT(cuit) {
   var cuitLimpio = String(cuit).replace(/[-\s]/g, '');
+  if (!/^\d{11}$/.test(cuitLimpio))
+    return { encontrado: false, error: 'CUIT inválido (debe tener 11 dígitos)', cuit: cuitLimpio };
 
-  if (!/^\d{11}$/.test(cuitLimpio)) {
-    return { encontrado: false, error: 'CUIT inválido', mensaje: 'Debe tener 11 dígitos', cuit: cuitLimpio };
-  }
-  if (typeof validarCUIT === 'function') {
-    var v = validarCUIT(cuitLimpio);
-    if (!v.valido) return { encontrado: false, error: 'CUIT inválido', mensaje: v.error, cuit: cuitLimpio };
-  }
-
-  // ws_sr_constancia_inscripcion devuelve condición IVA, impuestos, monotributo
-  var WS_PADRON = 'ws_sr_constancia_inscripcion';
-  var auth      = afipGetAuth(WS_PADRON);
-  var creds     = afipGetCredentials();
-
-  var payload = {
-    environment: AFIP_CONFIG.ENVIRONMENT,
-    method:      'getPersona_v2',
-    wsid:        WS_PADRON,
-    params: {
-      token:            auth.token,
-      sign:             auth.sign,
-      cuitRepresentada: auth.cuit,
-      idPersona:        parseInt(cuitLimpio, 10)  // debe ser número, no string
-    }
-  };
-  if (creds.cert && creds.key) { payload.cert = creds.cert; payload.key = creds.key; }
-
+  var auth   = afipGetAuth(AFIP_CONFIG.WS.PADRON_CONSTANCIA);
+  var creds  = afipGetCredentials();
   var headers = {
     'Authorization': 'Bearer ' + creds.accessToken,
     'Content-Type':  'application/json'
   };
+  var payload = {
+    environment: AFIP_CONFIG.ENVIRONMENT,
+    method:      'getPersona_v2',
+    wsid:        AFIP_CONFIG.WS.PADRON_CONSTANCIA,
+    params: {
+      token:            auth.token,
+      sign:             auth.sign,
+      cuitRepresentada: auth.cuit,
+      idPersona:        parseInt(cuitLimpio, 10)
+    },
+    cert: creds.cert,
+    key:  creds.key
+  };
 
   try {
-    var resultado = afipFetchConRetry('/requests', payload, headers);
-    Logger.log('[AFIP PADRON] CUIT ' + cuitLimpio + ': ' + JSON.stringify(resultado).substring(0, 500));
-    return afipParsearRespuestaPadron(resultado, cuitLimpio);
-  } catch (error) {
-    Logger.log('[AFIP PADRON] Error consultando CUIT ' + cuitLimpio + ': ' + error.message);
-    return { encontrado: false, error: error.message, cuit: cuitLimpio };
+    var res = afipFetchConRetry('/requests', payload, headers);
+    return afipParsearRespuestaPadron(res, cuitLimpio);
+  } catch (e) {
+    return { encontrado: false, error: e.message, cuit: cuitLimpio };
   }
 }
 
 function afipParsearRespuestaPadron(resultado, cuitLimpio) {
-  // getPersona_v2 devuelve { persona: { datosGenerales, datosMonotributo, datosRegimenGeneral, ... } }
-  var persona = resultado.persona ||
-                resultado.personaReturn ||
-                resultado.data ||
-                null;
+  var persona = resultado.persona || resultado.personaReturn || resultado.data || null;
+  if (!persona || resultado.personaNoRegistrada)
+    return { encontrado: false, error: 'CUIT no registrado en ARCA', cuit: cuitLimpio };
 
-  if (!persona) {
-    // Puede ser respuesta vacía con clave "personaNoRegistrada"
-    if (resultado.personaNoRegistrada) {
-      return { encontrado: false, error: 'CUIT no registrado en ARCA', cuit: cuitLimpio };
-    }
-    // Si hay otros campos pero sin persona, es CUIT válido sin datos públicos
-    if (resultado && Object.keys(resultado).length > 0) {
-      return {
-        encontrado:     true,
-        cuit:           cuitLimpio,
-        razonSocial:    'SIN DATOS PUBLICOS',
-        tipoPersona:    '',
-        domicilio:      '',
-        impuestos:      [],
-        condicionIVA:   'CF',
-        condicionTexto: 'Consumidor Final',
-        estadoClave:    'ACTIVO',
-        mensaje:        'CUIT válido pero sin datos públicos',
-        rawResponse:    resultado
-      };
-    }
-    return { encontrado: false, error: 'CUIT no encontrado en ARCA', cuit: cuitLimpio };
-  }
-
-  var dg  = persona.datosGenerales || persona;
-
-  // Razón social: para personas físicas = apellido + nombre
+  var dg = persona.datosGenerales || persona;
   var razonSocial = dg.razonSocial || '';
-  if (!razonSocial && dg.apellido) {
+  if (!razonSocial && dg.apellido)
     razonSocial = (dg.apellido + (dg.nombre ? ', ' + dg.nombre : '')).trim();
-  }
 
-  var tipoPersona = dg.tipoPersona || '';
-  var estadoClave = dg.estadoClave || 'ACTIVO';
-
-  // Domicilio fiscal
   var domicilio = '';
   if (dg.domicilioFiscal) {
     var df = dg.domicilioFiscal;
-    domicilio = [df.direccion || '', df.localidad || '', df.descripcionProvincia || '']
+    domicilio = [df.direccion, df.localidad, df.descripcionProvincia]
       .map(function(p) { return (p || '').trim(); })
-      .filter(function(p) { return p; })
-      .join(', ');
+      .filter(Boolean).join(', ');
   }
 
-  // Impuestos (dentro de datosRegimenGeneral)
   var impuestos = [];
   if (persona.datosRegimenGeneral && persona.datosRegimenGeneral.impuesto) {
     var raw = persona.datosRegimenGeneral.impuesto;
     impuestos = Array.isArray(raw) ? raw : [raw];
   }
 
-  // Monotributo
-  var categoriaMonotributo = '';
-  var esMonotributo = false;
-  if (persona.datosMonotributo) {
-    esMonotributo = true;
-    categoriaMonotributo = persona.datosMonotributo.categoriaMonotributo || '';
-  }
-  // También verificar por impuesto ID 20
-  if (!esMonotributo) {
-    esMonotributo = impuestos.some(function(imp) {
-      return Number(imp.idImpuesto || imp.id || 0) === 20;
-    });
-  }
-
-  // Responsable Inscripto: impuesto ID 30 (IVA) o 32 (Ganancias)
-  var esRI = impuestos.some(function(imp) {
-    var id = Number(imp.idImpuesto || imp.id || 0);
+  var esMonotributo = !!(persona.datosMonotributo) ||
+                      impuestos.some(function(i) { return Number(i.idImpuesto||i.id||0) === 20; });
+  var esRI = impuestos.some(function(i) {
+    var id = Number(i.idImpuesto||i.id||0);
     return id === 30 || id === 32;
   });
 
-  var condicionIVA;
-  if (esRI)          condicionIVA = 'RI';
-  else if (esMonotributo) condicionIVA = 'M';
-  else               condicionIVA = 'CF';
-
+  var condicionIVA = esRI ? 'RI' : esMonotributo ? 'M' : 'CF';
   var condicionTexto = condicionIVA === 'RI' ? 'Responsable Inscripto' :
-                       condicionIVA === 'M'  ? 'Monotributista'        : 'Consumidor Final';
+                       condicionIVA === 'M'  ? 'Monotributista' : 'Consumidor Final';
 
   return {
-    encontrado:           true,
-    cuit:                 cuitLimpio,
-    razonSocial:          razonSocial,
-    tipoPersona:          tipoPersona,
-    domicilio:            domicilio,
-    impuestos:            impuestos,
-    condicionIVA:         condicionIVA,
-    condicionTexto:       condicionTexto,
-    categoriaMonotributo: categoriaMonotributo,
-    estadoClave:          estadoClave,
-    estadoContribuyente:  estadoClave,
-    rawResponse:          resultado
+    encontrado:     true,
+    cuit:           cuitLimpio,
+    razonSocial:    razonSocial,
+    domicilio:      domicilio,
+    condicionIVA:   condicionIVA,
+    condicionTexto: condicionTexto,
+    estadoClave:    dg.estadoClave || 'ACTIVO',
+    rawResponse:    resultado
   };
 }
 
-function afipDeterminarCondicionIVA(impuestos, persona) {
-  var esRI = impuestos.some(function(imp) {
-    var id = Number(imp.idImpuesto || imp.id || 0);
-    return id === 30 || id === 32;
-  });
-  var esMonotributo = (persona.datosMonotributo && persona.datosMonotributo.categoriaMonotributo) ||
-                      impuestos.some(function(imp) {
-                        return Number(imp.idImpuesto || imp.id || 0) === 20;
-                      });
-  if (esRI) return 'RI';
-  if (esMonotributo) return 'M';
-  return 'CF';
-}
-
-// ─── SECCIÓN 6: FACTURACIÓN ELECTRÓNICA (WSFE) ───────────────────────────────
+// ─── SECCIÓN 6: FACTURACIÓN ELECTRÓNICA ──────────────────────────────────────
 
 function afipEmitirFactura(datosFactura) {
-  if (!datosFactura.cbteTipo || !datosFactura.total) {
-    throw new Error('Datos de factura inválidos: cbteTipo y total son requeridos');
-  }
+  if (!datosFactura.cbteTipo || !(datosFactura.total > 0))
+    throw new Error('Datos inválidos: cbteTipo=' + datosFactura.cbteTipo +
+                    ' total=' + datosFactura.total);
 
-  var auth   = afipGetAuth(AFIP_CONFIG.WS.FE);
-  var creds  = afipGetCredentials();
-  var emisor = afipGetEmisorConfig();
+  var auth    = afipGetAuth(AFIP_CONFIG.WS.FE);
+  var creds   = afipGetCredentials();
   var headers = {
     'Authorization': 'Bearer ' + creds.accessToken,
     'Content-Type':  'application/json'
   };
 
-  // ── Paso 1: Obtener el próximo número de comprobante (FECompUltimoAutorizado) ──
+  // ── Paso 1: Obtener próximo número de comprobante ─────────────────────────
   var nextNro = 1;
   try {
-    var payloadUltimo = {
+    var payloadUlt = {
       environment: AFIP_CONFIG.ENVIRONMENT,
       method:      'FECompUltimoAutorizado',
       wsid:        AFIP_CONFIG.WS.FE,
       params: {
-        Auth:    { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
-        PtoVta:  creds.puntoVenta,
+        Auth:     { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
+        PtoVta:   creds.puntoVenta,
         CbteTipo: datosFactura.cbteTipo
-      }
+      },
+      cert: creds.cert,
+      key:  creds.key
     };
-    if (creds.cert && creds.key) { payloadUltimo.cert = creds.cert; payloadUltimo.key = creds.key; }
-    var resUltimo = afipFetch('/requests', payloadUltimo, headers);
-    var ultimoNro = 0;
-    if (resUltimo && resUltimo.FECompUltimoAutorizadoResult) {
-      ultimoNro = Number(resUltimo.FECompUltimoAutorizadoResult.CbteNro) || 0;
+    var resUlt = afipFetch('/requests', payloadUlt, headers);
+    var ultimo = 0;
+    if (resUlt && resUlt.FECompUltimoAutorizadoResult) {
+      ultimo = Number(resUlt.FECompUltimoAutorizadoResult.CbteNro) || 0;
     }
-    nextNro = ultimoNro + 1;
-    Logger.log('[AFIP] Próximo número de comprobante: ' + nextNro + ' (tipo ' + datosFactura.cbteTipo + ')');
+    nextNro = ultimo + 1;
+    Logger.log('[AFIP] Próximo nro comprobante tipo ' + datosFactura.cbteTipo + ': ' + nextNro);
   } catch (e) {
-    Logger.log('[AFIP] Error obteniendo último comprobante: ' + e.message + '. Usando 1.');
+    Logger.log('[AFIP] FECompUltimoAutorizado error: ' + e.message + '. Usando nro=1.');
   }
 
-  // ── Paso 2: Construir y enviar FECAESolicitar ────────────────────────────────
-  var fechaCbte    = afipCalcularFechaValida(datosFactura.fechaTransferencia);
-  var feDetRequest = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, emisor, nextNro);
+  // ── Paso 2: Construir FECAEDetRequest ─────────────────────────────────────
+  var fechaCbte  = datosFactura.fechaCbte || afipCalcularFechaValida(datosFactura.fechaTransferencia);
+  var feDetReq   = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, nextNro);
 
+  // ── Paso 3: Enviar FECAESolicitar ─────────────────────────────────────────
   var payload = {
     environment: AFIP_CONFIG.ENVIRONMENT,
     method:      'FECAESolicitar',
@@ -429,156 +327,161 @@ function afipEmitirFactura(datosFactura) {
           PtoVta:   creds.puntoVenta,
           CbteTipo: datosFactura.cbteTipo
         },
-        FeDetReq: { FECAEDetRequest: feDetRequest }
+        FeDetReq: {
+          FECAEDetRequest: feDetReq
+        }
       }
-    }
+    },
+    cert: creds.cert,
+    key:  creds.key
   };
-  if (creds.cert && creds.key) { payload.cert = creds.cert; payload.key = creds.key; }
 
-  Logger.log('[AFIP] Enviando FECAESolicitar tipo ' + datosFactura.cbteTipo +
-             ' neto=$' + datosFactura.neto + ' iva=$' + datosFactura.iva +
-             ' total=$' + datosFactura.total + ' cbteNro=' + nextNro);
+  Logger.log('[AFIP] FECAESolicitar payload: ' + JSON.stringify(payload).substring(0, 800));
 
   var resultado = afipFetchConRetry('/requests', payload, headers);
-  return afipParsearRespuestaFactura(resultado, datosFactura, nextNro);
+  return afipParsearRespuestaFactura(resultado, datosFactura, nextNro, creds.puntoVenta);
 }
 
-function afipCalcularFechaValida(fechaTransferencia) {
-  var hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  if (!fechaTransferencia) return afipFormatoFecha(hoy);
-  var fechaTrans = new Date(fechaTransferencia);
-  fechaTrans.setHours(0, 0, 0, 0);
-  var diffDias = Math.floor((hoy - fechaTrans) / (1000 * 60 * 60 * 24));
-  if (diffDias >= 0 && diffDias <= 5) return afipFormatoFecha(fechaTrans);
-  if (diffDias > 5) {
-    var limite = new Date(hoy);
-    limite.setDate(limite.getDate() - 5);
-    return afipFormatoFecha(limite);
-  }
-  return afipFormatoFecha(hoy);
-}
 
-function afipFormatoFecha(fecha) {
-  return String(fecha.getFullYear()) +
-         String(fecha.getMonth() + 1).padStart(2, '0') +
-         String(fecha.getDate()).padStart(2, '0');
-}
-
-function afipConstruirFECAEDetRequest(datosFactura, fechaCbte, emisor, cbteNro) {
-  var docTipo = AFIP_CONFIG.DOC_TIPOS.CONSUMIDOR_FINAL;
-  var docNro  = '0';
-  if (datosFactura.clienteCuit) {
-    docTipo = AFIP_CONFIG.DOC_TIPOS.CUIT;
-    docNro  = String(datosFactura.clienteCuit).replace(/[-\s]/g, '');
+function afipConstruirFECAEDetRequest(datosFactura, fechaCbte, cbteNro) {
+  // DocTipo y DocNro — DEBEN ser números enteros, no strings
+  var docTipo = AFIP_CONFIG.DOC_TIPOS.CONSUMIDOR_FINAL; // 99
+  var docNro  = 0;   // entero 0 para CF
+  if (datosFactura.clienteCuit && String(datosFactura.clienteCuit).trim() !== '') {
+    docTipo = AFIP_CONFIG.DOC_TIPOS.CUIT;  // 80
+    docNro  = parseInt(String(datosFactura.clienteCuit).replace(/[-\s]/g, ''), 10);
   }
 
   var neto  = Number(datosFactura.neto)  || 0;
   var iva   = Number(datosFactura.iva)   || 0;
   var total = Number(datosFactura.total) || 0;
 
-  // Verificación de consistencia: neto + iva debe igualar total (tolerancia 1 centavo)
-  var calculado = Math.round((neto + iva) * 100);
-  var enviado   = Math.round(total * 100);
-  if (Math.abs(calculado - enviado) > 1) {
-    Logger.log('[AFIP] ADVERTENCIA: neto(' + neto + ') + iva(' + iva + ') = ' +
-               (neto + iva) + ' ≠ total(' + total + ')');
-    // Forzar total coherente para que ARCA lo acepte
-    total = Math.round((neto + iva) * 100) / 100;
+  // Verificar coherencia neto + iva ≈ total (ajustar diferencia de centavo)
+  var netoMas = Math.round((neto + iva) * 100);
+  var totalCts = Math.round(total * 100);
+  if (Math.abs(netoMas - totalCts) === 1) {
+    // Diferencia de 1 centavo: ajustar iva
+    iva = Math.round((total - neto) * 100) / 100;
   }
 
-  // ── CondicionIVAReceptorId (OBLIGATORIO desde RG ARCA 5616/2024) ─────────
-  // IDs: 1=RI, 6=Monotributo, 13=Monotributo Social, 5=CF, 4=Exento
+  // CbteFch como número entero YYYYMMDD (obligatorio, no string)
+  var cbteFchInt = parseInt(fechaCbte, 10);
+
+  // CondicionIVAReceptorId — obligatorio desde RG ARCA 5616/2024
+  // 1=RI, 6=Monotributo, 13=Monotributo Social, 5=CF, 4=Exento
   var condRaw = String(datosFactura.clienteCondicion || 'CF').toUpperCase();
-  var condicionIVAReceptorId;
-  if (condRaw === 'RI' || condRaw.indexOf('RESPONSABLE INSCRIPTO') >= 0) {
-    condicionIVAReceptorId = 1;
-  } else if (condRaw === 'M' || condRaw.indexOf('MONOTRIBUT') >= 0) {
-    condicionIVAReceptorId = 6;
-  } else if (condRaw.indexOf('SOCIAL') >= 0) {
-    condicionIVAReceptorId = 13;
-  } else if (condRaw.indexOf('EXENTO') >= 0) {
-    condicionIVAReceptorId = 4;
-  } else {
-    condicionIVAReceptorId = 5; // Consumidor Final (seguro para Factura B)
-  }
+  var condId;
+  if      (condRaw === 'RI' || condRaw.indexOf('RESPONSABLE') >= 0) condId = 1;
+  else if (condRaw === 'M'  || condRaw.indexOf('MONOTRIBUT')  >= 0) condId = 6;
+  else if (condRaw.indexOf('SOCIAL') >= 0)                          condId = 13;
+  else if (condRaw.indexOf('EXENTO') >= 0)                          condId = 4;
+  else                                                               condId = 5; // CF
 
-  // ── Alícuota IVA (estructura correcta según docs afipsdk.com) ────────────
-  // Id: 3=0%, 4=10.5%, 5=21%, 6=27%
+  // Alícuota IVA — Id: 4=10.5%, Id: 5=21%
   // Importe = monto en pesos (NO el porcentaje)
-  var ivaAlicuotaId = parseInt(CONFIG.get('IVA_ALICUOTA_ID', '4')); // 4 = 10.5%
-  var ivaImporte    = Math.round(iva * 100) / 100;  // monto real en pesos
+  var ivaAlicId = parseInt(PropertiesService.getScriptProperties()
+                    .getProperty('IVA_ALICUOTA_ID') || '4');
 
-  var detRequest = {
-    Concepto:              AFIP_CONFIG.CONCEPTO.PRODUCTOS,
-    DocTipo:               docTipo,
-    DocNro:                docNro,
-    CbteDesde:             cbteNro,
-    CbteHasta:             cbteNro,
-    CbteFch:               fechaCbte,
-    ImpTotal:              total,
-    ImpTotConc:            0,
-    ImpNeto:               neto,
-    ImpOpEx:               0,
-    ImpIVA:                iva,
-    ImpTrib:               0,
-    MonId:                 AFIP_CONFIG.MONEDA.PESOS,
-    MonCotiz:              1,
-    CondicionIVAReceptorId: condicionIVAReceptorId
+  var det = {
+    Concepto:               AFIP_CONFIG.CONCEPTO.PRODUCTOS,
+    DocTipo:                docTipo,
+    DocNro:                 docNro,
+    CbteDesde:              cbteNro,
+    CbteHasta:              cbteNro,
+    CbteFch:                cbteFchInt,
+    ImpTotal:               total,
+    ImpTotConc:             0,
+    ImpNeto:                neto,
+    ImpOpEx:                0,
+    ImpIVA:                 iva,
+    ImpTrib:                0,
+    MonId:                  AFIP_CONFIG.MONEDA.PESOS,
+    MonCotiz:               1,
+    CondicionIVAReceptorId: condId
   };
 
-  // Solo incluir bloque Iva si neto > 0 (Consumidor Final puede ir sin IVA desglosado)
+  // Incluir bloque Iva solo cuando hay neto > 0
   if (neto > 0) {
-    detRequest.Iva = {
+    det.Iva = {
       AlicIva: [{
-        Id:      ivaAlicuotaId,
+        Id:      ivaAlicId,
         BaseImp: neto,
-        Importe: ivaImporte
+        Importe: iva
       }]
     };
   }
 
-  return detRequest;
+  Logger.log('[AFIP] FECAEDetRequest: ' + JSON.stringify(det));
+  return det;
 }
 
-function afipParsearRespuestaFactura(resultado, datosFactura, cbteNro) {
-  Logger.log('[AFIP] Respuesta raw: ' + JSON.stringify(resultado).substring(0, 500));
+
+function afipCalcularFechaValida(fechaTransferencia) {
+  var hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  if (!fechaTransferencia) return afipFormatoFecha(hoy);
+
+  var fTrans = new Date(fechaTransferencia + 'T00:00:00');
+  fTrans.setHours(0, 0, 0, 0);
+  var diff = Math.floor((hoy - fTrans) / 86400000);
+
+  if (diff >= 0 && diff <= 5) return afipFormatoFecha(fTrans);
+  if (diff > 5) {
+    var lim = new Date(hoy);
+    lim.setDate(lim.getDate() - 5);
+    return afipFormatoFecha(lim);
+  }
+  return afipFormatoFecha(hoy);
+}
+
+function afipFormatoFecha(fecha) {
+  // Devuelve string "YYYYMMDD" — se convierte a int en afipConstruirFECAEDetRequest
+  return String(fecha.getFullYear()) +
+         String(fecha.getMonth() + 1).padStart(2, '0') +
+         String(fecha.getDate()).padStart(2, '0');
+}
+
+
+function afipParsearRespuestaFactura(resultado, datosFactura, cbteNro, puntoVenta) {
+  Logger.log('[AFIP] Respuesta completa: ' + JSON.stringify(resultado).substring(0, 1000));
 
   var feResp = resultado.FECAESolicitarResult || resultado;
 
-  if (feResp.Errors) {
-    var errores = feResp.Errors.Err;
-    if (errores) {
-      var arr  = Array.isArray(errores) ? errores : [errores];
-      var msgs = arr.map(function(e) { return '(' + e.Code + ') ' + e.Msg; }).join(' | ');
-      throw new Error('ARCA rechazó el comprobante: ' + msgs);
+  // ── Errores a nivel cabecera (rechazo total) ──────────────────────────────
+  if (feResp.Errors && feResp.Errors.Err) {
+    var errArr = Array.isArray(feResp.Errors.Err) ? feResp.Errors.Err : [feResp.Errors.Err];
+    var errMsg = errArr.map(function(e) { return '(' + e.Code + ') ' + e.Msg; }).join(' | ');
+    throw new Error('ARCA rechazó el comprobante: ' + errMsg);
+  }
+
+  // ── Respuesta de detalle ──────────────────────────────────────────────────
+  if (!feResp.FeDetResp) throw new Error('Respuesta ARCA sin FeDetResp: ' + JSON.stringify(feResp).substring(0, 300));
+
+  var cbteArr = feResp.FeDetResp.FECAEDetResponse;
+  var cbte = Array.isArray(cbteArr) ? cbteArr[0] : cbteArr;
+  if (!cbte) throw new Error('Respuesta ARCA sin FECAEDetResponse');
+
+  // ── Rechazado a nivel detalle ─────────────────────────────────────────────
+  if (cbte.Resultado === 'R') {
+    var obs = '';
+    if (cbte.Observaciones && cbte.Observaciones.Obs) {
+      var obsArr = Array.isArray(cbte.Observaciones.Obs) ? cbte.Observaciones.Obs : [cbte.Observaciones.Obs];
+      obs = obsArr.map(function(o) { return '(' + o.Code + ') ' + o.Msg; }).join(' | ');
     }
+    throw new Error('ARCA rechazó el comprobante: ' + (obs || 'sin detalle'));
   }
 
-  var feDetResp = feResp.FeDetResp || feResp.FECAEDetResponse;
-  if (!feDetResp) throw new Error('Respuesta ARCA inválida: sin FeDetResp');
+  // ── Aprobado ──────────────────────────────────────────────────────────────
+  if (!cbte.CAE) throw new Error('ARCA procesó pero no devolvió CAE. Respuesta: ' + JSON.stringify(cbte));
 
-  var cbteResp = feDetResp.FECAEDetResponse;
-  if (Array.isArray(cbteResp)) cbteResp = cbteResp[0];
-  if (!cbteResp) throw new Error('Respuesta ARCA inválida: FECAEDetResponse vacío');
-
-  if (cbteResp.Resultado === 'R') {
-    var obs = cbteResp.Observaciones && cbteResp.Observaciones.Obs
-      ? (Array.isArray(cbteResp.Observaciones.Obs)
-          ? cbteResp.Observaciones.Obs.map(function(o) { return o.Msg; }).join(' | ')
-          : cbteResp.Observaciones.Obs.Msg)
-      : 'Rechazado por ARCA';
-    throw new Error('ARCA rechazó el comprobante: ' + obs);
-  }
-
-  var creds = afipGetCredentials();
   return {
     success:        true,
-    cae:            cbteResp.CAE            || '',
-    caeVencimiento: cbteResp.CAEFchVto      || '',
-    cbteNro:        cbteResp.CbteDesde      || cbteNro,
+    cae:            cbte.CAE,
+    caeVencimiento: cbte.CAEFchVto || '',
+    cbteNro:        cbte.CbteDesde || cbteNro,
     cbteTipo:       datosFactura.cbteTipo,
-    puntoVenta:     creds.puntoVenta,
-    mensaje:        'Comprobante autorizado. CAE: ' + cbteResp.CAE
+    puntoVenta:     puntoVenta,
+    ptoVta:         puntoVenta,
+    mensaje:        'Comprobante autorizado. CAE: ' + cbte.CAE
   };
 }
