@@ -1305,66 +1305,142 @@ function obtenerDatosParaImpresion(facturaId) {
 }
 
 /**
- * Lee la configuración del emisor desde la hoja "Configuracion" del Sheets.
- * Si no existe la hoja, intenta PropertiesService como fallback.
- *
- * La hoja Configuracion debe tener dos columnas: CLAVE | VALOR
- * Claves soportadas (case-insensitive):
- *   razonSocial / razon_social / empresa
- *   cuit / cuitEmpresa
- *   domicilio / direccion
- *   localidad / ciudad
- *   provincia
- *   condicionIVA / condicion_iva
- *   ingBrutos / iibb / ing_brutos
- *   inicioActividades / inicio_actividades
- *   logoUrl / logo_url / logo
- *   telefono
- *   email
- *   web / sitioWeb
+ * Lee configuración del emisor desde múltiples fuentes en cascada:
+ * 1. PropertiesService (todas las propiedades, sin filtrar)
+ * 2. AFIP_CONFIG global (siempre tiene el CUIT)
+ * 3. Hoja "Configuracion" del Sheets (cualquier formato)
  */
 function _leerConfiguracionEmisor() {
-  var cfg = {};
-  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var raw = {};
 
-  // Intentar hoja Configuracion
+  // ── Fuente 1: PropertiesService (todas las propiedades, sin filtrar) ────────
+  try {
+    var todas = PropertiesService.getScriptProperties().getProperties();
+    Object.keys(todas).forEach(function(k) {
+      // Normalizar clave: minúsculas, sin espacios ni guiones ni puntos
+      var kn = k.toLowerCase().replace(/[\s\-_.]+/g, '');
+      raw[kn] = String(todas[k] || '').trim();
+      // También guardar la clave original para casos exactos
+      raw[k] = String(todas[k] || '').trim();
+    });
+  } catch(e) {
+    Logger.log('[_leerConfiguracionEmisor] PropertiesService error: ' + e.message);
+  }
+
+  // ── Fuente 2: AFIP_CONFIG global (siempre tiene el CUIT) ───────────────────
+  try {
+    if (typeof AFIP_CONFIG !== 'undefined' && AFIP_CONFIG) {
+      var ac = AFIP_CONFIG;
+      // CUIT puede estar en distintas posiciones del objeto
+      var cuitCandidatos = [
+        ac.CUIT, ac.cuit, ac.Cuit,
+        ac.CUIT_EMISOR, ac.cuitEmisor,
+        (ac.credentials && ac.credentials.cuit),
+        (ac.auth && ac.auth.cuit)
+      ];
+      cuitCandidatos.forEach(function(v) {
+        if (v && !raw['cuit']) raw['cuit'] = String(v).trim();
+      });
+
+      // Razón social puede estar también
+      ['RAZON_SOCIAL','razonSocial','razon_social','empresa','EMPRESA','nombre'].forEach(function(k) {
+        if (ac[k] && !raw['razonsocial']) raw['razonsocial'] = String(ac[k]).trim();
+      });
+    }
+  } catch(e) {}
+
+  // ── Fuente 3: Hoja Configuracion ───────────────────────────────────────────
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hojaConfig = ss.getSheetByName('Configuracion')
     || ss.getSheetByName('CONFIGURACION')
     || ss.getSheetByName('Configuración')
-    || ss.getSheetByName('Config');
+    || ss.getSheetByName('Config')
+    || ss.getSheetByName('CONFIG')
+    || ss.getSheetByName('Ajustes')
+    || ss.getSheetByName('Sistema');
 
   if (hojaConfig) {
     var datos = hojaConfig.getDataRange().getValues();
-    datos.forEach(function(fila) {
-      var clave = String(fila[0] || '').trim().toLowerCase().replace(/[_\s]/g, '');
-      var valor = String(fila[1] || '').trim();
-      if (!clave || !valor) return;
-      cfg[clave] = valor;
-    });
+
+    // Detectar formato automáticamente
+    var col0 = String(datos[0] ? datos[0][0] : '').trim().toLowerCase();
+
+    // FORMATO A: fila de encabezado en fila 1, valores debajo
+    if (['razon_social','razonsocial','empresa','nombre_empresa',
+         'razon social','cuit','domicilio','nombre'].indexOf(col0) > -1) {
+      var heads = datos[0].map(function(h) { return String(h).trim().toLowerCase().replace(/[\s_-]+/g,''); });
+      for (var r = 1; r < datos.length; r++) {
+        var fila = datos[r];
+        heads.forEach(function(h, ci) {
+          if (fila[ci] !== '' && fila[ci] !== null && fila[ci] !== undefined) {
+            var hn = h.toLowerCase().replace(/[\s_-]+/g,'');
+            if (!raw[hn]) raw[hn] = String(fila[ci]).trim();
+          }
+        });
+        break;
+      }
+    }
+    // FORMATO B: dos columnas CLAVE | VALOR
+    else {
+      datos.forEach(function(fila) {
+        if (!fila[0] || !fila[1]) return;
+        var clave = String(fila[0]).trim().toLowerCase().replace(/[\s_-]+/g,'');
+        var valor = String(fila[1]).trim();
+        if (valor && !raw[clave]) raw[clave] = valor;
+      });
+    }
+
+    Logger.log('[_leerConfiguracionEmisor] Hoja encontrada: ' + hojaConfig.getName());
   }
 
-  // Fallback: PropertiesService
-  try {
-    var props = PropertiesService.getScriptProperties().getProperties();
-    Object.keys(props).forEach(function(k) {
-      var kn = k.toLowerCase().replace(/[_\s]/g, '');
-      if (!cfg[kn]) cfg[kn] = props[k];
-    });
-  } catch(e) {}
+  // ── Helper: buscar valor por lista de aliases normalizados ─────────────────
+  function buscar() {
+    var aliases = Array.prototype.slice.call(arguments);
+    for (var i = 0; i < aliases.length; i++) {
+      var kn = aliases[i].toLowerCase().replace(/[\s\-_.]+/g, '');
+      if (raw[kn]) return raw[kn];
+      // También intentar la clave tal cual (sin normalizar)
+      if (raw[aliases[i]]) return raw[aliases[i]];
+    }
+    return '';
+  }
 
-  // Normalizar a los campos que usa el frontend
-  return {
-    razonSocial:       cfg['razonsocial'] || cfg['empresa'] || cfg['nombre'] || '',
-    cuit:              cfg['cuit'] || cfg['cuitempresa'] || '',
-    domicilio:         cfg['domicilio'] || cfg['direccion'] || '',
-    localidad:         cfg['localidad'] || cfg['ciudad'] || '',
-    provincia:         cfg['provincia'] || '',
-    condicionIVA:      cfg['condicioniva'] || cfg['condicion'] || 'RESPONSABLE INSCRIPTO',
-    ingBrutos:         cfg['ingbrutos'] || cfg['iibb'] || '',
-    inicioActividades: cfg['inicioactividades'] || cfg['inicio'] || '',
-    logoUrl:           cfg['logourl'] || cfg['logo'] || '',
-    telefono:          cfg['telefono'] || cfg['tel'] || '',
-    email:             cfg['email'] || cfg['mail'] || '',
-    web:               cfg['web'] || cfg['sitioweb'] || ''
+  // ── Formatear CUIT con guiones ─────────────────────────────────────────────
+  function formatearCuit(v) {
+    var soloNum = String(v || '').replace(/[^0-9]/g, '');
+    if (soloNum.length === 11) {
+      return soloNum.substring(0,2) + '-' + soloNum.substring(2,10) + '-' + soloNum.substring(10);
+    }
+    return v || '';
+  }
+
+  var cuitRaw = buscar('cuit','CUIT','cuit_emisor','CUIT_EMISOR','cuitEmisor',
+                       'cuit_empresa','CUIT_EMPRESA','cuitEmpresa','afip_cuit','AFIP_CUIT');
+
+  var resultado = {
+    razonSocial:       buscar('razon_social','razonSocial','RAZON_SOCIAL','razon social',
+                              'empresa','EMPRESA','nombre_empresa','NOMBRE_EMPRESA',
+                              'company','nombre','NOMBRE','business_name'),
+    cuit:              formatearCuit(cuitRaw),
+    domicilio:         buscar('domicilio','DOMICILIO','domicilio_comercial','DOMICILIO_COMERCIAL',
+                              'direccion','DIRECCION','address','domicilio_fiscal','calle'),
+    localidad:         buscar('localidad','LOCALIDAD','ciudad','CIUDAD','city','poblacion'),
+    provincia:         buscar('provincia','PROVINCIA','province','estado','ESTADO'),
+    condicionIVA:      buscar('condicion_iva','condicionIVA','CONDICION_IVA','condicion_frente_iva',
+                              'condicion','CONDICION','iva_condicion') || 'RESPONSABLE INSCRIPTO',
+    ingBrutos:         buscar('ing_brutos','ingBrutos','ING_BRUTOS','iibb','IIBB',
+                              'ingresos_brutos','ingresosBrutos','nro_iibb','numero_iibb'),
+    inicioActividades: buscar('inicio_actividades','inicioActividades','INICIO_ACTIVIDADES',
+                              'fecha_inicio','fechaInicio','inicio','INICIO'),
+    logoUrl:           buscar('logo_url','logoUrl','LOGO_URL','logo','LOGO',
+                              'logo_link','logoLink','url_logo','image_url'),
+    telefono:          buscar('telefono','TELEFONO','phone','PHONE','tel','TEL','celular'),
+    email:             buscar('email','EMAIL','mail','MAIL','correo','CORREO'),
+    web:               buscar('web','WEB','sitio_web','sitioWeb','SITIO_WEB','website','WEBSITE','url')
   };
+
+  Logger.log('[_leerConfiguracionEmisor] razonSocial="' + resultado.razonSocial +
+             '" | cuit="' + resultado.cuit + '" | keys_encontradas=' + Object.keys(raw).length);
+
+  return resultado;
 }

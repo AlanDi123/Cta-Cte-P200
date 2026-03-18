@@ -5888,7 +5888,8 @@
     const CacheModulos = {
       estadisticas: { cargado: false, cargando: false, datos: null },
       historialCaja: { cargado: false, cargando: false, datos: null },
-      historialFacturas: { cargado: false, cargando: false, datos: null }
+      historialFacturas: { cargado: false, cargando: false, datos: null },
+      movimientos: { cargado: false, datos: [] }  // CAMBIO 3 — Cache para movimientos
     };
 
     // ============================================================================
@@ -6146,6 +6147,8 @@
         .withSuccessHandler(function(result) {
           SysLog.gasResult('obtenerMovimientosRecientes', result, Date.now() - t1);
           if (result && result.success) {
+            // CAMBIO 3 — Fix race condition: guardar en cache y recargar si dashboard está visible
+            CacheModulos.movimientos = { cargado: true, datos: result.movimientos || [] };
             Estado.movimientos = result.movimientos || [];
             renderMovimientos();
             actualizarDatosSistema();
@@ -6153,6 +6156,12 @@
         })
         .withFailureHandler(function(error) {
           SysLog.warn('INIT', 'Error cargando movimientos en segundo plano', error);
+          // CAMBIO 3 — Mostrar mensaje de error en la tabla
+          var tbody = document.getElementById('tbodyMovimientos');
+          if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:3rem;color:var(--sv-peligro);">' +
+              '⚠️ Error cargando movimientos: ' + escapeHtml(error.message) + '</td></tr>';
+          }
         })
         .obtenerMovimientosRecientes(100);
 
@@ -6170,6 +6179,74 @@
           el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
         })
         .verificarApiKey();
+    }
+
+    // ============================================================================
+    // CAMBIO 2 — SKELETON LOADING + PRECARGA EN PARALELO
+    // ============================================================================
+
+    /**
+     * Muestra placeholders animados en el Dashboard mientras cargan los datos reales.
+     * Reemplaza el contenido del dashboard con un skeleton que se ve profesional.
+     */
+    function _svMostrarSkeletonDashboard() {
+      var tbody = document.getElementById('tbodyMovimientos');
+      if (!tbody) return;
+
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:2rem;text-align:center;">' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.75rem;margin-bottom:1.5rem;">' +
+          [1,2,3,4].map(function() {
+            return '<div style="height:90px;background:var(--sv-superficie);border:1px solid var(--sv-borde);border-radius:8px;padding:0.75rem;">' +
+              '<div style="height:28px;width:60%;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:8px;animation:svSkeleton 1.4s infinite;"></div>' +
+              '<div style="height:14px;width:80%;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;animation:svSkeleton 1.4s infinite;"></div>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+        '<div style="background:var(--sv-superficie);border:1px solid var(--sv-borde);border-radius:8px;padding:1rem;">' +
+          '<div style="height:20px;width:30%;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:1rem;animation:svSkeleton 1.4s infinite;"></div>' +
+          [1,2,3,4,5].map(function() {
+            return '<div style="height:36px;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:6px;animation:svSkeleton 1.4s infinite;"></div>';
+          }).join('') +
+        '</div>' +
+      '</td></tr>';
+
+      // Agregar CSS de animación skeleton si no existe
+      if (!document.getElementById('sv-skeleton-css')) {
+        var st = document.createElement('style');
+        st.id = 'sv-skeleton-css';
+        st.textContent =
+          '@keyframes svSkeleton{0%{background-position:200% 0}100%{background-position:-200% 0}}' +
+          '@keyframes svSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}' +
+          '.sv-btn-loading{position:relative;pointer-events:none;opacity:0.85;}' +
+          '.sv-btn-loading::after{content:"";position:absolute;right:10px;top:50%;transform:translateY(-50%);' +
+          'width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;' +
+          'border-radius:50%;animation:svSpin 0.7s linear infinite;}' +
+          '.sv-input-activo{outline:2px solid var(--sv-primario)!important;outline-offset:1px;transition:outline 0.15s;}';
+        document.head.appendChild(st);
+      }
+    }
+
+    /**
+     * Dispara la carga de todos los módulos principales en background.
+     * Cada uno se auto-renderiza cuando sus datos llegan.
+     * NO bloquea la UI en ningún momento.
+     */
+    function _svPrecargarModulos() {
+      // Cargar el dashboard/movimientos como primera prioridad
+      if (typeof cargarDashboard === 'function')       cargarDashboard(true);
+      else if (typeof cargarMovimientos === 'function') cargarMovimientos(true);
+
+      // Los demás módulos se pre-cargan en segundo plano para que estén
+      // listos cuando el usuario navegue a ellos (sin tiempo de espera)
+      setTimeout(function() {
+        if (typeof cargarClientes === 'function')      cargarClientes();
+      }, 500);
+      setTimeout(function() {
+        if (typeof cargarHistorialFacturas === 'function') cargarHistorialFacturas();
+      }, 1000);
+      setTimeout(function() {
+        if (typeof cargarTransferencias === 'function')  cargarTransferencias();
+      }, 1500);
     }
 
     function setupEventos() {
@@ -6816,6 +6893,212 @@
     }
 
     // ============================================================================
+    // SV — SISTEMA UNIVERSAL: TECLADO + BACKGROUND LOADING
+    // Aplica a todos los módulos con formularios de entrada de datos.
+    // ============================================================================
+
+    /**
+     * Activa navegación por teclado en un contenedor de formulario.
+     *
+     * Comportamiento:
+     *   Tab / Enter en campo → avanza al siguiente
+     *   Enter en último campo → dispara el botón de acción principal
+     *   Escape → cierra/cancela (botón cancelar o modal)
+     *   Ctrl+Enter en textarea → dispara acción principal
+     *   Números con punto/coma → auto-corrección formato ARS en campos de monto
+     *
+     * @param {string} contenedorId    — ID del div/modal contenedor
+     * @param {string} btnAccionId     — ID del botón de acción principal (Guardar/Agregar)
+     * @param {string} [btnCancelarId] — ID del botón cancelar (para Escape)
+     * @param {Object} [opciones]      — { focusPrimerCampo: bool, camposMonto: string[] }
+     */
+    function svNavTeclado(contenedorId, btnAccionId, btnCancelarId, opciones) {
+      var cont = document.getElementById(contenedorId);
+      if (!cont) return;
+      opciones = opciones || {};
+
+      // Remover listener anterior si existe (para re-aperturas del modal)
+      var keyFn = cont._svKeyFn;
+      if (keyFn) cont.removeEventListener('keydown', keyFn);
+
+      keyFn = function(e) {
+        var target = e.target;
+        var tag    = target.tagName;
+        if (['INPUT','SELECT','TEXTAREA'].indexOf(tag) === -1) return;
+
+        // ── Escape: cancelar ────────────────────────────────────────────────
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          var btnCan = document.getElementById(btnCancelarId);
+          if (btnCan) { btnCan.click(); return; }
+          // Intentar cerrar modal genérico
+          var modal = cont.closest ? cont.closest('.modal') : null;
+          if (modal) modal.classList.remove('active');
+          return;
+        }
+
+        // ── Enter / Ctrl+Enter ───────────────────────────────────────────────
+        if (e.key === 'Enter') {
+          // En textarea: solo Ctrl+Enter dispara la acción
+          if (tag === 'TEXTAREA' && !e.ctrlKey) return;
+          e.preventDefault();
+
+          var campos = Array.from(cont.querySelectorAll(
+            'input:not([disabled]):not([readonly]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),' +
+            'select:not([disabled]),' +
+            'textarea:not([disabled])'
+          )).filter(function(el) {
+            var style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 0;
+          });
+
+          var idx = campos.indexOf(target);
+
+          if (idx >= 0 && idx < campos.length - 1) {
+            // Avanzar al siguiente campo
+            var siguiente = campos[idx + 1];
+            siguiente.focus();
+            if (siguiente.tagName === 'INPUT' && siguiente.type !== 'date') {
+              siguiente.select();
+            }
+          } else {
+            // Último campo → disparar acción principal
+            var btnAcc = document.getElementById(btnAccionId);
+            if (btnAcc && !btnAcc.disabled) {
+              btnAcc.click();
+            }
+          }
+          return;
+        }
+      };
+
+      cont._svKeyFn = keyFn;
+      cont.addEventListener('keydown', keyFn);
+
+      // ── Highlight visual de campos activos ─────────────────────────────────
+      cont.querySelectorAll('input, select, textarea').forEach(function(el) {
+        if (!el._svFocusInit) {
+          el._svFocusInit = true;
+          el.addEventListener('focus', function() { el.classList.add('sv-input-activo'); });
+          el.addEventListener('blur',  function() { el.classList.remove('sv-input-activo'); });
+        }
+      });
+
+      // ── Foco automático en el primer campo ─────────────────────────────────
+      if (opciones.focusPrimerCampo !== false) {
+        setTimeout(function() {
+          var primer = cont.querySelector(
+            'input:not([disabled]):not([readonly]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),' +
+            'select:not([disabled])'
+          );
+          if (primer) {
+            primer.focus();
+            if (primer.tagName === 'INPUT' && primer.type !== 'date') primer.select();
+          }
+        }, 120);
+      }
+    }
+
+    /**
+     * Envuelve una llamada a google.script.run con:
+     *  - estado de carga visual en el botón
+     *  - manejo de errores uniforme
+     *  - toast de éxito/error automático
+     *
+     * @param {Object} config
+     * @param {string}   config.btnId       — ID del botón disparador
+     * @param {string}   config.gasFn       — Nombre de la función GAS a llamar
+     * @param {Function} config.datos       — Función sin args que retorna los datos a enviar
+     * @param {Function} [config.onExito]   — Callback(resultado) al éxito
+     * @param {Function} [config.onError]   — Callback(error) al fallo (si no se define, muestra toast)
+     * @param {string}   [config.msgOk]     — Texto del toast de éxito
+     * @param {string}   [config.txtCarga]  — Texto del botón durante la carga
+     */
+    function svGuardar(config) {
+      var btn = document.getElementById(config.btnId);
+      if (!btn) { console.warn('svGuardar: botón no encontrado:', config.btnId); return; }
+
+      // Obtener datos — si retorna null/false, abortar
+      var datos;
+      try { datos = config.datos(); }
+      catch(e) { mostrarToast('Error al preparar datos: ' + e.message, 'error'); return; }
+      if (datos === null || datos === false || datos === undefined) return;
+
+      // Estado de carga en el botón
+      var textoOrig = btn.innerHTML;
+      btn.disabled  = true;
+      btn.classList.add('sv-btn-loading');
+      btn.innerHTML = config.txtCarga || 'Guardando…';
+
+      var restore = function() {
+        btn.disabled = false;
+        btn.classList.remove('sv-btn-loading');
+        btn.innerHTML = textoOrig;
+      };
+
+      google.script.run
+        .withSuccessHandler(function(resultado) {
+          restore();
+          // Detectar error retornado como objeto {success:false, error:'...'}
+          if (resultado && resultado.success === false) {
+            mostrarToast('Error: ' + (resultado.error || 'Ocurrió un problema'), 'error');
+            if (config.onError) config.onError(resultado);
+            return;
+          }
+          if (config.msgOk) mostrarToast(config.msgOk, 'success');
+          if (config.onExito) config.onExito(resultado);
+        })
+        .withFailureHandler(function(err) {
+          restore();
+          var msg = 'Error de conexión: ' + (err.message || err);
+          mostrarToast(msg, 'error');
+          if (config.onError) config.onError(err);
+        })
+        [config.gasFn](datos);
+    }
+
+    /**
+     * Envuelve una carga de datos (lectura) con skeleton y estado visual.
+     *
+     * @param {Object} config
+     * @param {string}   config.contenedorId — ID del contenedor a "loadear"
+     * @param {string}   config.gasFn        — Función GAS que retorna los datos
+     * @param {Function} config.onDatos      — Callback(resultado) cuando llegan los datos
+     * @param {*}        [config.param]      — Parámetro opcional a pasar a la función GAS
+     * @param {string}   [config.msgError]   — Toast de error personalizado
+     */
+    function svCargar(config) {
+      var cont = document.getElementById(config.contenedorId);
+      if (cont) {
+        cont.style.opacity   = '0.5';
+        cont.style.pointerEvents = 'none';
+      }
+
+      var restaurar = function() {
+        if (cont) {
+          cont.style.opacity   = '1';
+          cont.style.pointerEvents = '';
+        }
+      };
+
+      var runner = google.script.run
+        .withSuccessHandler(function(resultado) {
+          restaurar();
+          config.onDatos(resultado);
+        })
+        .withFailureHandler(function(err) {
+          restaurar();
+          mostrarToast((config.msgError || 'Error al cargar datos') + ': ' + err.message, 'error');
+        });
+
+      if (config.param !== undefined) {
+        runner[config.gasFn](config.param);
+      } else {
+        runner[config.gasFn]();
+      }
+    }
+
+    // ============================================================================
     // NAVEGACION
     // ============================================================================
     function navegarA(modulo) {
@@ -6843,6 +7126,22 @@
       // Scroll al inicio del contenido
       const mainContent = document.querySelector('.main-content');
       if (mainContent) mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // CAMBIO 3 — Fix race condition: mostrar skeleton en dashboard antes de cargar datos
+      if (modulo === 'dashboard') {
+        var tbody = document.getElementById('tbodyMovimientos');
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="7" class="loading-skeleton" style="text-align:center;padding:3rem;color:var(--sv-texto-muted);">' +
+            '<div style="font-size:2rem;margin-bottom:1rem;">⏳</div>' +
+            '<div>Cargando movimientos…</div></td></tr>';
+        }
+        // Si los datos ya están en caché, mostrar inmediatamente
+        if (CacheModulos.movimientos && CacheModulos.movimientos.cargado) {
+          Estado.movimientos = CacheModulos.movimientos.datos || [];
+          renderMovimientos();
+        }
+        // Si no, esperar a que llegue la carga en segundo plano
+      }
 
       // Cargar datos del modulo
       if (modulo === 'estadisticas') cargarEstadisticas();

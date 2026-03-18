@@ -1893,3 +1893,55 @@ function verificarConfiguracionARCA() {
     };
   }
 }
+
+/**
+ * DIAGNÓSTICO — ejecutar una vez desde el editor de Apps Script (▶ Run)
+ * Muestra en Logger qué encuentra _leerConfiguracionEmisor
+ */
+function diagnosticarConfiguracion() {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var cfg = _leerConfiguracionEmisor();
+
+  Logger.log('=== DIAGNÓSTICO CONFIGURACIÓN EMISOR ===');
+  Logger.log('razonSocial:       ' + cfg.razonSocial);
+  Logger.log('cuit:              ' + cfg.cuit);
+  Logger.log('domicilio:         ' + cfg.domicilio);
+  Logger.log('condicionIVA:      ' + cfg.condicionIVA);
+  Logger.log('ingBrutos:         ' + cfg.ingBrutos);
+  Logger.log('logoUrl:           ' + cfg.logoUrl);
+
+  // Listar todas las hojas
+  Logger.log('--- Hojas en el Spreadsheet ---');
+  ss.getSheets().forEach(function(h) {
+    Logger.log('  · ' + h.getName() + ' (' + h.getLastRow() + ' filas)');
+  });
+
+  // Si existe hoja Configuracion, mostrar sus primeras filas
+  var hc = ss.getSheetByName('Configuracion') || ss.getSheetByName('CONFIGURACION')
+         || ss.getSheetByName('Config') || ss.getSheetByName('Sistema');
+  if (hc) {
+    Logger.log('--- Primeras 10 filas de: ' + hc.getName() + ' ---');
+    var d = hc.getRange(1, 1, Math.min(10, hc.getLastRow()), Math.min(5, hc.getLastColumn())).getValues();
+    d.forEach(function(f, i) { Logger.log('  Fila ' + (i+1) + ': ' + JSON.stringify(f)); });
+  } else {
+    Logger.log('⚠️ No se encontró ninguna hoja de Configuracion');
+  }
+
+  // AFIP_CONFIG
+  try {
+    Logger.log('--- AFIP_CONFIG ---');
+    Logger.log(JSON.stringify(AFIP_CONFIG).substring(0, 300));
+  } catch(e) { Logger.log('AFIP_CONFIG no disponible'); }
+}
+
+/**
+ * DIAGNÓSTICO PROPERTIES — ejecutar UNA VEZ para ver todas las Script Properties
+ * Muestra en Logger qué claves y valores hay guardados en PropertiesService
+ */
+function verMisProperties() {
+  var p = PropertiesService.getScriptProperties().getProperties();
+  Logger.log('=== TODAS LAS SCRIPT PROPERTIES ===');
+  Object.keys(p).sort().forEach(function(k) {
+    Logger.log('  [' + k + '] = "' + String(p[k]).substring(0,80) + '"');
+  });
+}
