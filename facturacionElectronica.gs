@@ -220,32 +220,116 @@ function emitirFacturaElectronica(datosFactura) {
  */
 function obtenerHistorialFacturas() {
   try {
-    var hoja = _getHojaFacturas();
+    var ss   = SpreadsheetApp.getActiveSpreadsheet();
+    var hoja = ss.getSheetByName('FacturasARCA');
+    if (!hoja) return { success: false, error: 'No existe la hoja FacturasARCA.', facturas: [] };
+
     var datos = hoja.getDataRange().getValues();
     if (datos.length <= 1) return { success: true, facturas: [] };
 
-    var facturas = datos.slice(1).map(function(f) {
-      return {
-        id:            f[0],
-        fecha:         f[1],
-        cbteTipo:      f[2],
-        cbteTipoNombre: f[3],
-        ptoVta:        f[4],
-        cbteNro:       f[5],
-        clienteNombre: f[6],
-        clienteCuit:   f[7],
-        total:         f[8],
-        cae:           f[9],
-        caeVto:        f[10],
-        estado:        f[11],
-        usuario:       f[12]
-      };
-    }).reverse();
+    // Leer cabecera real (fila 0) y construir mapa de índices
+    var cabecera = datos[0].map(function(c) { return String(c).toUpperCase().trim(); });
+    var col = {};
+    cabecera.forEach(function(nombre, idx) { col[nombre] = idx; });
 
-    return { success: true, facturas: serializarParaWeb(facturas) };
-  } catch (error) {
-    Logger.log('[HISTORIAL_FACTURAS] Error: ' + error.message);
-    return { success: false, error: error.message, facturas: [] };
+    // Función helper para leer una celda por nombre de columna
+    function get(fila, nombre) {
+      var idx = col[nombre];
+      return (idx !== undefined) ? fila[idx] : '';
+    }
+
+    var facturas = [];
+    for (var i = 1; i < datos.length; i++) {
+      var fila = datos[i];
+
+      // Saltar filas completamente vacías
+      var id = String(get(fila, 'ID') || '').trim();
+      if (!id) continue;
+
+      // ── Normalización camelCase ──────────────────────────────────────────────
+      var obj = {
+        id:              id,
+        fecha:           _hfFormatearFecha(get(fila, 'FECHA')),
+        cbteTipo:        Number(get(fila, 'CBTE_TIPO'))        || 0,
+        cbteTipoNombre:  String(get(fila, 'CBTE_TIPO_NOMBRE') || ''),
+        cbteNro:         Number(get(fila, 'CBTE_NRO'))         || 0,
+        ptoVta:          Number(get(fila, 'PTO_VTA'))          || 0,
+        clienteNombre:   String(get(fila, 'CLIENTE')           || ''),
+        clienteCuit:     String(get(fila, 'CUIT')              || ''),
+        condicionVenta:  String(get(fila, 'CONDICION')         || 'CONTADO'),
+        impNeto:         Number(get(fila, 'NETO'))             || 0,
+        impIVA:          Number(get(fila, 'IVA'))              || 0,
+        total:           Number(get(fila, 'TOTAL'))            || 0,
+        cae:             String(get(fila, 'CAE')               || ''),
+        caeVto:          String(get(fila, 'CAE_VTO')           || ''),
+        cbteAsocTipo:    Number(get(fila, 'CBTE_ASOC_TIPO'))   || 0,
+        cbteAsocNro:     Number(get(fila, 'CBTE_ASOC_NRO'))    || 0,
+        estado:          String(get(fila, 'ESTADO')            || 'EMITIDA').toUpperCase(),
+        pdfUrl:          String(get(fila, 'PDF_URL')           || ''),
+        detalle:         _hfParsearDetalle(get(fila, 'DETALLE')),
+        usuario:         String(get(fila, 'USUARIO')           || '')
+      };
+
+      facturas.push(obj);
+    }
+
+    // Ordenar por fecha descendente (más reciente primero)
+    facturas.sort(function(a, b) {
+      return b.fecha.localeCompare(a.fecha);
+    });
+
+    return { success: true, facturas: facturas };
+
+  } catch (e) {
+    Logger.log('[obtenerHistorialFacturas] Error: ' + e.message + ' | Stack: ' + e.stack);
+    return { success: false, error: e.message, facturas: [] };
+  }
+}
+
+/**
+ * Formatea el valor de fecha desde Sheets.
+ * Acepta: Date object, string DD/MM/YYYY, string YYYY-MM-DD, número serial.
+ * Devuelve siempre: string "DD/MM/YYYY"
+ */
+function _hfFormatearFecha(valor) {
+  if (!valor) return '';
+  if (valor instanceof Date) {
+    var d = valor.getDate(),
+        m = valor.getMonth() + 1,
+        y = valor.getFullYear();
+    return (d < 10 ? '0' + d : d) + '/' + (m < 10 ? '0' + m : m) + '/' + y;
+  }
+  var s = String(valor).trim();
+  // Si ya es DD/MM/YYYY
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+  // Si es YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    var p = s.substring(0, 10).split('-');
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+  // Si es número serial de Google Sheets
+  var n = Number(s);
+  if (!isNaN(n) && n > 40000) {
+    var fecha = new Date((n - 25569) * 86400000);
+    var d2 = fecha.getUTCDate(), m2 = fecha.getUTCMonth() + 1, y2 = fecha.getUTCFullYear();
+    return (d2 < 10 ? '0' + d2 : d2) + '/' + (m2 < 10 ? '0' + m2 : m2) + '/' + y2;
+  }
+  return s;
+}
+
+/**
+ * Parsea el campo DETALLE: puede ser un JSON string o texto plano.
+ * Devuelve siempre un array de ítems (puede ser vacío).
+ */
+function _hfParsearDetalle(valor) {
+  if (!valor) return [];
+  var s = String(valor).trim();
+  if (!s || s === '[]' || s === '{}') return [];
+  try {
+    var parsed = JSON.parse(s);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
   }
 }
 
@@ -776,5 +860,342 @@ function verificarComprobanteARCA(cbteTipo, cbteNro, ptoVta) {
   } catch (error) {
     Logger.log('[VERIFICAR_ARCA] Error: ' + error.message);
     return { success: false, error: afipFormatearErrorUsuario(error) };
+  }
+}
+
+/**
+ * Guarda un comprobante ARCA en la hoja "FacturasARCA".
+ * Columnas en orden:
+ * ID | FECHA | CBTE_TIPO | CBTE_TIPO_NOMBRE | CBTE_NRO | PTO_VTA | CLIENTE |
+ * CUIT | CONDICION | NETO | IVA | TOTAL | CAE | CAE_VTO | CBTE_ASOC_TIPO |
+ * CBTE_ASOC_NRO | ESTADO | PDF_URL | DETALLE | USUARIO
+ *
+ * @param {Object} datos - Objeto con los datos del comprobante
+ * @returns {{ success, id, error? }}
+ */
+function guardarComprobanteARCA(datos) {
+  try {
+    var ss   = SpreadsheetApp.getActiveSpreadsheet();
+    var hoja = ss.getSheetByName('FacturasARCA');
+
+    // Crear la hoja con cabecera si no existe
+    if (!hoja) {
+      hoja = ss.insertSheet('FacturasARCA');
+      var cabecera = [
+        'ID','FECHA','CBTE_TIPO','CBTE_TIPO_NOMBRE','CBTE_NRO','PTO_VTA',
+        'CLIENTE','CUIT','CONDICION','NETO','IVA','TOTAL',
+        'CAE','CAE_VTO','CBTE_ASOC_TIPO','CBTE_ASOC_NRO',
+        'ESTADO','PDF_URL','DETALLE','USUARIO'
+      ];
+      hoja.appendRow(cabecera);
+      hoja.getRange(1, 1, 1, cabecera.length)
+          .setFontWeight('bold')
+          .setBackground('#E8F5E9');
+      hoja.setFrozenRows(1);
+    }
+
+    // Generar ID único
+    var id = Utilities.getUuid();
+
+    // Calcular neto e IVA si no vienen informados
+    var total    = Number(datos.total)    || 0;
+    var impNeto  = Number(datos.impNeto)  || Number(datos.neto)  || 0;
+    var impIVA   = Number(datos.impIVA)   || Number(datos.iva)   || 0;
+    var cbteTipo = Number(datos.cbteTipo) || Number(datos.cbte_tipo) || 0;
+
+    // Para Fact A: si no viene neto, calcular
+    if (!impNeto && (cbteTipo === 1 || cbteTipo === 3) && total > 0) {
+      impNeto = parseFloat((total / 1.21).toFixed(2));
+      impIVA  = parseFloat((total - impNeto).toFixed(2));
+    }
+    // Fact B: neto = total (IVA incluido, no discriminado)
+    if (!impNeto && (cbteTipo === 6 || cbteTipo === 8) && total > 0) {
+      impNeto = total;
+      impIVA  = 0;
+    }
+
+    // Obtener nombre del tipo de comprobante
+    var tiposNombre = {
+      1: 'FACTURA A', 2: 'NOTA DEBITO A', 3: 'NOTA CREDITO A',
+      6: 'FACTURA B', 7: 'NOTA DEBITO B', 8: 'NOTA CREDITO B',
+      11:'FACTURA C', 12:'NOTA DEBITO C', 13:'NOTA CREDITO C'
+    };
+    var cbteTipoNombre = datos.cbteTipoNombre
+      || datos.cbte_tipo_nombre
+      || tiposNombre[cbteTipo]
+      || ('COMPROBANTE ' + cbteTipo);
+
+    // Fecha formateada DD/MM/YYYY
+    var fecha = datos.fecha || _hfFormatearFecha(new Date());
+
+    // Detalle de ítems: serializar a JSON
+    var detalle = '';
+    if (datos.detalle && Array.isArray(datos.detalle) && datos.detalle.length > 0) {
+      detalle = JSON.stringify(datos.detalle);
+    } else if (datos.items && Array.isArray(datos.items) && datos.items.length > 0) {
+      detalle = JSON.stringify(datos.items);
+    }
+
+    // Fila en el orden exacto de las columnas del Sheets
+    var fila = [
+      id,                                                          // ID
+      fecha,                                                       // FECHA
+      cbteTipo,                                                    // CBTE_TIPO
+      cbteTipoNombre,                                              // CBTE_TIPO_NOMBRE
+      Number(datos.cbteNro   || datos.cbte_nro   || 0),           // CBTE_NRO
+      Number(datos.ptoVta    || datos.pto_vta    || 0),           // PTO_VTA
+      String(datos.clienteNombre || datos.cliente || ''),          // CLIENTE
+      String(datos.clienteCuit   || datos.cuit   || ''),          // CUIT
+      String(datos.condicionVenta|| datos.condicion || 'CONTADO'),// CONDICION
+      impNeto,                                                     // NETO
+      impIVA,                                                      // IVA
+      total,                                                       // TOTAL
+      String(datos.cae || ''),                                     // CAE
+      String(datos.caeVto || datos.cae_vto || ''),                 // CAE_VTO
+      Number(datos.cbteAsocTipo || datos.cbte_asoc_tipo || 0),    // CBTE_ASOC_TIPO
+      Number(datos.cbteAsocNro  || datos.cbte_asoc_nro  || 0),   // CBTE_ASOC_NRO
+      String(datos.estado || 'EMITIDA').toUpperCase(),             // ESTADO
+      String(datos.pdfUrl || datos.pdf_url || ''),                 // PDF_URL
+      detalle,                                                     // DETALLE
+      String(datos.usuario || Session.getActiveUser().getEmail() || '')  // USUARIO
+    ];
+
+    hoja.appendRow(fila);
+
+    // Formatear columnas numéricas
+    var ultimaFila = hoja.getLastRow();
+    hoja.getRange(ultimaFila, 10, 1, 3)
+        .setNumberFormat('#,##0.00');  // NETO, IVA, TOTAL
+
+    Logger.log('[guardarComprobanteARCA] Guardado OK — ID: ' + id + ' | Tipo: ' + cbteTipoNombre + ' | Total: $' + total);
+    return { success: true, id: id };
+
+  } catch (e) {
+    Logger.log('[guardarComprobanteARCA] Error: ' + e.message + ' | Stack: ' + e.stack);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Emite una Nota de Crédito para una factura existente.
+ * Busca la factura original en FacturasARCA por ID y construye la NC.
+ *
+ * @param {string} facturaId - ID UUID de la factura original
+ * @returns {{ success, mensaje, nc?, error? }}
+ */
+function emitirNotaCredito(facturaId) {
+  try {
+    if (!facturaId) return { success: false, error: 'ID de factura no informado.' };
+
+    // ── Buscar la factura original ───────────────────────────────────────────
+    var resultado = obtenerHistorialFacturas();
+    if (!resultado.success) return { success: false, error: 'Error al leer historial: ' + resultado.error };
+
+    var facturas = resultado.facturas || [];
+    var original = null;
+    for (var i = 0; i < facturas.length; i++) {
+      if (String(facturas[i].id) === String(facturaId)) {
+        original = facturas[i];
+        break;
+      }
+    }
+    if (!original) return { success: false, error: 'Factura no encontrada: ' + facturaId };
+
+    // ── Validaciones ─────────────────────────────────────────────────────────
+    if (original.estado === 'ANULADA') {
+      return { success: false, error: 'La factura ya está anulada.' };
+    }
+    var cbteTipoNum = Number(original.cbteTipo);
+    if (cbteTipoNum !== 1 && cbteTipoNum !== 6) {
+      return { success: false, error: 'Solo se pueden hacer NC de Facturas A (tipo 1) o B (tipo 6).' };
+    }
+
+    // ── Determinar tipo de NC ─────────────────────────────────────────────────
+    // FA (1) → NC A (3) | FB (6) → NC B (8)
+    var ncTipo = (cbteTipoNum === 1) ? 3 : 8;
+
+    // ── Verificar configuración AFIP ─────────────────────────────────────────
+    var config = afipVerificarConfiguracion();
+    if (!config.configurado)      return { success: false, error: 'AFIP no configurado: ' + config.error };
+    if (!config.tieneCertificado) return { success: false, error: 'Sin certificado digital.' };
+
+    // ── Obtener último número de NC para este punto de venta ─────────────────
+    var ultimoNC = afipUltimoComprobante(ncTipo, Number(original.ptoVta));
+    var nroNC    = ultimoNC + 1;
+
+    // ── Fecha hoy ─────────────────────────────────────────────────────────────
+    var hoy      = new Date();
+    var fechaStr = Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'yyyyMMdd');
+
+    // ── Construir FECAESolicitar ──────────────────────────────────────────────
+    var auth  = afipGetAuth(AFIP_CONFIG.WS.FE);
+    var creds = afipGetCredentials();
+
+    var cuitLimpio = (original.clienteCuit || '').replace(/[^0-9]/g, '');
+    var tipoDocRec = (cuitLimpio.length === 11) ? 80 : 99;
+    var nroDocRec  = parseInt(cuitLimpio) || 0;
+
+    // Comprobante asociado: la factura original
+    var cbteAsoc = [{
+      Tipo:    Number(original.cbteTipo),
+      PtoVta:  Number(original.ptoVta),
+      Nro:     Number(original.cbteNro)
+    }];
+
+    var payload = {
+      environment: AFIP_CONFIG.ENVIRONMENT,
+      method:      'FECAESolicitar',
+      wsid:        AFIP_CONFIG.WS.FE,
+      params: {
+        Auth: { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
+        FeCAEReq: {
+          FeCabReq: {
+            CantReg:  1,
+            PtoVta:   Number(original.ptoVta),
+            CbteTipo: ncTipo
+          },
+          FeDetReq: {
+            FECAEDetRequest: [{
+              Concepto:    1,  // Productos
+              DocTipo:     tipoDocRec,
+              DocNro:      nroDocRec,
+              CbteDesde:   nroNC,
+              CbteHasta:   nroNC,
+              CbteFch:     fechaStr,
+              ImpTotal:    Number(original.total),
+              ImpTotConc:  0,
+              ImpNeto:     Number(original.impNeto),
+              ImpOpEx:     0,
+              ImpIVA:      Number(original.impIVA),
+              ImpTrib:     0,
+              MonId:       'PES',
+              MonCotiz:    1,
+              Iva: [{
+                Id:    5,  // 21%
+                BaseImp: Number(original.impNeto),
+                Importe: Number(original.impIVA)
+              }],
+              CbtesAsoc: cbteAsoc
+            }]
+          }
+        }
+      },
+      cert: creds.cert,
+      key:  creds.key
+    };
+
+    // ── Llamar al WS ─────────────────────────────────────────────────────────
+    var headers = {
+      'Authorization': 'Bearer ' + creds.accessToken,
+      'Content-Type':  'application/json'
+    };
+    var respuesta = afipFetch('/requests', payload, headers);
+    Logger.log('[emitirNotaCredito] Respuesta ARCA: ' + JSON.stringify(respuesta).substring(0, 500));
+
+    var detResp = ((respuesta.FeCAESolicitarResult || respuesta).FeDetResp || {}).FECAEDetResponse;
+    if (!detResp) return { success: false, error: 'Respuesta vacía de ARCA.' };
+
+    var det = Array.isArray(detResp) ? detResp[0] : detResp;
+
+    if (det.Resultado !== 'A') {
+      var obs = [];
+      if (det.Obs && det.Obs.Ob) {
+        obs = (Array.isArray(det.Obs.Ob) ? det.Obs.Ob : [det.Obs.Ob])
+              .map(function(o) { return '(' + o.Code + ') ' + o.Msg; });
+      }
+      return { success: false, error: 'ARCA rechazó la NC. ' + obs.join(' | ') };
+    }
+
+    var caeNC    = String(det.CAE || '');
+    var caeVtoNC = String(det.CAEFchVto || '');
+    var tipoNombreNC = (ncTipo === 3) ? 'NOTA CREDITO A' : 'NOTA CREDITO B';
+    var fechaHoy = _hfFormatearFecha(hoy);
+
+    // ── Guardar NC en FacturasARCA ────────────────────────────────────────────
+    var resultGuardar = guardarComprobanteARCA({
+      cbteTipo:        ncTipo,
+      cbteTipoNombre:  tipoNombreNC,
+      cbteNro:         nroNC,
+      ptoVta:          Number(original.ptoVta),
+      clienteNombre:   original.clienteNombre,
+      clienteCuit:     original.clienteCuit,
+      condicionVenta:  original.condicionVenta,
+      impNeto:         Number(original.impNeto),
+      impIVA:          Number(original.impIVA),
+      total:           Number(original.total),
+      cae:             caeNC,
+      caeVto:          caeVtoNC,
+      cbteAsocTipo:    Number(original.cbteTipo),
+      cbteAsocNro:     Number(original.cbteNro),
+      fecha:           fechaHoy,
+      estado:          'EMITIDA',
+      usuario:         Session.getActiveUser().getEmail() || ''
+    });
+
+    if (!resultGuardar.success) {
+      // La NC se emitió en ARCA pero no se pudo guardar en Sheets — reportarlo
+      Logger.log('[emitirNotaCredito] NC emitida en ARCA pero error al guardar: ' + resultGuardar.error);
+      return {
+        success: true,
+        advertencia: 'NC emitida en ARCA (CAE: ' + caeNC + ') pero no se pudo guardar en Sheets: ' + resultGuardar.error,
+        nc: { cae: caeNC, caeVto: caeVtoNC, nroNC: nroNC, tipo: tipoNombreNC }
+      };
+    }
+
+    return {
+      success: true,
+      mensaje: tipoNombreNC + ' N° ' + String(Number(original.ptoVta)).padStart(5,'0') + '-' + String(nroNC).padStart(8,'0') + ' emitida correctamente.',
+      nc: {
+        id:      resultGuardar.id,
+        cae:     caeNC,
+        caeVto:  caeVtoNC,
+        nroNC:   nroNC,
+        tipo:    tipoNombreNC
+      }
+    };
+
+  } catch (e) {
+    Logger.log('[emitirNotaCredito] Error: ' + e.message + ' | Stack: ' + e.stack);
+    return { success: false, error: afipFormatearErrorUsuario(e) };
+  }
+}
+
+/**
+ * Obtiene el último comprobante autorizado para un tipo y punto de venta.
+ * Función auxiliar para emitirNotaCredito.
+ */
+function afipUltimoComprobante(cbteTipo, ptoVta) {
+  try {
+    var config = afipVerificarConfiguracion();
+    if (!config.configurado || !config.tieneCertificado) return 0;
+
+    var auth  = afipGetAuth(AFIP_CONFIG.WS.FE);
+    var creds = afipGetCredentials();
+    var headers = {
+      'Authorization': 'Bearer ' + creds.accessToken,
+      'Content-Type':  'application/json'
+    };
+
+    var payload = {
+      environment: AFIP_CONFIG.ENVIRONMENT,
+      method:      'FECompUltimoAutorizado',
+      wsid:        AFIP_CONFIG.WS.FE,
+      params: {
+        Auth: { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
+        PtoVta: ptoVta,
+        CbteTipo: cbteTipo
+      },
+      cert: creds.cert,
+      key:  creds.key
+    };
+
+    var res = afipFetch('/requests', payload, headers);
+    if (res && res.FECompUltimoAutorizadoResult) {
+      return Number(res.FECompUltimoAutorizadoResult.CbteNro) || 0;
+    }
+    return 0;
+  } catch (e) {
+    Logger.log('[afipUltimoComprobante] Error: ' + e.message);
+    return 0;
   }
 }
