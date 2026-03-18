@@ -10971,11 +10971,15 @@
           '</tr>';
         }).join('');
       } else {
+        var descGenericaFB = 'Venta de Productos';
+        var descGenericaFA = 'Distribución de Productos';
+        var descGenerica   = esA ? descGenericaFA : descGenericaFB;
         var montoItem = esA ? impNeto : total;
+
         itemsHTML =
           '<tr>' +
             '<td class="tcell" style="text-align:center;">-</td>' +
-            '<td class="tcell">Prestación de servicios / Venta de productos</td>' +
+            '<td class="tcell">' + descGenerica + '</td>' +
             '<td class="tcell" style="text-align:right;">1,00</td>' +
             '<td class="tcell" style="text-align:center;">U</td>' +
             '<td class="tcell" style="text-align:right;">$' + montoItem.toLocaleString('es-AR',{minimumFractionDigits:2}) + '</td>' +

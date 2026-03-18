@@ -1034,6 +1034,19 @@ function guardarComprobanteARCA(datos) {
 
     hoja.appendRow(fila);
 
+    // ── Descontar stock si es Factura A con ítems ─────────────────────────────
+    // Solo FA (tipo 1): son las ventas de transferencias con detalle de productos
+    if (Number(datos.cbteTipo || datos.cbte_tipo) === 1) {
+      var itemsParaStock = datos.detalle || datos.items || [];
+      if (itemsParaStock.length > 0) {
+        var resultStock = descontarStockPorFactura(itemsParaStock);
+        Logger.log('[guardarComprobanteARCA] Stock descontado: ' + JSON.stringify(resultStock).substring(0, 300));
+        if (resultStock.errores && resultStock.errores.length > 0) {
+          Logger.log('[guardarComprobanteARCA] Advertencias stock: ' + resultStock.errores.join(' | '));
+        }
+      }
+    }
+
     // Formatear columnas numéricas
     var ultimaFila = hoja.getLastRow();
     hoja.getRange(ultimaFila, 10, 1, 3)
@@ -1351,4 +1364,102 @@ function _leerConfiguracionEmisor() {
     email:             p('EMISOR_EMAIL'),
     web:               p('EMISOR_WEB')
   };
+}
+
+/**
+ * Descuenta stock de la hoja Productos al emitir una Factura A.
+ * Solo aplica a FA (cbteTipo === 1) porque son las ventas al por mayor
+ * con detalle de ítems provenientes de una transferencia.
+ *
+ * La hoja Productos debe tener columnas:
+ *   CODIGO | NOMBRE | STOCK | PRECIO | [otras...]
+ *
+ * @param {Array} items - Array de { codigo, cantidad, descripcion }
+ * @returns {{ success, descontados, errores }}
+ */
+function descontarStockPorFactura(items) {
+  try {
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return { success: true, descontados: [], errores: ['Sin ítems para descontar'] };
+    }
+
+    var ss      = SpreadsheetApp.getActiveSpreadsheet();
+    var hoja    = ss.getSheetByName('Productos');
+    if (!hoja) return { success: false, errores: ['No existe la hoja Productos'] };
+
+    var datos   = hoja.getDataRange().getValues();
+    if (datos.length <= 1) return { success: true, descontados: [], errores: ['Hoja Productos vacía'] };
+
+    // Detectar columnas por nombre
+    var cabecera = datos[0].map(function(c) { return String(c).toUpperCase().trim(); });
+    var colCodigo = -1, colNombre = -1, colStock = -1;
+
+    cabecera.forEach(function(c, i) {
+      if (['CODIGO','COD','SKU','ID','REF'].indexOf(c) > -1 && colCodigo === -1) colCodigo = i;
+      if (['NOMBRE','DESCRIPCION','PRODUCTO','NAME'].indexOf(c) > -1 && colNombre === -1) colNombre = i;
+      if (['STOCK','CANTIDAD','QTY','EXISTENCIA','DISPONIBLE'].indexOf(c) > -1 && colStock === -1) colStock = i;
+    });
+
+    if (colStock === -1) {
+      return { success: false, errores: ['No se encontró columna STOCK en la hoja Productos'] };
+    }
+
+    var descontados = [];
+    var errores     = [];
+
+    items.forEach(function(item) {
+      var busqueda = String(item.codigo || item.descripcion || '').toLowerCase().trim();
+      if (!busqueda) return;
+
+      var cantidad = Number(item.cantidad) || 1;
+      var encontrado = false;
+
+      for (var r = 1; r < datos.length; r++) {
+        var filaCodigo  = colCodigo > -1 ? String(datos[r][colCodigo] || '').toLowerCase().trim() : '';
+        var filaNombre  = colNombre > -1 ? String(datos[r][colNombre] || '').toLowerCase().trim() : '';
+        var stockActual = Number(datos[r][colStock]) || 0;
+
+        // Coincidencia por código exacto o nombre parcial
+        var coincide = (colCodigo > -1 && filaCodigo === busqueda) ||
+                       (colNombre > -1 && filaNombre.includes(busqueda)) ||
+                       (colNombre > -1 && busqueda.includes(filaNombre) && filaNombre.length > 3);
+
+        if (coincide) {
+          encontrado = true;
+          var nuevoStock = stockActual - cantidad;
+
+          if (nuevoStock < 0) {
+            errores.push('Stock insuficiente para "' + (datos[r][colNombre] || busqueda) +
+                         '" — stock: ' + stockActual + ', pedido: ' + cantidad);
+            // Se descuenta igual pero se registra la advertencia
+          }
+
+          // Actualizar la celda de stock (fila r+1 porque Sheets es 1-indexed)
+          hoja.getRange(r + 1, colStock + 1).setValue(nuevoStock);
+
+          descontados.push({
+            nombre:    datos[r][colNombre] || busqueda,
+            codigo:    colCodigo > -1 ? datos[r][colCodigo] : '',
+            anterior:  stockActual,
+            descontado: cantidad,
+            nuevo:     nuevoStock
+          });
+
+          Logger.log('[STOCK] "' + (datos[r][colNombre] || busqueda) + '": ' + stockActual + ' → ' + nuevoStock);
+          break; // Solo descuenta el primer match
+        }
+      }
+
+      if (!encontrado) {
+        errores.push('Producto no encontrado en stock: "' + busqueda + '"');
+        Logger.log('[STOCK] No encontrado: ' + busqueda);
+      }
+    });
+
+    return { success: true, descontados: descontados, errores: errores };
+
+  } catch(e) {
+    Logger.log('[descontarStockPorFactura] Error: ' + e.message);
+    return { success: false, errores: [e.message] };
+  }
 }
