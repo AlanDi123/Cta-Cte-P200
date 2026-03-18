@@ -218,103 +218,175 @@ function emitirFacturaElectronica(datosFactura) {
  * Obtiene el historial de facturas emitidas.
  * Llamada desde: cargarHistorialFacturas()
  */
+
+// Alias de columnas: cada key es el campo canónico, el array son todos los nombres posibles
+var ALIASES_COLUMNAS = {
+  'ID':              ['ID','UUID'],
+  'FECHA':           ['FECHA','FECHA_EMISION','FECHA_CBTE','DATE'],
+  'CBTE_TIPO':       ['CBTE_TIPO','TIPO','TIPO_CBTE','CBTE_TYPE'],
+  'CBTE_TIPO_NOMBRE':['CBTE_TIPO_NOMBRE','TIPO_NOMBRE','NOMBRE_TIPO','CBTE_TIPO_NOM'],
+  'CBTE_NRO':        ['CBTE_NRO','NRO','NUMERO','NRO_COMPROBANTE','CBTE_NUMERO'],
+  'PTO_VTA':         ['PTO_VTA','PUNTO_VENTA','PTOVTA','PV'],
+  'CLIENTE':         ['CLIENTE','RAZON_SOCIAL_CLIENTE','NOMBRE_CLIENTE','CLIENTE_NOMBRE','RAZON_SOCIAL'],
+  'CUIT':            ['CUIT','CUIT_CLIENTE','DOCUMENTO','DOC_NRO'],
+  'CONDICION':       ['CONDICION','CONDICION_VENTA','COND_VENTA','CONDICION_PAGO'],
+  'NETO':            ['NETO','IMP_NETO','IMPORTE_NETO','NETO_GRAVADO'],
+  'IVA':             ['IVA','IMP_IVA','IMPORTE_IVA','TOTAL_IVA'],
+  'TOTAL':           ['TOTAL','IMP_TOTAL','IMPORTE_TOTAL','MONTO_TOTAL'],
+  'CAE':             ['CAE','COD_CAE','CODIGO_CAE','CAE_NRO'],
+  'CAE_VTO':         ['CAE_VTO','VENCIMIENTO_CAE','FECHA_VTO_CAE','CAE_VENCIMIENTO','VTO_CAE'],
+  'CBTE_ASOC_TIPO':  ['CBTE_ASOC_TIPO','TIPO_CBTE_ASOC','ASOC_TIPO'],
+  'CBTE_ASOC_NRO':   ['CBTE_ASOC_NRO','NRO_CBTE_ASOC','ASOC_NRO'],
+  'ESTADO':          ['ESTADO','STATUS','ESTADO_CBTE'],
+  'PDF_URL':         ['PDF_URL','URL_PDF','LINK_PDF','PDF'],
+  'DETALLE':         ['DETALLE','ITEMS','DETALLE_ITEMS','LINEAS'],
+  'USUARIO':         ['USUARIO','USER','EMITIDO_POR','OPERADOR']
+};
+
 function obtenerHistorialFacturas() {
   try {
-    var ss   = SpreadsheetApp.getActiveSpreadsheet();
-    var hoja = ss.getSheetByName('FacturasARCA');
-    if (!hoja) return { success: false, error: 'No existe la hoja FacturasARCA.', facturas: [] };
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    var datos = hoja.getDataRange().getValues();
-    if (datos.length <= 1) return { success: true, facturas: [] };
+    // ── Nombres de hojas aceptados (ambas fuentes) ──────────────────────────
+    var HOJAS_FUENTE = ['FACTURAS_EMITIDAS', 'FacturasARCA', 'Facturas_ARCA', 'FACTURAS_ARCA'];
 
-    // Leer cabecera real (fila 0) y construir mapa de índices
-    var cabecera = datos[0].map(function(c) { return String(c).toUpperCase().trim(); });
-    var col = {};
-    cabecera.forEach(function(nombre, idx) { col[nombre] = idx; });
+    var todasLasFacturas = [];
 
-    // Función helper para leer una celda por nombre de columna
-    function get(fila, nombre) {
-      var idx = col[nombre];
-      return (idx !== undefined) ? fila[idx] : '';
-    }
+    HOJAS_FUENTE.forEach(function(nombreHoja) {
+      var hoja = ss.getSheetByName(nombreHoja);
+      if (!hoja) return;
 
-    var facturas = [];
-    for (var i = 1; i < datos.length; i++) {
-      var fila = datos[i];
+      var datos = hoja.getDataRange().getValues();
+      if (datos.length <= 1) return;
 
-      // Saltar filas completamente vacías
-      var id = String(get(fila, 'ID') || '').trim();
-      if (!id) continue;
+      // Mapa de índices por nombre de columna (UPPERCASE)
+      var cabecera = datos[0].map(function(c) { return String(c).toUpperCase().trim().replace(/\s+/g, '_'); });
+      var col = {};
+      cabecera.forEach(function(nombre, idx) { col[nombre] = idx; });
 
-      // ── Normalización camelCase ──────────────────────────────────────────────
-      var obj = {
-        id:              id,
-        fecha:           _hfFormatearFecha(get(fila, 'FECHA')),
-        cbteTipo:        Number(get(fila, 'CBTE_TIPO'))        || 0,
-        cbteTipoNombre:  String(get(fila, 'CBTE_TIPO_NOMBRE') || ''),
-        cbteNro:         Number(get(fila, 'CBTE_NRO'))         || 0,
-        ptoVta:          Number(get(fila, 'PTO_VTA'))          || 0,
-        clienteNombre:   String(get(fila, 'CLIENTE')           || ''),
-        clienteCuit:     String(get(fila, 'CUIT')              || ''),
-        condicionVenta:  String(get(fila, 'CONDICION')         || 'CONTADO'),
-        impNeto:         Number(get(fila, 'NETO'))             || 0,
-        impIVA:          Number(get(fila, 'IVA'))              || 0,
-        total:           Number(get(fila, 'TOTAL'))            || 0,
-        cae:             String(get(fila, 'CAE')               || ''),
-        caeVto:          String(get(fila, 'CAE_VTO')           || ''),
-        cbteAsocTipo:    Number(get(fila, 'CBTE_ASOC_TIPO'))   || 0,
-        cbteAsocNro:     Number(get(fila, 'CBTE_ASOC_NRO'))    || 0,
-        estado:          String(get(fila, 'ESTADO')            || 'EMITIDA').toUpperCase(),
-        pdfUrl:          String(get(fila, 'PDF_URL')           || ''),
-        detalle:         _hfParsearDetalle(get(fila, 'DETALLE')),
-        usuario:         String(get(fila, 'USUARIO')           || '')
-      };
+      function get(fila, campo) {
+        // Acepta múltiples alias por columna
+        var aliases = ALIASES_COLUMNAS[campo] || [campo];
+        for (var a = 0; a < aliases.length; a++) {
+          var idx = col[aliases[a].toUpperCase()];
+          if (idx !== undefined && fila[idx] !== '' && fila[idx] !== null && fila[idx] !== undefined) {
+            return fila[idx];
+          }
+        }
+        return '';
+      }
 
-      facturas.push(obj);
-    }
+      for (var i = 1; i < datos.length; i++) {
+        var fila = datos[i];
+        var id = String(get(fila, 'ID') || '').trim();
+        if (!id) continue;
 
-    // Ordenar por fecha descendente (más reciente primero)
+        var cbteTipoNum = Number(get(fila, 'CBTE_TIPO')) || 0;
+        var tiposNombre = {1:'FACTURA A',2:'NOTA DEBITO A',3:'NOTA CREDITO A',
+                           6:'FACTURA B',7:'NOTA DEBITO B',8:'NOTA CREDITO B',
+                           11:'FACTURA C',12:'NOTA DEBITO C',13:'NOTA CREDITO C'};
+
+        var total   = Number(get(fila, 'TOTAL'))  || 0;
+        var impNeto = Number(get(fila, 'NETO'))   || 0;
+        var impIVA  = Number(get(fila, 'IVA'))    || 0;
+
+        // Calcular neto/iva si no están guardados
+        if (!impNeto && total > 0) {
+          if (cbteTipoNum === 1 || cbteTipoNum === 3) {
+            impNeto = parseFloat((total / 1.21).toFixed(2));
+            impIVA  = parseFloat((total - impNeto).toFixed(2));
+          } else {
+            impNeto = total; impIVA = 0;
+          }
+        }
+
+        // Detalle de ítems
+        var detalleRaw = get(fila, 'DETALLE');
+        var detalle = [];
+        if (detalleRaw) {
+          try { var p = JSON.parse(String(detalleRaw)); if (Array.isArray(p)) detalle = p; }
+          catch(e) {}
+        }
+
+        todasLasFacturas.push({
+          id:             id,
+          fecha:          _hfFormatearFecha(get(fila, 'FECHA')),
+          fechaISO:       _hfFechaISO(get(fila, 'FECHA')),
+          cbteTipo:       cbteTipoNum,
+          cbteTipoNombre: String(get(fila, 'CBTE_TIPO_NOMBRE') || tiposNombre[cbteTipoNum] || ('COMP. ' + cbteTipoNum)),
+          cbteNro:        Number(get(fila, 'CBTE_NRO'))   || 0,
+          ptoVta:         Number(get(fila, 'PTO_VTA'))    || 0,
+          clienteNombre:  String(get(fila, 'CLIENTE')     || ''),
+          clienteCuit:    String(get(fila, 'CUIT')        || ''),
+          condicionVenta: String(get(fila, 'CONDICION')   || 'CONTADO'),
+          impNeto:        impNeto,
+          impIVA:         impIVA,
+          total:          total,
+          cae:            String(get(fila, 'CAE')         || ''),
+          caeVto:         String(get(fila, 'CAE_VTO')     || ''),
+          cbteAsocTipo:   Number(get(fila, 'CBTE_ASOC_TIPO')) || 0,
+          cbteAsocNro:    Number(get(fila, 'CBTE_ASOC_NRO'))  || 0,
+          estado:         String(get(fila, 'ESTADO')      || 'EMITIDA').toUpperCase(),
+          pdfUrl:         String(get(fila, 'PDF_URL')     || ''),
+          detalle:        detalle,
+          usuario:        String(get(fila, 'USUARIO')     || ''),
+          fuenteHoja:     nombreHoja
+        });
+      }
+    });
+
+    // Deduplicar por ID (si una factura existe en ambas hojas, queda la primera)
+    var vistosIds = {};
+    var facturas = todasLasFacturas.filter(function(f) {
+      if (vistosIds[f.id]) return false;
+      vistosIds[f.id] = true;
+      return true;
+    });
+
+    // Ordenar: más reciente primero usando fechaISO
     facturas.sort(function(a, b) {
-      return b.fecha.localeCompare(a.fecha);
+      return b.fechaISO.localeCompare(a.fechaISO);
     });
 
     return { success: true, facturas: facturas };
 
   } catch (e) {
-    Logger.log('[obtenerHistorialFacturas] Error: ' + e.message + ' | Stack: ' + e.stack);
+    Logger.log('[obtenerHistorialFacturas] ' + e.message + '\n' + e.stack);
     return { success: false, error: e.message, facturas: [] };
   }
 }
 
-/**
- * Formatea el valor de fecha desde Sheets.
- * Acepta: Date object, string DD/MM/YYYY, string YYYY-MM-DD, número serial.
- * Devuelve siempre: string "DD/MM/YYYY"
- */
+// Convierte fecha a DD/MM/YYYY para mostrar
 function _hfFormatearFecha(valor) {
   if (!valor) return '';
   if (valor instanceof Date) {
-    var d = valor.getDate(),
-        m = valor.getMonth() + 1,
-        y = valor.getFullYear();
-    return (d < 10 ? '0' + d : d) + '/' + (m < 10 ? '0' + m : m) + '/' + y;
+    var d = valor.getDate(), m = valor.getMonth()+1, y = valor.getFullYear();
+    return String(d<10?'0'+d:d)+'/'+String(m<10?'0'+m:m)+'/'+y;
   }
   var s = String(valor).trim();
-  // Si ya es DD/MM/YYYY
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
-  // Si es YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    var p = s.substring(0, 10).split('-');
-    return p[2] + '/' + p[1] + '/' + p[0];
+    var p = s.substring(0,10).split('-'); return p[2]+'/'+p[1]+'/'+p[0];
   }
-  // Si es número serial de Google Sheets
   var n = Number(s);
-  if (!isNaN(n) && n > 40000) {
-    var fecha = new Date((n - 25569) * 86400000);
-    var d2 = fecha.getUTCDate(), m2 = fecha.getUTCMonth() + 1, y2 = fecha.getUTCFullYear();
-    return (d2 < 10 ? '0' + d2 : d2) + '/' + (m2 < 10 ? '0' + m2 : m2) + '/' + y2;
+  if (!isNaN(n) && n > 30000) {
+    var fd = new Date((n-25569)*86400000);
+    return String(fd.getUTCDate()<10?'0'+fd.getUTCDate():fd.getUTCDate())+'/'+
+           String(fd.getUTCMonth()+1<10?'0'+(fd.getUTCMonth()+1):fd.getUTCMonth()+1)+'/'+
+           fd.getUTCFullYear();
   }
   return s;
+}
+
+// Convierte fecha a YYYY-MM-DD para ordenar correctamente
+function _hfFechaISO(valor) {
+  var fmt = _hfFormatearFecha(valor);
+  if (!fmt) return '';
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(fmt)) {
+    var p = fmt.split('/');
+    return p[2]+'-'+String(p[1]).padStart(2,'0')+'-'+String(p[0]).padStart(2,'0');
+  }
+  return fmt;
 }
 
 /**
@@ -1198,4 +1270,101 @@ function afipUltimoComprobante(cbteTipo, ptoVta) {
     Logger.log('[afipUltimoComprobante] Error: ' + e.message);
     return 0;
   }
+}
+
+/**
+ * Devuelve todo lo necesario para imprimir una factura:
+ * configuración del emisor (desde hoja Configuracion o PropertiesService)
+ * + datos completos de la factura solicitada.
+ *
+ * @param {string} facturaId - UUID de la factura
+ */
+function obtenerDatosParaImpresion(facturaId) {
+  try {
+    // ── 1. Leer configuración del emisor ─────────────────────────────────────
+    var cfg = _leerConfiguracionEmisor();
+
+    // ── 2. Buscar la factura ─────────────────────────────────────────────────
+    var historial = obtenerHistorialFacturas();
+    if (!historial.success) return { success: false, error: historial.error };
+
+    var factura = null;
+    for (var i = 0; i < historial.facturas.length; i++) {
+      if (String(historial.facturas[i].id) === String(facturaId)) {
+        factura = historial.facturas[i]; break;
+      }
+    }
+    if (!factura) return { success: false, error: 'Factura no encontrada: ' + facturaId };
+
+    return { success: true, config: cfg, factura: factura };
+
+  } catch (e) {
+    Logger.log('[obtenerDatosParaImpresion] ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Lee la configuración del emisor desde la hoja "Configuracion" del Sheets.
+ * Si no existe la hoja, intenta PropertiesService como fallback.
+ *
+ * La hoja Configuracion debe tener dos columnas: CLAVE | VALOR
+ * Claves soportadas (case-insensitive):
+ *   razonSocial / razon_social / empresa
+ *   cuit / cuitEmpresa
+ *   domicilio / direccion
+ *   localidad / ciudad
+ *   provincia
+ *   condicionIVA / condicion_iva
+ *   ingBrutos / iibb / ing_brutos
+ *   inicioActividades / inicio_actividades
+ *   logoUrl / logo_url / logo
+ *   telefono
+ *   email
+ *   web / sitioWeb
+ */
+function _leerConfiguracionEmisor() {
+  var cfg = {};
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Intentar hoja Configuracion
+  var hojaConfig = ss.getSheetByName('Configuracion')
+    || ss.getSheetByName('CONFIGURACION')
+    || ss.getSheetByName('Configuración')
+    || ss.getSheetByName('Config');
+
+  if (hojaConfig) {
+    var datos = hojaConfig.getDataRange().getValues();
+    datos.forEach(function(fila) {
+      var clave = String(fila[0] || '').trim().toLowerCase().replace(/[_\s]/g, '');
+      var valor = String(fila[1] || '').trim();
+      if (!clave || !valor) return;
+      cfg[clave] = valor;
+    });
+  }
+
+  // Fallback: PropertiesService
+  try {
+    var props = PropertiesService.getScriptProperties().getProperties();
+    Object.keys(props).forEach(function(k) {
+      var kn = k.toLowerCase().replace(/[_\s]/g, '');
+      if (!cfg[kn]) cfg[kn] = props[k];
+    });
+  } catch(e) {}
+
+  // Normalizar a los campos que usa el frontend
+  return {
+    razonSocial:       cfg['razonsocial'] || cfg['empresa'] || cfg['nombre'] || '',
+    cuit:              cfg['cuit'] || cfg['cuitempresa'] || '',
+    domicilio:         cfg['domicilio'] || cfg['direccion'] || '',
+    localidad:         cfg['localidad'] || cfg['ciudad'] || '',
+    provincia:         cfg['provincia'] || '',
+    condicionIVA:      cfg['condicioniva'] || cfg['condicion'] || 'RESPONSABLE INSCRIPTO',
+    ingBrutos:         cfg['ingbrutos'] || cfg['iibb'] || '',
+    inicioActividades: cfg['inicioactividades'] || cfg['inicio'] || '',
+    logoUrl:           cfg['logourl'] || cfg['logo'] || '',
+    telefono:          cfg['telefono'] || cfg['tel'] || '',
+    email:             cfg['email'] || cfg['mail'] || '',
+    web:               cfg['web'] || cfg['sitioweb'] || ''
+  };
 }
