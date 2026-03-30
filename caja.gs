@@ -168,10 +168,12 @@ const CajaRepository = {
         ]);
       }
 
-      // Insertar todos los registros
-      for (const registro of registros) {
-        // M-05: Usar conRetry para cada appendRow
-        conRetry(() => hoja.appendRow(registro), { contexto: 'CAJA.guardarSesion.appendRow', maxIntentos: 3 });
+      // Insertar todos los registros en un solo setValues (evita N appendRow)
+      if (registros.length > 0) {
+        conRetry(() => {
+          const startRow = hoja.getLastRow() + 1;
+          hoja.getRange(startRow, 1, registros.length, registros[0].length).setValues(registros);
+        }, { contexto: 'CAJA.guardarSesion.setValues', maxIntentos: 3 });
       }
 
       lock.releaseLock();

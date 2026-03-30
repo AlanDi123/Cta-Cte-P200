@@ -810,3 +810,74 @@ function conRetry(fn, opciones) {
   }
   throw ultimoError; // never reached, TypeScript appeasement
 }
+
+/**
+ * Respuesta estándar para APIs expuestas al frontend.
+ * @param {boolean} exito
+ * @param {*} [datos=null]
+ * @param {string|null} [mensajeError=null]
+ * @returns {{status: string, payload: *, message: string|null}}
+ */
+function generarRespuesta(exito, datos, mensajeError) {
+  return {
+    status: exito ? 'success' : 'error',
+    payload: datos === undefined ? null : datos,
+    message: mensajeError || null
+  };
+}
+
+/**
+ * Formato moneda ARS (para logs o plantillas).
+ * @param {number} monto
+ * @returns {string}
+ */
+function formatoPesos(monto) {
+  var n = Number(monto) || 0;
+  try {
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(n);
+  } catch (e) {
+    return '$' + n.toFixed(2);
+  }
+}
+
+/**
+ * Fecha de comprobante permitida por AFIP (máx. 5 días retroactivos). YYYYMMDD
+ * @param {string|Date|null} fechaTransferenciaCruda
+ * @returns {string}
+ */
+function calcularFechaFacturaPermitida(fechaTransferenciaCruda) {
+  var hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  if (!fechaTransferenciaCruda) {
+    return Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'yyyyMMdd');
+  }
+  var fechaTrans = fechaTransferenciaCruda instanceof Date
+    ? new Date(fechaTransferenciaCruda)
+    : parsearFechaLocal(String(fechaTransferenciaCruda));
+  fechaTrans.setHours(0, 0, 0, 0);
+  var diffDias = Math.floor((hoy - fechaTrans) / 86400000);
+  var limite = new Date(hoy);
+  limite.setDate(limite.getDate() - 5);
+  limite.setHours(0, 0, 0, 0);
+  var fechaFinal = fechaTrans;
+  if (diffDias > 5) fechaFinal = limite;
+  if (fechaTrans > hoy) fechaFinal = hoy;
+  return Utilities.formatDate(fechaFinal, Session.getScriptTimeZone(), 'yyyyMMdd');
+}
+
+/**
+ * Valida CUIT argentino (11 dígitos + dígito verificador módulo 11 AFIP).
+ * @param {string} cuit
+ * @returns {boolean}
+ */
+function validarCuitModulo11(cuit) {
+  var s = String(cuit || '').replace(/\D/g, '');
+  if (s.length !== 11) return false;
+  var mults = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  var sum = 0;
+  for (var i = 0; i < 10; i++) sum += parseInt(s.charAt(i), 10) * mults[i];
+  var mod = 11 - (sum % 11);
+  if (mod === 11) mod = 0;
+  if (mod === 10) mod = 9;
+  return mod === parseInt(s.charAt(10), 10);
+}

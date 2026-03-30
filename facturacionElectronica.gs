@@ -93,6 +93,8 @@ function emitirFacturaElectronica(datosFactura) {
     if (datos.cbteTipo === 1) {
       if (!datos.clienteCuit || datos.clienteCuit.trim() === '') {
         erroresValidacion.push('Factura A requiere CUIT del cliente.');
+      } else if (!validarCuitModulo11(datos.clienteCuit)) {
+        erroresValidacion.push('CUIT del cliente inválido (verificador).');
       }
       var condUp = String(datos.clienteCondicion || '').toUpperCase();
       var esRIoM = condUp === 'RI' ||
@@ -161,7 +163,8 @@ function emitirFacturaElectronica(datosFactura) {
       neto:             neto,
       iva:              iva,
       total:            total,
-      fechaTransferencia: datos.fechaTransferencia
+      fechaTransferencia: datos.fechaTransferencia,
+      fechaCbte:        fechaCbte
     });
 
     if (!resultado.success) return resultado;

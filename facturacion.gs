@@ -262,20 +262,93 @@ const TransferenciasRepository = {
 
   /**
    * Agrega múltiples transferencias (para importación desde IA o API)
+   * Inserción en lote: una lectura de ID + un setValues (evita N appendRow).
    * @returns {{exitosos: Array, errores: Array}}
    */
   agregarMultiples: function(transferencias) {
+    if (!transferencias || transferencias.length === 0) return { exitosos: [], errores: [] };
+
+    const hoja = this.getHoja();
+    const idBase = this.getSiguienteId();
+    let idActual = idBase;
+
+    const nuevasFilas = [];
     const exitosos = [];
     const errores = [];
+
     for (const t of transferencias) {
       try {
-        const resultado = this.agregar(t);
-        exitosos.push(resultado);
+        let clienteRegistrado = false;
+        let clienteData = null;
+        let condicion = t.condicion || 'Consumidor Final';
+        let cuit = t.cuit || '';
+        const nombreOriginal = (t.cliente || '').toUpperCase();
+
+        if (t.cliente) {
+          clienteData = ClientesRepository.buscarPorNombre(t.cliente);
+          if (clienteData) {
+            clienteRegistrado = true;
+            condicion = clienteData.condicionFiscal || (clienteData.cuit ? 'Responsable Inscripto' : 'Consumidor Final');
+            cuit = clienteData.cuit || cuit;
+          }
+        }
+
+        const tipoFactura = (condicion === 'Responsable Inscripto' || condicion === 'RI' ||
+          condicion === 'Monotributista' || condicion === 'Monotributo') ? 'A' : 'B';
+
+        let obs = t.obs || '';
+        if (!clienteRegistrado) {
+          const metadataNoRegistrado = {
+            noRegistrado: true,
+            nombreOriginal: nombreOriginal,
+            cuitProporcionado: cuit || null,
+            fechaIngreso: formatearFechaLocal(new Date())
+          };
+          const prefix = '[NO_REGISTRADO] ';
+          if (obs.indexOf(prefix) !== 0) {
+            obs = prefix + JSON.stringify(metadataNoRegistrado) + (obs ? ' | ' + obs : '');
+          }
+        }
+
+        nuevasFilas.push([
+          idActual,
+          t.fecha ? parsearFechaLocal(t.fecha) : new Date(),
+          nombreOriginal,
+          t.monto || 0,
+          t.banco || '',
+          condicion,
+          tipoFactura,
+          false,
+          '',
+          obs
+        ]);
+
+        exitosos.push({
+          id: idActual,
+          fecha: t.fecha,
+          cliente: nombreOriginal,
+          clienteRegistrado: clienteRegistrado,
+          nombreOriginal: nombreOriginal,
+          cuitProporcionado: cuit,
+          monto: t.monto,
+          banco: t.banco,
+          condicion: condicion,
+          tipoFactura: tipoFactura,
+          facturada: false,
+          esNoRegistrado: !clienteRegistrado
+        });
+
+        idActual++;
       } catch (e) {
-        Logger.log('Error en agregarMultiples (transferencia): ' + e.message);
         errores.push({ datos: t, error: e.message });
       }
     }
+
+    if (nuevasFilas.length > 0) {
+      const startRow = hoja.getLastRow() + 1;
+      hoja.getRange(startRow, 1, nuevasFilas.length, nuevasFilas[0].length).setValues(nuevasFilas);
+    }
+
     return { exitosos: exitosos, errores: errores };
   },
 
@@ -1086,5 +1159,26 @@ function probarConexionClaude() {
     }
   } catch (error) {
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Hoja Pendientes_ARCA: payload para reintento manual o trigger nocturno.
+ * @param {Object} payload
+ * @returns {{success: boolean, error?: string}}
+ */
+function encolarFacturaPendienteARCA(payload) {
+  try {
+    const ss = getSpreadsheet();
+    const nombre = 'Pendientes_ARCA';
+    let hoja = ss.getSheetByName(nombre);
+    if (!hoja) {
+      hoja = ss.insertSheet(nombre);
+      hoja.appendRow(['TIMESTAMP', 'PAYLOAD_JSON', 'ULTIMO_ERROR', 'REINTENTOS']);
+    }
+    hoja.appendRow([new Date(), JSON.stringify(payload || {}), '', 0]);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 }

@@ -121,3 +121,26 @@ const AuditLogger = {
     }
   }
 };
+
+/**
+ * Rota la hoja AUDITORIA: conserva solo las últimas N filas de datos (encabezado intacto).
+ * Invocable por trigger diario.
+ * @param {number} [maxFilasDatos=2000]
+ */
+function limpiarAuditoriaAntigua(maxFilasDatos) {
+  maxFilasDatos = maxFilasDatos || 2000;
+  try {
+    const ss = getSpreadsheet();
+    const hoja = ss.getSheetByName(AuditLogger.NOMBRE_HOJA);
+    if (!hoja) return;
+
+    const ultimaFila = hoja.getLastRow();
+    const maxFilasHoja = 1 + maxFilasDatos;
+    if (ultimaFila <= maxFilasHoja) return;
+
+    const filasABorrar = ultimaFila - maxFilasHoja;
+    hoja.deleteRows(2, filasABorrar);
+  } catch (e) {
+    Logger.log('[AUDITORIA] limpiarAuditoriaAntigua: ' + e.message);
+  }
+}

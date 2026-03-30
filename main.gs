@@ -591,6 +591,58 @@ function obtenerDatosParaHTML() {
 }
 
 /**
+ * Registra error crítico del navegador (window.onerror) en AUDITORIA.
+ * @param {Object} detalle
+ */
+function registrarErrorCritico(detalle) {
+  try {
+    AuditLogger.registrar({
+      modulo: 'FRONTEND',
+      operacion: 'ERROR_JS',
+      entidadId: '',
+      entidadDesc: (detalle && detalle.mensaje) ? String(detalle.mensaje).substring(0, 240) : 'Error desconocido',
+      antes: null,
+      despues: detalle || {},
+      montoImpacto: 0
+    });
+  } catch (e) {
+    /* no propagar */
+  }
+}
+
+/**
+ * Paquete único de arranque: clientes, últimos movimientos, caja diaria, config, API key.
+ * @returns {Object}
+ */
+function obtenerDatosArranqueDashboard() {
+  try {
+    var clientes = ClientesRepository.obtenerTodos(0, 0);
+    var movimientos = MovimientosRepository.obtenerRecientes(50);
+    var estadoCaja = CajaDiariaRepository.obtenerActiva();
+
+    return {
+      success: true,
+      clientes: serializarParaWeb(clientes),
+      movimientos: serializarParaWeb(movimientos),
+      estadoCaja: serializarParaWeb(estadoCaja),
+      configuracion: obtenerConfiguracion(),
+      apiKeyClaude: { presente: ClaudeService.tieneApiKey() },
+      totalClientes: clientes.length,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerDatosArranqueDashboard: ' + error.message);
+    return {
+      success: false,
+      error: error.message,
+      clientes: [],
+      movimientos: [],
+      estadoCaja: null
+    };
+  }
+}
+
+/**
  * Obtiene movimientos para el frontend.
  * @param {number} limite - 0 o sin parámetro = TODOS los movimientos
  */

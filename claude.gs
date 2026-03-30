@@ -178,13 +178,24 @@ Responde SOLO con JSON valido (sin markdown ni explicaciones):
     };
 
     try {
-      const response = UrlFetchApp.fetch(claudeApiUrl, options);  // antes: CONFIG.CLAUDE.API_URL
-      const responseCode = response.getResponseCode();
-      const responseText = response.getContentText();
+      var response;
+      var responseCode;
+      var responseText;
+      var intentoClaude = 0;
+      var maxClaude = 2;
+      while (intentoClaude < maxClaude) {
+        response = UrlFetchApp.fetch(claudeApiUrl, options);
+        responseCode = response.getResponseCode();
+        responseText = response.getContentText();
+        if (responseCode === 429 && intentoClaude < maxClaude - 1) {
+          Utilities.sleep(5000);
+          intentoClaude++;
+          continue;
+        }
+        break;
+      }
 
       if (responseCode !== 200) {
-        Logger.log('Error de Claude API: ' + responseCode + ' - ' + responseText);
-
         if (responseCode === 401) {
           throw new Error('API Key invalida. Verifica la configuracion.');
         } else if (responseCode === 429) {
@@ -206,13 +217,23 @@ Responde SOLO con JSON valido (sin markdown ni explicaciones):
       // Extraer JSON de la respuesta
       const resultado = this.extraerJsonDeRespuesta(contenido);
 
-      // Agregar fecha a todos los movimientos
-      if (resultado.movimientos) {
-        resultado.movimientos = resultado.movimientos.map(mov => ({
-          ...mov,
-          fecha: fechaHoy,
-          monto: typeof mov.monto === 'string' ? parseFloat(mov.monto.replace(/\./g, '').replace(',', '.')) : mov.monto
-        }));
+      // Agregar fecha y normalizar montos (tipos seguros)
+      if (resultado.movimientos && Array.isArray(resultado.movimientos)) {
+        resultado.movimientos = resultado.movimientos.map(mov => {
+          var m = mov.monto;
+          if (typeof m === 'string') {
+            m = parseFloat(String(m).replace(/\./g, '').replace(',', '.')) || 0;
+          } else {
+            m = parseFloat(m) || 0;
+          }
+          return {
+            ...mov,
+            cliente: String(mov.cliente || '').trim().toUpperCase(),
+            tipo: String(mov.tipo || '').trim().toUpperCase(),
+            fecha: fechaHoy,
+            monto: m
+          };
+        }).filter(mov => mov.cliente && mov.monto > 0);
       }
 
       return resultado;
@@ -240,6 +261,9 @@ Responde SOLO con JSON valido (sin markdown ni explicaciones):
    * @returns {Object} JSON parseado
    */
   extraerJsonDeRespuesta: function(texto) {
+    if (!texto) throw new Error('Respuesta vacía de Claude.');
+    texto = String(texto).replace(/[^\x20-\x7E\n\r\t]/g, '');
+
     // Intentar parsear directamente
     try {
       return JSON.parse(texto);

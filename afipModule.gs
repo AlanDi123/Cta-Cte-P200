@@ -80,17 +80,18 @@ function afipFetch(endpoint, payload, headers, method) {
     options.payload = JSON.stringify(payload);
   }
 
-  Logger.log('[AFIP HTTP] ' + endpoint + ' payload: ' +
-    JSON.stringify(payload).substring(0, 600));
+  Logger.log('[AFIP HTTP] ' + endpoint);
 
   var response = UrlFetchApp.fetch(url, options);
   var code     = response.getResponseCode();
   var text     = response.getContentText();
 
-  Logger.log('[AFIP HTTP] response ' + code + ': ' + text.substring(0, 600));
+  Logger.log('[AFIP HTTP] response ' + code);
 
   if (code === 401 || code === 403)
     throw new Error('Token de AfipSDK inválido o expirado (HTTP ' + code + ')');
+  if (code >= 500)
+    throw new Error('Error AfipSDK HTTP ' + code + ': ' + text.substring(0, 200));
   if (code !== 200) {
     var msg = 'Error AfipSDK HTTP ' + code;
     try {
@@ -115,7 +116,8 @@ function afipFetchConRetry(endpoint, payload, headers, method) {
       var msg = e.message.toLowerCase();
       var retry = msg.indexOf('timeout') >= 0 ||
                   msg.indexOf('unavailable') >= 0 ||
-                  msg.indexOf('exceeded') >= 0;
+                  msg.indexOf('exceeded') >= 0 ||
+                  /http 5\d\d/.test(msg);
       if (!retry || i === max) throw e;
       Utilities.sleep(delay * Math.pow(2, i - 1));
     }
@@ -130,6 +132,17 @@ function afipGetAuth(wsid) {
   if (!cfg.tieneCertificado) throw new Error('Certificado digital no instalado. Generalo en Configuración → ARCA.');
 
   var creds = afipGetCredentials();
+  var cacheKey = 'ARCA_AUTH_' + String(wsid || 'FE');
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      var parsed = JSON.parse(cached);
+      if (parsed && parsed.token && parsed.sign && parsed.cuit === creds.cuit)
+        return { token: parsed.token, sign: parsed.sign, cuit: parsed.cuit };
+    } catch (ignore) { /* pedir auth de nuevo */ }
+  }
+
   var payload = {
     environment: AFIP_CONFIG.ENVIRONMENT,
     tax_id:      creds.cuit,
@@ -146,7 +159,12 @@ function afipGetAuth(wsid) {
   if (!res.token || !res.sign)
     throw new Error('Auth ARCA inválida. Respuesta: ' + JSON.stringify(res).substring(0, 200));
 
-  return { token: res.token, sign: res.sign, cuit: creds.cuit };
+  var authObj = { token: res.token, sign: res.sign, cuit: creds.cuit };
+  try {
+    cache.put(cacheKey, JSON.stringify(authObj), 36000);
+  } catch (ignore) { /* caché llena o error */ }
+
+  return authObj;
 }
 
 // ─── SECCIÓN 4: ERRORES — MUESTRA EL CÓDIGO REAL DE ARCA ────────────────────
@@ -356,9 +374,8 @@ function afipEmitirFactura(datosFactura) {
   }
 
   // ── Paso 2: Construir request y fecha ─────────────────────────────────────
-  // La fecha SIEMPRE debe ser HOY (ARCA no acepta fechas retroactivas fácilmente)
-  var hoy        = new Date();
-  var fechaCbte  = afipFormatoFecha(hoy);  // YYYYMMDD
+  var hoy = new Date();
+  var fechaCbte = datosFactura.fechaCbte || afipFormatoFecha(hoy);
 
   Logger.log('[AFIP] cbteTipo=' + datosFactura.cbteTipo +
              ' nextNro=' + nextNro +

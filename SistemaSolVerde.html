@@ -7,6 +7,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Sol & Verde - Sistema de Cuenta Corriente</title>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cleave.js/1.6.0/cleave.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     /* ============================================================================
        VARIABLES CSS - TEMA CLARO/OSCURO
@@ -3068,7 +3079,7 @@
           </div>
 
           <div class="table-container">
-            <table class="table table-responsive-cards">
+            <table class="table table-responsive-cards" id="tablaGestionClientes">
               <thead>
                 <tr>
                   <th>Nombre</th>
@@ -5790,6 +5801,105 @@
     };
     // ─── FIN SISTEMA DE LOGGING ─────────────────────────────────────────────────
 
+    var DOM = {};
+    var mapaClientesGlobal = new Map();
+
+    function initDomCache() {
+      DOM.appContainer = document.getElementById('appContainer');
+      DOM.splashScreen = document.getElementById('splashScreen');
+      DOM.tbodyMovimientos = document.getElementById('tbodyMovimientos');
+      DOM.gestionClientesTbody = document.getElementById('gestionClientesTbody');
+      DOM.menuToggle = document.getElementById('menuToggle');
+      DOM.estadoApiKey = document.getElementById('estadoApiKey');
+    }
+
+    function indexarClientes(arrayClientes) {
+      mapaClientesGlobal.clear();
+      if (!arrayClientes) return;
+      for (var i = 0; i < arrayClientes.length; i++) {
+        var c = arrayClientes[i];
+        if (c && c.nombre) mapaClientesGlobal.set(String(c.nombre).toUpperCase().trim(), c);
+      }
+    }
+
+    function buscarClienteUltraRapido(nombreBuscado) {
+      if (!nombreBuscado) return null;
+      return mapaClientesGlobal.get(String(nombreBuscado).toUpperCase().trim()) || null;
+    }
+
+    function llamarBackend(funcionAejecutar) {
+      var parametros = Array.prototype.slice.call(arguments, 1);
+      return new Promise(function(resolve, reject) {
+        google.script.run
+          .withSuccessHandler(function(respuesta) {
+            if (respuesta && respuesta.status === 'success') {
+              resolve(respuesta.payload);
+            } else if (respuesta && respuesta.status === 'error') {
+              if (typeof Swal !== 'undefined') {
+                Swal.fire('Error del sistema', respuesta.message || 'Error', 'error');
+              }
+              reject(respuesta.message);
+            } else {
+              resolve(respuesta);
+            }
+          })
+          .withFailureHandler(function(errorRed) {
+            if (typeof Swal !== 'undefined') {
+              Swal.fire('Error de conexión', errorRed.message, 'error');
+            }
+            reject(errorRed);
+          })[funcionAejecutar].apply(null, parametros);
+      });
+    }
+
+    function comprimirImagenParaIA(archivo, callback) {
+      if (!archivo || !callback) return;
+      var lector = new FileReader();
+      lector.onload = function(evento) {
+        var imagen = new Image();
+        imagen.onload = function() {
+          var canvas = document.createElement('canvas');
+          var ctx = canvas.getContext('2d');
+          var anchoMaximo = 1200;
+          var ancho = imagen.width;
+          var alto = imagen.height;
+          if (ancho > anchoMaximo) {
+            alto = Math.round((anchoMaximo / ancho) * alto);
+            ancho = anchoMaximo;
+          }
+          canvas.width = ancho;
+          canvas.height = alto;
+          ctx.drawImage(imagen, 0, 0, ancho, alto);
+          callback(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        imagen.src = evento.target.result;
+      };
+      lector.readAsDataURL(archivo);
+    }
+
+    function initSVInfra() {
+      window.onerror = function(mensaje, fuente, linea, columna, error) {
+        try {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run.registrarErrorCritico({
+              mensaje: mensaje,
+              linea: linea,
+              columna: columna,
+              archivo: fuente,
+              stack: error && error.stack ? String(error.stack).substring(0, 500) : '',
+              ua: navigator.userAgent
+            });
+          }
+        } catch (e) { /* silencioso */ }
+        return false;
+      };
+      window.addEventListener('offline', function() {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire('Sin conexión', 'Se cortó la conexión a internet.', 'error');
+        }
+      });
+    }
+
     // ============================================================================
     // UTILIDADES
     // ============================================================================
@@ -5869,6 +5979,7 @@
     const Estado = {
       clientes: [],
       movimientos: [],
+      estadoCajaDiaria: null,
       tipoMovimiento: 'DEBE',
       clienteSeleccionado: null,
       vrImagenToken: null,
@@ -5990,6 +6101,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+      initDomCache();
+      initSVInfra();
+
       const hoy = obtenerFechaLocal();
       document.getElementById('movFecha').value = hoy;
       document.getElementById('vrFecha').value = hoy;
@@ -6059,6 +6173,7 @@
             const data = JSON.parse(cached);
             Estado.clientes = data.clientes || [];
             Estado.movimientos = data.movimientos || [];
+            indexarClientes(Estado.clientes);
             renderMovimientos();
             renderClientesGestion();
             actualizarDatosSistema();
@@ -6080,27 +6195,46 @@
 
     function cargarDatosDesdeServidor(enSegundoPlano) {
       var t0 = Date.now();
-      SysLog.gasCall('obtenerDatosParaHTML');
-      
+      SysLog.gasCall('obtenerDatosArranqueDashboard');
+
       google.script.run
         .withSuccessHandler(function(data) {
-          SysLog.gasResult('obtenerDatosParaHTML', data, Date.now() - t0);
-          console.log('📊 Datos del servidor recibidos:', data);
+          SysLog.gasResult('obtenerDatosArranqueDashboard', data, Date.now() - t0);
+          console.log('📊 Paquete de arranque recibido:', data);
 
           if (!data) {
             console.error('❌ Respuesta vacía del servidor');
             mostrarToast('Error: respuesta vacía del servidor', 'error');
+            if (!enSegundoPlano) {
+              document.getElementById('splashScreen').classList.add('hidden');
+              document.getElementById('appContainer').classList.add('visible');
+            }
             return;
           }
 
           if (data.success) {
             Estado.clientes = data.clientes || [];
             Estado.movimientos = data.movimientos || [];
+            indexarClientes(Estado.clientes);
+            if (data.configuracion) {
+              Estado.configuracion = data.configuracion;
+              renderDenominaciones();
+            }
+            if (data.estadoCaja !== undefined) {
+              Estado.estadoCajaDiaria = data.estadoCaja;
+            }
+            if (data.apiKeyClaude) {
+              var el = document.getElementById('estadoApiKey');
+              if (el) {
+                el.textContent = data.apiKeyClaude.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
+                el.style.color = data.apiKeyClaude.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+              }
+            }
 
-            console.log('✅ Clientes cargados:', Estado.clientes.length);
-            console.log('✅ Movimientos cargados:', Estado.movimientos.length);
+            CacheModulos.movimientos = { cargado: true, datos: Estado.movimientos };
 
-            // Guardar en cache
+            console.log('✅ Clientes:', Estado.clientes.length, 'Movimientos:', Estado.movimientos.length);
+
             try {
               localStorage.setItem('sv_datos_cache', JSON.stringify({
                 clientes: Estado.clientes,
@@ -6125,24 +6259,58 @@
           }
         })
         .withFailureHandler(function(error) {
-          SysLog.error('INIT', 'Error en obtenerDatosParaHTML', error);
-          console.error('❌ Error al llamar obtenerDatosParaHTML:', error);
+          SysLog.error('INIT', 'Error en obtenerDatosArranqueDashboard', error);
+          console.error('❌ Fallback a carga clásica:', error);
+          cargarDatosDesdeServidorLegacy(enSegundoPlano);
+        })
+        .obtenerDatosArranqueDashboard();
+    }
+
+    function cargarDatosDesdeServidorLegacy(enSegundoPlano) {
+      var t0 = Date.now();
+      SysLog.gasCall('obtenerDatosParaHTML');
+      google.script.run
+        .withSuccessHandler(function(data) {
+          SysLog.gasResult('obtenerDatosParaHTML', data, Date.now() - t0);
+          if (!data) {
+            if (!enSegundoPlano) {
+              document.getElementById('splashScreen').classList.add('hidden');
+              document.getElementById('appContainer').classList.add('visible');
+            }
+            return;
+          }
+          if (data.success) {
+            Estado.clientes = data.clientes || [];
+            Estado.movimientos = data.movimientos || [];
+            indexarClientes(Estado.clientes);
+            try {
+              localStorage.setItem('sv_datos_cache', JSON.stringify({
+                clientes: Estado.clientes,
+                movimientos: Estado.movimientos
+              }));
+              localStorage.setItem('sv_datos_cache_time', Date.now().toString());
+            } catch (e) {}
+            renderMovimientos();
+            renderClientesGestion();
+            actualizarDatosSistema();
+          }
           if (!enSegundoPlano) {
-            mostrarToast('Error cargando datos: ' + error.message, 'error');
+            document.getElementById('splashScreen').classList.add('hidden');
+            document.getElementById('appContainer').classList.add('visible');
+          }
+        })
+        .withFailureHandler(function(err) {
+          if (!enSegundoPlano) {
+            mostrarToast('Error cargando datos: ' + err.message, 'error');
             document.getElementById('splashScreen').classList.add('hidden');
             document.getElementById('appContainer').classList.add('visible');
           }
         })
         .obtenerDatosParaHTML();
 
-      // Cargar movimientos recientes en SEGUNDO PLANO
-      var t1 = Date.now();
-      SysLog.gasCall('obtenerMovimientosRecientes', { limite: 100 });
       google.script.run
         .withSuccessHandler(function(result) {
-          SysLog.gasResult('obtenerMovimientosRecientes', result, Date.now() - t1);
           if (result && result.success) {
-            // CAMBIO 3 — Fix race condition: guardar en cache y recargar si dashboard está visible
             CacheModulos.movimientos = { cargado: true, datos: result.movimientos || [] };
             Estado.movimientos = result.movimientos || [];
             renderMovimientos();
@@ -6150,8 +6318,6 @@
           }
         })
         .withFailureHandler(function(error) {
-          SysLog.warn('INIT', 'Error cargando movimientos en segundo plano', error);
-          // CAMBIO 3 — Mostrar mensaje de error en la tabla
           var tbody = document.getElementById('tbodyMovimientos');
           if (tbody) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:3rem;color:var(--sv-peligro);">' +
@@ -6169,9 +6335,11 @@
 
       google.script.run
         .withSuccessHandler(function(result) {
-          const el = document.getElementById('estadoApiKey');
-          el.textContent = result.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
-          el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+          var el = document.getElementById('estadoApiKey');
+          if (el) {
+            el.textContent = result.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
+            el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+          }
         })
         .verificarApiKey();
     }
@@ -6423,7 +6591,7 @@
       return JSON.stringify({ billetes, proveedores, gastos, ingresos, ts: Date.now() });
     }
 
-    function _restaurarEstadoCaja(datosJSON) {
+    function _restaurarEstadoCaja(datosJSON, modoSilencioso) {
       try {
         const datos = JSON.parse(datosJSON);
         if (!datos) return;
@@ -6489,7 +6657,7 @@
         }
 
         calcularNetoArqueo();
-        mostrarToast('Borrador restaurado desde la nube', 'info');
+        if (!modoSilencioso) mostrarToast('Borrador restaurado desde la nube', 'info');
       } catch (e) {
         console.error('Error restaurando borrador', e);
       }
@@ -6515,7 +6683,7 @@
       google.script.run
         .withSuccessHandler(function(res) {
           if (res.success && res.datos) {
-            _restaurarEstadoCaja(res.datos);
+            _restaurarEstadoCaja(res.datos, true);
           }
         })
         .withFailureHandler(function(e) { console.warn('Cargar borrador falló:', e.message); })
@@ -6866,6 +7034,20 @@
       // FASE 5: Feedback auditivo
       if (tipo === 'success') SoundPlayer.playSuccess();
       else if (tipo === 'error') SoundPlayer.playError();
+
+      if (typeof Toastify !== 'undefined') {
+        var bg = tipo === 'success' ? 'linear-gradient(to right, #2E7D32, #4CAF50)' :
+          tipo === 'error' ? 'linear-gradient(to right, #C62828, #E53935)' :
+          'linear-gradient(to right, #1565C0, #42A5F5)';
+        Toastify({
+          text: tipo === 'error' ? errorAmigable(mensaje) : mensaje,
+          duration: tipo === 'error' ? 4500 : 2500,
+          gravity: 'top',
+          position: 'right',
+          style: { background: bg }
+        }).showToast();
+        return;
+      }
 
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
@@ -7285,9 +7467,21 @@
       );
     }
 
+    function _destruirDataTableSiExiste(tableId) {
+      try {
+        if (typeof jQuery === 'undefined' || !jQuery.fn.DataTable) return;
+        var el = document.getElementById(tableId);
+        if (el && jQuery.fn.DataTable.isDataTable('#' + tableId)) {
+          jQuery('#' + tableId).DataTable().destroy();
+        }
+      } catch (e) { /* ignore */ }
+    }
+
     function renderMovimientos() {
       const tbody = document.getElementById('tbodyMovimientos');
       if (!tbody) return;
+
+      _destruirDataTableSiExiste('tablaMovimientos');
 
       if (!Estado.movimientos || Estado.movimientos.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay movimientos</td></tr>';
@@ -7313,6 +7507,16 @@
           '</td>' +
         '</tr>';
       }).join('');
+
+      try {
+        if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
+          jQuery('#tablaMovimientos').DataTable({
+            pageLength: 25,
+            order: [[0, 'desc']],
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' }
+          });
+        }
+      } catch (e) { console.warn('DataTable movimientos:', e); }
     }
 
     // Variable para edición de movimiento
@@ -7721,13 +7925,12 @@
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        document.getElementById('vrPreviewImg').src = e.target.result;
-        document.getElementById('vrPreview').style.display = 'block';
-        document.getElementById('vrResultados').style.display = 'none';
+      document.getElementById('vrPreview').style.display = 'block';
+      document.getElementById('vrResultados').style.display = 'none';
+      mostrarLoading(true);
 
-        mostrarLoading(true);
+      comprimirImagenParaIA(file, function(dataUrl) {
+        document.getElementById('vrPreviewImg').src = dataUrl;
         google.script.run
           .withSuccessHandler(function(result) {
             mostrarLoading(false);
@@ -7742,9 +7945,8 @@
             mostrarLoading(false);
             mostrarToast('Error: ' + error.message, 'error');
           })
-          .guardarImagenTemporal(e.target.result);
-      };
-      reader.readAsDataURL(file);
+          .guardarImagenTemporal(dataUrl);
+      });
     }
 
     function analizarImagenVR() {
@@ -8631,13 +8833,15 @@
     // ============================================================================
     function renderClientesGestion() {
       const tbody = document.getElementById('gestionClientesTbody');
+      if (!tbody) return;
+
+      _destruirDataTableSiExiste('tablaGestionClientes');
 
       if (!Estado.clientes || Estado.clientes.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay clientes</td></tr>';
         return;
       }
 
-      // Ordenar alfabéticamente
       const clientesOrdenados = [...Estado.clientes].sort((a, b) =>
         a.nombre.localeCompare(b.nombre, 'es'));
 
@@ -8655,15 +8859,29 @@
           '</td>' +
         '</tr>';
       }).join('');
+
+      try {
+        if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
+          jQuery('#tablaGestionClientes').DataTable({
+            pageLength: 50,
+            order: [[0, 'asc']],
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' }
+          });
+        }
+      } catch (e) { console.warn('DataTable clientes:', e); }
     }
 
     const filtrarClientesDebounce = debounce(function() {
-      const filtro = document.getElementById('filtroClientes').value.toUpperCase();
+      const termino = (document.getElementById('filtroClientes').value || '').trim().toLowerCase();
       const tbody = document.getElementById('gestionClientesTbody');
+      if (!tbody) return;
 
-      // Filtrar y ordenar alfabéticamente
-      const clientesFiltrados = (filtro ?
-        Estado.clientes.filter(c => c.nombre.toUpperCase().includes(filtro)) :
+      _destruirDataTableSiExiste('tablaGestionClientes');
+
+      const clientesFiltrados = (termino ?
+        Estado.clientes.filter(function(c) {
+          return String(c.nombre || '').toLowerCase().includes(termino);
+        }) :
         Estado.clientes
       ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
@@ -8686,7 +8904,28 @@
           '</td>' +
         '</tr>';
       }).join('');
+
+      try {
+        if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable && clientesFiltrados.length > 0) {
+          jQuery('#tablaGestionClientes').DataTable({
+            pageLength: 50,
+            order: [[0, 'asc']],
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' }
+          });
+        }
+      } catch (e) { console.warn('DataTable clientes filtro:', e); }
     }, 300);
+
+    var _cleaveCuitCliente = null;
+    function initCleaveCuitCliente() {
+      var el = document.getElementById('clienteCuit');
+      if (!el || typeof Cleave === 'undefined') return;
+      if (_cleaveCuitCliente) {
+        try { _cleaveCuitCliente.destroy(); } catch (e) {}
+        _cleaveCuitCliente = null;
+      }
+      _cleaveCuitCliente = new Cleave(el, { delimiters: ['-', '-'], blocks: [2, 8, 1], numericOnly: true });
+    }
 
     function abrirModalNuevoCliente() {
       document.getElementById('modalClienteTitulo').textContent = 'Nuevo Cliente';
@@ -8703,6 +8942,7 @@
       document.getElementById('cuitCondicionInfo').style.display = 'none';
 
       abrirModal('modalCliente');
+      setTimeout(initCleaveCuitCliente, 0);
     }
 
     function editarCliente(nombre) {
@@ -8742,6 +8982,7 @@
       }
 
       abrirModal('modalCliente');
+      setTimeout(initCleaveCuitCliente, 0);
     }
 
     function verificarCuitCliente() {
@@ -8816,14 +9057,14 @@
       const condicionGuardada = document.getElementById('clienteCondicionFiscal').value.trim();
       const datos = {
         nombre: document.getElementById('clienteNombre').value.trim(),
-        tel: document.getElementById('clienteTel').value,
-        email: document.getElementById('clienteEmail').value,
+        tel: String(document.getElementById('clienteTel').value || '').trim(),
+        email: String(document.getElementById('clienteEmail').value || '').trim(),
         cuit: cuitVal,
         condicionFiscal: condicionGuardada || (cuitVal ? 'Responsable Inscripto' : 'Consumidor Final'),
         razonSocial: document.getElementById('clienteRazonSocial').value.trim(),
         domicilioFiscal: document.getElementById('clienteDomicilioFiscal').value.trim(),
         limite: parseFloat(document.getElementById('clienteLimite').value) || 100000,
-        obs: document.getElementById('clienteObs').value
+        obs: String(document.getElementById('clienteObs').value || '').trim()
       };
 
       if (!datos.nombre) {
@@ -9967,13 +10208,12 @@
       }
 
       const file = input.files[0];
-      const reader = new FileReader();
 
-      reader.onload = function(e) {
-        const base64 = e.target.result.split(',')[1];
+      mostrarLoading(true);
+      document.getElementById('btnProcesarIA').disabled = true;
 
-        mostrarLoading(true);
-        document.getElementById('btnProcesarIA').disabled = true;
+      comprimirImagenParaIA(file, function(dataUrl) {
+        const base64 = dataUrl.split(',')[1];
 
         google.script.run
           .withSuccessHandler(function(result) {
@@ -9996,9 +10236,7 @@
             mostrarToast('Error: ' + error.message, 'error');
           })
           .procesarImagenComprobante(base64);
-      };
-
-      reader.readAsDataURL(file);
+      });
     }
 
     // Renderizar resultados de IA
@@ -12367,6 +12605,10 @@
       document.getElementById('facturaBTotal').textContent = formatearMonto(transferencia.monto);
 
       abrirModal('modalFacturaB');
+      setTimeout(function() {
+        var btn = document.getElementById('btnEmitirFacturaB');
+        if (btn && btn.focus) btn.focus();
+      }, 100);
     }
 
     function emitirFacturaB() {
@@ -12408,9 +12650,16 @@
             renderTransferenciasUnificadas();
             cerrarModal('modalFacturaB');
             setTimeout(function() {
-              alert('Factura B emitida correctamente\n\nCAE: ' + result.cae +
-                    '\nNúmero: ' + result.ptoVta + '-' + result.cbteNro +
-                    (result.avisoFecha ? '\n\n⚠️ ' + result.avisoFecha : ''));
+              if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Factura B emitida',
+                  html: 'CAE: <strong>' + escapeHtml(String(result.cae)) + '</strong><br>Número: ' +
+                    escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) +
+                    (result.avisoFecha ? '<br><br>⚠️ ' + escapeHtml(result.avisoFecha) : '')
+                });
+              }
+              if (navigator.vibrate) navigator.vibrate(200);
             }, 300);
           } else {
             mostrarToast('Error: ' + result.error, 'error');
@@ -12630,9 +12879,16 @@
             renderTransferenciasUnificadas();
             cerrarModal('modalFacturaA');
             setTimeout(function() {
-              alert('Factura A emitida correctamente\n\nCAE: ' + result.cae +
-                    '\nNúmero: ' + result.ptoVta + '-' + result.cbteNro +
-                    (result.avisoFecha ? '\n\n⚠️ ' + result.avisoFecha : ''));
+              if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Factura A emitida',
+                  html: 'CAE: <strong>' + escapeHtml(String(result.cae)) + '</strong><br>Número: ' +
+                    escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) +
+                    (result.avisoFecha ? '<br><br>⚠️ ' + escapeHtml(result.avisoFecha) : '')
+                });
+              }
+              if (navigator.vibrate) navigator.vibrate(200);
             }, 300);
           } else {
             mostrarToast('Error: ' + result.error, 'error');
@@ -12696,7 +12952,34 @@
         (transferencia.obs ? '\nObservaciones: ' + transferencia.obs : '') +
         '\n      ';
 
-      alert(detalle);
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({ title: 'Detalle transferencia', text: detalle, width: 480 });
+      }
+    }
+
+    function facturarIndividualAsync(datosFactura) {
+      return new Promise(function(resolve, reject) {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .emitirFacturaElectronica(datosFactura);
+      });
+    }
+
+    async function procesarFacturasEnLote(listaPayloads, onProgreso) {
+      var total = listaPayloads.length;
+      var ok = 0;
+      for (var i = 0; i < total; i++) {
+        if (onProgreso) onProgreso(i + 1, total);
+        try {
+          var r = await facturarIndividualAsync(listaPayloads[i]);
+          if (r && r.success) ok++;
+          else mostrarToast('Factura ' + (i + 1) + ': ' + (r && r.error ? r.error : 'Error'), 'error');
+        } catch (err) {
+          mostrarToast('Factura ' + (i + 1) + ': ' + err.message, 'error');
+        }
+      }
+      return { procesadas: ok, total: total };
     }
 
     // Eliminar transferencia
