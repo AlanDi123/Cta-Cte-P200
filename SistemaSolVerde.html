@@ -2421,9 +2421,38 @@
       .vn-ticket-print { display: block !important; }
     }
 
+    /* Pantalla por inactividad (montos sensibles) */
+    body.sv-idle-privacy #appContainer {
+      filter: blur(14px);
+      pointer-events: none;
+      user-select: none;
+    }
+    #svPrivacyShield {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10001;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+      color: #fff;
+      font-size: 1.1rem;
+      text-align: center;
+      padding: 1rem;
+      cursor: pointer;
+    }
+    body.sv-idle-privacy #svPrivacyShield { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    #tablaMovimientos tbody tr.sv-row-debe > td { background: rgba(255, 152, 0, 0.07); }
+    #tablaMovimientos tbody tr.sv-row-pago > td { background: rgba(46, 125, 50, 0.07); }
+
   </style>
 </head>
 <body>
+  <div id="svPrivacyShield" aria-live="polite">
+    <span>Inactividad prolongada — tocar para desbloquear</span>
+    <span style="font-size:0.85rem;opacity:0.9;">(Configurá PIN en el navegador: localStorage clave <code>sv_idle_pin</code>)</span>
+  </div>
   <!-- Splash Screen -->
   <div id="splashScreen">
     <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px;">
@@ -2606,7 +2635,10 @@
         </div>
 
         <div class="card">
-          <div class="card-title">Ultimos Movimientos</div>
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+            <span>Ultimos Movimientos</span>
+            <button type="button" class="btn btn-outline btn-sm no-print" onclick="exportarTablaMovimientosCSV()" title="Descargar CSV">Exportar CSV</button>
+          </div>
           <div class="table-container">
             <table class="table table-responsive-cards" id="tablaMovimientos">
               <thead>
@@ -5898,6 +5930,69 @@
           Swal.fire('Sin conexión', 'Se cortó la conexión a internet.', 'error');
         }
       });
+
+      // Inactividad ~30 min: difumina montos hasta desbloquear (PIN opcional: localStorage sv_idle_pin)
+      var SV_IDLE_MS = 30 * 60 * 1000;
+      var svIdleTimer = null;
+      function svResetIdleTimer() {
+        clearTimeout(svIdleTimer);
+        svIdleTimer = setTimeout(function() {
+          document.body.classList.add('sv-idle-privacy');
+        }, SV_IDLE_MS);
+      }
+      ['click', 'keydown', 'scroll', 'touchstart'].forEach(function(ev) {
+        window.addEventListener(ev, function() {
+          if (!document.body.classList.contains('sv-idle-privacy')) svResetIdleTimer();
+        }, { passive: true });
+      });
+      svResetIdleTimer();
+
+      var shield = document.getElementById('svPrivacyShield');
+      if (shield) {
+        shield.addEventListener('click', function() {
+          var pin = '';
+          try { pin = (localStorage.getItem('sv_idle_pin') || '').trim(); } catch (e) {}
+          function unlock() {
+            document.body.classList.remove('sv-idle-privacy');
+            svResetIdleTimer();
+          }
+          if (!pin) {
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                title: 'Desbloquear',
+                text: 'Confirmá para volver a ver montos y datos.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Continuar'
+              }).then(function(r) { if (r.isConfirmed) unlock(); });
+            } else if (confirm('¿Desbloquear pantalla?')) unlock();
+            return;
+          }
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              title: 'PIN',
+              input: 'password',
+              inputPlaceholder: 'PIN',
+              showCancelButton: true,
+              confirmButtonText: 'Desbloquear',
+              inputValidator: function(v) {
+                return v !== pin ? 'PIN incorrecto' : null;
+              }
+            }).then(function(r) { if (r.isConfirmed) unlock(); });
+          } else {
+            var p = prompt('PIN:');
+            if (p === pin) unlock();
+          }
+        });
+      }
+
+      document.addEventListener('keydown', function(e) {
+        if (!(e.ctrlKey || e.metaKey) || (e.key !== 's' && e.key !== 'S')) return;
+        var mod = document.getElementById('module-arqueo-efectivo');
+        if (!mod || !mod.classList.contains('active')) return;
+        e.preventDefault();
+        guardarArqueo();
+      });
     }
 
     // ============================================================================
@@ -5920,15 +6015,16 @@
 
     function formatearFecha(fecha) {
       if (!fecha) return '-';
-
-      // Si ya viene como YYYY-MM-DD (desde backend corregido), parsearlo como local
-      if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [anio, mes, dia] = fecha.split('-');
-        return dia + '/' + mes + '/' + anio;
+      if (typeof dayjs !== 'undefined') {
+        var dj = dayjs(fecha);
+        if (dj.isValid()) return dj.format('DD/MM/YYYY');
       }
-
-      // Fallback para otros formatos
+      if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const parts = fecha.split('-');
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+      }
       const d = new Date(fecha);
+      if (isNaN(d.getTime())) return '-';
       return d.toLocaleDateString('es-AR');
     }
 
@@ -7513,7 +7609,12 @@
           jQuery('#tablaMovimientos').DataTable({
             pageLength: 25,
             order: [[0, 'desc']],
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' }
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' },
+            createdRow: function(row) {
+              var tag = row.querySelector('.tag-debe, .tag-pago, .tag-habe');
+              if (tag && tag.classList.contains('tag-debe')) row.classList.add('sv-row-debe');
+              else if (tag && (tag.classList.contains('tag-pago') || tag.classList.contains('tag-habe'))) row.classList.add('sv-row-pago');
+            }
           });
         }
       } catch (e) { console.warn('DataTable movimientos:', e); }
@@ -8373,7 +8474,52 @@
       }, 1200);
     }
 
+    function _leerNetoArqueoActual() {
+      var efectivo = 0;
+      document.querySelectorAll('.denom-input').forEach(function(input) {
+        var cantidad = parseInt(input.value, 10) || 0;
+        var valor = parseInt(input.dataset.valor, 10) || 0;
+        efectivo += cantidad * valor;
+      });
+      var proveedores = 0;
+      document.querySelectorAll('.prov-monto').forEach(function(i) { proveedores += parseFloat(i.value) || 0; });
+      var gastos = 0;
+      document.querySelectorAll('.gasto-monto').forEach(function(i) { gastos += parseFloat(i.value) || 0; });
+      var ingresos = 0;
+      document.querySelectorAll('.ingreso-monto').forEach(function(i) { ingresos += parseFloat(i.value) || 0; });
+      return efectivo - proveedores - gastos + ingresos;
+    }
+
+    function _ejecutarGuardarArqueo(datos) {
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            mostrarToast('Arqueo guardado - Sesion: ' + result.sesionId, 'success');
+            document.querySelectorAll('.denom-input').forEach(i => i.value = 0);
+            document.getElementById('listaProveedores').innerHTML = '';
+            document.getElementById('listaGastos').innerHTML = '';
+            document.getElementById('listaIngresos').innerHTML = '';
+            calcularTotalEfectivo();
+            google.script.run
+              .withSuccessHandler(function() {})
+              .withFailureHandler(function() {})
+              .eliminarBorradorCaja('local');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarArqueo(datos);
+    }
+
     function guardarArqueo() {
+      calcularTotalEfectivo();
+
       const proveedores = [];
       document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
         const desc = item.querySelector('.prov-desc');
@@ -8407,32 +8553,90 @@
         ingresos: ingresos
       };
 
-      mostrarLoading(true);
+      var netoSistema = _leerNetoArqueoActual();
+      var efectivoTotal = 0;
+      document.querySelectorAll('.denom-input').forEach(function(input) {
+        var cantidad = parseInt(input.value, 10) || 0;
+        var valor = parseInt(input.dataset.valor, 10) || 0;
+        efectivoTotal += cantidad * valor;
+      });
 
-      google.script.run
-        .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          if (result.success) {
-            mostrarToast('Arqueo guardado - Sesion: ' + result.sesionId, 'success');
-            document.querySelectorAll('.denom-input').forEach(i => i.value = 0);
-            document.getElementById('listaProveedores').innerHTML = '';
-            document.getElementById('listaGastos').innerHTML = '';
-            document.getElementById('listaIngresos').innerHTML = '';
-            calcularTotalEfectivo();
-            // Limpiar borrador al guardar exitosamente
-            google.script.run
-              .withSuccessHandler(function() {})
-              .withFailureHandler(function() {})
-              .eliminarBorradorCaja('local');
-          } else {
-            mostrarToast(result.error, 'error');
+      function enviar() {
+        _ejecutarGuardarArqueo(datos);
+      }
+
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: 'Arqueo — confirmación',
+          html:
+            '<p style="text-align:left;margin:0 0 0.75rem;">Ingresá el <strong>neto</strong> que calculaste (efectivo − proveedores − gastos + ingresos). Si no coincide con el sistema, podrás forzar el guardado.</p>' +
+            '<p style="text-align:left;font-size:0.9rem;color:var(--sv-texto-muted);">Efectivo contado (sistema): <strong>' + formatearMonto(efectivoTotal) + '</strong></p>',
+          input: 'text',
+          inputPlaceholder: 'Ej: 15000 o 15000,50',
+          showCancelButton: true,
+          confirmButtonText: 'Verificar y guardar',
+          cancelButtonText: 'Cancelar'
+        }).then(function(r) {
+          if (!r.isConfirmed) return;
+          var raw = (r.value || '').trim().replace(/\./g, '').replace(',', '.');
+          var ingresado = parseFloat(raw);
+          if (isNaN(ingresado)) {
+            mostrarToast('Monto no válido', 'error');
+            return;
           }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .guardarArqueo(datos);
+          if (Math.abs(ingresado - netoSistema) <= 0.02) {
+            enviar();
+            return;
+          }
+          Swal.fire({
+            title: 'Diferencia de neto',
+            html: 'Tu neto: <strong>' + formatearMonto(ingresado) + '</strong><br>Sistema: <strong>' + formatearMonto(netoSistema) + '</strong><br><br>¿Guardar igual?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, guardar',
+            cancelButtonText: 'Revisar'
+          }).then(function(r2) {
+            if (r2.isConfirmed) enviar();
+          });
+        });
+      } else {
+        if (!confirm('¿Guardar arqueo? Neto sistema: ' + formatearMonto(netoSistema))) return;
+        enviar();
+      }
+    }
+
+    function exportarTablaMovimientosCSV() {
+      if (!Estado.movimientos || Estado.movimientos.length === 0) {
+        mostrarToast('No hay movimientos para exportar', 'warning');
+        return;
+      }
+      function esc(val) {
+        var s = String(val == null ? '' : val).replace(/"/g, '""');
+        return '"' + s + '"';
+      }
+      var headers = ['Fecha', 'Cliente', 'Tipo', 'Monto', 'Saldo', 'Obs'];
+      var lines = [headers.join(',')];
+      Estado.movimientos.forEach(function(m) {
+        lines.push([
+          esc(formatearFecha(m.fecha)),
+          esc(m.cliente || ''),
+          esc(m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'),
+          String(m.monto != null ? m.monto : ''),
+          String(m._pendiente ? '' : (m.saldoPost != null ? m.saldoPost : '')),
+          esc(m.obs || '')
+        ].join(','));
+      });
+      var csv = '\ufeff' + lines.join('\n');
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'movimientos_' + obtenerFechaHoy() + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      mostrarToast('CSV descargado', 'success');
     }
 
     // ============================================================================
@@ -10562,12 +10766,15 @@
       }
 
       var resultado = document.getElementById('arcaCuitResultado');
-      resultado.innerHTML = '<span style="color:var(--sv-info);">Consultando ARCA...</span>';
+      var _arcaSetHtml = function(html) {
+        resultado.innerHTML = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }) : html;
+      };
+      _arcaSetHtml('<span style="color:var(--sv-info);">Consultando ARCA...</span>');
 
       google.script.run
         .withSuccessHandler(function(data) {
           if (data.encontrado) {
-            resultado.innerHTML = '<span style="color:var(--sv-exito);">ARCA: ' + escapeHtml(data.razonSocial) + ' - ' + data.condicionTexto + '</span>';
+            _arcaSetHtml('<span style="color:var(--sv-exito);">ARCA: ' + escapeHtml(data.razonSocial) + ' - ' + escapeHtml(String(data.condicionTexto || '')) + '</span>');
             // Actualizar info en pantalla
             document.getElementById('arcaClienteIVA').textContent = data.condicionTexto;
             if (arcaClienteSeleccionado) {
@@ -10582,11 +10789,11 @@
               seleccionarCbteTipo(6);
             }
           } else {
-            resultado.innerHTML = '<span style="color:var(--sv-advertencia);">' + (data.error || 'CUIT no encontrado en padron') + '</span>';
+            _arcaSetHtml('<span style="color:var(--sv-advertencia);">' + escapeHtml(String(data.error || 'CUIT no encontrado en padron')) + '</span>');
           }
         })
         .withFailureHandler(function(err) {
-          resultado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + err.message + '</span>';
+          _arcaSetHtml('<span style="color:var(--sv-peligro);">Error: ' + escapeHtml(String(err.message || '')) + '</span>');
         })
         .consultarCUITArca(arcaClienteSeleccionado.cuit);
     }
@@ -10623,79 +10830,97 @@
       var iva = Math.round(neto * 0.105 * 100) / 100;
       var total = Math.round((neto + iva) * 100) / 100;
 
-      var confirmar = confirm(
-        'Emitir comprobante en ARCA?\n\n' +
-        'Tipo: ' + (cbteTipo === 1 ? 'FACTURA A' : 'FACTURA B') + '\n' +
-        'Cliente: ' + arcaClienteSeleccionado.nombre + '\n' +
-        'Neto: $' + neto.toFixed(2) + '\n' +
-        'IVA 10.5%: $' + iva.toFixed(2) + '\n' +
-        'Total: $' + total.toFixed(2) + '\n\n' +
-        'ATENCION: Esta accion NO se puede deshacer. El comprobante quedara registrado en ARCA.'
-      );
+      var tipoLbl = cbteTipo === 1 ? 'FACTURA A' : 'FACTURA B';
+      var htmlConfirm =
+        '<p style="text-align:left">Tipo: <strong>' + escapeHtml(tipoLbl) + '</strong></p>' +
+        '<p style="text-align:left">Cliente: <strong>' + escapeHtml(arcaClienteSeleccionado.nombre) + '</strong></p>' +
+        '<p style="text-align:left">Neto: <strong>$' + neto.toFixed(2) + '</strong></p>' +
+        '<p style="text-align:left">IVA 10.5%: <strong>$' + iva.toFixed(2) + '</strong></p>' +
+        '<p style="text-align:left">Total: <strong>$' + total.toFixed(2) + '</strong></p>' +
+        '<p style="text-align:left;margin-top:0.75rem;font-size:0.9rem;color:var(--sv-advertencia);">Esta acción no se puede deshacer; el comprobante quedará registrado en ARCA.</p>';
 
-      if (!confirmar) return;
-
-      // Determinar condición del cliente
-      var condicion = 'CF';
-      var condicionTexto = 'Consumidor Final';
-      if (arcaClienteSeleccionado.condicionFiscal) {
-        if (arcaClienteSeleccionado.condicionFiscal.includes('Responsable') || arcaClienteSeleccionado.condicionFiscal === 'RI') {
-          condicion = 'RI';
-          condicionTexto = 'Responsable Inscripto';
-        } else if (arcaClienteSeleccionado.condicionFiscal.includes('Monotributo') || arcaClienteSeleccionado.condicionFiscal === 'M') {
-          condicion = 'M';
-          condicionTexto = 'Monotributo';
+      function continuarEmisionArca() {
+        var condicion = 'CF';
+        var condicionTexto = 'Consumidor Final';
+        if (arcaClienteSeleccionado.condicionFiscal) {
+          if (arcaClienteSeleccionado.condicionFiscal.includes('Responsable') || arcaClienteSeleccionado.condicionFiscal === 'RI') {
+            condicion = 'RI';
+            condicionTexto = 'Responsable Inscripto';
+          } else if (arcaClienteSeleccionado.condicionFiscal.includes('Monotributo') || arcaClienteSeleccionado.condicionFiscal === 'M') {
+            condicion = 'M';
+            condicionTexto = 'Monotributo';
+          }
         }
+
+        mostrarLoading(true);
+        document.getElementById('btnEmitirArca').disabled = true;
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            mostrarLoading(false);
+            document.getElementById('btnEmitirArca').disabled = false;
+
+            if (result.success) {
+              mostrarToast(result.mensaje, 'success');
+
+              var resDiv = document.getElementById('arcaResultado');
+              resDiv.style.display = 'block';
+              var cont = document.getElementById('arcaResultadoContenido');
+              var pdfOk = result.pdfUrl && /^https:\/\//i.test(String(result.pdfUrl));
+              var bloque =
+                '<div class="alert" style="background:var(--sv-exito);color:white;padding:1rem;border-radius:8px;">' +
+                '<p><strong>CAE:</strong> ' + escapeHtml(String(result.cae != null ? result.cae : '')) + '</p>' +
+                '<p><strong>Numero:</strong> ' + escapeHtml(String(result.ptoVta).padStart(5, '0') + '-' + String(result.cbteNro).padStart(8, '0')) + '</p>' +
+                '<p><strong>Total:</strong> $' + escapeHtml(String(Number(result.total).toFixed(2))) + '</p>' +
+                (pdfOk ? '<p style="margin-top:0.5rem;"><a href="' + escapeHtml(String(result.pdfUrl)) + '" target="_blank" rel="noopener noreferrer" style="color:white;text-decoration:underline;">Ver PDF del comprobante</a></p>' : '') +
+                '</div>' +
+                '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;">' +
+                '<button type="button" class="btn btn-primary" data-sv-arca-accion="nuevo">Nuevo Comprobante</button>' +
+                '<button type="button" class="btn btn-outline" data-sv-arca-accion="historial" style="color:inherit;">Ver Historial</button>' +
+                '</div>';
+              cont.innerHTML = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(bloque, { USE_PROFILES: { html: true } }) : bloque;
+              var btnNuevo = cont.querySelector('[data-sv-arca-accion="nuevo"]');
+              var btnHist = cont.querySelector('[data-sv-arca-accion="historial"]');
+              if (btnNuevo) btnNuevo.addEventListener('click', function() { inicializarModuloArca(); });
+              if (btnHist) btnHist.addEventListener('click', function() { navegarA('historial-facturas'); });
+
+              resDiv.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              mostrarToast('Error: ' + result.error, 'error');
+            }
+          })
+          .withFailureHandler(function(error) {
+            mostrarLoading(false);
+            document.getElementById('btnEmitirArca').disabled = false;
+            mostrarToast('Error: ' + error.message, 'error');
+          })
+          .emitirFacturaElectronica({
+            cbteTipo: cbteTipo,
+            clienteNombre: arcaClienteSeleccionado.nombre,
+            clienteRazonSocial: arcaClienteSeleccionado.razonSocial || arcaClienteSeleccionado.nombre,
+            clienteDomicilio: arcaClienteSeleccionado.domicilioFiscal || '',
+            clienteCuit: arcaClienteSeleccionado.cuit || '',
+            clienteCondicion: condicion,
+            clienteCondicionTexto: condicionTexto,
+            importeNeto: neto,
+            detalle: arcaItems
+          });
       }
 
-      mostrarLoading(true);
-      document.getElementById('btnEmitirArca').disabled = true;
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          document.getElementById('btnEmitirArca').disabled = false;
-
-          if (result.success) {
-            mostrarToast(result.mensaje, 'success');
-
-            // Mostrar resultado
-            var resDiv = document.getElementById('arcaResultado');
-            resDiv.style.display = 'block';
-            document.getElementById('arcaResultadoContenido').innerHTML =
-              '<div class="alert" style="background:var(--sv-exito);color:white;padding:1rem;border-radius:8px;">' +
-              '<p><strong>CAE:</strong> ' + result.cae + '</p>' +
-              '<p><strong>Numero:</strong> ' + String(result.ptoVta).padStart(5,'0') + '-' + String(result.cbteNro).padStart(8,'0') + '</p>' +
-              '<p><strong>Total:</strong> $' + result.total.toFixed(2) + '</p>' +
-              (result.pdfUrl ? '<p style="margin-top:0.5rem;"><a href="' + result.pdfUrl + '" target="_blank" style="color:white;text-decoration:underline;">Ver PDF del comprobante</a></p>' : '') +
-              '</div>' +
-              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;">' +
-              '<button class="btn btn-primary" onclick="inicializarModuloArca()">Nuevo Comprobante</button>' +
-              '<button class="btn btn-outline" onclick="navegarA(\'historial-facturas\')">Ver Historial</button>' +
-              '</div>';
-
-            // Scroll al resultado
-            resDiv.scrollIntoView({ behavior: 'smooth' });
-          } else {
-            mostrarToast('Error: ' + result.error, 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          document.getElementById('btnEmitirArca').disabled = false;
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .emitirFacturaElectronica({
-          cbteTipo: cbteTipo,
-          clienteNombre: arcaClienteSeleccionado.nombre,
-          clienteRazonSocial: arcaClienteSeleccionado.razonSocial || arcaClienteSeleccionado.nombre,
-          clienteDomicilio: arcaClienteSeleccionado.domicilioFiscal || '',
-          clienteCuit: arcaClienteSeleccionado.cuit || '',
-          clienteCondicion: condicion,
-          clienteCondicionTexto: condicionTexto,
-          importeNeto: neto,
-          detalle: arcaItems
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: 'Emitir en ARCA',
+          html: htmlConfirm,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Emitir',
+          cancelButtonText: 'Cancelar'
+        }).then(function(r) {
+          if (r.isConfirmed) continuarEmisionArca();
         });
+      } else if (confirm('Emitir comprobante en ARCA? Total $' + total.toFixed(2))) {
+        continuarEmisionArca();
+      }
     }
 
     // ============================================================================

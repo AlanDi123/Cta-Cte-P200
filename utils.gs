@@ -678,6 +678,21 @@ const SheetsCache = {
       const json = JSON.stringify(data);
       const cache = this._getCache();
 
+      // Payloads grandes: ZIP + base64 en una sola clave (límite 100KB de CacheService)
+      if (json.length > 80000) {
+        try {
+          const zipped = Utilities.zip([Utilities.newBlob(json, 'text/plain', 'cache.json')]);
+          const b64 = Utilities.base64Encode(zipped.getBytes());
+          if (b64.length <= 95000) {
+            cache.put(key, b64, ttlSegundos);
+            cache.put(key + '_meta', JSON.stringify({ encoding: 'zip_b64' }), ttlSegundos);
+            return;
+          }
+        } catch (zipErr) {
+          Logger.log('[SheetsCache] ZIP fallback a chunking: ' + zipErr.message);
+        }
+      }
+
       if (json.length <= 95000) {
         // Cabe en un solo valor
         cache.put(key, json, ttlSegundos);
@@ -713,6 +728,14 @@ const SheetsCache = {
       if (!metaStr) return null;
 
       const meta = JSON.parse(metaStr);
+      if (meta.encoding === 'zip_b64') {
+        const b64 = cache.get(key);
+        if (!b64) return null;
+        const bytes = Utilities.base64Decode(b64);
+        const unzipped = Utilities.unzip(Utilities.newBlob(bytes));
+        if (!unzipped || !unzipped.length) return null;
+        return JSON.parse(unzipped[0].getDataAsString());
+      }
       if (meta.chunks === 1) {
         const raw = cache.get(key);
         return raw ? JSON.parse(raw) : null;

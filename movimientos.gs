@@ -350,6 +350,22 @@ const MovimientosRepository = {
   },
 
   /**
+   * True si la fecha del movimiento es de un mes anterior al actual (no editable).
+   * @param {Date|string} fechaMov
+   * @returns {boolean}
+   */
+  _fechaEnMesCerrado: function(fechaMov) {
+    if (!fechaMov) return false;
+    const d = fechaMov instanceof Date ? new Date(fechaMov) : parsearFechaLocal(String(fechaMov));
+    if (isNaN(d.getTime())) return false;
+    const hoy = new Date();
+    const inicioMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    d.setHours(0, 0, 0, 0);
+    inicioMesActual.setHours(0, 0, 0, 0);
+    return d < inicioMesActual;
+  },
+
+  /**
    * Edita un movimiento existente
    * @param {number} id - ID del movimiento
    * @param {Object} datos - Datos a actualizar (monto, obs)
@@ -363,6 +379,10 @@ const MovimientosRepository = {
       const mov = this.buscarPorId(id);
       if (!mov) {
         throw new Error('Movimiento no encontrado: ' + id);
+      }
+
+      if (this._fechaEnMesCerrado(mov.fecha)) {
+        throw new Error('El mes de este movimiento ya está cerrado para edición. No se puede alterar.');
       }
 
       const hoja = this.getHoja();
@@ -417,6 +437,10 @@ const MovimientosRepository = {
       const mov = this.buscarPorId(id);
       if (!mov) {
         throw new Error('Movimiento no encontrado: ' + id);
+      }
+
+      if (this._fechaEnMesCerrado(mov.fecha)) {
+        throw new Error('El mes de este movimiento ya está cerrado para edición. No se puede eliminar.');
       }
 
       // Recalcular saldo del cliente

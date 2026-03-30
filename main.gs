@@ -57,10 +57,15 @@ function doGet(e) {
   }
 
   // Si no, devolver la Web App
-  return HtmlService.createHtmlOutputFromFile('SistemaSolVerde')
+  // XFrame: Script property XFRAME_DENY=1 → DENY (más seguro si no embebés en iframes)
+  var html = HtmlService.createHtmlOutputFromFile('SistemaSolVerde')
     .setTitle('Sol & Verde - Sistema de Cuenta Corriente')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  var denyFrame = PropertiesService.getScriptProperties().getProperty('XFRAME_DENY') === '1';
+  html.setXFrameOptionsMode(
+    denyFrame ? HtmlService.XFrameOptionsMode.DENY : HtmlService.XFrameOptionsMode.ALLOWALL
+  );
+  return html;
 }
 
 /**
