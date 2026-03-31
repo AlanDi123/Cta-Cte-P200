@@ -2446,6 +2446,20 @@
     #tablaMovimientos tbody tr.sv-row-debe > td { background: rgba(255, 152, 0, 0.07); }
     #tablaMovimientos tbody tr.sv-row-pago > td { background: rgba(46, 125, 50, 0.07); }
 
+    /* Alerta de stock (facturación) */
+    .input-cantidad-factura:focus {
+      border-color: #3498db;
+    }
+    input.input-cantidad-factura[data-stock-bajo="1"] {
+      border-color: #e67e22;
+      background-color: #fff8f0;
+    }
+    .producto-agotado {
+      background-color: #fce4e4;
+      color: #c0392b;
+      opacity: 0.6;
+    }
+
   </style>
 </head>
 <body>
@@ -3214,7 +3228,7 @@
                 </div>
                 <div class="form-group" style="margin:0; flex:1;">
                   <label class="form-label">Cant.</label>
-                  <input type="number" class="form-input" id="arcaCantidad" value="1" min="1">
+                  <input type="number" class="form-input input-cantidad-factura" id="arcaCantidad" value="1" min="1">
                 </div>
                 <div class="form-group" style="margin:0; flex:1;">
                   <label class="form-label">P.Unit s/IVA</label>
@@ -5148,25 +5162,41 @@
 
           <div class="card" style="margin-bottom: 1rem;">
             <div class="card-title">Agregar Productos</div>
-            <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem;">
-              <div class="form-group" style="margin:0; flex:2;">
-                <label class="form-label">Producto</label>
+            <p style="font-size: 0.8rem; color: var(--sv-texto-muted); margin: 0 0 0.5rem 0;">
+              Elegí cantidad en el catálogo y tocá +, o usá el selector rápido abajo.
+            </p>
+            <div class="table-container" style="max-height: 220px; overflow-y: auto; margin-bottom: 0.75rem;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th>Stock</th>
+                    <th>Cant.</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tbodySeleccionProductosFacturaA"></tbody>
+              </table>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem; flex-wrap: wrap;">
+              <div class="form-group" style="margin:0; flex:2; min-width: 140px;">
+                <label class="form-label">Selector rápido</label>
                 <select class="form-input" id="facturaAProducto">
                   <option value="">Seleccionar...</option>
                 </select>
               </div>
-              <div class="form-group" style="margin:0; flex:1;">
+              <div class="form-group" style="margin:0; flex:1; min-width: 72px;">
                 <label class="form-label">Cant.</label>
                 <input type="number" class="form-input" id="facturaACantidad" value="1" min="1">
               </div>
-              <div class="form-group" style="margin:0; flex:1;">
+              <div class="form-group" style="margin:0; flex:1; min-width: 100px;">
                 <label class="form-label">P.Unit s/IVA</label>
                 <input type="number" class="form-input" id="facturaAPrecio" step="0.01" min="0">
               </div>
-              <button class="btn btn-primary" onclick="agregarProductoFacturaA()" style="height: 48px;">+</button>
+              <button type="button" class="btn btn-primary" onclick="agregarProductoFacturaA()" style="height: 48px;">+</button>
             </div>
             <p style="font-size: 0.75rem; color: var(--sv-texto-muted);">
-              También puede escribir un producto manual
+              También puede escribir un producto manual desde el selector
             </p>
           </div>
 
@@ -5843,6 +5873,7 @@
       DOM.gestionClientesTbody = document.getElementById('gestionClientesTbody');
       DOM.menuToggle = document.getElementById('menuToggle');
       DOM.estadoApiKey = document.getElementById('estadoApiKey');
+      DOM.moduleProductos = document.getElementById('module-productos');
     }
 
     function indexarClientes(arrayClientes) {
@@ -9579,6 +9610,194 @@
       todasFiltradas: []  // snapshot del filtro actual
     };
 
+    let catalogoProductosMemoria = [];
+
+    function actualizarProductosLocal(nuevosProductos) {
+      catalogoProductosMemoria = nuevosProductos || [];
+      EstadoFacturacion.productos = catalogoProductosMemoria;
+      EstadoFacturacionUnif.productos = catalogoProductosMemoria.slice();
+      var mod = DOM.moduleProductos || document.getElementById('module-productos');
+      if (mod && mod.classList.contains('active')) {
+        renderProductos();
+      }
+    }
+
+    function validarStockEnVivo(input, maxStock, esInfinito) {
+      if (esInfinito) return;
+      var valorActual = parseInt(input.value, 10) || 0;
+      if (valorActual > maxStock) {
+        if (typeof Toastify !== 'undefined') {
+          Toastify({
+            text: 'Solo quedan ' + maxStock + ' unidades en stock',
+            duration: 2000,
+            style: { background: '#e67e22' }
+          }).showToast();
+        } else {
+          mostrarToast('Solo quedan ' + maxStock + ' unidades en stock', 'warning');
+        }
+        input.value = maxStock;
+      }
+      if (valorActual < 0) input.value = 0;
+    }
+
+    function crearFilaSeleccionProducto(producto) {
+      var esInfinito = producto.stock === 999999;
+      var stockDisponible = esInfinito ? '\u221e' : producto.stock;
+      var estaAgotado = !esInfinito && producto.stock <= 0;
+      var stockBajo = !esInfinito && producto.stock > 0 && producto.stock < 5;
+      var maxAttr = !esInfinito ? ' max="' + String(producto.stock) + '"' : '';
+      var dis = estaAgotado ? ' disabled' : '';
+      var clsTr = estaAgotado ? 'producto-agotado' : '';
+      var dataBajo = stockBajo ? ' data-stock-bajo="1"' : '';
+      var stockNum = esInfinito ? '999999' : String(Number(producto.stock) || 0);
+      return '<tr class="' + clsTr + '">' +
+        '<td data-label="Producto">' + escapeHtml(producto.nombre) + '</td>' +
+        '<td data-label="Stock"><strong>' + stockDisponible + '</strong></td>' +
+        '<td data-label="Cant.">' +
+          '<input type="number" class="form-input input-cantidad-factura" data-id="' + producto.id + '"' + dataBajo +
+          ' value="0" min="0"' + maxAttr + dis +
+          ' oninput="validarStockEnVivo(this, ' + stockNum + ', ' + (esInfinito ? 'true' : 'false') + ')">' +
+        '</td>' +
+        '<td data-label="Acción">' +
+          '<button type="button" class="btn btn-outline btn-sm" onclick="agregarProductoFacturaADesdeCatalogo(' + producto.id + ')"' +
+          (estaAgotado ? ' disabled' : '') + '>+</button>' +
+        '</td>' +
+        '</tr>';
+    }
+
+    function renderTablaSeleccionProductosFacturaA() {
+      var tbody = document.getElementById('tbodySeleccionProductosFacturaA');
+      if (!tbody) return;
+      var list = (EstadoFacturacionUnif.productos || []).filter(function(p) {
+        return p.activo && p.precio > 0;
+      });
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No hay productos</td></tr>';
+        return;
+      }
+      tbody.innerHTML = list.map(function(p) { return crearFilaSeleccionProducto(p); }).join('');
+    }
+
+    function obtenerStockRestanteFacturaA(productoId, stockBase) {
+      if (stockBase >= 999999) return stockBase;
+      var ya = EstadoFacturacionUnif.itemsFacturaA.filter(function(i) {
+        return i.productoId === productoId;
+      }).reduce(function(s, i) { return s + i.cantidad; }, 0);
+      return Math.max(0, stockBase - ya);
+    }
+
+    function aplicarTopeCantidadFacturaADesdeSelect() {
+      var select = document.getElementById('facturaAProducto');
+      var input = document.getElementById('facturaACantidad');
+      if (!select || !input || !select.value) {
+        input.removeAttribute('max');
+        return;
+      }
+      var producto = EstadoFacturacionUnif.productos.find(function(p) {
+        return String(p.id) === String(select.value);
+      });
+      if (!producto) {
+        input.removeAttribute('max');
+        return;
+      }
+      if (producto.stock === 999999) {
+        input.removeAttribute('max');
+        return;
+      }
+      var rest = obtenerStockRestanteFacturaA(producto.id, producto.stock);
+      input.setAttribute('max', rest);
+      if (rest <= 0) {
+        input.value = 0;
+        return;
+      }
+      if ((parseInt(input.value, 10) || 0) > rest) input.value = rest;
+    }
+
+    function agregarProductoFacturaADesdeCatalogo(productoId) {
+      var pid = parseInt(productoId, 10);
+      var inp = document.querySelector('#tbodySeleccionProductosFacturaA input.input-cantidad-factura[data-id="' + pid + '"]');
+      if (!inp) return;
+      var cantidad = parseInt(inp.value, 10) || 0;
+      if (cantidad <= 0) {
+        mostrarToast('Indicá una cantidad mayor a 0', 'warning');
+        return;
+      }
+      var producto = EstadoFacturacionUnif.productos.find(function(p) { return p.id === pid; });
+      if (!producto) return;
+      var esInfinito = producto.stock === 999999;
+      var rest = obtenerStockRestanteFacturaA(pid, esInfinito ? 999999 : producto.stock);
+      if (!esInfinito && cantidad > rest) {
+        mostrarToast('Stock insuficiente para "' + producto.nombre + '". Disponible: ' + rest, 'error');
+        inp.value = rest;
+        return;
+      }
+      EstadoFacturacionUnif.itemsFacturaA.push({
+        descripcion: producto.nombre,
+        cantidad: cantidad,
+        precioUnitario: producto.precio,
+        subtotal: cantidad * producto.precio,
+        productoId: pid
+      });
+      inp.value = 0;
+      renderTablaSeleccionProductosFacturaA();
+      renderItemsFacturaA();
+      actualizarVistaPreviaFacturaA();
+    }
+
+    function obtenerStockRestanteArca(productoId, stockBase) {
+      if (stockBase >= 999999) return stockBase;
+      var ya = arcaItems.reduce(function(s, it) {
+        return s + (it.productoId === productoId ? it.cantidad : 0);
+      }, 0);
+      return Math.max(0, stockBase - ya);
+    }
+
+    function aplicarTopeCantidadArcaDesdeSelect() {
+      var select = document.getElementById('arcaProducto');
+      var input = document.getElementById('arcaCantidad');
+      if (!select || !input) return;
+      var cbteTipo = parseInt(document.getElementById('arcaCbteTipo').value, 10) || 0;
+      var selOpt = select.options[select.selectedIndex];
+      if (cbteTipo !== 1 || !selOpt || !selOpt.value || selOpt.value === 'manual') {
+        input.removeAttribute('max');
+        return;
+      }
+      var stockBase = parseInt(selOpt.dataset.stock, 10);
+      if (isNaN(stockBase)) {
+        input.removeAttribute('max');
+        return;
+      }
+      if (stockBase >= 999999) {
+        input.removeAttribute('max');
+        return;
+      }
+      var pid = parseInt(selOpt.value, 10);
+      var rest = obtenerStockRestanteArca(pid, stockBase);
+      input.setAttribute('max', rest);
+      var v = parseInt(input.value, 10) || 0;
+      if (v > rest) input.value = rest > 0 ? rest : 1;
+    }
+
+    function sincronizarProductosTrasFacturaExito() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success && result.productos) {
+            actualizarProductosLocal(result.productos);
+            var modalA = document.getElementById('modalFacturaA');
+            if (modalA && modalA.classList.contains('active')) {
+              renderTablaSeleccionProductosFacturaA();
+            }
+            var modArca = document.getElementById('module-facturacion-arca');
+            if (modArca && modArca.classList.contains('active')) {
+              cargarProductosEnSelector();
+              aplicarTopeCantidadArcaDesdeSelect();
+            }
+          }
+        })
+        .withFailureHandler(function() { /* silencioso */ })
+        .obtenerDatosFacturacion();
+    }
+
     // Cargar datos de facturación
     function cargarDatosFacturacion(forzar = false) {
       // Si ya está cargado y no se fuerza, solo renderizar
@@ -9606,7 +9825,7 @@
 
           if (result.success) {
             EstadoFacturacion.transferencias = result.transferencias || [];
-            EstadoFacturacion.productos = result.productos || [];
+            actualizarProductosLocal(result.productos || []);
             EstadoFacturacion.cargado = true;
 
             console.log('✅ Productos cargados:', EstadoFacturacion.productos.length);
@@ -9641,7 +9860,7 @@
           EstadoFacturacion.cargando = false;
           if (result.success) {
             EstadoFacturacion.transferencias = result.transferencias || [];
-            EstadoFacturacion.productos = result.productos || [];
+            actualizarProductosLocal(result.productos || []);
             EstadoFacturacion.cargado = true;
           }
         })
@@ -10533,16 +10752,19 @@
         google.script.run
           .withSuccessHandler(function(result) {
             if (result.success) {
-              EstadoFacturacion.productos = result.productos || [];
+              actualizarProductosLocal(result.productos || []);
             }
             cargarProductosEnSelector();
+            aplicarTopeCantidadArcaDesdeSelect();
           })
           .withFailureHandler(function() {
             cargarProductosEnSelector();
+            aplicarTopeCantidadArcaDesdeSelect();
           })
           .obtenerDatosFacturacion();
       } else {
         cargarProductosEnSelector();
+        aplicarTopeCantidadArcaDesdeSelect();
       }
 
       // Poner fecha
@@ -10618,6 +10840,7 @@
       document.getElementById('btnCbteTipoFA').className = 'btn ' + (tipo === 1 ? 'btn-primary' : 'btn-outline');
       document.getElementById('btnCbteTipoFB').className = 'btn ' + (tipo === 6 ? 'btn-primary' : 'btn-outline');
       actualizarArcaPreview();
+      aplicarTopeCantidadArcaDesdeSelect();
     }
 
     function cargarProductosEnSelector() {
@@ -10650,12 +10873,13 @@
       optManual.textContent = '-- Ingresar manualmente --';
       select.appendChild(optManual);
 
-      // Al cambiar producto, actualizar precio
+      // Al cambiar producto, actualizar precio y tope de cantidad (Factura A)
       select.onchange = function() {
         var selOpt = select.options[select.selectedIndex];
         if (selOpt && selOpt.dataset.precio) {
           document.getElementById('arcaPrecioUnit').value = selOpt.dataset.precio;
         }
+        aplicarTopeCantidadArcaDesdeSelect();
       };
     }
 
@@ -10713,12 +10937,14 @@
 
       renderArcaItems();
       actualizarArcaPreview();
+      aplicarTopeCantidadArcaDesdeSelect();
     }
 
     function eliminarItemFactura(index) {
       arcaItems.splice(index, 1);
       renderArcaItems();
       actualizarArcaPreview();
+      aplicarTopeCantidadArcaDesdeSelect();
     }
 
     function renderArcaItems() {
@@ -10862,6 +11088,7 @@
 
             if (result.success) {
               mostrarToast(result.mensaje, 'success');
+              sincronizarProductosTrasFacturaExito();
 
               var resDiv = document.getElementById('arcaResultado');
               resDiv.style.display = 'block';
@@ -12429,7 +12656,7 @@
 
           if (result.success) {
             EstadoFacturacionUnif.transferencias = result.transferencias || [];
-            EstadoFacturacionUnif.productos = result.productos || [];
+            actualizarProductosLocal(result.productos || []);
             EstadoFacturacionUnif.cargado = true;
             renderTransferenciasUnificadas();
           } else {
@@ -12661,6 +12888,38 @@
           }
         });
       }
+
+      var ac = document.getElementById('arcaCantidad');
+      if (ac && !ac._svStockBind) {
+        ac._svStockBind = true;
+        ac.addEventListener('input', function() {
+          var cbteTipo = parseInt(document.getElementById('arcaCbteTipo').value, 10) || 0;
+          if (cbteTipo !== 1) return;
+          var select = document.getElementById('arcaProducto');
+          var sel = select && select.options[select.selectedIndex];
+          if (!sel || !sel.value || sel.value === 'manual') return;
+          var stockBase = parseInt(sel.dataset.stock, 10);
+          if (isNaN(stockBase) || stockBase >= 999999) return;
+          var pid = parseInt(sel.value, 10);
+          var rest = obtenerStockRestanteArca(pid, stockBase);
+          validarStockEnVivo(this, rest, false);
+        });
+      }
+      var fc = document.getElementById('facturaACantidad');
+      if (fc && !fc._svStockBind) {
+        fc._svStockBind = true;
+        fc.addEventListener('input', function() {
+          var sel = document.getElementById('facturaAProducto');
+          if (sel && sel.value) {
+            aplicarTopeCantidadFacturaADesdeSelect();
+            var p = EstadoFacturacionUnif.productos.find(function(x) { return String(x.id) === String(sel.value); });
+            if (p && p.stock !== 999999) {
+              var rest = obtenerStockRestanteFacturaA(p.id, p.stock);
+              validarStockEnVivo(this, rest, false);
+            }
+          }
+        });
+      }
     });
 
     function seleccionarClienteTransferenciaUnif(cliente) {
@@ -12870,6 +13129,7 @@
           if (result.success) {
             if (result.avisoFecha) mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
             else mostrarToast('¡Factura B emitida! CAE: ' + result.cae, 'success');
+            sincronizarProductosTrasFacturaExito();
             transferencia.facturada = true;
             marcarTransferenciaFacturadaEnServidor(transferencia.id);
             renderTransferenciasUnificadas();
@@ -12944,10 +13204,13 @@
             document.getElementById('facturaAPrecio').value = producto.precio;
           }
         }
+        aplicarTopeCantidadFacturaADesdeSelect();
       };
 
+      renderTablaSeleccionProductosFacturaA();
       renderItemsFacturaA();
       actualizarVistaPreviaFacturaA();
+      aplicarTopeCantidadFacturaADesdeSelect();
 
       abrirModal('modalFacturaA');
     }
@@ -12958,10 +13221,19 @@
       const precioUnit = parseFloat(document.getElementById('facturaAPrecio').value) || 0;
 
       let descripcion = '';
+      let productoId = null;
 
       if (selectProd.value) {
         const producto = EstadoFacturacionUnif.productos.find(p => p.id == selectProd.value);
         descripcion = producto ? producto.nombre : '';
+        productoId = producto ? producto.id : null;
+        if (producto && producto.stock !== 999999) {
+          const rest = obtenerStockRestanteFacturaA(producto.id, producto.stock);
+          if (cantidad > rest) {
+            mostrarToast('Stock insuficiente. Disponible: ' + rest, 'error');
+            return;
+          }
+        }
       } else {
         descripcion = selectProd.options[selectProd.selectedIndex]?.text || '';
       }
@@ -12985,22 +13257,27 @@
         descripcion: descripcion,
         cantidad: cantidad,
         precioUnitario: precioUnit,
-        subtotal: cantidad * precioUnit
+        subtotal: cantidad * precioUnit,
+        productoId: productoId
       });
 
       // Resetear formulario
       selectProd.value = '';
       document.getElementById('facturaACantidad').value = 1;
       document.getElementById('facturaAPrecio').value = '';
+      document.getElementById('facturaACantidad').removeAttribute('max');
 
+      renderTablaSeleccionProductosFacturaA();
       renderItemsFacturaA();
       actualizarVistaPreviaFacturaA();
     }
 
     function eliminarItemFacturaA(index) {
       EstadoFacturacionUnif.itemsFacturaA.splice(index, 1);
+      renderTablaSeleccionProductosFacturaA();
       renderItemsFacturaA();
       actualizarVistaPreviaFacturaA();
+      aplicarTopeCantidadFacturaADesdeSelect();
     }
 
     function renderItemsFacturaA() {
@@ -13099,6 +13376,7 @@
           if (result.success) {
             if (result.avisoFecha) mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
             else mostrarToast('¡Factura A emitida! CAE: ' + result.cae, 'success');
+            sincronizarProductosTrasFacturaExito();
             transferencia.facturada = true;
             marcarTransferenciaFacturadaEnServidor(transferencia.id);
             renderTransferenciasUnificadas();
