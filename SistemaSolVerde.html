@@ -2460,6 +2460,86 @@
       opacity: 0.6;
     }
 
+    /* =========================================================
+       UI/UX MODERNA: Tarjetas, Botones y Tablas
+    ========================================================= */
+
+    .dashboard-seccion, .card {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid #f0f2f5;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .dashboard-seccion:hover, .card:hover {
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; transform: translateY(-1px); }
+    .btn-outline { background: transparent; border: 2px solid #e5e7eb; color: #4b5563; }
+    .btn-outline:hover { border-color: #d1d5db; background: #f9fafb; }
+
+    table.dataTable, .table-limpia {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 15px;
+    }
+    table.dataTable th, .table-limpia th {
+      background-color: #f8fafc;
+      color: #475569;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+      padding: 12px 15px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    table.dataTable td, .table-limpia td {
+      padding: 12px 15px;
+      color: #334155;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 14px;
+    }
+    table.dataTable tbody tr:hover, .table-limpia tbody tr:hover {
+      background-color: #f8fafc;
+    }
+
+    input.form-control, select.form-control {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input.form-control:focus, select.form-control:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      outline: none;
+    }
+
+    .btn.btn-sm {
+      padding: 0.5rem 1rem;
+      min-height: 40px;
+      font-size: 0.875rem;
+    }
+
   </style>
 </head>
 <body>
@@ -2651,10 +2731,15 @@
         <div class="card">
           <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
             <span>Ultimos Movimientos</span>
-            <button type="button" class="btn btn-outline btn-sm no-print" onclick="exportarTablaMovimientosCSV()" title="Descargar CSV">Exportar CSV</button>
+            <span class="no-print" style="display:inline-flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+              <button type="button" class="btn btn-outline btn-sm no-print" onclick="exportarTablaMovimientosCSV()" title="Descargar CSV">Exportar CSV</button>
+              <button type="button" class="btn btn-outline btn-sm no-print" onclick="abrirVistaImpresion('contenedor-tabla-dashboard', 'Reporte de Caja / Movimientos')" title="Imprimir">
+                <i class="fa-solid fa-print"></i> Imprimir Reporte
+              </button>
+            </span>
           </div>
-          <div class="table-container">
-            <table class="table table-responsive-cards" id="tablaMovimientos">
+          <div class="table-container" id="contenedor-tabla-dashboard">
+            <table class="table table-responsive-cards table-limpia" id="tablaMovimientos">
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -3122,10 +3207,13 @@
           <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
             <input type="text" class="form-input" id="filtroClientes" placeholder="Filtrar por nombre..." style="flex: 1; min-width: 200px;" oninput="filtrarClientesDebounce()">
             <button class="btn btn-primary" onclick="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
+            <button type="button" class="btn btn-outline no-print" onclick="abrirVistaImpresion('contenedor-tabla-clientes', 'Estado de Cuenta - Clientes')" title="Imprimir">
+              <i class="fa-solid fa-print"></i> Imprimir Saldos
+            </button>
           </div>
 
-          <div class="table-container">
-            <table class="table table-responsive-cards" id="tablaGestionClientes">
+          <div class="table-container" id="contenedor-tabla-clientes">
+            <table class="table table-responsive-cards table-limpia" id="tablaGestionClientes">
               <thead>
                 <tr>
                   <th>Nombre</th>
@@ -8668,6 +8756,76 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       mostrarToast('CSV descargado', 'success');
+    }
+
+    // =========================================================
+    // MOTOR DE IMPRESIÓN PARA CONTROL INTERNO
+    // =========================================================
+    function abrirVistaImpresion(idElementoContenido, tituloDocumento) {
+      var contenido = document.getElementById(idElementoContenido);
+
+      if (!contenido) {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire('Error', 'No se encontró el contenido a imprimir.', 'error');
+        } else {
+          mostrarToast('No se encontró el contenido a imprimir.', 'error');
+        }
+        return;
+      }
+
+      if (typeof Toastify !== 'undefined') {
+        Toastify({ text: 'Generando vista previa...', duration: 2000, style: { background: '#3b82f6' } }).showToast();
+      }
+
+      var clonContenido = contenido.cloneNode(true);
+      var elementosNoImprimibles = clonContenido.querySelectorAll('button, .acciones, .no-print');
+      elementosNoImprimibles.forEach(function(el) { el.remove(); });
+
+      var ventanaPrint = window.open('', '_blank');
+      if (!ventanaPrint) {
+        mostrarToast('Permití ventanas emergentes para imprimir.', 'warning');
+        return;
+      }
+
+      var fechaStr = new Date().toLocaleDateString('es-AR');
+      var horaStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      var tituloEsc = String(tituloDocumento || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      var htmlDoc =
+        '<!DOCTYPE html>' +
+        '<html lang="es">' +
+        '<head>' +
+        '<meta charset="UTF-8">' +
+        '<title>' + tituloEsc + ' - Sol y Verde</title>' +
+        '<style>' +
+        'body { font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 25px; margin: 0; }' +
+        '.barra-herramientas { background: #f8fafc; padding: 15px; text-align: right; border-bottom: 1px solid #e2e8f0; margin-bottom: 25px; }' +
+        '.btn-imprimir { background: #3b82f6; color: white; border: none; padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; }' +
+        '.btn-imprimir:hover { background: #2563eb; }' +
+        '.cabecera-interna { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #cbd5e1; padding-bottom: 15px; margin-bottom: 25px; }' +
+        '.marca-interna h2 { margin: 0; font-size: 20px; color: #334155; letter-spacing: 1px; }' +
+        '.marca-interna span { font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700; background: #f1f5f9; padding: 3px 6px; border-radius: 4px; }' +
+        '.datos-reporte { text-align: right; }' +
+        '.datos-reporte h3 { margin: 0 0 5px 0; color: #0f172a; font-size: 16px; text-transform: uppercase; }' +
+        '.datos-reporte p { margin: 2px 0; font-size: 12px; color: #64748b; }' +
+        'table { width: 100%; border-collapse: collapse; font-size: 11px; }' +
+        'th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }' +
+        'th { background-color: #f1f5f9; font-weight: 600; color: #475569; }' +
+        'tr:nth-child(even) { background-color: #f8fafc; }' +
+        '@media print { .barra-herramientas { display: none !important; } @page { margin: 1cm; } body { padding: 0; } }' +
+        '</style></head><body>' +
+        '<div class="barra-herramientas">' +
+        '<button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir Reporte</button></div>' +
+        '<div class="cabecera-interna">' +
+        '<div class="marca-interna"><h2>SOL & VERDE</h2><span>Uso Interno</span></div>' +
+        '<div class="datos-reporte"><h3>' + tituloEsc + '</h3>' +
+        '<p>Fecha: ' + fechaStr + ' - Hora: ' + horaStr + '</p></div></div>' +
+        '<div class="contenido-reporte">' + clonContenido.outerHTML + '</div>' +
+        '</body></html>';
+
+      ventanaPrint.document.open();
+      ventanaPrint.document.write(htmlDoc);
+      ventanaPrint.document.close();
     }
 
     // ============================================================================
