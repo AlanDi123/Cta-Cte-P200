@@ -291,19 +291,26 @@ function afipParsearRespuestaPadron(resultado, cuitLimpio) {
 // ─── SECCIÓN 6: FACTURACIÓN ELECTRÓNICA ──────────────────────────────────────
 
 function afipEmitirFactura(datosFactura) {
-  if (!datosFactura.cbteTipo || !(datosFactura.total > 0))
-    throw new Error('Datos inválidos: cbteTipo=' + datosFactura.cbteTipo +
-                    ' total=' + datosFactura.total);
+  // 1. FORZAR ENTEROS (AFIP rechaza strings en silencio, causando el error 10016)
+  var cbteTipoInt = parseInt(datosFactura.cbteTipo, 10);
+  var ptoVtaInt = parseInt(afipGetCredentials().puntoVenta, 10);
 
-  var auth    = afipGetAuth(AFIP_CONFIG.WS.FE);
-  var creds   = afipGetCredentials();
+  if (!cbteTipoInt || !(datosFactura.total > 0)) {
+    throw new Error('Datos inválidos: cbteTipo=' + datosFactura.cbteTipo + ' total=' + datosFactura.total);
+  }
+
+  var auth  = afipGetAuth(AFIP_CONFIG.WS.FE);
+  var creds = afipGetCredentials();
   var headers = {
     'Authorization': 'Bearer ' + creds.accessToken,
     'Content-Type':  'application/json'
   };
 
-  // ── Paso 1: FECompUltimoAutorizado ─────────────────────────────────────────
+  // 2. FORZAR ZONA HORARIA DE ARGENTINA (Evita desfasajes con los servidores de Google)
+  var fechaCbte = Utilities.formatDate(new Date(), "America/Argentina/Buenos_Aires", "yyyyMMdd");
   var nextNro = null;
+
+  // 3. OBTENER ÚLTIMO COMPROBANTE AUTORIZADO
   try {
     var payloadUlt = {
       environment: AFIP_CONFIG.ENVIRONMENT,
@@ -311,8 +318,8 @@ function afipEmitirFactura(datosFactura) {
       wsid:        AFIP_CONFIG.WS.FE,
       params: {
         Auth: { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
-        PtoVta:   creds.puntoVenta,
-        CbteTipo: datosFactura.cbteTipo
+        PtoVta:   ptoVtaInt,
+        CbteTipo: cbteTipoInt
       },
       cert: creds.cert,
       key:  creds.key
@@ -320,70 +327,32 @@ function afipEmitirFactura(datosFactura) {
 
     var resUlt = afipFetch('/requests', payloadUlt, headers);
 
-    // Loguear la respuesta RAW completa para diagnóstico
-    Logger.log('[AFIP ULT] Respuesta RAW completa: ' + JSON.stringify(resUlt));
+    // Verificación estricta: no dejamos pasar errores ocultos
+    if (resUlt && resUlt.Errors) {
+       var errs = Array.isArray(resUlt.Errors.Err) ? resUlt.Errors.Err : [resUlt.Errors.Err];
+       throw new Error("AFIP devolvió error al consultar último comprobante: " + JSON.stringify(errs));
+    }
 
-    // Intentar todos los paths posibles que puede devolver afipsdk
     var cbteNroUlt = null;
-
-    // Path 1: respuesta normal del SDK
-    if (resUlt && resUlt.FECompUltimoAutorizadoResult) {
-      cbteNroUlt = resUlt.FECompUltimoAutorizadoResult.CbteNro;
-      Logger.log('[AFIP ULT] Path1 CbteNro: ' + cbteNroUlt);
-    }
-    // Path 2: SDK devuelve el resultado directo (sin wrapper)
-    else if (resUlt && typeof resUlt.CbteNro !== 'undefined') {
-      cbteNroUlt = resUlt.CbteNro;
-      Logger.log('[AFIP ULT] Path2 CbteNro: ' + cbteNroUlt);
-    }
-    // Path 3: anidado en result o data
-    else if (resUlt && (resUlt.result || resUlt.data)) {
-      var inner = resUlt.result || resUlt.data;
-      cbteNroUlt = inner.CbteNro;
-      Logger.log('[AFIP ULT] Path3 CbteNro: ' + cbteNroUlt);
-    }
-    // Path 4: buscar recursivamente cualquier key que contenga "CbteNro"
-    else {
-      Logger.log('[AFIP ULT] Paths 1-3 fallaron. Buscando CbteNro recursivamente...');
-      cbteNroUlt = afipBuscarCampo(resUlt, 'CbteNro');
-      Logger.log('[AFIP ULT] Path4 (recursivo) CbteNro: ' + cbteNroUlt);
-    }
+    if (resUlt && resUlt.FECompUltimoAutorizadoResult) cbteNroUlt = resUlt.FECompUltimoAutorizadoResult.CbteNro;
+    else if (resUlt && typeof resUlt.CbteNro !== 'undefined') cbteNroUlt = resUlt.CbteNro;
+    else if (resUlt && (resUlt.result || resUlt.data)) cbteNroUlt = (resUlt.result || resUlt.data).CbteNro;
+    else cbteNroUlt = afipBuscarCampo(resUlt, 'CbteNro');
 
     if (cbteNroUlt !== null && cbteNroUlt !== undefined && !isNaN(Number(cbteNroUlt))) {
       nextNro = Number(cbteNroUlt) + 1;
-      Logger.log('[AFIP ULT] Último autorizado: ' + cbteNroUlt + ' → Próximo: ' + nextNro);
     } else {
-      // Si ARCA devuelve CbteNro=0 significa que nunca se emitió ninguno
-      // Buscar si hay errores en la respuesta
-      if (resUlt && resUlt.Errors) {
-        Logger.log('[AFIP ULT] Errores en FECompUltimoAutorizado: ' + JSON.stringify(resUlt.Errors));
-      }
-      Logger.log('[AFIP ULT] CbteNro no encontrado en respuesta. Usando nextNro=1');
-      nextNro = 1;
+      nextNro = 1; // Solo se llega aquí si de verdad es la primera factura de la historia
     }
-
   } catch (e) {
-    // ¡CRÍTICO! Si FECompUltimoAutorizado falla, NO continuar con nro=1
-    // porque ARCA puede esperar cualquier número distinto
-    Logger.log('[AFIP ULT] EXCEPCIÓN en FECompUltimoAutorizado: ' + e.message);
-    throw new Error(
-      'No se pudo obtener el último comprobante autorizado de ARCA. ' +
-      'No es seguro continuar sin este dato. Error: ' + e.message +
-      '\n\nRevisá los logs de GAS (View → Logs) para más detalles.'
-    );
+    throw new Error('Fallo crítico al consultar el último número: ' + e.message);
   }
 
-  // ── Paso 2: Construir request y fecha ─────────────────────────────────────
-  var hoy = new Date();
-  var fechaCbte = datosFactura.fechaCbte || afipFormatoFecha(hoy);
-
-  Logger.log('[AFIP] cbteTipo=' + datosFactura.cbteTipo +
-             ' nextNro=' + nextNro +
-             ' fechaCbte=' + fechaCbte);
-
+  // 4. CONSTRUIR DETALLE USANDO ENTEROS
+  datosFactura.cbteTipo = cbteTipoInt;
   var feDetReq = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, nextNro);
 
-  // ── Paso 3: FECAESolicitar ─────────────────────────────────────────────────
+  // 5. SOLICITAR CAE
   var payload = {
     environment: AFIP_CONFIG.ENVIRONMENT,
     method:      'FECAESolicitar',
@@ -393,8 +362,8 @@ function afipEmitirFactura(datosFactura) {
       FeCAEReq: {
         FeCabReq: {
           CantReg:  1,
-          PtoVta:   creds.puntoVenta,
-          CbteTipo: datosFactura.cbteTipo
+          PtoVta:   ptoVtaInt,
+          CbteTipo: cbteTipoInt
         },
         FeDetReq: {
           FECAEDetRequest: feDetReq
@@ -405,10 +374,8 @@ function afipEmitirFactura(datosFactura) {
     key:  creds.key
   };
 
-  Logger.log('[AFIP] FECAESolicitar payload: ' + JSON.stringify(payload).substring(0, 1000));
-
   var resultado = afipFetchConRetry('/requests', payload, headers);
-  return afipParsearRespuestaFactura(resultado, datosFactura, nextNro, creds.puntoVenta);
+  return afipParsearRespuestaFactura(resultado, datosFactura, nextNro, ptoVtaInt);
 }
 
 
