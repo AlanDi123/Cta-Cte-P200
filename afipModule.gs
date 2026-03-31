@@ -351,30 +351,30 @@ function afipEmitirFactura(datosFactura) {
 
   // 4. CONSTRUIR DETALLE USANDO ENTEROS
   datosFactura.cbteTipo = cbteTipoInt;
-  var feDetReq = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, nextNro);
 
   // =========================================================================
-  // ESCUDO PREVENTIVO: validación de salto temporal (fecha comprobante vs última en AFIP)
+  // AJUSTE INTELIGENTE: Auto-corrección cronológica de AFIP
   // =========================================================================
+  datosFactura._avisoFecha = '';
+
   if (cbteNroUlt && cbteNroUlt > 0) {
     var fechaUltimo = afipObtenerFechaUltimoComprobante(auth, creds, ptoVtaInt, cbteTipoInt, cbteNroUlt);
 
     if (fechaUltimo) {
-      if (parseInt(fechaCbte, 10) < parseInt(fechaUltimo, 10)) {
+      if (parseInt(fechaCbte, 10) < parseInt(String(fechaUltimo), 10)) {
         var anio = String(fechaUltimo).substring(0, 4);
         var mes = String(fechaUltimo).substring(4, 6);
         var dia = String(fechaUltimo).substring(6, 8);
         var fechaLegible = dia + '/' + mes + '/' + anio;
 
-        throw new Error(
-          '\u26D4 BLOQUEO PREVENTIVO: La última factura en AFIP se emitió con fecha ' + fechaLegible +
-          '. Por ley, no puedes facturar hacia atrás. Edita esta transferencia y ponle fecha ' +
-          fechaLegible + ' o el día de hoy.'
-        );
+        fechaCbte = String(fechaUltimo);
+        datosFactura._avisoFecha = ' (⚠️ AFIP obligó a ajustar la fecha al ' + fechaLegible + ')';
       }
     }
   }
   // =========================================================================
+
+  var feDetReq = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, nextNro);
 
   // 5. SOLICITAR CAE
   var payload = {
@@ -572,7 +572,8 @@ function afipParsearRespuestaFactura(resultado, datosFactura, cbteNro, puntoVent
     cbteTipo:       datosFactura.cbteTipo,
     puntoVenta:     puntoVenta,
     ptoVta:         puntoVenta,
-    mensaje:        'Comprobante autorizado. CAE: ' + cbte.CAE
+    // Agregamos el aviso dinámico al final del mensaje
+    mensaje:        'Comprobante autorizado. CAE: ' + cbte.CAE + (datosFactura._avisoFecha || '')
   };
 }
 
