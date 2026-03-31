@@ -306,9 +306,10 @@ function afipEmitirFactura(datosFactura) {
     'Content-Type':  'application/json'
   };
 
-  // 2. FORZAR ZONA HORARIA DE ARGENTINA (Evita desfasajes con los servidores de Google)
-  var fechaCbte = Utilities.formatDate(new Date(), "America/Argentina/Buenos_Aires", "yyyyMMdd");
+  // Toma la fecha de la transferencia y la procesa con la regla de los 5 días
+  var fechaCbte = afipCalcularFechaValida(datosFactura.fecha);
   var nextNro = null;
+  var cbteNroUlt = null;
 
   // 3. OBTENER ÚLTIMO COMPROBANTE AUTORIZADO
   try {
@@ -333,7 +334,7 @@ function afipEmitirFactura(datosFactura) {
        throw new Error("AFIP devolvió error al consultar último comprobante: " + JSON.stringify(errs));
     }
 
-    var cbteNroUlt = null;
+    cbteNroUlt = null;
     if (resUlt && resUlt.FECompUltimoAutorizadoResult) cbteNroUlt = resUlt.FECompUltimoAutorizadoResult.CbteNro;
     else if (resUlt && typeof resUlt.CbteNro !== 'undefined') cbteNroUlt = resUlt.CbteNro;
     else if (resUlt && (resUlt.result || resUlt.data)) cbteNroUlt = (resUlt.result || resUlt.data).CbteNro;
@@ -351,6 +352,29 @@ function afipEmitirFactura(datosFactura) {
   // 4. CONSTRUIR DETALLE USANDO ENTEROS
   datosFactura.cbteTipo = cbteTipoInt;
   var feDetReq = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, nextNro);
+
+  // =========================================================================
+  // ESCUDO PREVENTIVO: validación de salto temporal (fecha comprobante vs última en AFIP)
+  // =========================================================================
+  if (cbteNroUlt && cbteNroUlt > 0) {
+    var fechaUltimo = afipObtenerFechaUltimoComprobante(auth, creds, ptoVtaInt, cbteTipoInt, cbteNroUlt);
+
+    if (fechaUltimo) {
+      if (parseInt(fechaCbte, 10) < parseInt(fechaUltimo, 10)) {
+        var anio = String(fechaUltimo).substring(0, 4);
+        var mes = String(fechaUltimo).substring(4, 6);
+        var dia = String(fechaUltimo).substring(6, 8);
+        var fechaLegible = dia + '/' + mes + '/' + anio;
+
+        throw new Error(
+          '\u26D4 BLOQUEO PREVENTIVO: La última factura en AFIP se emitió con fecha ' + fechaLegible +
+          '. Por ley, no puedes facturar hacia atrás. Edita esta transferencia y ponle fecha ' +
+          fechaLegible + ' o el día de hoy.'
+        );
+      }
+    }
+  }
+  // =========================================================================
 
   // 5. SOLICITAR CAE
   var payload = {
@@ -467,21 +491,37 @@ function afipConstruirFECAEDetRequest(datosFactura, fechaCbte, cbteNro) {
 
 
 function afipCalcularFechaValida(fechaTransferencia) {
-  var hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  if (!fechaTransferencia) return afipFormatoFecha(hoy);
+  // 1. Instanciamos HOY en la zona horaria de Argentina
+  var hoyStr = Utilities.formatDate(new Date(), "America/Argentina/Buenos_Aires", "yyyy-MM-dd");
+  var hoy = new Date(hoyStr + "T12:00:00-03:00"); // Usamos el mediodía para evitar saltos por horario de verano/invierno
 
-  var fTrans = new Date(fechaTransferencia + 'T00:00:00');
-  fTrans.setHours(0, 0, 0, 0);
-  var diff = Math.floor((hoy - fTrans) / 86400000);
-
-  if (diff >= 0 && diff <= 5) return afipFormatoFecha(fTrans);
-  if (diff > 5) {
-    var lim = new Date(hoy);
-    lim.setDate(lim.getDate() - 5);
-    return afipFormatoFecha(lim);
+  if (!fechaTransferencia) {
+    return Utilities.formatDate(hoy, "America/Argentina/Buenos_Aires", "yyyyMMdd");
   }
-  return afipFormatoFecha(hoy);
+
+  // 2. Parseamos la fecha de la transferencia forzándola a UTC-3
+  // Convertimos "DD/MM/YYYY" o cualquier formato raro a "YYYY-MM-DD" si es necesario,
+  // asumiendo que llega en formato estándar desde tu base:
+  var fTransStr = String(fechaTransferencia).substring(0, 10); // Toma solo YYYY-MM-DD
+  var fTrans = new Date(fTransStr + "T12:00:00-03:00");
+
+  // 3. Calculamos la diferencia exacta en días
+  var milisegundosPorDia = 1000 * 60 * 60 * 24;
+  var diffDias = Math.floor((hoy.getTime() - fTrans.getTime()) / milisegundosPorDia);
+
+  var fechaFinal = fTrans;
+
+  // REGLAS AFIP:
+  if (diffDias > 5) {
+    // Si pasaron más de 5 días, topamos en el límite legal (hace 5 días exactos)
+    fechaFinal = new Date(hoy.getTime() - (5 * milisegundosPorDia));
+  } else if (diffDias < 0) {
+    // Si por algún error la transferencia tiene fecha del futuro, usamos HOY
+    fechaFinal = hoy;
+  }
+
+  // Devolvemos el string rígido YYYYMMDD que exige la API de ARCA
+  return Utilities.formatDate(fechaFinal, "America/Argentina/Buenos_Aires", "yyyyMMdd");
 }
 
 function afipFormatoFecha(fecha) {
@@ -534,4 +574,38 @@ function afipParsearRespuestaFactura(resultado, datosFactura, cbteNro, puntoVent
     ptoVta:         puntoVenta,
     mensaje:        'Comprobante autorizado. CAE: ' + cbte.CAE
   };
+}
+
+// Consultor de la fecha del último comprobante emitido (FECompConsultar)
+function afipObtenerFechaUltimoComprobante(auth, creds, ptoVta, cbteTipo, cbteNro) {
+  if (!cbteNro || cbteNro <= 0) return null;
+  try {
+    var payload = {
+      environment: AFIP_CONFIG.ENVIRONMENT,
+      method: 'FECompConsultar',
+      wsid: AFIP_CONFIG.WS.FE,
+      params: {
+        Auth: { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
+        FeCompConsReq: {
+          PtoVta: ptoVta,
+          CbteTipo: cbteTipo,
+          CbteNro: cbteNro
+        }
+      },
+      cert: creds.cert,
+      key: creds.key
+    };
+    var headers = {
+      'Authorization': 'Bearer ' + creds.accessToken,
+      'Content-Type':  'application/json'
+    };
+
+    var res = afipFetch('/requests', payload, headers);
+
+    var fechaStr = afipBuscarCampo(res, 'CbteFch');
+    return fechaStr ? String(fechaStr) : null;
+  } catch (e) {
+    Logger.log('Error silenciado al consultar fecha del comprobante ' + cbteNro + ': ' + e.message);
+    return null;
+  }
 }
