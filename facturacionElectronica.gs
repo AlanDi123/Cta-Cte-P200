@@ -166,6 +166,7 @@ function emitirFacturaElectronica(datosFactura) {
       neto:             neto,
       iva:              iva,
       total:            total,
+      fecha:            datos.fechaTransferencia,
       fechaTransferencia: datos.fechaTransferencia,
       fechaCbte:        fechaCbte
     });
