@@ -185,30 +185,28 @@ const TransferenciasRepository = {
     const hoja = this.getHoja();
     const id = this.getSiguienteId();
 
-    // Determinar si el cliente está registrado
+    // 1. El nombre guardado es siempre el que ingresa el usuario (ej. "Yeni")
+    let nombreParaRegistro = (datos.cliente || '').toUpperCase().trim();
+    if (!nombreParaRegistro) nombreParaRegistro = 'CONSUMIDOR FINAL';
+
     let clienteRegistrado = false;
-    let clienteData = null;
-    let condicion = datos.condicion || 'Consumidor Final';
-    let cuit = datos.cuit || '';
-    let nombreOriginal = (datos.cliente || '').toUpperCase();
-    
-    // Buscar cliente registrado
-    if (datos.cliente) {
-      clienteData = ClientesRepository.buscarPorNombre(datos.cliente);
-      if (clienteData) {
-        clienteRegistrado = true;
-        condicion = clienteData.condicionFiscal || (clienteData.cuit ? 'Responsable Inscripto' : 'Consumidor Final');
-        cuit = clienteData.cuit || cuit;
-      }
+    let condicionFiscalParaFactura = 'Consumidor Final';
+    let cuitParaFactura = datos.cuit || '';
+
+    const clienteData = ClientesRepository.buscarPorNombre(nombreParaRegistro);
+    if (clienteData) {
+      clienteRegistrado = true;
+      condicionFiscalParaFactura = clienteData.condicionFiscal ||
+        (clienteData.cuit ? 'Responsable Inscripto' : 'Consumidor Final');
+      cuitParaFactura = clienteData.cuit || cuitParaFactura;
+    } else if (datos.condicion && String(datos.condicion).trim()) {
+      condicionFiscalParaFactura = datos.condicion;
     }
 
-    // Determinar tipo de factura según condición
-    // Factura A: Responsables Inscriptos o Monotributistas con CUIT
-    // Factura B: Consumidores Finales
-    const tipoFactura = (condicion === 'Responsable Inscripto' ||
-                         condicion === 'RI' ||
-                         condicion === 'Monotributista' ||
-                         condicion === 'Monotributo') ? 'A' : 'B';
+    const condUpper = String(condicionFiscalParaFactura || '').toUpperCase();
+    const tipoFactura = (condicionFiscalParaFactura === 'RI' ||
+                         condUpper.indexOf('RESPONSABLE') >= 0 ||
+                         condUpper.indexOf('MONOTRIBUT') >= 0) ? 'A' : 'B';
 
     // TRAZABILIDAD PARA CLIENTES NO REGISTRADOS:
     // Guardar nombre original y CUIT opcional en observaciones (formato estructurado)
@@ -217,8 +215,8 @@ const TransferenciasRepository = {
       // Agregar metadata estructurada para trazabilidad
       const metadataNoRegistrado = {
         noRegistrado: true,
-        nombreOriginal: nombreOriginal,
-        cuitProporcionado: cuit || null,
+        nombreOriginal: nombreParaRegistro,
+        cuitProporcionado: cuitParaFactura || null,
         fechaIngreso: formatearFechaLocal(new Date())
       };
       
@@ -232,10 +230,10 @@ const TransferenciasRepository = {
     const nuevaFila = [
       id,
       datos.fecha ? parsearFechaLocal(datos.fecha) : new Date(),
-      nombreOriginal,
+      nombreParaRegistro,
       datos.monto || 0,
       datos.banco || '',
-      condicion,
+      condicionFiscalParaFactura,
       tipoFactura,
       false,
       '',
@@ -247,13 +245,13 @@ const TransferenciasRepository = {
     return {
       id: id,
       fecha: datos.fecha,
-      cliente: nombreOriginal,
+      cliente: nombreParaRegistro,
       clienteRegistrado: clienteRegistrado,
-      nombreOriginal: nombreOriginal,  // Trazabilidad
-      cuitProporcionado: cuit,  // Para facturación
+      nombreOriginal: nombreParaRegistro,
+      cuitProporcionado: cuitParaFactura,
       monto: datos.monto,
       banco: datos.banco,
-      condicion: condicion,
+      condicion: condicionFiscalParaFactura,
       tipoFactura: tipoFactura,
       facturada: false,
       esNoRegistrado: !clienteRegistrado  // Flag explícito

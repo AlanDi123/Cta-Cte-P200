@@ -228,13 +228,16 @@ function emitirFacturaElectronica(datosFactura) {
       usuario:       Session.getActiveUser().getEmail()
     });
 
+    var mensajeFront = resultado.mensaje || ('Comprobante emitido correctamente. CAE: ' + resultado.cae);
+    if (avisoFecha) mensajeFront = mensajeFront + ' · ' + avisoFecha;
+
     return {
       success:    true,
       cae:        resultado.cae,
       ptoVta:     resultado.ptoVta || resultado.puntoVenta,
       cbteNro:    resultado.cbteNro,
       total:      total,
-      mensaje:    'Comprobante emitido correctamente',
+      mensaje:    mensajeFront,
       avisoFecha: avisoFecha
     };
 

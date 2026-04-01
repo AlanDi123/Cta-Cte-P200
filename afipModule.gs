@@ -353,28 +353,27 @@ function afipEmitirFactura(datosFactura) {
   datosFactura.cbteTipo = cbteTipoInt;
 
   // =========================================================================
-  // AJUSTE INTELIGENTE: Auto-corrección cronológica de AFIP
+  // AJUSTE INTELIGENTE: auto-corrección cronológica (correlatividad AFIP)
   // =========================================================================
-  datosFactura._avisoFecha = '';
+  var avisoFecha = '';
+  var fechaFinalParaARCA = fechaCbte;
 
   if (cbteNroUlt && cbteNroUlt > 0) {
-    var fechaUltimo = afipObtenerFechaUltimoComprobante(auth, creds, ptoVtaInt, cbteTipoInt, cbteNroUlt);
+    var fechaUltimoARCA = afipObtenerFechaUltimoComprobante(auth, creds, ptoVtaInt, cbteTipoInt, cbteNroUlt);
+    var fuStr = fechaUltimoARCA != null ? String(fechaUltimoARCA) : '';
 
-    if (fechaUltimo) {
-      if (parseInt(fechaCbte, 10) < parseInt(String(fechaUltimo), 10)) {
-        var anio = String(fechaUltimo).substring(0, 4);
-        var mes = String(fechaUltimo).substring(4, 6);
-        var dia = String(fechaUltimo).substring(6, 8);
-        var fechaLegible = dia + '/' + mes + '/' + anio;
-
-        fechaCbte = String(fechaUltimo);
-        datosFactura._avisoFecha = ' (⚠️ AFIP obligó a ajustar la fecha al ' + fechaLegible + ')';
-      }
+    if (fuStr && parseInt(String(fechaFinalParaARCA), 10) < parseInt(fuStr, 10)) {
+      fechaFinalParaARCA = fuStr;
+      var d = fuStr.substring(6, 8);
+      var m = fuStr.substring(4, 6);
+      var a = fuStr.substring(0, 4);
+      avisoFecha = ' (⚠️ Ajustada al ' + d + '/' + m + '/' + a + ' por correlatividad)';
     }
   }
-  // =========================================================================
 
-  var feDetReq = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, nextNro);
+  datosFactura._mensajeExtra = avisoFecha;
+  var feDetReq = afipConstruirFECAEDetRequest(datosFactura, fechaFinalParaARCA, nextNro);
+  // =========================================================================
 
   // 5. SOLICITAR CAE
   var payload = {
@@ -572,8 +571,7 @@ function afipParsearRespuestaFactura(resultado, datosFactura, cbteNro, puntoVent
     cbteTipo:       datosFactura.cbteTipo,
     puntoVenta:     puntoVenta,
     ptoVta:         puntoVenta,
-    // Agregamos el aviso dinámico al final del mensaje
-    mensaje:        'Comprobante autorizado. CAE: ' + cbte.CAE + (datosFactura._avisoFecha || '')
+    mensaje:        'Comprobante autorizado. CAE: ' + cbte.CAE + (datosFactura._mensajeExtra || '')
   };
 }
 

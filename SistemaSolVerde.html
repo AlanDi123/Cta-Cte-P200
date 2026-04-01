@@ -2540,6 +2540,53 @@
       font-size: 0.875rem;
     }
 
+    /* CORRECCIÓN 2: Compatibilidad Total Modo Oscuro */
+    body.dark-mode .dashboard-seccion,
+    body.dark-mode .card,
+    body.dark-mode .modal-content,
+    html[data-theme="dark"] .dashboard-seccion,
+    html[data-theme="dark"] .card,
+    html[data-theme="dark"] .modal-content {
+      background-color: #1e293b !important;
+      color: #f1f5f9 !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark-mode table.dataTable th,
+    body.dark-mode .table-limpia th,
+    html[data-theme="dark"] table.dataTable th,
+    html[data-theme="dark"] .table-limpia th {
+      background-color: #334155 !important;
+      color: #cbd5e1 !important;
+      border-bottom: 2px solid #475569 !important;
+    }
+
+    body.dark-mode table.dataTable td,
+    body.dark-mode .table-limpia td,
+    html[data-theme="dark"] table.dataTable td,
+    html[data-theme="dark"] .table-limpia td {
+      background-color: #1e293b !important;
+      color: #cbd5e1 !important;
+      border-bottom: 1px solid #334155 !important;
+    }
+
+    body.dark-mode input.form-control,
+    body.dark-mode select.form-control,
+    body.dark-mode textarea,
+    html[data-theme="dark"] input.form-control,
+    html[data-theme="dark"] select.form-control,
+    html[data-theme="dark"] textarea {
+      background-color: #0f172a !important;
+      color: #ffffff !important;
+      border-color: #475569 !important;
+    }
+
+    body.dark-mode .dataTables_wrapper .dataTables_filter input,
+    html[data-theme="dark"] .dataTables_wrapper .dataTables_filter input {
+      color: white !important;
+      background-color: #334155 !important;
+    }
+
   </style>
 </head>
 <body>
@@ -8778,7 +8825,10 @@
       }
 
       var clonContenido = contenido.cloneNode(true);
-      var elementosNoImprimibles = clonContenido.querySelectorAll('button, .acciones, .no-print');
+      var elementosNoImprimibles = clonContenido.querySelectorAll(
+        'button, .acciones, .no-print, ' +
+        '.dataTables_length, .dataTables_filter, .dataTables_info, .dataTables_paginate'
+      );
       elementosNoImprimibles.forEach(function(el) { el.remove(); });
 
       var ventanaPrint = window.open('', '_blank');
@@ -11245,7 +11295,7 @@
             document.getElementById('btnEmitirArca').disabled = false;
 
             if (result.success) {
-              mostrarToast(result.mensaje, 'success');
+              mostrarToast(result.mensaje || 'Comprobante emitido', 'success');
               sincronizarProductosTrasFacturaExito();
 
               var resDiv = document.getElementById('arcaResultado');
@@ -11254,6 +11304,7 @@
               var pdfOk = result.pdfUrl && /^https:\/\//i.test(String(result.pdfUrl));
               var bloque =
                 '<div class="alert" style="background:var(--sv-exito);color:white;padding:1rem;border-radius:8px;">' +
+                '<p style="font-size:0.95rem;line-height:1.4;">' + escapeHtml(String(result.mensaje || '')) + '</p>' +
                 '<p><strong>CAE:</strong> ' + escapeHtml(String(result.cae != null ? result.cae : '')) + '</p>' +
                 '<p><strong>Numero:</strong> ' + escapeHtml(String(result.ptoVta).padStart(5, '0') + '-' + String(result.cbteNro).padStart(8, '0')) + '</p>' +
                 '<p><strong>Total:</strong> $' + escapeHtml(String(Number(result.total).toFixed(2))) + '</p>' +
@@ -13285,8 +13336,8 @@
           btnEmitir.disabled = false;
           btnEmitir.textContent = '✅ Emitir Factura B en ARCA';
           if (result.success) {
-            if (result.avisoFecha) mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
-            else mostrarToast('¡Factura B emitida! CAE: ' + result.cae, 'success');
+            var msgB = result.mensaje || ('Factura B emitida. CAE: ' + result.cae);
+            mostrarToast(msgB, 'success');
             sincronizarProductosTrasFacturaExito();
             transferencia.facturada = true;
             marcarTransferenciaFacturadaEnServidor(transferencia.id);
@@ -13297,9 +13348,9 @@
                 Swal.fire({
                   icon: 'success',
                   title: 'Factura B emitida',
-                  html: 'CAE: <strong>' + escapeHtml(String(result.cae)) + '</strong><br>Número: ' +
-                    escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) +
-                    (result.avisoFecha ? '<br><br>⚠️ ' + escapeHtml(result.avisoFecha) : '')
+                  html: '<p style="text-align:left;font-size:0.95rem;">' + escapeHtml(msgB) + '</p>' +
+                    '<p style="margin-top:0.75rem;text-align:left;"><strong>Número:</strong> ' +
+                    escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) + '</p>'
                 });
               }
               if (navigator.vibrate) navigator.vibrate(200);
@@ -13532,8 +13583,8 @@
           btnEmitir.disabled = false;
           btnEmitir.textContent = '✅ Emitir Factura A en ARCA';
           if (result.success) {
-            if (result.avisoFecha) mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
-            else mostrarToast('¡Factura A emitida! CAE: ' + result.cae, 'success');
+            var msgA = result.mensaje || ('Factura A emitida. CAE: ' + result.cae);
+            mostrarToast(msgA, 'success');
             sincronizarProductosTrasFacturaExito();
             transferencia.facturada = true;
             marcarTransferenciaFacturadaEnServidor(transferencia.id);
@@ -13544,9 +13595,9 @@
                 Swal.fire({
                   icon: 'success',
                   title: 'Factura A emitida',
-                  html: 'CAE: <strong>' + escapeHtml(String(result.cae)) + '</strong><br>Número: ' +
-                    escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) +
-                    (result.avisoFecha ? '<br><br>⚠️ ' + escapeHtml(result.avisoFecha) : '')
+                  html: '<p style="text-align:left;font-size:0.95rem;">' + escapeHtml(msgA) + '</p>' +
+                    '<p style="margin-top:0.75rem;text-align:left;"><strong>Número:</strong> ' +
+                    escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) + '</p>'
                 });
               }
               if (navigator.vibrate) navigator.vibrate(200);
