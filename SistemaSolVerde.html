@@ -2540,51 +2540,98 @@
       font-size: 0.875rem;
     }
 
-    /* CORRECCIÓN 2: Compatibilidad Total Modo Oscuro */
+    /* =========================================================
+       CORRECCIÓN DEFINITIVA: Modo Oscuro Neutro (Sin Azules)
+    ========================================================= */
+    body.dark-mode,
+    html[data-theme="dark"] body {
+      background-color: #121212 !important; /* Fondo principal casi negro */
+      color: #e0e0e0 !important;
+    }
+
     body.dark-mode .dashboard-seccion,
     body.dark-mode .card,
     body.dark-mode .modal-content,
     html[data-theme="dark"] .dashboard-seccion,
     html[data-theme="dark"] .card,
     html[data-theme="dark"] .modal-content {
-      background-color: #1e293b !important;
-      color: #f1f5f9 !important;
-      border-color: #334155 !important;
+      background-color: #1e1e1e !important; /* Gris carbón para las tarjetas */
+      color: #e0e0e0 !important;
+      border-color: #2d2d2d !important; /* Bordes muy sutiles */
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
     }
 
     body.dark-mode table.dataTable th,
     body.dark-mode .table-limpia th,
     html[data-theme="dark"] table.dataTable th,
     html[data-theme="dark"] .table-limpia th {
-      background-color: #334155 !important;
-      color: #cbd5e1 !important;
-      border-bottom: 2px solid #475569 !important;
+      background-color: #252525 !important; /* Encabezados ligeramente resaltados */
+      color: #ffffff !important;
+      border-bottom: 2px solid #333333 !important;
     }
 
     body.dark-mode table.dataTable td,
     body.dark-mode .table-limpia td,
+    body.dark-mode table.dataTable tbody tr:hover,
     html[data-theme="dark"] table.dataTable td,
-    html[data-theme="dark"] .table-limpia td {
-      background-color: #1e293b !important;
-      color: #cbd5e1 !important;
-      border-bottom: 1px solid #334155 !important;
+    html[data-theme="dark"] .table-limpia td,
+    html[data-theme="dark"] table.dataTable tbody tr:hover {
+      background-color: #1e1e1e !important;
+      color: #e0e0e0 !important;
+      border-bottom: 1px solid #2d2d2d !important;
     }
 
+    /* Campos de texto y selectores (Inputs) */
     body.dark-mode input.form-control,
     body.dark-mode select.form-control,
     body.dark-mode textarea,
     html[data-theme="dark"] input.form-control,
     html[data-theme="dark"] select.form-control,
     html[data-theme="dark"] textarea {
-      background-color: #0f172a !important;
+      background-color: #121212 !important;
       color: #ffffff !important;
-      border-color: #475569 !important;
+      border: 1px solid #404040 !important;
+    }
+    body.dark-mode input.form-control:focus,
+    body.dark-mode select.form-control:focus,
+    html[data-theme="dark"] input.form-control:focus,
+    html[data-theme="dark"] select.form-control:focus {
+      border-color: #555555 !important;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1) !important;
     }
 
+    /* Buscador nativo de DataTables */
     body.dark-mode .dataTables_wrapper .dataTables_filter input,
     html[data-theme="dark"] .dataTables_wrapper .dataTables_filter input {
       color: white !important;
-      background-color: #334155 !important;
+      background-color: #252525 !important;
+      border: 1px solid #404040 !important;
+    }
+
+    /* =========================================================
+       CERROJO DE IMPRESIÓN: Forzar Blanco y Negro Absoluto
+    ========================================================= */
+    @media print {
+      /* Ignoramos completamente si el sistema está en modo oscuro */
+      *, body, body.dark-mode, .dashboard-seccion, .card, .modal-content, table, th, td {
+        background-color: #ffffff !important;
+        color: #000000 !important; /* Forzar tinta negra */
+        border-color: #dddddd !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+
+      /* Aseguramos que los encabezados de tabla tengan fondo blanco y no gris */
+      th {
+        background-color: #ffffff !important;
+        border-bottom: 2px solid #000000 !important;
+      }
+
+      /* Ocultamos fondos para ahorrar tinta */
+      .dataTables_wrapper .dataTables_filter input {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+      }
     }
 
   </style>
