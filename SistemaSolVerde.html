@@ -1146,7 +1146,14 @@
         display: block !important;
       }
 
-      * {
+      /* Por defecto el navegador puede ahorrar tinta; "exact" solo donde haga falta */
+      html {
+        -webkit-print-color-adjust: economy;
+        print-color-adjust: economy;
+      }
+
+      #resumenArqueoImpresion,
+      #resumenArqueoImpresion * {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
@@ -1170,6 +1177,34 @@
         color: black !important;
         font-size: 11pt;
         line-height: 1.3;
+      }
+
+      /* Vence tema oscuro (html[data-theme="dark"] … !important) en impresión misma pestaña */
+      html[data-theme="dark"] body,
+      html[data-theme="dark"] body .main-content,
+      html[data-theme="dark"] body .module-view.active,
+      html[data-theme="dark"] body .dashboard-seccion,
+      html[data-theme="dark"] body .card,
+      html[data-theme="dark"] body .modal-content,
+      html[data-theme="dark"] body table,
+      html[data-theme="dark"] body table th,
+      html[data-theme="dark"] body table td,
+      html[data-theme="dark"] body .table-limpia th,
+      html[data-theme="dark"] body .table-limpia td,
+      html[data-theme="dark"] body .dataTables_wrapper,
+      html[data-theme="dark"] body .dataTables_wrapper .dataTables_filter input {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        border-color: #cccccc !important;
+        box-shadow: none !important;
+      }
+
+      html[data-theme="dark"] body .table th,
+      html[data-theme="dark"] body .table-print th,
+      html[data-theme="dark"] body table.dataTable thead th {
+        background-color: #e8e8e8 !important;
+        color: #000000 !important;
       }
 
       /* CRÍTICO: Módulo activo visible y con altura automática para múltiples páginas */
@@ -2612,22 +2647,52 @@
        CERROJO DE IMPRESIÓN: Forzar Blanco y Negro Absoluto
     ========================================================= */
     @media print {
-      /* Ignoramos completamente si el sistema está en modo oscuro */
-      *, body, body.dark-mode, .dashboard-seccion, .card, .modal-content, table, th, td {
+      /* Refuerzo final: body y superficies (sin * universal para no pisar arqueo con colores inline) */
+      html[data-theme="dark"] body,
+      body.dark-mode,
+      body {
         background-color: #ffffff !important;
-        color: #000000 !important; /* Forzar tinta negra */
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+
+      html[data-theme="dark"] body .dashboard-seccion,
+      html[data-theme="dark"] body .card,
+      html[data-theme="dark"] body .modal-content,
+      html[data-theme="dark"] body .main-content,
+      html[data-theme="dark"] body .module-view.active,
+      body.dark-mode .dashboard-seccion,
+      body.dark-mode .card,
+      body.dark-mode .modal-content,
+      .dashboard-seccion,
+      .card,
+      .modal-content {
+        background-color: #ffffff !important;
+        color: #000000 !important;
         border-color: #dddddd !important;
         box-shadow: none !important;
         text-shadow: none !important;
       }
 
-      /* Aseguramos que los encabezados de tabla tengan fondo blanco y no gris */
+      html[data-theme="dark"] body table,
+      html[data-theme="dark"] body table th,
+      html[data-theme="dark"] body table td,
+      body.dark-mode table,
+      body.dark-mode table th,
+      body.dark-mode table td,
+      table.table,
+      table.table-print,
+      table.dataTable {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border-color: #dddddd !important;
+      }
+
       th {
         background-color: #ffffff !important;
         border-bottom: 2px solid #000000 !important;
       }
 
-      /* Ocultamos fondos para ahorrar tinta */
       .dataTables_wrapper .dataTables_filter input {
         background-color: #ffffff !important;
         color: #000000 !important;
@@ -3005,7 +3070,7 @@
               <label class="form-label">Filtrar por fecha</label>
               <input type="date" class="form-input" id="fechaSaldos" onchange="cargarSaldosPendientes()">
             </div>
-            <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+            <button class="btn btn-primary" onclick="imprimirSaldosPendientesVentana()">🖨️ Imprimir</button>
           </div>
 
           <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" class="print-logo">
@@ -3162,7 +3227,7 @@
             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
               <input type="date" class="form-input" id="fechaHojaRuta" style="flex: 1; min-width: 150px;">
               <button class="btn btn-outline" onclick="cargarHojaRuta()">🔄 Actualizar</button>
-              <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+              <button class="btn btn-primary" onclick="imprimirHojaRutaVentana()">🖨️ Imprimir</button>
             </div>
             <div style="margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.875rem;">
               <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
@@ -8675,16 +8740,17 @@
       document.getElementById('resumenArqueoEstado').textContent = estadoTexto;
       document.getElementById('resumenArqueoEstado').style.color = estadoColor;
 
-      // Mostrar el resumen de impresión
-      document.getElementById('resumenArqueoImpresion').style.display = 'block';
+      // Vista previa en pantalla (opcional) y siempre ventana de impresión aislada
+      var elRes = document.getElementById('resumenArqueoImpresion');
+      elRes.style.display = 'block';
+      var htmlCuerpo = elRes.innerHTML;
+      elRes.style.display = 'none';
 
-      // Imprimir
-      window.print();
-
-      // Ocultar después de imprimir
-      setTimeout(() => {
-        document.getElementById('resumenArqueoImpresion').style.display = 'none';
-      }, 1200);
+      abrirVentanaImpresionSolVerde({
+        tituloDocumento: 'Arqueo de Caja',
+        cuerpoHtml: '<div class="arqueo-print-wrap" style="max-width:720px;margin:0 auto;">' + htmlCuerpo + '</div>',
+        cssExtra: '.arqueo-print-wrap img { max-width: 72px; height: auto; }'
+      });
     }
 
     function _leerNetoArqueoActual() {
@@ -8878,51 +8944,76 @@
       );
       elementosNoImprimibles.forEach(function(el) { el.remove(); });
 
-      var ventanaPrint = window.open('', '_blank');
-      if (!ventanaPrint) {
-        mostrarToast('Permití ventanas emergentes para imprimir.', 'warning');
-        return;
-      }
-
       var fechaStr = new Date().toLocaleDateString('es-AR');
       var horaStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
       var tituloEsc = String(tituloDocumento || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-      var htmlDoc =
-        '<!DOCTYPE html>' +
-        '<html lang="es">' +
-        '<head>' +
-        '<meta charset="UTF-8">' +
-        '<title>' + tituloEsc + ' - Sol y Verde</title>' +
-        '<style>' +
-        'body { font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 25px; margin: 0; }' +
-        '.barra-herramientas { background: #f8fafc; padding: 15px; text-align: right; border-bottom: 1px solid #e2e8f0; margin-bottom: 25px; }' +
-        '.btn-imprimir { background: #3b82f6; color: white; border: none; padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; }' +
-        '.btn-imprimir:hover { background: #2563eb; }' +
-        '.cabecera-interna { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #cbd5e1; padding-bottom: 15px; margin-bottom: 25px; }' +
-        '.marca-interna h2 { margin: 0; font-size: 20px; color: #334155; letter-spacing: 1px; }' +
-        '.marca-interna span { font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700; background: #f1f5f9; padding: 3px 6px; border-radius: 4px; }' +
-        '.datos-reporte { text-align: right; }' +
-        '.datos-reporte h3 { margin: 0 0 5px 0; color: #0f172a; font-size: 16px; text-transform: uppercase; }' +
-        '.datos-reporte p { margin: 2px 0; font-size: 12px; color: #64748b; }' +
-        'table { width: 100%; border-collapse: collapse; font-size: 11px; }' +
-        'th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }' +
-        'th { background-color: #f1f5f9; font-weight: 600; color: #475569; }' +
-        'tr:nth-child(even) { background-color: #f8fafc; }' +
-        '@media print { .barra-herramientas { display: none !important; } @page { margin: 1cm; } body { padding: 0; } }' +
-        '</style></head><body>' +
-        '<div class="barra-herramientas">' +
-        '<button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir Reporte</button></div>' +
+      var fragmento =
         '<div class="cabecera-interna">' +
         '<div class="marca-interna"><h2>SOL & VERDE</h2><span>Uso Interno</span></div>' +
         '<div class="datos-reporte"><h3>' + tituloEsc + '</h3>' +
         '<p>Fecha: ' + fechaStr + ' - Hora: ' + horaStr + '</p></div></div>' +
-        '<div class="contenido-reporte">' + clonContenido.outerHTML + '</div>' +
-        '</body></html>';
+        '<div class="contenido-reporte">' + clonContenido.outerHTML + '</div>';
 
-      ventanaPrint.document.open();
-      ventanaPrint.document.write(htmlDoc);
-      ventanaPrint.document.close();
+      var cssExtraReporte =
+        '.cabecera-interna { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #cbd5e1; padding-bottom: 15px; margin-bottom: 20px; }' +
+        '.marca-interna h2 { margin: 0; font-size: 20px; color: #334155; letter-spacing: 1px; }' +
+        '.marca-interna span { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700; background: #f1f5f9; padding: 3px 6px; border-radius: 4px; }' +
+        '.datos-reporte { text-align: right; }' +
+        '.datos-reporte h3 { margin: 0 0 5px 0; color: #0f172a; font-size: 16px; text-transform: uppercase; }' +
+        '.datos-reporte p { margin: 2px 0; font-size: 12px; color: #64748b; }' +
+        '.contenido-reporte table { width: 100%; border-collapse: collapse; font-size: 11px; }' +
+        '.contenido-reporte th, .contenido-reporte td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }' +
+        '.contenido-reporte th { background-color: #f1f5f9; font-weight: 600; color: #475569; }' +
+        '.contenido-reporte tr:nth-child(even) { background-color: #f8fafc; }';
+
+      abrirVentanaImpresionSolVerde({
+        tituloDocumento: tituloDocumento || 'Reporte',
+        cuerpoHtml: fragmento,
+        cssExtra: cssExtraReporte
+      });
+    }
+
+    /** Imprime saldos pendientes en ventana nueva (sin heredar tema oscuro). */
+    function imprimirSaldosPendientesVentana() {
+      var card = document.querySelector('#module-impresion-saldos .card');
+      if (!card) {
+        mostrarToast('No se encontró el contenido a imprimir.', 'error');
+        return;
+      }
+      var clon = card.cloneNode(true);
+      clon.querySelectorAll(
+        'button, .acciones, .no-print, .dataTables_length, .dataTables_filter, .dataTables_info, .dataTables_paginate'
+      ).forEach(function(el) { el.remove(); });
+      abrirVentanaImpresionSolVerde({
+        tituloDocumento: 'Saldos Pendientes',
+        cuerpoHtml: clon.outerHTML,
+        cssExtra: '#mensajeSinSaldos { color: #333 !important; }'
+      });
+    }
+
+    /** Imprime hoja de ruta en ventana nueva. */
+    function imprimirHojaRutaVentana() {
+      var card = document.querySelector('#module-hoja-ruta .card');
+      if (!card) {
+        mostrarToast('No se encontró la hoja de ruta.', 'error');
+        return;
+      }
+      var clon = card.cloneNode(true);
+      clon.querySelectorAll(
+        'button, .acciones, .no-print, .dataTables_length, .dataTables_filter, .dataTables_info, .dataTables_paginate'
+      ).forEach(function(el) { el.remove(); });
+      clon.querySelectorAll('.hoja-ruta-excluded').forEach(function(el) { el.remove(); });
+      clon.querySelectorAll('.hoja-ruta-grand-total').forEach(function(el) { el.remove(); });
+      abrirVentanaImpresionSolVerde({
+        tituloDocumento: 'Hoja de Ruta',
+        cuerpoHtml: clon.outerHTML,
+        cssExtra:
+          '.hoja-ruta-total { display: table-footer-group !important; }' +
+          'h4 { color: #2E7D32 !important; }' +
+          '#seccionHojaGastos h4 { color: #C62828 !important; }' +
+          '#hojaRutaLiqPendientesSection h4 { color: #F57C00 !important; }'
+      });
     }
 
     // ============================================================================
@@ -9731,6 +9822,95 @@
       if (sistemaEl && footer) {
         sistemaEl.textContent = footer;
       }
+    }
+
+    /** Config de impresión desde Estado (misma forma que guardarConfiguracionGeneral). */
+    function obtenerConfigImpresionActiva() {
+      var c = (typeof Estado !== 'undefined' && Estado && Estado.configuracion) ? Estado.configuracion : {};
+      var m = parseFloat(c.printMargin, 10);
+      if (isNaN(m)) m = 0.8;
+      return {
+        orientacion: c.printOrientation || 'portrait',
+        margenCm: m,
+        fontSaldos: parseInt(c.printFontSizeSaldos, 10) || 10,
+        fontHeader: parseInt(c.printFontSizeHeader, 10) || 14,
+        escalaPct: parseInt(c.printScale, 10) || 100,
+        fitWidth: !!c.printFitToWidth
+      };
+    }
+
+    /**
+     * Regla @page según configuración (popup de impresión y caja diaria).
+     * @returns {string}
+     */
+    function solVerdePrintPageRuleCss() {
+      var cfg = obtenerConfigImpresionActiva();
+      return '@page { size: A4 ' + cfg.orientacion + '; margin: ' + cfg.margenCm + 'cm; }';
+    }
+
+    /**
+     * Shell unificado: ventana nueva, fondo claro, barra Imprimir/Cerrar, @page desde config.
+     * @param {Object} opts
+     * @param {string} opts.tituloDocumento
+     * @param {string} opts.cuerpoHtml - Contenido dentro del área principal
+     * @param {string} [opts.cssExtra] - CSS adicional (sin envolver en <style>)
+     * @param {string} [opts.winFeatures]
+     * @param {boolean} [opts.autoPrint] - Si true, dispara print al cargar
+     * @returns {Window|null}
+     */
+    function abrirVentanaImpresionSolVerde(opts) {
+      opts = opts || {};
+      var tituloEsc = String(opts.tituloDocumento || 'Documento').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      var cuerpo = opts.cuerpoHtml || '';
+      var cssExtra = opts.cssExtra || '';
+      var winFeatures = opts.winFeatures || 'width=920,height=980,scrollbars=yes,resizable=yes';
+      var autoPrint = opts.autoPrint === true;
+      var cfg = obtenerConfigImpresionActiva();
+      var sc = (cfg.escalaPct || 100) / 100;
+      var scaleCss = cfg.fitWidth
+        ? '.sv-print-root { transform: scale(' + sc + '); transform-origin: top left; width: fit-content; max-width: 100%; }'
+        : '.sv-print-root { transform: scale(' + sc + '); transform-origin: top left; }';
+
+      var win = window.open('', '_blank', winFeatures);
+      if (!win) {
+        if (typeof mostrarToast === 'function') {
+          mostrarToast('Permití ventanas emergentes para imprimir.', 'warning');
+        }
+        return null;
+      }
+
+      var docHtml =
+        '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>' + tituloEsc + ' - Sol & Verde</title>' +
+        '<style>' +
+        solVerdePrintPageRuleCss() +
+        'body { margin: 0; padding: 16px; font-family: \"Segoe UI\", Tahoma, Geneva, Verdana, sans-serif; background: #fff; color: #111; }' +
+        '.sv-print-toolbar { background: #f5f5f5; padding: 12px 16px; text-align: right; border-bottom: 1px solid #ddd; margin: -16px -16px 16px -16px; }' +
+        '.sv-print-toolbar button { margin-left: 8px; padding: 8px 16px; font-size: 14px; border-radius: 6px; cursor: pointer; border: none; }' +
+        '.btn-print-go { background: #1565C0; color: #fff; font-weight: bold; }' +
+        '.btn-print-close { background: #616161; color: #fff; }' +
+        '.sv-print-root { font-size: 11pt; line-height: 1.35; }' +
+        '.sv-print-root .table th, .sv-print-root .table td { font-size: ' + cfg.fontSaldos + 'pt; }' +
+        '.sv-print-root h3 { font-size: ' + cfg.fontHeader + 'pt; }' +
+        scaleCss +
+        cssExtra +
+        '@media print { .sv-print-toolbar { display: none !important; } body { padding: 0 !important; } }' +
+        '</style></head><body>' +
+        '<div class="sv-print-toolbar no-print">' +
+        '<button type="button" class="btn-print-go" onclick="window.print()">Imprimir</button>' +
+        '<button type="button" class="btn-print-close" onclick="window.close()">Cerrar</button></div>' +
+        '<div class="sv-print-root">' + cuerpo + '</div>' +
+        '</body></html>';
+
+      win.document.open();
+      win.document.write(docHtml);
+      win.document.close();
+      win.focus();
+      if (autoPrint) {
+        win.onload = function() {
+          try { win.print(); } catch (e) {}
+        };
+      }
+      return win;
     }
 
     function guardarApiKeyConfig() {
@@ -15354,12 +15534,13 @@
             const ctx = CajaDiariaPrinter.buildContext(result.caja, cfg, copies || 1);
             const bodyHtml = CajaDiariaPrinter.buildHtml(ctx);
 
+            // @page vía solVerdePrintPageRuleCss() = misma config que impresión unificada
             const printDoc =
               '<!DOCTYPE html><html><head>' +
               '<meta charset="utf-8">' +
               '<title>Caja Diaria &mdash; ' + (result.caja.fecha || '') + '</title>' +
               '<style>' +
-                '@page { size: A4 portrait; margin: 0.8cm; }' +
+                solVerdePrintPageRuleCss() +
                 'body { font-family: Arial, sans-serif; font-size: 11pt; color: #222; margin: 0; padding: 0; }' +
                 '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
                 '.contab-copy-block { page-break-after: always; }' +
