@@ -15434,7 +15434,12 @@
        * @returns {Object} PrintContext
        */
       buildContext: function(caja, cfg, copies) {
-        const empresa = Estado.configuracion || {};
+        const conf = Estado.configuracion || {};
+        const cfgSafe = cfg || {};
+        const showLogo =
+          cfgSafe.SHOW_LOGO !== false &&
+          cfgSafe.showLogo !== false &&
+          conf.printShowLogo !== false;
         return {
           // Datos de la caja (snapshot inmutable)
           caja: {
@@ -15455,14 +15460,14 @@
           resumen:      JSON.parse(JSON.stringify(caja.resumen)),
           // Empresa
           empresa: {
-            nombre: empresa.nombreEmisor || empresa.nombre || (empresa.sistema && empresa.sistema.NOMBRE) || 'Sol & Verde',
-            logo:   cfg.SHOW_LOGO !== false
+            nombre: conf.nombreEmisor || conf.nombre || (conf.sistema && conf.sistema.NOMBRE) || 'Sol & Verde',
+            logoUrl: String(conf.logoUrl || '').trim()
           },
           // Configuración de impresión
           config: {
             copies:    copies || 1,
-            footer:    cfg.FOOTER || '',
-            showLogo:  cfg.SHOW_LOGO !== false
+            footer:    cfgSafe.FOOTER || conf.printFooter || '',
+            showLogo:  showLogo
           },
           generado: new Date().toISOString()
         };
@@ -15480,11 +15485,17 @@
 
         const copias = ['Original', 'COPIA', 'COPIA 2', 'COPIA 3'].slice(0, config.copies);
 
+        var logoDefaultCaja = 'https://i.imgur.com/tStvmV1.png';
+        var logoSrcCaja = (empresa.logoUrl && empresa.logoUrl.length > 0) ? escapeHtml(empresa.logoUrl) : logoDefaultCaja;
+        var logoImgCaja = config.showLogo
+          ? '<img src="' + logoSrcCaja + '" alt="Logo" crossorigin="anonymous" class="contab-print-logo" style="max-height:55px;max-width:200px;width:auto;height:auto;object-fit:contain;display:block;margin:0 0 0.3rem 0;flex-shrink:0;">'
+          : '';
+
         return copias.map(function(etiqueta, idx) {
           return '<div class="contab-copy-block" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 1.5rem;">' +
             '<div style="border-bottom: 3px solid #2E7D32; padding-bottom: 0.75rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">' +
-              '<div>' +
-                (config.showLogo ? '<img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width:55px; margin-bottom:0.3rem; display:block;">' : '') +
+              '<div style="min-width:0;max-width:100%;">' +
+                logoImgCaja +
                 '<div style="font-size: 18pt; font-weight: 800; color: #2E7D32;">' + escapeHtml(empresa.nombre) + '</div>' +
                 '<div style="font-size: 12pt; font-weight: 700; color: #555; margin-top: 0.1rem;">CAJA DIARIA &mdash; ' + fechaStr + '</div>' +
               '</div>' +
@@ -15610,6 +15621,7 @@
               '<style>' +
                 solVerdePrintPageRuleCss() +
                 'body { font-family: Arial, sans-serif; font-size: 11pt; color: #222; margin: 0; padding: 0; }' +
+                '.contab-print-logo,.contab-copy-block img{max-height:55px!important;max-width:200px!important;width:auto!important;height:auto!important;object-fit:contain!important;display:block!important;}' +
                 '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
                 '.contab-copy-block { page-break-after: always; }' +
                 '.contab-copy-block:last-child { page-break-after: avoid; }' +
