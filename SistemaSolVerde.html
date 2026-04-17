@@ -3073,7 +3073,7 @@
             <button class="btn btn-primary" onclick="imprimirSaldosPendientesVentana()">🖨️ Imprimir</button>
           </div>
 
-          <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" class="print-logo">
+          <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" class="print-logo" style="max-width:72px;max-height:72px;width:auto;height:auto;object-fit:contain;display:block;margin:0 auto 0.5rem;">
           <h3 class="print-header" style="text-align: center; margin-bottom: 0.5rem;">Saldos Pendientes - Sol & Verde</h3>
           <p style="text-align: center; margin-bottom: 1rem; font-size: 0.875rem;" id="fechaImpresion"></p>
 
@@ -3172,7 +3172,7 @@
         <div id="resumenArqueoImpresion" class="print-only" style="display: none;">
           <!-- Encabezado -->
           <div style="text-align: center; margin-bottom: 1.2rem; padding-bottom: 1rem; border-bottom: 4px solid #2E7D32;">
-            <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 65px; margin: 0 auto 0.5rem; display: block;">
+            <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="max-width:72px;max-height:72px;width:auto;height:auto;object-fit:contain;margin:0 auto 0.5rem;display:block;">
             <h2 style="margin: 0; color: #2E7D32; font-size: 20pt; letter-spacing: 1px;">ARQUEO DE CAJA</h2>
             <p style="margin: 0.4rem 0 0 0; font-size: 11pt; color: #555;" id="resumenArqueoFecha"></p>
             <p style="margin: 0.2rem 0 0 0; font-size: 9pt; color: #777;" id="resumenArqueoSistema">Sol & Verde - Sistema de Cuenta Corriente</p>
@@ -9871,6 +9871,8 @@
       '.btn-print-go{background:#1565C0;color:#fff;font-weight:bold;}' +
       '.btn-print-close{background:#616161;color:#fff;}' +
       '.sv-print-root{font-size:11pt;line-height:1.35;}' +
+      /* Logos / capturas: límites fijos aunque el HTML traiga solo width o herede flex */
+      '.sv-print-root img,.sv-print-root picture>img{max-height:56px!important;max-width:220px!important;width:auto!important;height:auto!important;object-fit:contain!important;flex-shrink:0!important;}' +
       '@media print{.sv-print-toolbar{display:none!important;}body{padding:0!important;}}'
     );
 
@@ -9938,11 +9940,19 @@
       var autoPrint = opts.autoPrint === true;
       var cfg = obtenerConfigImpresionActiva();
       var sc = (cfg.escalaPct || 100) / 100;
-      var scaleCss = cfg.fitWidth
-        ? '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;width:fit-content;max-width:100%;}'
-        : '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;}';
+      /* Escala solo si ≠ 100%: scale(1) sobre el root agrandaba mal imágenes en algunos navegadores */
+      var scaleCss = '';
+      if (Math.abs(sc - 1) > 0.001) {
+        scaleCss = cfg.fitWidth
+          ? '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;width:fit-content;max-width:100%;}'
+          : '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;}';
+      }
       var fontCss = '.sv-print-root .table th,.sv-print-root .table td{font-size:' + cfg.fontSaldos + 'pt;}' +
         '.sv-print-root h3{font-size:' + cfg.fontHeader + 'pt;}';
+      var confGlob = (typeof Estado !== 'undefined' && Estado && Estado.configuracion) ? Estado.configuracion : {};
+      if (opts.hideLogos === true || confGlob.printShowLogo === false) {
+        cssExtra += '.print-logo,.sv-print-root img,.sv-print-root picture{display:none!important;}';
+      }
 
       var docHtml =
         '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>' + tituloEsc + ' - Sol & Verde</title><style>' +
