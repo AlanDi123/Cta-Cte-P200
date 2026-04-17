@@ -8746,11 +8746,18 @@
       var htmlCuerpo = elRes.innerHTML;
       elRes.style.display = 'none';
 
-      abrirVentanaImpresionSolVerde({
-        tituloDocumento: 'Arqueo de Caja',
-        cuerpoHtml: '<div class="arqueo-print-wrap" style="max-width:720px;margin:0 auto;">' + htmlCuerpo + '</div>',
-        cssExtra: '.arqueo-print-wrap img { max-width: 72px; height: auto; }'
-      });
+      var abrirArq = function() {
+        abrirVentanaImpresionSolVerde({
+          tituloDocumento: 'Arqueo de Caja',
+          cuerpoHtml: '<div class="arqueo-print-wrap" style="max-width:720px;margin:0 auto;">' + htmlCuerpo + '</div>',
+          cssExtra: '.arqueo-print-wrap img{max-width:72px;height:auto;}'
+        });
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(abrirArq);
+      } else {
+        setTimeout(abrirArq, 0);
+      }
     }
 
     function _leerNetoArqueoActual() {
@@ -8933,45 +8940,42 @@
         return;
       }
 
-      if (typeof Toastify !== 'undefined') {
-        Toastify({ text: 'Generando vista previa...', duration: 2000, style: { background: '#3b82f6' } }).showToast();
+      var cssExtraReporte =
+        '.cabecera-interna{display:flex;justify-content:space-between;align-items:center;border-bottom:2px dashed #cbd5e1;padding-bottom:15px;margin-bottom:20px;}' +
+        '.marca-interna h2{margin:0;font-size:20px;color:#334155;letter-spacing:1px;}' +
+        '.marca-interna span{font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;background:#f1f5f9;padding:3px 6px;border-radius:4px;}' +
+        '.datos-reporte{text-align:right;}' +
+        '.datos-reporte h3{margin:0 0 5px 0;color:#0f172a;font-size:16px;text-transform:uppercase;}' +
+        '.datos-reporte p{margin:2px 0;font-size:12px;color:#64748b;}' +
+        '.contenido-reporte table{width:100%;border-collapse:collapse;font-size:11px;}' +
+        '.contenido-reporte th,.contenido-reporte td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;}' +
+        '.contenido-reporte th{background-color:#f1f5f9;font-weight:600;color:#475569;}' +
+        '.contenido-reporte tr:nth-child(even){background-color:#f8fafc;}';
+
+      function armarYAbrir() {
+        var clonContenido = contenido.cloneNode(true);
+        _svStripImpresionNodos(clonContenido);
+        var fechaStr = new Date().toLocaleDateString('es-AR');
+        var horaStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        var tituloEsc = String(tituloDocumento || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        var fragmento =
+          '<div class="cabecera-interna">' +
+          '<div class="marca-interna"><h2>SOL & VERDE</h2><span>Uso Interno</span></div>' +
+          '<div class="datos-reporte"><h3>' + tituloEsc + '</h3>' +
+          '<p>Fecha: ' + fechaStr + ' - Hora: ' + horaStr + '</p></div></div>' +
+          '<div class="contenido-reporte">' + clonContenido.outerHTML + '</div>';
+        abrirVentanaImpresionSolVerde({
+          tituloDocumento: tituloDocumento || 'Reporte',
+          cuerpoHtml: fragmento,
+          cssExtra: cssExtraReporte
+        });
       }
 
-      var clonContenido = contenido.cloneNode(true);
-      var elementosNoImprimibles = clonContenido.querySelectorAll(
-        'button, .acciones, .no-print, ' +
-        '.dataTables_length, .dataTables_filter, .dataTables_info, .dataTables_paginate'
-      );
-      elementosNoImprimibles.forEach(function(el) { el.remove(); });
-
-      var fechaStr = new Date().toLocaleDateString('es-AR');
-      var horaStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-      var tituloEsc = String(tituloDocumento || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-      var fragmento =
-        '<div class="cabecera-interna">' +
-        '<div class="marca-interna"><h2>SOL & VERDE</h2><span>Uso Interno</span></div>' +
-        '<div class="datos-reporte"><h3>' + tituloEsc + '</h3>' +
-        '<p>Fecha: ' + fechaStr + ' - Hora: ' + horaStr + '</p></div></div>' +
-        '<div class="contenido-reporte">' + clonContenido.outerHTML + '</div>';
-
-      var cssExtraReporte =
-        '.cabecera-interna { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #cbd5e1; padding-bottom: 15px; margin-bottom: 20px; }' +
-        '.marca-interna h2 { margin: 0; font-size: 20px; color: #334155; letter-spacing: 1px; }' +
-        '.marca-interna span { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700; background: #f1f5f9; padding: 3px 6px; border-radius: 4px; }' +
-        '.datos-reporte { text-align: right; }' +
-        '.datos-reporte h3 { margin: 0 0 5px 0; color: #0f172a; font-size: 16px; text-transform: uppercase; }' +
-        '.datos-reporte p { margin: 2px 0; font-size: 12px; color: #64748b; }' +
-        '.contenido-reporte table { width: 100%; border-collapse: collapse; font-size: 11px; }' +
-        '.contenido-reporte th, .contenido-reporte td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }' +
-        '.contenido-reporte th { background-color: #f1f5f9; font-weight: 600; color: #475569; }' +
-        '.contenido-reporte tr:nth-child(even) { background-color: #f8fafc; }';
-
-      abrirVentanaImpresionSolVerde({
-        tituloDocumento: tituloDocumento || 'Reporte',
-        cuerpoHtml: fragmento,
-        cssExtra: cssExtraReporte
-      });
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(armarYAbrir);
+      } else {
+        setTimeout(armarYAbrir, 0);
+      }
     }
 
     /** Imprime saldos pendientes en ventana nueva (sin heredar tema oscuro). */
@@ -8981,15 +8985,20 @@
         mostrarToast('No se encontró el contenido a imprimir.', 'error');
         return;
       }
-      var clon = card.cloneNode(true);
-      clon.querySelectorAll(
-        'button, .acciones, .no-print, .dataTables_length, .dataTables_filter, .dataTables_info, .dataTables_paginate'
-      ).forEach(function(el) { el.remove(); });
-      abrirVentanaImpresionSolVerde({
-        tituloDocumento: 'Saldos Pendientes',
-        cuerpoHtml: clon.outerHTML,
-        cssExtra: '#mensajeSinSaldos { color: #333 !important; }'
-      });
+      function go() {
+        var clon = card.cloneNode(true);
+        _svStripImpresionNodos(clon);
+        abrirVentanaImpresionSolVerde({
+          tituloDocumento: 'Saldos Pendientes',
+          cuerpoHtml: clon.outerHTML,
+          cssExtra: '#mensajeSinSaldos{color:#333!important;}'
+        });
+      }
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(go);
+      } else {
+        setTimeout(go, 0);
+      }
     }
 
     /** Imprime hoja de ruta en ventana nueva. */
@@ -8999,21 +9008,26 @@
         mostrarToast('No se encontró la hoja de ruta.', 'error');
         return;
       }
-      var clon = card.cloneNode(true);
-      clon.querySelectorAll(
-        'button, .acciones, .no-print, .dataTables_length, .dataTables_filter, .dataTables_info, .dataTables_paginate'
-      ).forEach(function(el) { el.remove(); });
-      clon.querySelectorAll('.hoja-ruta-excluded').forEach(function(el) { el.remove(); });
-      clon.querySelectorAll('.hoja-ruta-grand-total').forEach(function(el) { el.remove(); });
-      abrirVentanaImpresionSolVerde({
-        tituloDocumento: 'Hoja de Ruta',
-        cuerpoHtml: clon.outerHTML,
-        cssExtra:
-          '.hoja-ruta-total { display: table-footer-group !important; }' +
-          'h4 { color: #2E7D32 !important; }' +
-          '#seccionHojaGastos h4 { color: #C62828 !important; }' +
-          '#hojaRutaLiqPendientesSection h4 { color: #F57C00 !important; }'
-      });
+      function go() {
+        var clon = card.cloneNode(true);
+        _svStripImpresionNodos(clon);
+        var ex = clon.querySelectorAll('.hoja-ruta-excluded,.hoja-ruta-grand-total');
+        for (var j = ex.length - 1; j >= 0; j--) ex[j].remove();
+        abrirVentanaImpresionSolVerde({
+          tituloDocumento: 'Hoja de Ruta',
+          cuerpoHtml: clon.outerHTML,
+          cssExtra:
+            '.hoja-ruta-total{display:table-footer-group!important;}' +
+            'h4{color:#2E7D32!important;}' +
+            '#seccionHojaGastos h4{color:#C62828!important;}' +
+            '#hojaRutaLiqPendientesSection h4{color:#F57C00!important;}'
+        });
+      }
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(go);
+      } else {
+        setTimeout(go, 0);
+      }
     }
 
     // ============================================================================
@@ -9841,11 +9855,60 @@
 
     /**
      * Regla @page según configuración (popup de impresión y caja diaria).
+     * @param {Object} [cfgPre] - Si viene de obtenerConfigImpresionActiva(), evita doble lectura.
      * @returns {string}
      */
-    function solVerdePrintPageRuleCss() {
-      var cfg = obtenerConfigImpresionActiva();
+    function solVerdePrintPageRuleCss(cfgPre) {
+      var cfg = cfgPre || obtenerConfigImpresionActiva();
       return '@page { size: A4 ' + cfg.orientacion + '; margin: ' + cfg.margenCm + 'cm; }';
+    }
+
+    /** CSS fijo del shell (cacheado; no incluye @page ni tamaños variables). */
+    var _svPrintShellCssStatic = (
+      'body{margin:0;padding:16px;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:#fff;color:#111;}' +
+      '.sv-print-toolbar{background:#f5f5f5;padding:12px 16px;text-align:right;border-bottom:1px solid #ddd;margin:-16px -16px 16px -16px;}' +
+      '.sv-print-toolbar button{margin-left:8px;padding:8px 16px;font-size:14px;border-radius:6px;cursor:pointer;border:none;}' +
+      '.btn-print-go{background:#1565C0;color:#fff;font-weight:bold;}' +
+      '.btn-print-close{background:#616161;color:#fff;}' +
+      '.sv-print-root{font-size:11pt;line-height:1.35;}' +
+      '@media print{.sv-print-toolbar{display:none!important;}body{padding:0!important;}}'
+    );
+
+    var _SV_SEL_NO_IMPRIMIR = 'button,.acciones,.no-print,.dataTables_length,.dataTables_filter,.dataTables_info,.dataTables_paginate';
+
+    /** Quita controles UI del clon (una sola query). */
+    function _svStripImpresionNodos(root) {
+      if (!root || !root.querySelectorAll) return;
+      var list = root.querySelectorAll(_SV_SEL_NO_IMPRIMIR);
+      for (var i = list.length - 1; i >= 0; i--) {
+        list[i].remove();
+      }
+    }
+
+    /**
+     * Escribe HTML en ventana ya abierta; en el siguiente frame para no bloquear el clic.
+     */
+    function _svCommitPrintDocument(win, docHtml, autoPrint) {
+      try {
+        var d = win.document;
+        d.open();
+        d.write(docHtml);
+        d.close();
+      } catch (e) {}
+      try { win.focus(); } catch (e2) {}
+      if (autoPrint) {
+        var runPrint = function() {
+          try { win.print(); } catch (e3) {}
+        };
+        if (win.document.readyState === 'complete') {
+          setTimeout(runPrint, 0);
+        } else {
+          win.addEventListener('load', function onLd() {
+            win.removeEventListener('load', onLd);
+            runPrint();
+          });
+        }
+      }
     }
 
     /**
@@ -9860,18 +9923,8 @@
      */
     function abrirVentanaImpresionSolVerde(opts) {
       opts = opts || {};
-      var tituloEsc = String(opts.tituloDocumento || 'Documento').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      var cuerpo = opts.cuerpoHtml || '';
-      var cssExtra = opts.cssExtra || '';
       var winFeatures = opts.winFeatures || 'width=920,height=980,scrollbars=yes,resizable=yes';
-      var autoPrint = opts.autoPrint === true;
-      var cfg = obtenerConfigImpresionActiva();
-      var sc = (cfg.escalaPct || 100) / 100;
-      var scaleCss = cfg.fitWidth
-        ? '.sv-print-root { transform: scale(' + sc + '); transform-origin: top left; width: fit-content; max-width: 100%; }'
-        : '.sv-print-root { transform: scale(' + sc + '); transform-origin: top left; }';
-
-      var win = window.open('', '_blank', winFeatures);
+      var win = window.open('about:blank', '_blank', winFeatures);
       if (!win) {
         if (typeof mostrarToast === 'function') {
           mostrarToast('Permití ventanas emergentes para imprimir.', 'warning');
@@ -9879,36 +9932,36 @@
         return null;
       }
 
+      var tituloEsc = String(opts.tituloDocumento || 'Documento').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      var cuerpo = opts.cuerpoHtml || '';
+      var cssExtra = opts.cssExtra || '';
+      var autoPrint = opts.autoPrint === true;
+      var cfg = obtenerConfigImpresionActiva();
+      var sc = (cfg.escalaPct || 100) / 100;
+      var scaleCss = cfg.fitWidth
+        ? '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;width:fit-content;max-width:100%;}'
+        : '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;}';
+      var fontCss = '.sv-print-root .table th,.sv-print-root .table td{font-size:' + cfg.fontSaldos + 'pt;}' +
+        '.sv-print-root h3{font-size:' + cfg.fontHeader + 'pt;}';
+
       var docHtml =
-        '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>' + tituloEsc + ' - Sol & Verde</title>' +
-        '<style>' +
-        solVerdePrintPageRuleCss() +
-        'body { margin: 0; padding: 16px; font-family: \"Segoe UI\", Tahoma, Geneva, Verdana, sans-serif; background: #fff; color: #111; }' +
-        '.sv-print-toolbar { background: #f5f5f5; padding: 12px 16px; text-align: right; border-bottom: 1px solid #ddd; margin: -16px -16px 16px -16px; }' +
-        '.sv-print-toolbar button { margin-left: 8px; padding: 8px 16px; font-size: 14px; border-radius: 6px; cursor: pointer; border: none; }' +
-        '.btn-print-go { background: #1565C0; color: #fff; font-weight: bold; }' +
-        '.btn-print-close { background: #616161; color: #fff; }' +
-        '.sv-print-root { font-size: 11pt; line-height: 1.35; }' +
-        '.sv-print-root .table th, .sv-print-root .table td { font-size: ' + cfg.fontSaldos + 'pt; }' +
-        '.sv-print-root h3 { font-size: ' + cfg.fontHeader + 'pt; }' +
+        '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>' + tituloEsc + ' - Sol & Verde</title><style>' +
+        solVerdePrintPageRuleCss(cfg) +
+        _svPrintShellCssStatic +
+        fontCss +
         scaleCss +
         cssExtra +
-        '@media print { .sv-print-toolbar { display: none !important; } body { padding: 0 !important; } }' +
         '</style></head><body>' +
         '<div class="sv-print-toolbar no-print">' +
         '<button type="button" class="btn-print-go" onclick="window.print()">Imprimir</button>' +
         '<button type="button" class="btn-print-close" onclick="window.close()">Cerrar</button></div>' +
-        '<div class="sv-print-root">' + cuerpo + '</div>' +
-        '</body></html>';
+        '<div class="sv-print-root">' + cuerpo + '</div></body></html>';
 
-      win.document.open();
-      win.document.write(docHtml);
-      win.document.close();
-      win.focus();
-      if (autoPrint) {
-        win.onload = function() {
-          try { win.print(); } catch (e) {}
-        };
+      var commit = function() { _svCommitPrintDocument(win, docHtml, autoPrint); };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(commit);
+      } else {
+        setTimeout(commit, 0);
       }
       return win;
     }
@@ -12260,11 +12313,21 @@
 '<\/script>' +
 '</body></html>';
 
-      var win = window.open('', '_blank', 'width=900,height=1080,scrollbars=yes,resizable=yes');
+      var win = window.open('about:blank', '_blank', 'width=900,height=1080,scrollbars=yes,resizable=yes');
       if (!win) { mostrarToast('Bloqueado por el navegador — habilitá los popups para este sitio.', 'warning'); return; }
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
+      var commitHf = function() {
+        try {
+          win.document.open();
+          win.document.write(html);
+          win.document.close();
+        } catch (e) {}
+        try { win.focus(); } catch (e2) {}
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(commitHf);
+      } else {
+        setTimeout(commitHf, 0);
+      }
     }
 
     function _hfFilasVacias(n) {
@@ -14832,11 +14895,16 @@
         listaMovsHtml +
         '</body></html>';
 
-      var win = window.open('', '_blank', 'width=1100,height=800');
+      var win = window.open('about:blank', '_blank', 'width=1100,height=800');
       if (win) {
-        win.document.write(printHtml);
-        win.document.close();
-        win.onload = function() { win.print(); };
+        var commitAlq = function() {
+          _svCommitPrintDocument(win, printHtml, true);
+        };
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(commitAlq);
+        } else {
+          setTimeout(commitAlq, 0);
+        }
       } else {
         mostrarToast('Habilita las ventanas emergentes para imprimir', 'warning');
       }
@@ -15550,11 +15618,16 @@
               '</style>' +
               '</head><body>' + bodyHtml + '</body></html>';
 
-            const win = window.open('', '_blank', 'width=820,height=950');
+            const win = window.open('about:blank', '_blank', 'width=820,height=950');
             if (win) {
-              win.document.write(printDoc);
-              win.document.close();
-              win.onload = function() { win.focus(); win.print(); };
+              const commitCaja = function() {
+                _svCommitPrintDocument(win, printDoc, true);
+              };
+              if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(commitCaja);
+              } else {
+                setTimeout(commitCaja, 0);
+              }
             } else {
               mostrarToast('Habilitá las ventanas emergentes para imprimir', 'warning');
             }
@@ -17109,12 +17182,25 @@ body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; marg
     }
 
     function vnAbrirVentanaImpresion(html) {
-      const w = window.open('', '_blank', 'width=350,height=700,menubar=no,toolbar=no,location=no');
+      const w = window.open('about:blank', '_blank', 'width=350,height=700,menubar=no,toolbar=no,location=no');
       if (!w) { mostrarToast('Permití ventanas emergentes para imprimir', 'error'); return; }
-      w.document.write(html);
-      w.document.close();
-      w.focus();
-      setTimeout(() => { w.print(); setTimeout(() => w.close(), 500); }, 400);
+      const go = function() {
+        try {
+          w.document.open();
+          w.document.write(html);
+          w.document.close();
+        } catch (e) {}
+        try { w.focus(); } catch (e2) {}
+        setTimeout(function() {
+          try { w.print(); } catch (e3) {}
+          setTimeout(function() { try { w.close(); } catch (e4) {} }, 450);
+        }, 0);
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(go);
+      } else {
+        setTimeout(go, 0);
+      }
     }
 
     // ── Helpers de formato VN ─────────────────────────────────────
