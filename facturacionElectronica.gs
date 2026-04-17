@@ -79,8 +79,13 @@ function consultarCUITArca(cuit) {
  * }
  */
 function emitirFacturaElectronica(datosFactura) {
+  var datos = null;
+  var neto = 0;
+  var iva = 0;
+  var total = 0;
+  var fechaCbte = '';
   try {
-    var datos = _normalizarDatosFactura(datosFactura);
+    datos = _normalizarDatosFactura(datosFactura);
 
     // ── Validación inline (sin depender de utils.gs) ─────────────────────────
     var erroresValidacion = [];
@@ -93,6 +98,8 @@ function emitirFacturaElectronica(datosFactura) {
     if (datos.cbteTipo === 1) {
       if (!datos.clienteCuit || datos.clienteCuit.trim() === '') {
         erroresValidacion.push('Factura A requiere CUIT del cliente.');
+      } else if (!validarCuitModulo11(datos.clienteCuit)) {
+        erroresValidacion.push('CUIT del cliente inválido (verificador).');
       }
       var condUp = String(datos.clienteCondicion || '').toUpperCase();
       var esRIoM = condUp === 'RI' ||
@@ -114,8 +121,6 @@ function emitirFacturaElectronica(datosFactura) {
     // ── Calcular importes ────────────────────────────────────────────────────
     var ivaPct = parseFloat(PropertiesService.getScriptProperties()
                    .getProperty('IVA_PORCENTAJE') || '10.5') / 100;
-
-    var neto, iva, total;
 
     if (datos.importeNeto > 0) {
       neto  = Math.round(datos.importeNeto * 100) / 100;
@@ -141,7 +146,7 @@ function emitirFacturaElectronica(datosFactura) {
                ' neto=$' + neto + ' iva=$' + iva + ' total=$' + total);
 
     // ── Fecha válida para ARCA (máx 5 días atrás) ───────────────────────────
-    var fechaCbte  = _calcularFechaValidaArca(datos.fechaTransferencia);
+    fechaCbte = _calcularFechaValidaArca(datos.fechaTransferencia);
     var avisoFecha = null;
     if (datos.fechaTransferencia) {
       var fTrans   = parsearFechaLocal(datos.fechaTransferencia);
@@ -161,10 +166,35 @@ function emitirFacturaElectronica(datosFactura) {
       neto:             neto,
       iva:              iva,
       total:            total,
-      fechaTransferencia: datos.fechaTransferencia
+      fecha:            datos.fechaTransferencia,
+      fechaTransferencia: datos.fechaTransferencia,
+      fechaCbte:        fechaCbte
     });
 
-    if (!resultado.success) return resultado;
+    if (!resultado.success) {
+      try {
+        encolarFacturaPendienteARCA({
+          v: 1,
+          motivo: 'AFIP_RECHAZO_O_ERROR',
+          cbteTipo: datos.cbteTipo,
+          clienteNombre: datos.clienteNombre,
+          clienteRazonSocial: datos.clienteRazonSocial,
+          clienteDomicilio: datos.clienteDomicilio,
+          clienteCuit: datos.clienteCuit,
+          clienteCondicion: datos.clienteCondicion,
+          importeNeto: neto,
+          neto: neto,
+          iva: iva,
+          total: total,
+          fechaTransferencia: datos.fechaTransferencia,
+          fechaCbte: fechaCbte,
+          detalle: datos.detalle || [],
+          ultimoError: String(resultado.error || resultado.mensaje || ''),
+          encoladoEn: new Date().toISOString()
+        });
+      } catch (ignore) { /* cola opcional */ }
+      return resultado;
+    }
 
     // ── Descontar stock de productos facturados ──────────────────────────────
     if (datos.detalle && datos.detalle.length > 0) {
@@ -198,18 +228,42 @@ function emitirFacturaElectronica(datosFactura) {
       usuario:       Session.getActiveUser().getEmail()
     });
 
+    var mensajeFront = resultado.mensaje || ('Comprobante emitido correctamente. CAE: ' + resultado.cae);
+    if (avisoFecha) mensajeFront = mensajeFront + ' · ' + avisoFecha;
+
     return {
       success:    true,
       cae:        resultado.cae,
       ptoVta:     resultado.ptoVta || resultado.puntoVenta,
       cbteNro:    resultado.cbteNro,
       total:      total,
-      mensaje:    'Comprobante emitido correctamente',
+      mensaje:    mensajeFront,
       avisoFecha: avisoFecha
     };
 
   } catch (error) {
     Logger.log('[FACT] Error en emitirFacturaElectronica: ' + error.message);
+    try {
+      if (datos) {
+        encolarFacturaPendienteARCA({
+          v: 1,
+          motivo: 'EXCEPCION_EMISION',
+          cbteTipo: datos.cbteTipo,
+          clienteNombre: datos.clienteNombre,
+          clienteCuit: datos.clienteCuit,
+          clienteCondicion: datos.clienteCondicion,
+          importeNeto: neto,
+          neto: neto,
+          iva: iva,
+          total: total,
+          fechaTransferencia: datos.fechaTransferencia,
+          fechaCbte: fechaCbte,
+          detalle: datos.detalle || [],
+          ultimoError: error.message,
+          encoladoEn: new Date().toISOString()
+        });
+      }
+    } catch (ignore) { /* cola opcional */ }
     return { success: false, error: 'Error al conectar con AFIP: ' + error.message };
   }
 }

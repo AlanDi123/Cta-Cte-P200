@@ -43,6 +43,11 @@ var CONFIG = {
     DOMICILIO_FISCAL: 12   // M: String (Domicilio Fiscal completo - para facturas)
   },
 
+  /**
+   * Convención: usar siempre CONFIG.COLS_* / COLS_MOVS / COLS_CLIENTES
+   * en código nuevo en lugar de literales de columna (plan optimización #27).
+   * Transferencias: ver CONFIG_FACTURACION.COLS_TRANSFERENCIAS en facturacion.gs
+   */
   // Indices de columnas para MOVIMIENTOS (0-based)
   COLS_MOVS: {
     ID: 0,          // A: Number autoincremental

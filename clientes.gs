@@ -397,3 +397,26 @@ const ClientesRepository = {
     return clientes.filter(c => c.saldo < 0).sort((a, b) => a.saldo - b.saldo);
   }
 };
+
+/**
+ * Ajuste de saldo por diferencia (delta). No recalcula historial de movimientos.
+ * @param {string} nombreCliente
+ * @param {number} montoAnterior
+ * @param {number} montoNuevo - Use 0 si se eliminó el débito/crédito asociado
+ */
+function ajustarSaldoCliente(nombreCliente, montoAnterior, montoNuevo) {
+  const diferencia = parseFloat(montoNuevo) - parseFloat(montoAnterior);
+  if (diferencia === 0 || isNaN(diferencia)) return;
+
+  const nombreBuscado = normalizarString(nombreCliente);
+  const cliente = ClientesRepository.buscarPorNombre(nombreBuscado);
+  if (!cliente) throw new Error('Cliente no encontrado para ajustar saldo.');
+
+  const hoja = ClientesRepository.getHoja();
+  const C = CONFIG.COLS_CLIENTES;
+  const saldoActual = parseFloat(cliente.saldo) || 0;
+  hoja.getRange(cliente.fila, C.SALDO + 1).setValue(saldoActual + diferencia);
+
+  RequestCache.invalidar('clientes_todos', 'clientes_todos_v2', 'clientes_index_nombre');
+  SheetsCache.invalidar('clientes_todos_v2');
+}

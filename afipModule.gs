@@ -80,17 +80,18 @@ function afipFetch(endpoint, payload, headers, method) {
     options.payload = JSON.stringify(payload);
   }
 
-  Logger.log('[AFIP HTTP] ' + endpoint + ' payload: ' +
-    JSON.stringify(payload).substring(0, 600));
+  Logger.log('[AFIP HTTP] ' + endpoint);
 
   var response = UrlFetchApp.fetch(url, options);
   var code     = response.getResponseCode();
   var text     = response.getContentText();
 
-  Logger.log('[AFIP HTTP] response ' + code + ': ' + text.substring(0, 600));
+  Logger.log('[AFIP HTTP] response ' + code);
 
   if (code === 401 || code === 403)
     throw new Error('Token de AfipSDK inválido o expirado (HTTP ' + code + ')');
+  if (code >= 500)
+    throw new Error('Error AfipSDK HTTP ' + code + ': ' + text.substring(0, 200));
   if (code !== 200) {
     var msg = 'Error AfipSDK HTTP ' + code;
     try {
@@ -115,7 +116,8 @@ function afipFetchConRetry(endpoint, payload, headers, method) {
       var msg = e.message.toLowerCase();
       var retry = msg.indexOf('timeout') >= 0 ||
                   msg.indexOf('unavailable') >= 0 ||
-                  msg.indexOf('exceeded') >= 0;
+                  msg.indexOf('exceeded') >= 0 ||
+                  /http 5\d\d/.test(msg);
       if (!retry || i === max) throw e;
       Utilities.sleep(delay * Math.pow(2, i - 1));
     }
@@ -130,6 +132,17 @@ function afipGetAuth(wsid) {
   if (!cfg.tieneCertificado) throw new Error('Certificado digital no instalado. Generalo en Configuración → ARCA.');
 
   var creds = afipGetCredentials();
+  var cacheKey = 'ARCA_AUTH_' + String(wsid || 'FE');
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      var parsed = JSON.parse(cached);
+      if (parsed && parsed.token && parsed.sign && parsed.cuit === creds.cuit)
+        return { token: parsed.token, sign: parsed.sign, cuit: parsed.cuit };
+    } catch (ignore) { /* pedir auth de nuevo */ }
+  }
+
   var payload = {
     environment: AFIP_CONFIG.ENVIRONMENT,
     tax_id:      creds.cuit,
@@ -146,7 +159,12 @@ function afipGetAuth(wsid) {
   if (!res.token || !res.sign)
     throw new Error('Auth ARCA inválida. Respuesta: ' + JSON.stringify(res).substring(0, 200));
 
-  return { token: res.token, sign: res.sign, cuit: creds.cuit };
+  var authObj = { token: res.token, sign: res.sign, cuit: creds.cuit };
+  try {
+    cache.put(cacheKey, JSON.stringify(authObj), 36000);
+  } catch (ignore) { /* caché llena o error */ }
+
+  return authObj;
 }
 
 // ─── SECCIÓN 4: ERRORES — MUESTRA EL CÓDIGO REAL DE ARCA ────────────────────
@@ -273,19 +291,27 @@ function afipParsearRespuestaPadron(resultado, cuitLimpio) {
 // ─── SECCIÓN 6: FACTURACIÓN ELECTRÓNICA ──────────────────────────────────────
 
 function afipEmitirFactura(datosFactura) {
-  if (!datosFactura.cbteTipo || !(datosFactura.total > 0))
-    throw new Error('Datos inválidos: cbteTipo=' + datosFactura.cbteTipo +
-                    ' total=' + datosFactura.total);
+  // 1. FORZAR ENTEROS (AFIP rechaza strings en silencio, causando el error 10016)
+  var cbteTipoInt = parseInt(datosFactura.cbteTipo, 10);
+  var ptoVtaInt = parseInt(afipGetCredentials().puntoVenta, 10);
 
-  var auth    = afipGetAuth(AFIP_CONFIG.WS.FE);
-  var creds   = afipGetCredentials();
+  if (!cbteTipoInt || !(datosFactura.total > 0)) {
+    throw new Error('Datos inválidos: cbteTipo=' + datosFactura.cbteTipo + ' total=' + datosFactura.total);
+  }
+
+  var auth  = afipGetAuth(AFIP_CONFIG.WS.FE);
+  var creds = afipGetCredentials();
   var headers = {
     'Authorization': 'Bearer ' + creds.accessToken,
     'Content-Type':  'application/json'
   };
 
-  // ── Paso 1: FECompUltimoAutorizado ─────────────────────────────────────────
+  // Toma la fecha de la transferencia y la procesa con la regla de los 5 días
+  var fechaCbte = afipCalcularFechaValida(datosFactura.fecha);
   var nextNro = null;
+  var cbteNroUlt = null;
+
+  // 3. OBTENER ÚLTIMO COMPROBANTE AUTORIZADO
   try {
     var payloadUlt = {
       environment: AFIP_CONFIG.ENVIRONMENT,
@@ -293,8 +319,8 @@ function afipEmitirFactura(datosFactura) {
       wsid:        AFIP_CONFIG.WS.FE,
       params: {
         Auth: { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
-        PtoVta:   creds.puntoVenta,
-        CbteTipo: datosFactura.cbteTipo
+        PtoVta:   ptoVtaInt,
+        CbteTipo: cbteTipoInt
       },
       cert: creds.cert,
       key:  creds.key
@@ -302,71 +328,54 @@ function afipEmitirFactura(datosFactura) {
 
     var resUlt = afipFetch('/requests', payloadUlt, headers);
 
-    // Loguear la respuesta RAW completa para diagnóstico
-    Logger.log('[AFIP ULT] Respuesta RAW completa: ' + JSON.stringify(resUlt));
+    // Verificación estricta: no dejamos pasar errores ocultos
+    if (resUlt && resUlt.Errors) {
+       var errs = Array.isArray(resUlt.Errors.Err) ? resUlt.Errors.Err : [resUlt.Errors.Err];
+       throw new Error("AFIP devolvió error al consultar último comprobante: " + JSON.stringify(errs));
+    }
 
-    // Intentar todos los paths posibles que puede devolver afipsdk
-    var cbteNroUlt = null;
-
-    // Path 1: respuesta normal del SDK
-    if (resUlt && resUlt.FECompUltimoAutorizadoResult) {
-      cbteNroUlt = resUlt.FECompUltimoAutorizadoResult.CbteNro;
-      Logger.log('[AFIP ULT] Path1 CbteNro: ' + cbteNroUlt);
-    }
-    // Path 2: SDK devuelve el resultado directo (sin wrapper)
-    else if (resUlt && typeof resUlt.CbteNro !== 'undefined') {
-      cbteNroUlt = resUlt.CbteNro;
-      Logger.log('[AFIP ULT] Path2 CbteNro: ' + cbteNroUlt);
-    }
-    // Path 3: anidado en result o data
-    else if (resUlt && (resUlt.result || resUlt.data)) {
-      var inner = resUlt.result || resUlt.data;
-      cbteNroUlt = inner.CbteNro;
-      Logger.log('[AFIP ULT] Path3 CbteNro: ' + cbteNroUlt);
-    }
-    // Path 4: buscar recursivamente cualquier key que contenga "CbteNro"
-    else {
-      Logger.log('[AFIP ULT] Paths 1-3 fallaron. Buscando CbteNro recursivamente...');
-      cbteNroUlt = afipBuscarCampo(resUlt, 'CbteNro');
-      Logger.log('[AFIP ULT] Path4 (recursivo) CbteNro: ' + cbteNroUlt);
-    }
+    cbteNroUlt = null;
+    if (resUlt && resUlt.FECompUltimoAutorizadoResult) cbteNroUlt = resUlt.FECompUltimoAutorizadoResult.CbteNro;
+    else if (resUlt && typeof resUlt.CbteNro !== 'undefined') cbteNroUlt = resUlt.CbteNro;
+    else if (resUlt && (resUlt.result || resUlt.data)) cbteNroUlt = (resUlt.result || resUlt.data).CbteNro;
+    else cbteNroUlt = afipBuscarCampo(resUlt, 'CbteNro');
 
     if (cbteNroUlt !== null && cbteNroUlt !== undefined && !isNaN(Number(cbteNroUlt))) {
       nextNro = Number(cbteNroUlt) + 1;
-      Logger.log('[AFIP ULT] Último autorizado: ' + cbteNroUlt + ' → Próximo: ' + nextNro);
     } else {
-      // Si ARCA devuelve CbteNro=0 significa que nunca se emitió ninguno
-      // Buscar si hay errores en la respuesta
-      if (resUlt && resUlt.Errors) {
-        Logger.log('[AFIP ULT] Errores en FECompUltimoAutorizado: ' + JSON.stringify(resUlt.Errors));
-      }
-      Logger.log('[AFIP ULT] CbteNro no encontrado en respuesta. Usando nextNro=1');
-      nextNro = 1;
+      nextNro = 1; // Solo se llega aquí si de verdad es la primera factura de la historia
     }
-
   } catch (e) {
-    // ¡CRÍTICO! Si FECompUltimoAutorizado falla, NO continuar con nro=1
-    // porque ARCA puede esperar cualquier número distinto
-    Logger.log('[AFIP ULT] EXCEPCIÓN en FECompUltimoAutorizado: ' + e.message);
-    throw new Error(
-      'No se pudo obtener el último comprobante autorizado de ARCA. ' +
-      'No es seguro continuar sin este dato. Error: ' + e.message +
-      '\n\nRevisá los logs de GAS (View → Logs) para más detalles.'
-    );
+    throw new Error('Fallo crítico al consultar el último número: ' + e.message);
   }
 
-  // ── Paso 2: Construir request y fecha ─────────────────────────────────────
-  // La fecha SIEMPRE debe ser HOY (ARCA no acepta fechas retroactivas fácilmente)
-  var hoy        = new Date();
-  var fechaCbte  = afipFormatoFecha(hoy);  // YYYYMMDD
+  // 4. CONSTRUIR DETALLE USANDO ENTEROS
+  datosFactura.cbteTipo = cbteTipoInt;
 
-  Logger.log('[AFIP] cbteTipo=' + datosFactura.cbteTipo +
-             ' nextNro=' + nextNro +
-             ' fechaCbte=' + fechaCbte);
+  // =========================================================================
+  // AJUSTE INTELIGENTE: auto-corrección cronológica (correlatividad AFIP)
+  // =========================================================================
+  var avisoFecha = '';
+  var fechaFinalParaARCA = fechaCbte;
 
-  var feDetReq = afipConstruirFECAEDetRequest(datosFactura, fechaCbte, nextNro);
+  if (cbteNroUlt && cbteNroUlt > 0) {
+    var fechaUltimoARCA = afipObtenerFechaUltimoComprobante(auth, creds, ptoVtaInt, cbteTipoInt, cbteNroUlt);
+    var fuStr = fechaUltimoARCA != null ? String(fechaUltimoARCA) : '';
 
-  // ── Paso 3: FECAESolicitar ─────────────────────────────────────────────────
+    if (fuStr && parseInt(String(fechaFinalParaARCA), 10) < parseInt(fuStr, 10)) {
+      fechaFinalParaARCA = fuStr;
+      var d = fuStr.substring(6, 8);
+      var m = fuStr.substring(4, 6);
+      var a = fuStr.substring(0, 4);
+      avisoFecha = ' (⚠️ Ajustada al ' + d + '/' + m + '/' + a + ' por correlatividad)';
+    }
+  }
+
+  datosFactura._mensajeExtra = avisoFecha;
+  var feDetReq = afipConstruirFECAEDetRequest(datosFactura, fechaFinalParaARCA, nextNro);
+  // =========================================================================
+
+  // 5. SOLICITAR CAE
   var payload = {
     environment: AFIP_CONFIG.ENVIRONMENT,
     method:      'FECAESolicitar',
@@ -376,8 +385,8 @@ function afipEmitirFactura(datosFactura) {
       FeCAEReq: {
         FeCabReq: {
           CantReg:  1,
-          PtoVta:   creds.puntoVenta,
-          CbteTipo: datosFactura.cbteTipo
+          PtoVta:   ptoVtaInt,
+          CbteTipo: cbteTipoInt
         },
         FeDetReq: {
           FECAEDetRequest: feDetReq
@@ -388,10 +397,8 @@ function afipEmitirFactura(datosFactura) {
     key:  creds.key
   };
 
-  Logger.log('[AFIP] FECAESolicitar payload: ' + JSON.stringify(payload).substring(0, 1000));
-
   var resultado = afipFetchConRetry('/requests', payload, headers);
-  return afipParsearRespuestaFactura(resultado, datosFactura, nextNro, creds.puntoVenta);
+  return afipParsearRespuestaFactura(resultado, datosFactura, nextNro, ptoVtaInt);
 }
 
 
@@ -483,21 +490,37 @@ function afipConstruirFECAEDetRequest(datosFactura, fechaCbte, cbteNro) {
 
 
 function afipCalcularFechaValida(fechaTransferencia) {
-  var hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  if (!fechaTransferencia) return afipFormatoFecha(hoy);
+  // 1. Instanciamos HOY en la zona horaria de Argentina
+  var hoyStr = Utilities.formatDate(new Date(), "America/Argentina/Buenos_Aires", "yyyy-MM-dd");
+  var hoy = new Date(hoyStr + "T12:00:00-03:00"); // Usamos el mediodía para evitar saltos por horario de verano/invierno
 
-  var fTrans = new Date(fechaTransferencia + 'T00:00:00');
-  fTrans.setHours(0, 0, 0, 0);
-  var diff = Math.floor((hoy - fTrans) / 86400000);
-
-  if (diff >= 0 && diff <= 5) return afipFormatoFecha(fTrans);
-  if (diff > 5) {
-    var lim = new Date(hoy);
-    lim.setDate(lim.getDate() - 5);
-    return afipFormatoFecha(lim);
+  if (!fechaTransferencia) {
+    return Utilities.formatDate(hoy, "America/Argentina/Buenos_Aires", "yyyyMMdd");
   }
-  return afipFormatoFecha(hoy);
+
+  // 2. Parseamos la fecha de la transferencia forzándola a UTC-3
+  // Convertimos "DD/MM/YYYY" o cualquier formato raro a "YYYY-MM-DD" si es necesario,
+  // asumiendo que llega en formato estándar desde tu base:
+  var fTransStr = String(fechaTransferencia).substring(0, 10); // Toma solo YYYY-MM-DD
+  var fTrans = new Date(fTransStr + "T12:00:00-03:00");
+
+  // 3. Calculamos la diferencia exacta en días
+  var milisegundosPorDia = 1000 * 60 * 60 * 24;
+  var diffDias = Math.floor((hoy.getTime() - fTrans.getTime()) / milisegundosPorDia);
+
+  var fechaFinal = fTrans;
+
+  // REGLAS AFIP:
+  if (diffDias > 5) {
+    // Si pasaron más de 5 días, topamos en el límite legal (hace 5 días exactos)
+    fechaFinal = new Date(hoy.getTime() - (5 * milisegundosPorDia));
+  } else if (diffDias < 0) {
+    // Si por algún error la transferencia tiene fecha del futuro, usamos HOY
+    fechaFinal = hoy;
+  }
+
+  // Devolvemos el string rígido YYYYMMDD que exige la API de ARCA
+  return Utilities.formatDate(fechaFinal, "America/Argentina/Buenos_Aires", "yyyyMMdd");
 }
 
 function afipFormatoFecha(fecha) {
@@ -548,6 +571,40 @@ function afipParsearRespuestaFactura(resultado, datosFactura, cbteNro, puntoVent
     cbteTipo:       datosFactura.cbteTipo,
     puntoVenta:     puntoVenta,
     ptoVta:         puntoVenta,
-    mensaje:        'Comprobante autorizado. CAE: ' + cbte.CAE
+    mensaje:        'Comprobante autorizado. CAE: ' + cbte.CAE + (datosFactura._mensajeExtra || '')
   };
+}
+
+// Consultor de la fecha del último comprobante emitido (FECompConsultar)
+function afipObtenerFechaUltimoComprobante(auth, creds, ptoVta, cbteTipo, cbteNro) {
+  if (!cbteNro || cbteNro <= 0) return null;
+  try {
+    var payload = {
+      environment: AFIP_CONFIG.ENVIRONMENT,
+      method: 'FECompConsultar',
+      wsid: AFIP_CONFIG.WS.FE,
+      params: {
+        Auth: { Token: auth.token, Sign: auth.sign, Cuit: auth.cuit },
+        FeCompConsReq: {
+          PtoVta: ptoVta,
+          CbteTipo: cbteTipo,
+          CbteNro: cbteNro
+        }
+      },
+      cert: creds.cert,
+      key: creds.key
+    };
+    var headers = {
+      'Authorization': 'Bearer ' + creds.accessToken,
+      'Content-Type':  'application/json'
+    };
+
+    var res = afipFetch('/requests', payload, headers);
+
+    var fechaStr = afipBuscarCampo(res, 'CbteFch');
+    return fechaStr ? String(fechaStr) : null;
+  } catch (e) {
+    Logger.log('Error silenciado al consultar fecha del comprobante ' + cbteNro + ': ' + e.message);
+    return null;
+  }
 }

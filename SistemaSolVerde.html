@@ -7,6 +7,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Sol & Verde - Sistema de Cuenta Corriente</title>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cleave.js/1.6.0/cleave.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     /* ============================================================================
        VARIABLES CSS - TEMA CLARO/OSCURO
@@ -1135,7 +1146,14 @@
         display: block !important;
       }
 
-      * {
+      /* Por defecto el navegador puede ahorrar tinta; "exact" solo donde haga falta */
+      html {
+        -webkit-print-color-adjust: economy;
+        print-color-adjust: economy;
+      }
+
+      #resumenArqueoImpresion,
+      #resumenArqueoImpresion * {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
@@ -1159,6 +1177,34 @@
         color: black !important;
         font-size: 11pt;
         line-height: 1.3;
+      }
+
+      /* Vence tema oscuro (html[data-theme="dark"] … !important) en impresión misma pestaña */
+      html[data-theme="dark"] body,
+      html[data-theme="dark"] body .main-content,
+      html[data-theme="dark"] body .module-view.active,
+      html[data-theme="dark"] body .dashboard-seccion,
+      html[data-theme="dark"] body .card,
+      html[data-theme="dark"] body .modal-content,
+      html[data-theme="dark"] body table,
+      html[data-theme="dark"] body table th,
+      html[data-theme="dark"] body table td,
+      html[data-theme="dark"] body .table-limpia th,
+      html[data-theme="dark"] body .table-limpia td,
+      html[data-theme="dark"] body .dataTables_wrapper,
+      html[data-theme="dark"] body .dataTables_wrapper .dataTables_filter input {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        border-color: #cccccc !important;
+        box-shadow: none !important;
+      }
+
+      html[data-theme="dark"] body .table th,
+      html[data-theme="dark"] body .table-print th,
+      html[data-theme="dark"] body table.dataTable thead th {
+        background-color: #e8e8e8 !important;
+        color: #000000 !important;
       }
 
       /* CRÍTICO: Módulo activo visible y con altura automática para múltiples páginas */
@@ -2410,9 +2456,256 @@
       .vn-ticket-print { display: block !important; }
     }
 
+    /* Pantalla por inactividad (montos sensibles) */
+    body.sv-idle-privacy #appContainer {
+      filter: blur(14px);
+      pointer-events: none;
+      user-select: none;
+    }
+    #svPrivacyShield {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10001;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+      color: #fff;
+      font-size: 1.1rem;
+      text-align: center;
+      padding: 1rem;
+      cursor: pointer;
+    }
+    body.sv-idle-privacy #svPrivacyShield { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    #tablaMovimientos tbody tr.sv-row-debe > td { background: rgba(255, 152, 0, 0.07); }
+    #tablaMovimientos tbody tr.sv-row-pago > td { background: rgba(46, 125, 50, 0.07); }
+
+    /* Alerta de stock (facturación) */
+    .input-cantidad-factura:focus {
+      border-color: #3498db;
+    }
+    input.input-cantidad-factura[data-stock-bajo="1"] {
+      border-color: #e67e22;
+      background-color: #fff8f0;
+    }
+    .producto-agotado {
+      background-color: #fce4e4;
+      color: #c0392b;
+      opacity: 0.6;
+    }
+
+    /* =========================================================
+       UI/UX MODERNA: Tarjetas, Botones y Tablas
+    ========================================================= */
+
+    .dashboard-seccion, .card {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid #f0f2f5;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .dashboard-seccion:hover, .card:hover {
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; transform: translateY(-1px); }
+    .btn-outline { background: transparent; border: 2px solid #e5e7eb; color: #4b5563; }
+    .btn-outline:hover { border-color: #d1d5db; background: #f9fafb; }
+
+    table.dataTable, .table-limpia {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 15px;
+    }
+    table.dataTable th, .table-limpia th {
+      background-color: #f8fafc;
+      color: #475569;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+      padding: 12px 15px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    table.dataTable td, .table-limpia td {
+      padding: 12px 15px;
+      color: #334155;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 14px;
+    }
+    table.dataTable tbody tr:hover, .table-limpia tbody tr:hover {
+      background-color: #f8fafc;
+    }
+
+    input.form-control, select.form-control {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input.form-control:focus, select.form-control:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      outline: none;
+    }
+
+    .btn.btn-sm {
+      padding: 0.5rem 1rem;
+      min-height: 40px;
+      font-size: 0.875rem;
+    }
+
+    /* =========================================================
+       CORRECCIÓN DEFINITIVA: Modo Oscuro Neutro (Sin Azules)
+    ========================================================= */
+    body.dark-mode,
+    html[data-theme="dark"] body {
+      background-color: #121212 !important; /* Fondo principal casi negro */
+      color: #e0e0e0 !important;
+    }
+
+    body.dark-mode .dashboard-seccion,
+    body.dark-mode .card,
+    body.dark-mode .modal-content,
+    html[data-theme="dark"] .dashboard-seccion,
+    html[data-theme="dark"] .card,
+    html[data-theme="dark"] .modal-content {
+      background-color: #1e1e1e !important; /* Gris carbón para las tarjetas */
+      color: #e0e0e0 !important;
+      border-color: #2d2d2d !important; /* Bordes muy sutiles */
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    body.dark-mode table.dataTable th,
+    body.dark-mode .table-limpia th,
+    html[data-theme="dark"] table.dataTable th,
+    html[data-theme="dark"] .table-limpia th {
+      background-color: #252525 !important; /* Encabezados ligeramente resaltados */
+      color: #ffffff !important;
+      border-bottom: 2px solid #333333 !important;
+    }
+
+    body.dark-mode table.dataTable td,
+    body.dark-mode .table-limpia td,
+    body.dark-mode table.dataTable tbody tr:hover,
+    html[data-theme="dark"] table.dataTable td,
+    html[data-theme="dark"] .table-limpia td,
+    html[data-theme="dark"] table.dataTable tbody tr:hover {
+      background-color: #1e1e1e !important;
+      color: #e0e0e0 !important;
+      border-bottom: 1px solid #2d2d2d !important;
+    }
+
+    /* Campos de texto y selectores (Inputs) */
+    body.dark-mode input.form-control,
+    body.dark-mode select.form-control,
+    body.dark-mode textarea,
+    html[data-theme="dark"] input.form-control,
+    html[data-theme="dark"] select.form-control,
+    html[data-theme="dark"] textarea {
+      background-color: #121212 !important;
+      color: #ffffff !important;
+      border: 1px solid #404040 !important;
+    }
+    body.dark-mode input.form-control:focus,
+    body.dark-mode select.form-control:focus,
+    html[data-theme="dark"] input.form-control:focus,
+    html[data-theme="dark"] select.form-control:focus {
+      border-color: #555555 !important;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* Buscador nativo de DataTables */
+    body.dark-mode .dataTables_wrapper .dataTables_filter input,
+    html[data-theme="dark"] .dataTables_wrapper .dataTables_filter input {
+      color: white !important;
+      background-color: #252525 !important;
+      border: 1px solid #404040 !important;
+    }
+
+    /* =========================================================
+       CERROJO DE IMPRESIÓN: Forzar Blanco y Negro Absoluto
+    ========================================================= */
+    @media print {
+      /* Refuerzo final: body y superficies (sin * universal para no pisar arqueo con colores inline) */
+      html[data-theme="dark"] body,
+      body.dark-mode,
+      body {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+
+      html[data-theme="dark"] body .dashboard-seccion,
+      html[data-theme="dark"] body .card,
+      html[data-theme="dark"] body .modal-content,
+      html[data-theme="dark"] body .main-content,
+      html[data-theme="dark"] body .module-view.active,
+      body.dark-mode .dashboard-seccion,
+      body.dark-mode .card,
+      body.dark-mode .modal-content,
+      .dashboard-seccion,
+      .card,
+      .modal-content {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border-color: #dddddd !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+
+      html[data-theme="dark"] body table,
+      html[data-theme="dark"] body table th,
+      html[data-theme="dark"] body table td,
+      body.dark-mode table,
+      body.dark-mode table th,
+      body.dark-mode table td,
+      table.table,
+      table.table-print,
+      table.dataTable {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border-color: #dddddd !important;
+      }
+
+      th {
+        background-color: #ffffff !important;
+        border-bottom: 2px solid #000000 !important;
+      }
+
+      .dataTables_wrapper .dataTables_filter input {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+      }
+    }
+
   </style>
 </head>
 <body>
+  <div id="svPrivacyShield" aria-live="polite">
+    <span>Inactividad prolongada — tocar para desbloquear</span>
+    <span style="font-size:0.85rem;opacity:0.9;">(Configurá PIN en el navegador: localStorage clave <code>sv_idle_pin</code>)</span>
+  </div>
   <!-- Splash Screen -->
   <div id="splashScreen">
     <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px;">
@@ -2595,9 +2888,17 @@
         </div>
 
         <div class="card">
-          <div class="card-title">Ultimos Movimientos</div>
-          <div class="table-container">
-            <table class="table table-responsive-cards" id="tablaMovimientos">
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+            <span>Ultimos Movimientos</span>
+            <span class="no-print" style="display:inline-flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+              <button type="button" class="btn btn-outline btn-sm no-print" onclick="exportarTablaMovimientosCSV()" title="Descargar CSV">Exportar CSV</button>
+              <button type="button" class="btn btn-outline btn-sm no-print" onclick="abrirVistaImpresion('contenedor-tabla-dashboard', 'Reporte de Caja / Movimientos')" title="Imprimir">
+                <i class="fa-solid fa-print"></i> Imprimir Reporte
+              </button>
+            </span>
+          </div>
+          <div class="table-container" id="contenedor-tabla-dashboard">
+            <table class="table table-responsive-cards table-limpia" id="tablaMovimientos">
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -2769,7 +3070,7 @@
               <label class="form-label">Filtrar por fecha</label>
               <input type="date" class="form-input" id="fechaSaldos" onchange="cargarSaldosPendientes()">
             </div>
-            <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+            <button class="btn btn-primary" onclick="imprimirSaldosPendientesVentana()">🖨️ Imprimir</button>
           </div>
 
           <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" class="print-logo">
@@ -2926,7 +3227,7 @@
             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
               <input type="date" class="form-input" id="fechaHojaRuta" style="flex: 1; min-width: 150px;">
               <button class="btn btn-outline" onclick="cargarHojaRuta()">🔄 Actualizar</button>
-              <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+              <button class="btn btn-primary" onclick="imprimirHojaRutaVentana()">🖨️ Imprimir</button>
             </div>
             <div style="margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.875rem;">
               <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
@@ -3065,10 +3366,13 @@
           <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
             <input type="text" class="form-input" id="filtroClientes" placeholder="Filtrar por nombre..." style="flex: 1; min-width: 200px;" oninput="filtrarClientesDebounce()">
             <button class="btn btn-primary" onclick="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
+            <button type="button" class="btn btn-outline no-print" onclick="abrirVistaImpresion('contenedor-tabla-clientes', 'Estado de Cuenta - Clientes')" title="Imprimir">
+              <i class="fa-solid fa-print"></i> Imprimir Saldos
+            </button>
           </div>
 
-          <div class="table-container">
-            <table class="table table-responsive-cards">
+          <div class="table-container" id="contenedor-tabla-clientes">
+            <table class="table table-responsive-cards table-limpia" id="tablaGestionClientes">
               <thead>
                 <tr>
                   <th>Nombre</th>
@@ -3171,7 +3475,7 @@
                 </div>
                 <div class="form-group" style="margin:0; flex:1;">
                   <label class="form-label">Cant.</label>
-                  <input type="number" class="form-input" id="arcaCantidad" value="1" min="1">
+                  <input type="number" class="form-input input-cantidad-factura" id="arcaCantidad" value="1" min="1">
                 </div>
                 <div class="form-group" style="margin:0; flex:1;">
                   <label class="form-label">P.Unit s/IVA</label>
@@ -5105,25 +5409,41 @@
 
           <div class="card" style="margin-bottom: 1rem;">
             <div class="card-title">Agregar Productos</div>
-            <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem;">
-              <div class="form-group" style="margin:0; flex:2;">
-                <label class="form-label">Producto</label>
+            <p style="font-size: 0.8rem; color: var(--sv-texto-muted); margin: 0 0 0.5rem 0;">
+              Elegí cantidad en el catálogo y tocá +, o usá el selector rápido abajo.
+            </p>
+            <div class="table-container" style="max-height: 220px; overflow-y: auto; margin-bottom: 0.75rem;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th>Stock</th>
+                    <th>Cant.</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tbodySeleccionProductosFacturaA"></tbody>
+              </table>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem; flex-wrap: wrap;">
+              <div class="form-group" style="margin:0; flex:2; min-width: 140px;">
+                <label class="form-label">Selector rápido</label>
                 <select class="form-input" id="facturaAProducto">
                   <option value="">Seleccionar...</option>
                 </select>
               </div>
-              <div class="form-group" style="margin:0; flex:1;">
+              <div class="form-group" style="margin:0; flex:1; min-width: 72px;">
                 <label class="form-label">Cant.</label>
                 <input type="number" class="form-input" id="facturaACantidad" value="1" min="1">
               </div>
-              <div class="form-group" style="margin:0; flex:1;">
+              <div class="form-group" style="margin:0; flex:1; min-width: 100px;">
                 <label class="form-label">P.Unit s/IVA</label>
                 <input type="number" class="form-input" id="facturaAPrecio" step="0.01" min="0">
               </div>
-              <button class="btn btn-primary" onclick="agregarProductoFacturaA()" style="height: 48px;">+</button>
+              <button type="button" class="btn btn-primary" onclick="agregarProductoFacturaA()" style="height: 48px;">+</button>
             </div>
             <p style="font-size: 0.75rem; color: var(--sv-texto-muted);">
-              También puede escribir un producto manual
+              También puede escribir un producto manual desde el selector
             </p>
           </div>
 
@@ -5790,6 +6110,169 @@
     };
     // ─── FIN SISTEMA DE LOGGING ─────────────────────────────────────────────────
 
+    var DOM = {};
+    var mapaClientesGlobal = new Map();
+
+    function initDomCache() {
+      DOM.appContainer = document.getElementById('appContainer');
+      DOM.splashScreen = document.getElementById('splashScreen');
+      DOM.tbodyMovimientos = document.getElementById('tbodyMovimientos');
+      DOM.gestionClientesTbody = document.getElementById('gestionClientesTbody');
+      DOM.menuToggle = document.getElementById('menuToggle');
+      DOM.estadoApiKey = document.getElementById('estadoApiKey');
+      DOM.moduleProductos = document.getElementById('module-productos');
+    }
+
+    function indexarClientes(arrayClientes) {
+      mapaClientesGlobal.clear();
+      if (!arrayClientes) return;
+      for (var i = 0; i < arrayClientes.length; i++) {
+        var c = arrayClientes[i];
+        if (c && c.nombre) mapaClientesGlobal.set(String(c.nombre).toUpperCase().trim(), c);
+      }
+    }
+
+    function buscarClienteUltraRapido(nombreBuscado) {
+      if (!nombreBuscado) return null;
+      return mapaClientesGlobal.get(String(nombreBuscado).toUpperCase().trim()) || null;
+    }
+
+    function llamarBackend(funcionAejecutar) {
+      var parametros = Array.prototype.slice.call(arguments, 1);
+      return new Promise(function(resolve, reject) {
+        google.script.run
+          .withSuccessHandler(function(respuesta) {
+            if (respuesta && respuesta.status === 'success') {
+              resolve(respuesta.payload);
+            } else if (respuesta && respuesta.status === 'error') {
+              if (typeof Swal !== 'undefined') {
+                Swal.fire('Error del sistema', respuesta.message || 'Error', 'error');
+              }
+              reject(respuesta.message);
+            } else {
+              resolve(respuesta);
+            }
+          })
+          .withFailureHandler(function(errorRed) {
+            if (typeof Swal !== 'undefined') {
+              Swal.fire('Error de conexión', errorRed.message, 'error');
+            }
+            reject(errorRed);
+          })[funcionAejecutar].apply(null, parametros);
+      });
+    }
+
+    function comprimirImagenParaIA(archivo, callback) {
+      if (!archivo || !callback) return;
+      var lector = new FileReader();
+      lector.onload = function(evento) {
+        var imagen = new Image();
+        imagen.onload = function() {
+          var canvas = document.createElement('canvas');
+          var ctx = canvas.getContext('2d');
+          var anchoMaximo = 1200;
+          var ancho = imagen.width;
+          var alto = imagen.height;
+          if (ancho > anchoMaximo) {
+            alto = Math.round((anchoMaximo / ancho) * alto);
+            ancho = anchoMaximo;
+          }
+          canvas.width = ancho;
+          canvas.height = alto;
+          ctx.drawImage(imagen, 0, 0, ancho, alto);
+          callback(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        imagen.src = evento.target.result;
+      };
+      lector.readAsDataURL(archivo);
+    }
+
+    function initSVInfra() {
+      window.onerror = function(mensaje, fuente, linea, columna, error) {
+        try {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run.registrarErrorCritico({
+              mensaje: mensaje,
+              linea: linea,
+              columna: columna,
+              archivo: fuente,
+              stack: error && error.stack ? String(error.stack).substring(0, 500) : '',
+              ua: navigator.userAgent
+            });
+          }
+        } catch (e) { /* silencioso */ }
+        return false;
+      };
+      window.addEventListener('offline', function() {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire('Sin conexión', 'Se cortó la conexión a internet.', 'error');
+        }
+      });
+
+      // Inactividad ~30 min: difumina montos hasta desbloquear (PIN opcional: localStorage sv_idle_pin)
+      var SV_IDLE_MS = 30 * 60 * 1000;
+      var svIdleTimer = null;
+      function svResetIdleTimer() {
+        clearTimeout(svIdleTimer);
+        svIdleTimer = setTimeout(function() {
+          document.body.classList.add('sv-idle-privacy');
+        }, SV_IDLE_MS);
+      }
+      ['click', 'keydown', 'scroll', 'touchstart'].forEach(function(ev) {
+        window.addEventListener(ev, function() {
+          if (!document.body.classList.contains('sv-idle-privacy')) svResetIdleTimer();
+        }, { passive: true });
+      });
+      svResetIdleTimer();
+
+      var shield = document.getElementById('svPrivacyShield');
+      if (shield) {
+        shield.addEventListener('click', function() {
+          var pin = '';
+          try { pin = (localStorage.getItem('sv_idle_pin') || '').trim(); } catch (e) {}
+          function unlock() {
+            document.body.classList.remove('sv-idle-privacy');
+            svResetIdleTimer();
+          }
+          if (!pin) {
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                title: 'Desbloquear',
+                text: 'Confirmá para volver a ver montos y datos.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Continuar'
+              }).then(function(r) { if (r.isConfirmed) unlock(); });
+            } else if (confirm('¿Desbloquear pantalla?')) unlock();
+            return;
+          }
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              title: 'PIN',
+              input: 'password',
+              inputPlaceholder: 'PIN',
+              showCancelButton: true,
+              confirmButtonText: 'Desbloquear',
+              inputValidator: function(v) {
+                return v !== pin ? 'PIN incorrecto' : null;
+              }
+            }).then(function(r) { if (r.isConfirmed) unlock(); });
+          } else {
+            var p = prompt('PIN:');
+            if (p === pin) unlock();
+          }
+        });
+      }
+
+      document.addEventListener('keydown', function(e) {
+        if (!(e.ctrlKey || e.metaKey) || (e.key !== 's' && e.key !== 'S')) return;
+        var mod = document.getElementById('module-arqueo-efectivo');
+        if (!mod || !mod.classList.contains('active')) return;
+        e.preventDefault();
+        guardarArqueo();
+      });
+    }
+
     // ============================================================================
     // UTILIDADES
     // ============================================================================
@@ -5810,15 +6293,16 @@
 
     function formatearFecha(fecha) {
       if (!fecha) return '-';
-
-      // Si ya viene como YYYY-MM-DD (desde backend corregido), parsearlo como local
-      if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [anio, mes, dia] = fecha.split('-');
-        return dia + '/' + mes + '/' + anio;
+      if (typeof dayjs !== 'undefined') {
+        var dj = dayjs(fecha);
+        if (dj.isValid()) return dj.format('DD/MM/YYYY');
       }
-
-      // Fallback para otros formatos
+      if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const parts = fecha.split('-');
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+      }
       const d = new Date(fecha);
+      if (isNaN(d.getTime())) return '-';
       return d.toLocaleDateString('es-AR');
     }
 
@@ -5869,6 +6353,7 @@
     const Estado = {
       clientes: [],
       movimientos: [],
+      estadoCajaDiaria: null,
       tipoMovimiento: 'DEBE',
       clienteSeleccionado: null,
       vrImagenToken: null,
@@ -5990,6 +6475,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+      initDomCache();
+      initSVInfra();
+
       const hoy = obtenerFechaLocal();
       document.getElementById('movFecha').value = hoy;
       document.getElementById('vrFecha').value = hoy;
@@ -6059,6 +6547,7 @@
             const data = JSON.parse(cached);
             Estado.clientes = data.clientes || [];
             Estado.movimientos = data.movimientos || [];
+            indexarClientes(Estado.clientes);
             renderMovimientos();
             renderClientesGestion();
             actualizarDatosSistema();
@@ -6080,27 +6569,46 @@
 
     function cargarDatosDesdeServidor(enSegundoPlano) {
       var t0 = Date.now();
-      SysLog.gasCall('obtenerDatosParaHTML');
-      
+      SysLog.gasCall('obtenerDatosArranqueDashboard');
+
       google.script.run
         .withSuccessHandler(function(data) {
-          SysLog.gasResult('obtenerDatosParaHTML', data, Date.now() - t0);
-          console.log('📊 Datos del servidor recibidos:', data);
+          SysLog.gasResult('obtenerDatosArranqueDashboard', data, Date.now() - t0);
+          console.log('📊 Paquete de arranque recibido:', data);
 
           if (!data) {
             console.error('❌ Respuesta vacía del servidor');
             mostrarToast('Error: respuesta vacía del servidor', 'error');
+            if (!enSegundoPlano) {
+              document.getElementById('splashScreen').classList.add('hidden');
+              document.getElementById('appContainer').classList.add('visible');
+            }
             return;
           }
 
           if (data.success) {
             Estado.clientes = data.clientes || [];
             Estado.movimientos = data.movimientos || [];
+            indexarClientes(Estado.clientes);
+            if (data.configuracion) {
+              Estado.configuracion = data.configuracion;
+              renderDenominaciones();
+            }
+            if (data.estadoCaja !== undefined) {
+              Estado.estadoCajaDiaria = data.estadoCaja;
+            }
+            if (data.apiKeyClaude) {
+              var el = document.getElementById('estadoApiKey');
+              if (el) {
+                el.textContent = data.apiKeyClaude.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
+                el.style.color = data.apiKeyClaude.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+              }
+            }
 
-            console.log('✅ Clientes cargados:', Estado.clientes.length);
-            console.log('✅ Movimientos cargados:', Estado.movimientos.length);
+            CacheModulos.movimientos = { cargado: true, datos: Estado.movimientos };
 
-            // Guardar en cache
+            console.log('✅ Clientes:', Estado.clientes.length, 'Movimientos:', Estado.movimientos.length);
+
             try {
               localStorage.setItem('sv_datos_cache', JSON.stringify({
                 clientes: Estado.clientes,
@@ -6125,24 +6633,58 @@
           }
         })
         .withFailureHandler(function(error) {
-          SysLog.error('INIT', 'Error en obtenerDatosParaHTML', error);
-          console.error('❌ Error al llamar obtenerDatosParaHTML:', error);
+          SysLog.error('INIT', 'Error en obtenerDatosArranqueDashboard', error);
+          console.error('❌ Fallback a carga clásica:', error);
+          cargarDatosDesdeServidorLegacy(enSegundoPlano);
+        })
+        .obtenerDatosArranqueDashboard();
+    }
+
+    function cargarDatosDesdeServidorLegacy(enSegundoPlano) {
+      var t0 = Date.now();
+      SysLog.gasCall('obtenerDatosParaHTML');
+      google.script.run
+        .withSuccessHandler(function(data) {
+          SysLog.gasResult('obtenerDatosParaHTML', data, Date.now() - t0);
+          if (!data) {
+            if (!enSegundoPlano) {
+              document.getElementById('splashScreen').classList.add('hidden');
+              document.getElementById('appContainer').classList.add('visible');
+            }
+            return;
+          }
+          if (data.success) {
+            Estado.clientes = data.clientes || [];
+            Estado.movimientos = data.movimientos || [];
+            indexarClientes(Estado.clientes);
+            try {
+              localStorage.setItem('sv_datos_cache', JSON.stringify({
+                clientes: Estado.clientes,
+                movimientos: Estado.movimientos
+              }));
+              localStorage.setItem('sv_datos_cache_time', Date.now().toString());
+            } catch (e) {}
+            renderMovimientos();
+            renderClientesGestion();
+            actualizarDatosSistema();
+          }
           if (!enSegundoPlano) {
-            mostrarToast('Error cargando datos: ' + error.message, 'error');
+            document.getElementById('splashScreen').classList.add('hidden');
+            document.getElementById('appContainer').classList.add('visible');
+          }
+        })
+        .withFailureHandler(function(err) {
+          if (!enSegundoPlano) {
+            mostrarToast('Error cargando datos: ' + err.message, 'error');
             document.getElementById('splashScreen').classList.add('hidden');
             document.getElementById('appContainer').classList.add('visible');
           }
         })
         .obtenerDatosParaHTML();
 
-      // Cargar movimientos recientes en SEGUNDO PLANO
-      var t1 = Date.now();
-      SysLog.gasCall('obtenerMovimientosRecientes', { limite: 100 });
       google.script.run
         .withSuccessHandler(function(result) {
-          SysLog.gasResult('obtenerMovimientosRecientes', result, Date.now() - t1);
           if (result && result.success) {
-            // CAMBIO 3 — Fix race condition: guardar en cache y recargar si dashboard está visible
             CacheModulos.movimientos = { cargado: true, datos: result.movimientos || [] };
             Estado.movimientos = result.movimientos || [];
             renderMovimientos();
@@ -6150,8 +6692,6 @@
           }
         })
         .withFailureHandler(function(error) {
-          SysLog.warn('INIT', 'Error cargando movimientos en segundo plano', error);
-          // CAMBIO 3 — Mostrar mensaje de error en la tabla
           var tbody = document.getElementById('tbodyMovimientos');
           if (tbody) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:3rem;color:var(--sv-peligro);">' +
@@ -6169,9 +6709,11 @@
 
       google.script.run
         .withSuccessHandler(function(result) {
-          const el = document.getElementById('estadoApiKey');
-          el.textContent = result.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
-          el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+          var el = document.getElementById('estadoApiKey');
+          if (el) {
+            el.textContent = result.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
+            el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
+          }
         })
         .verificarApiKey();
     }
@@ -6423,7 +6965,7 @@
       return JSON.stringify({ billetes, proveedores, gastos, ingresos, ts: Date.now() });
     }
 
-    function _restaurarEstadoCaja(datosJSON) {
+    function _restaurarEstadoCaja(datosJSON, modoSilencioso) {
       try {
         const datos = JSON.parse(datosJSON);
         if (!datos) return;
@@ -6489,7 +7031,7 @@
         }
 
         calcularNetoArqueo();
-        mostrarToast('Borrador restaurado desde la nube', 'info');
+        if (!modoSilencioso) mostrarToast('Borrador restaurado desde la nube', 'info');
       } catch (e) {
         console.error('Error restaurando borrador', e);
       }
@@ -6515,7 +7057,7 @@
       google.script.run
         .withSuccessHandler(function(res) {
           if (res.success && res.datos) {
-            _restaurarEstadoCaja(res.datos);
+            _restaurarEstadoCaja(res.datos, true);
           }
         })
         .withFailureHandler(function(e) { console.warn('Cargar borrador falló:', e.message); })
@@ -6866,6 +7408,20 @@
       // FASE 5: Feedback auditivo
       if (tipo === 'success') SoundPlayer.playSuccess();
       else if (tipo === 'error') SoundPlayer.playError();
+
+      if (typeof Toastify !== 'undefined') {
+        var bg = tipo === 'success' ? 'linear-gradient(to right, #2E7D32, #4CAF50)' :
+          tipo === 'error' ? 'linear-gradient(to right, #C62828, #E53935)' :
+          'linear-gradient(to right, #1565C0, #42A5F5)';
+        Toastify({
+          text: tipo === 'error' ? errorAmigable(mensaje) : mensaje,
+          duration: tipo === 'error' ? 4500 : 2500,
+          gravity: 'top',
+          position: 'right',
+          style: { background: bg }
+        }).showToast();
+        return;
+      }
 
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
@@ -7285,9 +7841,21 @@
       );
     }
 
+    function _destruirDataTableSiExiste(tableId) {
+      try {
+        if (typeof jQuery === 'undefined' || !jQuery.fn.DataTable) return;
+        var el = document.getElementById(tableId);
+        if (el && jQuery.fn.DataTable.isDataTable('#' + tableId)) {
+          jQuery('#' + tableId).DataTable().destroy();
+        }
+      } catch (e) { /* ignore */ }
+    }
+
     function renderMovimientos() {
       const tbody = document.getElementById('tbodyMovimientos');
       if (!tbody) return;
+
+      _destruirDataTableSiExiste('tablaMovimientos');
 
       if (!Estado.movimientos || Estado.movimientos.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay movimientos</td></tr>';
@@ -7313,6 +7881,21 @@
           '</td>' +
         '</tr>';
       }).join('');
+
+      try {
+        if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
+          jQuery('#tablaMovimientos').DataTable({
+            pageLength: 25,
+            order: [[0, 'desc']],
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' },
+            createdRow: function(row) {
+              var tag = row.querySelector('.tag-debe, .tag-pago, .tag-habe');
+              if (tag && tag.classList.contains('tag-debe')) row.classList.add('sv-row-debe');
+              else if (tag && (tag.classList.contains('tag-pago') || tag.classList.contains('tag-habe'))) row.classList.add('sv-row-pago');
+            }
+          });
+        }
+      } catch (e) { console.warn('DataTable movimientos:', e); }
     }
 
     // Variable para edición de movimiento
@@ -7721,13 +8304,12 @@
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        document.getElementById('vrPreviewImg').src = e.target.result;
-        document.getElementById('vrPreview').style.display = 'block';
-        document.getElementById('vrResultados').style.display = 'none';
+      document.getElementById('vrPreview').style.display = 'block';
+      document.getElementById('vrResultados').style.display = 'none';
+      mostrarLoading(true);
 
-        mostrarLoading(true);
+      comprimirImagenParaIA(file, function(dataUrl) {
+        document.getElementById('vrPreviewImg').src = dataUrl;
         google.script.run
           .withSuccessHandler(function(result) {
             mostrarLoading(false);
@@ -7742,9 +8324,8 @@
             mostrarLoading(false);
             mostrarToast('Error: ' + error.message, 'error');
           })
-          .guardarImagenTemporal(e.target.result);
-      };
-      reader.readAsDataURL(file);
+          .guardarImagenTemporal(dataUrl);
+      });
     }
 
     function analizarImagenVR() {
@@ -8159,19 +8740,72 @@
       document.getElementById('resumenArqueoEstado').textContent = estadoTexto;
       document.getElementById('resumenArqueoEstado').style.color = estadoColor;
 
-      // Mostrar el resumen de impresión
-      document.getElementById('resumenArqueoImpresion').style.display = 'block';
+      // Vista previa en pantalla (opcional) y siempre ventana de impresión aislada
+      var elRes = document.getElementById('resumenArqueoImpresion');
+      elRes.style.display = 'block';
+      var htmlCuerpo = elRes.innerHTML;
+      elRes.style.display = 'none';
 
-      // Imprimir
-      window.print();
+      var abrirArq = function() {
+        abrirVentanaImpresionSolVerde({
+          tituloDocumento: 'Arqueo de Caja',
+          cuerpoHtml: '<div class="arqueo-print-wrap" style="max-width:720px;margin:0 auto;">' + htmlCuerpo + '</div>',
+          cssExtra: '.arqueo-print-wrap img{max-width:72px;height:auto;}'
+        });
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(abrirArq);
+      } else {
+        setTimeout(abrirArq, 0);
+      }
+    }
 
-      // Ocultar después de imprimir
-      setTimeout(() => {
-        document.getElementById('resumenArqueoImpresion').style.display = 'none';
-      }, 1200);
+    function _leerNetoArqueoActual() {
+      var efectivo = 0;
+      document.querySelectorAll('.denom-input').forEach(function(input) {
+        var cantidad = parseInt(input.value, 10) || 0;
+        var valor = parseInt(input.dataset.valor, 10) || 0;
+        efectivo += cantidad * valor;
+      });
+      var proveedores = 0;
+      document.querySelectorAll('.prov-monto').forEach(function(i) { proveedores += parseFloat(i.value) || 0; });
+      var gastos = 0;
+      document.querySelectorAll('.gasto-monto').forEach(function(i) { gastos += parseFloat(i.value) || 0; });
+      var ingresos = 0;
+      document.querySelectorAll('.ingreso-monto').forEach(function(i) { ingresos += parseFloat(i.value) || 0; });
+      return efectivo - proveedores - gastos + ingresos;
+    }
+
+    function _ejecutarGuardarArqueo(datos) {
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          mostrarLoading(false);
+          if (result.success) {
+            mostrarToast('Arqueo guardado - Sesion: ' + result.sesionId, 'success');
+            document.querySelectorAll('.denom-input').forEach(i => i.value = 0);
+            document.getElementById('listaProveedores').innerHTML = '';
+            document.getElementById('listaGastos').innerHTML = '';
+            document.getElementById('listaIngresos').innerHTML = '';
+            calcularTotalEfectivo();
+            google.script.run
+              .withSuccessHandler(function() {})
+              .withFailureHandler(function() {})
+              .eliminarBorradorCaja('local');
+          } else {
+            mostrarToast(result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + error.message, 'error');
+        })
+        .guardarArqueo(datos);
     }
 
     function guardarArqueo() {
+      calcularTotalEfectivo();
+
       const proveedores = [];
       document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
         const desc = item.querySelector('.prov-desc');
@@ -8205,32 +8839,195 @@
         ingresos: ingresos
       };
 
-      mostrarLoading(true);
+      var netoSistema = _leerNetoArqueoActual();
+      var efectivoTotal = 0;
+      document.querySelectorAll('.denom-input').forEach(function(input) {
+        var cantidad = parseInt(input.value, 10) || 0;
+        var valor = parseInt(input.dataset.valor, 10) || 0;
+        efectivoTotal += cantidad * valor;
+      });
 
-      google.script.run
-        .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          if (result.success) {
-            mostrarToast('Arqueo guardado - Sesion: ' + result.sesionId, 'success');
-            document.querySelectorAll('.denom-input').forEach(i => i.value = 0);
-            document.getElementById('listaProveedores').innerHTML = '';
-            document.getElementById('listaGastos').innerHTML = '';
-            document.getElementById('listaIngresos').innerHTML = '';
-            calcularTotalEfectivo();
-            // Limpiar borrador al guardar exitosamente
-            google.script.run
-              .withSuccessHandler(function() {})
-              .withFailureHandler(function() {})
-              .eliminarBorradorCaja('local');
-          } else {
-            mostrarToast(result.error, 'error');
+      function enviar() {
+        _ejecutarGuardarArqueo(datos);
+      }
+
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: 'Arqueo — confirmación',
+          html:
+            '<p style="text-align:left;margin:0 0 0.75rem;">Ingresá el <strong>neto</strong> que calculaste (efectivo − proveedores − gastos + ingresos). Si no coincide con el sistema, podrás forzar el guardado.</p>' +
+            '<p style="text-align:left;font-size:0.9rem;color:var(--sv-texto-muted);">Efectivo contado (sistema): <strong>' + formatearMonto(efectivoTotal) + '</strong></p>',
+          input: 'text',
+          inputPlaceholder: 'Ej: 15000 o 15000,50',
+          showCancelButton: true,
+          confirmButtonText: 'Verificar y guardar',
+          cancelButtonText: 'Cancelar'
+        }).then(function(r) {
+          if (!r.isConfirmed) return;
+          var raw = (r.value || '').trim().replace(/\./g, '').replace(',', '.');
+          var ingresado = parseFloat(raw);
+          if (isNaN(ingresado)) {
+            mostrarToast('Monto no válido', 'error');
+            return;
           }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .guardarArqueo(datos);
+          if (Math.abs(ingresado - netoSistema) <= 0.02) {
+            enviar();
+            return;
+          }
+          Swal.fire({
+            title: 'Diferencia de neto',
+            html: 'Tu neto: <strong>' + formatearMonto(ingresado) + '</strong><br>Sistema: <strong>' + formatearMonto(netoSistema) + '</strong><br><br>¿Guardar igual?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, guardar',
+            cancelButtonText: 'Revisar'
+          }).then(function(r2) {
+            if (r2.isConfirmed) enviar();
+          });
+        });
+      } else {
+        if (!confirm('¿Guardar arqueo? Neto sistema: ' + formatearMonto(netoSistema))) return;
+        enviar();
+      }
+    }
+
+    function exportarTablaMovimientosCSV() {
+      if (!Estado.movimientos || Estado.movimientos.length === 0) {
+        mostrarToast('No hay movimientos para exportar', 'warning');
+        return;
+      }
+      function esc(val) {
+        var s = String(val == null ? '' : val).replace(/"/g, '""');
+        return '"' + s + '"';
+      }
+      var headers = ['Fecha', 'Cliente', 'Tipo', 'Monto', 'Saldo', 'Obs'];
+      var lines = [headers.join(',')];
+      Estado.movimientos.forEach(function(m) {
+        lines.push([
+          esc(formatearFecha(m.fecha)),
+          esc(m.cliente || ''),
+          esc(m.tipo === 'DEBE' ? 'FIADO' : 'PAGO'),
+          String(m.monto != null ? m.monto : ''),
+          String(m._pendiente ? '' : (m.saldoPost != null ? m.saldoPost : '')),
+          esc(m.obs || '')
+        ].join(','));
+      });
+      var csv = '\ufeff' + lines.join('\n');
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'movimientos_' + obtenerFechaHoy() + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      mostrarToast('CSV descargado', 'success');
+    }
+
+    // =========================================================
+    // MOTOR DE IMPRESIÓN PARA CONTROL INTERNO
+    // =========================================================
+    function abrirVistaImpresion(idElementoContenido, tituloDocumento) {
+      var contenido = document.getElementById(idElementoContenido);
+
+      if (!contenido) {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire('Error', 'No se encontró el contenido a imprimir.', 'error');
+        } else {
+          mostrarToast('No se encontró el contenido a imprimir.', 'error');
+        }
+        return;
+      }
+
+      var cssExtraReporte =
+        '.cabecera-interna{display:flex;justify-content:space-between;align-items:center;border-bottom:2px dashed #cbd5e1;padding-bottom:15px;margin-bottom:20px;}' +
+        '.marca-interna h2{margin:0;font-size:20px;color:#334155;letter-spacing:1px;}' +
+        '.marca-interna span{font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;background:#f1f5f9;padding:3px 6px;border-radius:4px;}' +
+        '.datos-reporte{text-align:right;}' +
+        '.datos-reporte h3{margin:0 0 5px 0;color:#0f172a;font-size:16px;text-transform:uppercase;}' +
+        '.datos-reporte p{margin:2px 0;font-size:12px;color:#64748b;}' +
+        '.contenido-reporte table{width:100%;border-collapse:collapse;font-size:11px;}' +
+        '.contenido-reporte th,.contenido-reporte td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;}' +
+        '.contenido-reporte th{background-color:#f1f5f9;font-weight:600;color:#475569;}' +
+        '.contenido-reporte tr:nth-child(even){background-color:#f8fafc;}';
+
+      function armarYAbrir() {
+        var clonContenido = contenido.cloneNode(true);
+        _svStripImpresionNodos(clonContenido);
+        var fechaStr = new Date().toLocaleDateString('es-AR');
+        var horaStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        var tituloEsc = String(tituloDocumento || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        var fragmento =
+          '<div class="cabecera-interna">' +
+          '<div class="marca-interna"><h2>SOL & VERDE</h2><span>Uso Interno</span></div>' +
+          '<div class="datos-reporte"><h3>' + tituloEsc + '</h3>' +
+          '<p>Fecha: ' + fechaStr + ' - Hora: ' + horaStr + '</p></div></div>' +
+          '<div class="contenido-reporte">' + clonContenido.outerHTML + '</div>';
+        abrirVentanaImpresionSolVerde({
+          tituloDocumento: tituloDocumento || 'Reporte',
+          cuerpoHtml: fragmento,
+          cssExtra: cssExtraReporte
+        });
+      }
+
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(armarYAbrir);
+      } else {
+        setTimeout(armarYAbrir, 0);
+      }
+    }
+
+    /** Imprime saldos pendientes en ventana nueva (sin heredar tema oscuro). */
+    function imprimirSaldosPendientesVentana() {
+      var card = document.querySelector('#module-impresion-saldos .card');
+      if (!card) {
+        mostrarToast('No se encontró el contenido a imprimir.', 'error');
+        return;
+      }
+      function go() {
+        var clon = card.cloneNode(true);
+        _svStripImpresionNodos(clon);
+        abrirVentanaImpresionSolVerde({
+          tituloDocumento: 'Saldos Pendientes',
+          cuerpoHtml: clon.outerHTML,
+          cssExtra: '#mensajeSinSaldos{color:#333!important;}'
+        });
+      }
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(go);
+      } else {
+        setTimeout(go, 0);
+      }
+    }
+
+    /** Imprime hoja de ruta en ventana nueva. */
+    function imprimirHojaRutaVentana() {
+      var card = document.querySelector('#module-hoja-ruta .card');
+      if (!card) {
+        mostrarToast('No se encontró la hoja de ruta.', 'error');
+        return;
+      }
+      function go() {
+        var clon = card.cloneNode(true);
+        _svStripImpresionNodos(clon);
+        var ex = clon.querySelectorAll('.hoja-ruta-excluded,.hoja-ruta-grand-total');
+        for (var j = ex.length - 1; j >= 0; j--) ex[j].remove();
+        abrirVentanaImpresionSolVerde({
+          tituloDocumento: 'Hoja de Ruta',
+          cuerpoHtml: clon.outerHTML,
+          cssExtra:
+            '.hoja-ruta-total{display:table-footer-group!important;}' +
+            'h4{color:#2E7D32!important;}' +
+            '#seccionHojaGastos h4{color:#C62828!important;}' +
+            '#hojaRutaLiqPendientesSection h4{color:#F57C00!important;}'
+        });
+      }
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(go);
+      } else {
+        setTimeout(go, 0);
+      }
     }
 
     // ============================================================================
@@ -8631,13 +9428,15 @@
     // ============================================================================
     function renderClientesGestion() {
       const tbody = document.getElementById('gestionClientesTbody');
+      if (!tbody) return;
+
+      _destruirDataTableSiExiste('tablaGestionClientes');
 
       if (!Estado.clientes || Estado.clientes.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay clientes</td></tr>';
         return;
       }
 
-      // Ordenar alfabéticamente
       const clientesOrdenados = [...Estado.clientes].sort((a, b) =>
         a.nombre.localeCompare(b.nombre, 'es'));
 
@@ -8655,15 +9454,29 @@
           '</td>' +
         '</tr>';
       }).join('');
+
+      try {
+        if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
+          jQuery('#tablaGestionClientes').DataTable({
+            pageLength: 50,
+            order: [[0, 'asc']],
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' }
+          });
+        }
+      } catch (e) { console.warn('DataTable clientes:', e); }
     }
 
     const filtrarClientesDebounce = debounce(function() {
-      const filtro = document.getElementById('filtroClientes').value.toUpperCase();
+      const termino = (document.getElementById('filtroClientes').value || '').trim().toLowerCase();
       const tbody = document.getElementById('gestionClientesTbody');
+      if (!tbody) return;
 
-      // Filtrar y ordenar alfabéticamente
-      const clientesFiltrados = (filtro ?
-        Estado.clientes.filter(c => c.nombre.toUpperCase().includes(filtro)) :
+      _destruirDataTableSiExiste('tablaGestionClientes');
+
+      const clientesFiltrados = (termino ?
+        Estado.clientes.filter(function(c) {
+          return String(c.nombre || '').toLowerCase().includes(termino);
+        }) :
         Estado.clientes
       ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
@@ -8686,7 +9499,28 @@
           '</td>' +
         '</tr>';
       }).join('');
+
+      try {
+        if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable && clientesFiltrados.length > 0) {
+          jQuery('#tablaGestionClientes').DataTable({
+            pageLength: 50,
+            order: [[0, 'asc']],
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' }
+          });
+        }
+      } catch (e) { console.warn('DataTable clientes filtro:', e); }
     }, 300);
+
+    var _cleaveCuitCliente = null;
+    function initCleaveCuitCliente() {
+      var el = document.getElementById('clienteCuit');
+      if (!el || typeof Cleave === 'undefined') return;
+      if (_cleaveCuitCliente) {
+        try { _cleaveCuitCliente.destroy(); } catch (e) {}
+        _cleaveCuitCliente = null;
+      }
+      _cleaveCuitCliente = new Cleave(el, { delimiters: ['-', '-'], blocks: [2, 8, 1], numericOnly: true });
+    }
 
     function abrirModalNuevoCliente() {
       document.getElementById('modalClienteTitulo').textContent = 'Nuevo Cliente';
@@ -8703,6 +9537,7 @@
       document.getElementById('cuitCondicionInfo').style.display = 'none';
 
       abrirModal('modalCliente');
+      setTimeout(initCleaveCuitCliente, 0);
     }
 
     function editarCliente(nombre) {
@@ -8742,6 +9577,7 @@
       }
 
       abrirModal('modalCliente');
+      setTimeout(initCleaveCuitCliente, 0);
     }
 
     function verificarCuitCliente() {
@@ -8816,14 +9652,14 @@
       const condicionGuardada = document.getElementById('clienteCondicionFiscal').value.trim();
       const datos = {
         nombre: document.getElementById('clienteNombre').value.trim(),
-        tel: document.getElementById('clienteTel').value,
-        email: document.getElementById('clienteEmail').value,
+        tel: String(document.getElementById('clienteTel').value || '').trim(),
+        email: String(document.getElementById('clienteEmail').value || '').trim(),
         cuit: cuitVal,
         condicionFiscal: condicionGuardada || (cuitVal ? 'Responsable Inscripto' : 'Consumidor Final'),
         razonSocial: document.getElementById('clienteRazonSocial').value.trim(),
         domicilioFiscal: document.getElementById('clienteDomicilioFiscal').value.trim(),
         limite: parseFloat(document.getElementById('clienteLimite').value) || 100000,
-        obs: document.getElementById('clienteObs').value
+        obs: String(document.getElementById('clienteObs').value || '').trim()
       };
 
       if (!datos.nombre) {
@@ -9002,6 +9838,134 @@
       }
     }
 
+    /** Config de impresión desde Estado (misma forma que guardarConfiguracionGeneral). */
+    function obtenerConfigImpresionActiva() {
+      var c = (typeof Estado !== 'undefined' && Estado && Estado.configuracion) ? Estado.configuracion : {};
+      var m = parseFloat(c.printMargin, 10);
+      if (isNaN(m)) m = 0.8;
+      return {
+        orientacion: c.printOrientation || 'portrait',
+        margenCm: m,
+        fontSaldos: parseInt(c.printFontSizeSaldos, 10) || 10,
+        fontHeader: parseInt(c.printFontSizeHeader, 10) || 14,
+        escalaPct: parseInt(c.printScale, 10) || 100,
+        fitWidth: !!c.printFitToWidth
+      };
+    }
+
+    /**
+     * Regla @page según configuración (popup de impresión y caja diaria).
+     * @param {Object} [cfgPre] - Si viene de obtenerConfigImpresionActiva(), evita doble lectura.
+     * @returns {string}
+     */
+    function solVerdePrintPageRuleCss(cfgPre) {
+      var cfg = cfgPre || obtenerConfigImpresionActiva();
+      return '@page { size: A4 ' + cfg.orientacion + '; margin: ' + cfg.margenCm + 'cm; }';
+    }
+
+    /** CSS fijo del shell (cacheado; no incluye @page ni tamaños variables). */
+    var _svPrintShellCssStatic = (
+      'body{margin:0;padding:16px;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:#fff;color:#111;}' +
+      '.sv-print-toolbar{background:#f5f5f5;padding:12px 16px;text-align:right;border-bottom:1px solid #ddd;margin:-16px -16px 16px -16px;}' +
+      '.sv-print-toolbar button{margin-left:8px;padding:8px 16px;font-size:14px;border-radius:6px;cursor:pointer;border:none;}' +
+      '.btn-print-go{background:#1565C0;color:#fff;font-weight:bold;}' +
+      '.btn-print-close{background:#616161;color:#fff;}' +
+      '.sv-print-root{font-size:11pt;line-height:1.35;}' +
+      '@media print{.sv-print-toolbar{display:none!important;}body{padding:0!important;}}'
+    );
+
+    var _SV_SEL_NO_IMPRIMIR = 'button,.acciones,.no-print,.dataTables_length,.dataTables_filter,.dataTables_info,.dataTables_paginate';
+
+    /** Quita controles UI del clon (una sola query). */
+    function _svStripImpresionNodos(root) {
+      if (!root || !root.querySelectorAll) return;
+      var list = root.querySelectorAll(_SV_SEL_NO_IMPRIMIR);
+      for (var i = list.length - 1; i >= 0; i--) {
+        list[i].remove();
+      }
+    }
+
+    /**
+     * Escribe HTML en ventana ya abierta; en el siguiente frame para no bloquear el clic.
+     */
+    function _svCommitPrintDocument(win, docHtml, autoPrint) {
+      try {
+        var d = win.document;
+        d.open();
+        d.write(docHtml);
+        d.close();
+      } catch (e) {}
+      try { win.focus(); } catch (e2) {}
+      if (autoPrint) {
+        var runPrint = function() {
+          try { win.print(); } catch (e3) {}
+        };
+        if (win.document.readyState === 'complete') {
+          setTimeout(runPrint, 0);
+        } else {
+          win.addEventListener('load', function onLd() {
+            win.removeEventListener('load', onLd);
+            runPrint();
+          });
+        }
+      }
+    }
+
+    /**
+     * Shell unificado: ventana nueva, fondo claro, barra Imprimir/Cerrar, @page desde config.
+     * @param {Object} opts
+     * @param {string} opts.tituloDocumento
+     * @param {string} opts.cuerpoHtml - Contenido dentro del área principal
+     * @param {string} [opts.cssExtra] - CSS adicional (sin envolver en <style>)
+     * @param {string} [opts.winFeatures]
+     * @param {boolean} [opts.autoPrint] - Si true, dispara print al cargar
+     * @returns {Window|null}
+     */
+    function abrirVentanaImpresionSolVerde(opts) {
+      opts = opts || {};
+      var winFeatures = opts.winFeatures || 'width=920,height=980,scrollbars=yes,resizable=yes';
+      var win = window.open('about:blank', '_blank', winFeatures);
+      if (!win) {
+        if (typeof mostrarToast === 'function') {
+          mostrarToast('Permití ventanas emergentes para imprimir.', 'warning');
+        }
+        return null;
+      }
+
+      var tituloEsc = String(opts.tituloDocumento || 'Documento').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      var cuerpo = opts.cuerpoHtml || '';
+      var cssExtra = opts.cssExtra || '';
+      var autoPrint = opts.autoPrint === true;
+      var cfg = obtenerConfigImpresionActiva();
+      var sc = (cfg.escalaPct || 100) / 100;
+      var scaleCss = cfg.fitWidth
+        ? '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;width:fit-content;max-width:100%;}'
+        : '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;}';
+      var fontCss = '.sv-print-root .table th,.sv-print-root .table td{font-size:' + cfg.fontSaldos + 'pt;}' +
+        '.sv-print-root h3{font-size:' + cfg.fontHeader + 'pt;}';
+
+      var docHtml =
+        '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>' + tituloEsc + ' - Sol & Verde</title><style>' +
+        solVerdePrintPageRuleCss(cfg) +
+        _svPrintShellCssStatic +
+        fontCss +
+        scaleCss +
+        cssExtra +
+        '</style></head><body>' +
+        '<div class="sv-print-toolbar no-print">' +
+        '<button type="button" class="btn-print-go" onclick="window.print()">Imprimir</button>' +
+        '<button type="button" class="btn-print-close" onclick="window.close()">Cerrar</button></div>' +
+        '<div class="sv-print-root">' + cuerpo + '</div></body></html>';
+
+      var commit = function() { _svCommitPrintDocument(win, docHtml, autoPrint); };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(commit);
+      } else {
+        setTimeout(commit, 0);
+      }
+      return win;
+    }
+
     function guardarApiKeyConfig() {
       const apiKey = document.getElementById('inputApiKey').value.trim();
       if (!apiKey) {
@@ -9134,6 +10098,194 @@
       todasFiltradas: []  // snapshot del filtro actual
     };
 
+    let catalogoProductosMemoria = [];
+
+    function actualizarProductosLocal(nuevosProductos) {
+      catalogoProductosMemoria = nuevosProductos || [];
+      EstadoFacturacion.productos = catalogoProductosMemoria;
+      EstadoFacturacionUnif.productos = catalogoProductosMemoria.slice();
+      var mod = DOM.moduleProductos || document.getElementById('module-productos');
+      if (mod && mod.classList.contains('active')) {
+        renderProductos();
+      }
+    }
+
+    function validarStockEnVivo(input, maxStock, esInfinito) {
+      if (esInfinito) return;
+      var valorActual = parseInt(input.value, 10) || 0;
+      if (valorActual > maxStock) {
+        if (typeof Toastify !== 'undefined') {
+          Toastify({
+            text: 'Solo quedan ' + maxStock + ' unidades en stock',
+            duration: 2000,
+            style: { background: '#e67e22' }
+          }).showToast();
+        } else {
+          mostrarToast('Solo quedan ' + maxStock + ' unidades en stock', 'warning');
+        }
+        input.value = maxStock;
+      }
+      if (valorActual < 0) input.value = 0;
+    }
+
+    function crearFilaSeleccionProducto(producto) {
+      var esInfinito = producto.stock === 999999;
+      var stockDisponible = esInfinito ? '\u221e' : producto.stock;
+      var estaAgotado = !esInfinito && producto.stock <= 0;
+      var stockBajo = !esInfinito && producto.stock > 0 && producto.stock < 5;
+      var maxAttr = !esInfinito ? ' max="' + String(producto.stock) + '"' : '';
+      var dis = estaAgotado ? ' disabled' : '';
+      var clsTr = estaAgotado ? 'producto-agotado' : '';
+      var dataBajo = stockBajo ? ' data-stock-bajo="1"' : '';
+      var stockNum = esInfinito ? '999999' : String(Number(producto.stock) || 0);
+      return '<tr class="' + clsTr + '">' +
+        '<td data-label="Producto">' + escapeHtml(producto.nombre) + '</td>' +
+        '<td data-label="Stock"><strong>' + stockDisponible + '</strong></td>' +
+        '<td data-label="Cant.">' +
+          '<input type="number" class="form-input input-cantidad-factura" data-id="' + producto.id + '"' + dataBajo +
+          ' value="0" min="0"' + maxAttr + dis +
+          ' oninput="validarStockEnVivo(this, ' + stockNum + ', ' + (esInfinito ? 'true' : 'false') + ')">' +
+        '</td>' +
+        '<td data-label="Acción">' +
+          '<button type="button" class="btn btn-outline btn-sm" onclick="agregarProductoFacturaADesdeCatalogo(' + producto.id + ')"' +
+          (estaAgotado ? ' disabled' : '') + '>+</button>' +
+        '</td>' +
+        '</tr>';
+    }
+
+    function renderTablaSeleccionProductosFacturaA() {
+      var tbody = document.getElementById('tbodySeleccionProductosFacturaA');
+      if (!tbody) return;
+      var list = (EstadoFacturacionUnif.productos || []).filter(function(p) {
+        return p.activo && p.precio > 0;
+      });
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No hay productos</td></tr>';
+        return;
+      }
+      tbody.innerHTML = list.map(function(p) { return crearFilaSeleccionProducto(p); }).join('');
+    }
+
+    function obtenerStockRestanteFacturaA(productoId, stockBase) {
+      if (stockBase >= 999999) return stockBase;
+      var ya = EstadoFacturacionUnif.itemsFacturaA.filter(function(i) {
+        return i.productoId === productoId;
+      }).reduce(function(s, i) { return s + i.cantidad; }, 0);
+      return Math.max(0, stockBase - ya);
+    }
+
+    function aplicarTopeCantidadFacturaADesdeSelect() {
+      var select = document.getElementById('facturaAProducto');
+      var input = document.getElementById('facturaACantidad');
+      if (!select || !input || !select.value) {
+        input.removeAttribute('max');
+        return;
+      }
+      var producto = EstadoFacturacionUnif.productos.find(function(p) {
+        return String(p.id) === String(select.value);
+      });
+      if (!producto) {
+        input.removeAttribute('max');
+        return;
+      }
+      if (producto.stock === 999999) {
+        input.removeAttribute('max');
+        return;
+      }
+      var rest = obtenerStockRestanteFacturaA(producto.id, producto.stock);
+      input.setAttribute('max', rest);
+      if (rest <= 0) {
+        input.value = 0;
+        return;
+      }
+      if ((parseInt(input.value, 10) || 0) > rest) input.value = rest;
+    }
+
+    function agregarProductoFacturaADesdeCatalogo(productoId) {
+      var pid = parseInt(productoId, 10);
+      var inp = document.querySelector('#tbodySeleccionProductosFacturaA input.input-cantidad-factura[data-id="' + pid + '"]');
+      if (!inp) return;
+      var cantidad = parseInt(inp.value, 10) || 0;
+      if (cantidad <= 0) {
+        mostrarToast('Indicá una cantidad mayor a 0', 'warning');
+        return;
+      }
+      var producto = EstadoFacturacionUnif.productos.find(function(p) { return p.id === pid; });
+      if (!producto) return;
+      var esInfinito = producto.stock === 999999;
+      var rest = obtenerStockRestanteFacturaA(pid, esInfinito ? 999999 : producto.stock);
+      if (!esInfinito && cantidad > rest) {
+        mostrarToast('Stock insuficiente para "' + producto.nombre + '". Disponible: ' + rest, 'error');
+        inp.value = rest;
+        return;
+      }
+      EstadoFacturacionUnif.itemsFacturaA.push({
+        descripcion: producto.nombre,
+        cantidad: cantidad,
+        precioUnitario: producto.precio,
+        subtotal: cantidad * producto.precio,
+        productoId: pid
+      });
+      inp.value = 0;
+      renderTablaSeleccionProductosFacturaA();
+      renderItemsFacturaA();
+      actualizarVistaPreviaFacturaA();
+    }
+
+    function obtenerStockRestanteArca(productoId, stockBase) {
+      if (stockBase >= 999999) return stockBase;
+      var ya = arcaItems.reduce(function(s, it) {
+        return s + (it.productoId === productoId ? it.cantidad : 0);
+      }, 0);
+      return Math.max(0, stockBase - ya);
+    }
+
+    function aplicarTopeCantidadArcaDesdeSelect() {
+      var select = document.getElementById('arcaProducto');
+      var input = document.getElementById('arcaCantidad');
+      if (!select || !input) return;
+      var cbteTipo = parseInt(document.getElementById('arcaCbteTipo').value, 10) || 0;
+      var selOpt = select.options[select.selectedIndex];
+      if (cbteTipo !== 1 || !selOpt || !selOpt.value || selOpt.value === 'manual') {
+        input.removeAttribute('max');
+        return;
+      }
+      var stockBase = parseInt(selOpt.dataset.stock, 10);
+      if (isNaN(stockBase)) {
+        input.removeAttribute('max');
+        return;
+      }
+      if (stockBase >= 999999) {
+        input.removeAttribute('max');
+        return;
+      }
+      var pid = parseInt(selOpt.value, 10);
+      var rest = obtenerStockRestanteArca(pid, stockBase);
+      input.setAttribute('max', rest);
+      var v = parseInt(input.value, 10) || 0;
+      if (v > rest) input.value = rest > 0 ? rest : 1;
+    }
+
+    function sincronizarProductosTrasFacturaExito() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success && result.productos) {
+            actualizarProductosLocal(result.productos);
+            var modalA = document.getElementById('modalFacturaA');
+            if (modalA && modalA.classList.contains('active')) {
+              renderTablaSeleccionProductosFacturaA();
+            }
+            var modArca = document.getElementById('module-facturacion-arca');
+            if (modArca && modArca.classList.contains('active')) {
+              cargarProductosEnSelector();
+              aplicarTopeCantidadArcaDesdeSelect();
+            }
+          }
+        })
+        .withFailureHandler(function() { /* silencioso */ })
+        .obtenerDatosFacturacion();
+    }
+
     // Cargar datos de facturación
     function cargarDatosFacturacion(forzar = false) {
       // Si ya está cargado y no se fuerza, solo renderizar
@@ -9161,7 +10313,7 @@
 
           if (result.success) {
             EstadoFacturacion.transferencias = result.transferencias || [];
-            EstadoFacturacion.productos = result.productos || [];
+            actualizarProductosLocal(result.productos || []);
             EstadoFacturacion.cargado = true;
 
             console.log('✅ Productos cargados:', EstadoFacturacion.productos.length);
@@ -9196,7 +10348,7 @@
           EstadoFacturacion.cargando = false;
           if (result.success) {
             EstadoFacturacion.transferencias = result.transferencias || [];
-            EstadoFacturacion.productos = result.productos || [];
+            actualizarProductosLocal(result.productos || []);
             EstadoFacturacion.cargado = true;
           }
         })
@@ -9967,13 +11119,12 @@
       }
 
       const file = input.files[0];
-      const reader = new FileReader();
 
-      reader.onload = function(e) {
-        const base64 = e.target.result.split(',')[1];
+      mostrarLoading(true);
+      document.getElementById('btnProcesarIA').disabled = true;
 
-        mostrarLoading(true);
-        document.getElementById('btnProcesarIA').disabled = true;
+      comprimirImagenParaIA(file, function(dataUrl) {
+        const base64 = dataUrl.split(',')[1];
 
         google.script.run
           .withSuccessHandler(function(result) {
@@ -9996,9 +11147,7 @@
             mostrarToast('Error: ' + error.message, 'error');
           })
           .procesarImagenComprobante(base64);
-      };
-
-      reader.readAsDataURL(file);
+      });
     }
 
     // Renderizar resultados de IA
@@ -10091,16 +11240,19 @@
         google.script.run
           .withSuccessHandler(function(result) {
             if (result.success) {
-              EstadoFacturacion.productos = result.productos || [];
+              actualizarProductosLocal(result.productos || []);
             }
             cargarProductosEnSelector();
+            aplicarTopeCantidadArcaDesdeSelect();
           })
           .withFailureHandler(function() {
             cargarProductosEnSelector();
+            aplicarTopeCantidadArcaDesdeSelect();
           })
           .obtenerDatosFacturacion();
       } else {
         cargarProductosEnSelector();
+        aplicarTopeCantidadArcaDesdeSelect();
       }
 
       // Poner fecha
@@ -10176,6 +11328,7 @@
       document.getElementById('btnCbteTipoFA').className = 'btn ' + (tipo === 1 ? 'btn-primary' : 'btn-outline');
       document.getElementById('btnCbteTipoFB').className = 'btn ' + (tipo === 6 ? 'btn-primary' : 'btn-outline');
       actualizarArcaPreview();
+      aplicarTopeCantidadArcaDesdeSelect();
     }
 
     function cargarProductosEnSelector() {
@@ -10208,12 +11361,13 @@
       optManual.textContent = '-- Ingresar manualmente --';
       select.appendChild(optManual);
 
-      // Al cambiar producto, actualizar precio
+      // Al cambiar producto, actualizar precio y tope de cantidad (Factura A)
       select.onchange = function() {
         var selOpt = select.options[select.selectedIndex];
         if (selOpt && selOpt.dataset.precio) {
           document.getElementById('arcaPrecioUnit').value = selOpt.dataset.precio;
         }
+        aplicarTopeCantidadArcaDesdeSelect();
       };
     }
 
@@ -10271,12 +11425,14 @@
 
       renderArcaItems();
       actualizarArcaPreview();
+      aplicarTopeCantidadArcaDesdeSelect();
     }
 
     function eliminarItemFactura(index) {
       arcaItems.splice(index, 1);
       renderArcaItems();
       actualizarArcaPreview();
+      aplicarTopeCantidadArcaDesdeSelect();
     }
 
     function renderArcaItems() {
@@ -10324,12 +11480,15 @@
       }
 
       var resultado = document.getElementById('arcaCuitResultado');
-      resultado.innerHTML = '<span style="color:var(--sv-info);">Consultando ARCA...</span>';
+      var _arcaSetHtml = function(html) {
+        resultado.innerHTML = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }) : html;
+      };
+      _arcaSetHtml('<span style="color:var(--sv-info);">Consultando ARCA...</span>');
 
       google.script.run
         .withSuccessHandler(function(data) {
           if (data.encontrado) {
-            resultado.innerHTML = '<span style="color:var(--sv-exito);">ARCA: ' + escapeHtml(data.razonSocial) + ' - ' + data.condicionTexto + '</span>';
+            _arcaSetHtml('<span style="color:var(--sv-exito);">ARCA: ' + escapeHtml(data.razonSocial) + ' - ' + escapeHtml(String(data.condicionTexto || '')) + '</span>');
             // Actualizar info en pantalla
             document.getElementById('arcaClienteIVA').textContent = data.condicionTexto;
             if (arcaClienteSeleccionado) {
@@ -10344,11 +11503,11 @@
               seleccionarCbteTipo(6);
             }
           } else {
-            resultado.innerHTML = '<span style="color:var(--sv-advertencia);">' + (data.error || 'CUIT no encontrado en padron') + '</span>';
+            _arcaSetHtml('<span style="color:var(--sv-advertencia);">' + escapeHtml(String(data.error || 'CUIT no encontrado en padron')) + '</span>');
           }
         })
         .withFailureHandler(function(err) {
-          resultado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' + err.message + '</span>';
+          _arcaSetHtml('<span style="color:var(--sv-peligro);">Error: ' + escapeHtml(String(err.message || '')) + '</span>');
         })
         .consultarCUITArca(arcaClienteSeleccionado.cuit);
     }
@@ -10385,79 +11544,99 @@
       var iva = Math.round(neto * 0.105 * 100) / 100;
       var total = Math.round((neto + iva) * 100) / 100;
 
-      var confirmar = confirm(
-        'Emitir comprobante en ARCA?\n\n' +
-        'Tipo: ' + (cbteTipo === 1 ? 'FACTURA A' : 'FACTURA B') + '\n' +
-        'Cliente: ' + arcaClienteSeleccionado.nombre + '\n' +
-        'Neto: $' + neto.toFixed(2) + '\n' +
-        'IVA 10.5%: $' + iva.toFixed(2) + '\n' +
-        'Total: $' + total.toFixed(2) + '\n\n' +
-        'ATENCION: Esta accion NO se puede deshacer. El comprobante quedara registrado en ARCA.'
-      );
+      var tipoLbl = cbteTipo === 1 ? 'FACTURA A' : 'FACTURA B';
+      var htmlConfirm =
+        '<p style="text-align:left">Tipo: <strong>' + escapeHtml(tipoLbl) + '</strong></p>' +
+        '<p style="text-align:left">Cliente: <strong>' + escapeHtml(arcaClienteSeleccionado.nombre) + '</strong></p>' +
+        '<p style="text-align:left">Neto: <strong>$' + neto.toFixed(2) + '</strong></p>' +
+        '<p style="text-align:left">IVA 10.5%: <strong>$' + iva.toFixed(2) + '</strong></p>' +
+        '<p style="text-align:left">Total: <strong>$' + total.toFixed(2) + '</strong></p>' +
+        '<p style="text-align:left;margin-top:0.75rem;font-size:0.9rem;color:var(--sv-advertencia);">Esta acción no se puede deshacer; el comprobante quedará registrado en ARCA.</p>';
 
-      if (!confirmar) return;
-
-      // Determinar condición del cliente
-      var condicion = 'CF';
-      var condicionTexto = 'Consumidor Final';
-      if (arcaClienteSeleccionado.condicionFiscal) {
-        if (arcaClienteSeleccionado.condicionFiscal.includes('Responsable') || arcaClienteSeleccionado.condicionFiscal === 'RI') {
-          condicion = 'RI';
-          condicionTexto = 'Responsable Inscripto';
-        } else if (arcaClienteSeleccionado.condicionFiscal.includes('Monotributo') || arcaClienteSeleccionado.condicionFiscal === 'M') {
-          condicion = 'M';
-          condicionTexto = 'Monotributo';
+      function continuarEmisionArca() {
+        var condicion = 'CF';
+        var condicionTexto = 'Consumidor Final';
+        if (arcaClienteSeleccionado.condicionFiscal) {
+          if (arcaClienteSeleccionado.condicionFiscal.includes('Responsable') || arcaClienteSeleccionado.condicionFiscal === 'RI') {
+            condicion = 'RI';
+            condicionTexto = 'Responsable Inscripto';
+          } else if (arcaClienteSeleccionado.condicionFiscal.includes('Monotributo') || arcaClienteSeleccionado.condicionFiscal === 'M') {
+            condicion = 'M';
+            condicionTexto = 'Monotributo';
+          }
         }
+
+        mostrarLoading(true);
+        document.getElementById('btnEmitirArca').disabled = true;
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            mostrarLoading(false);
+            document.getElementById('btnEmitirArca').disabled = false;
+
+            if (result.success) {
+              mostrarToast(result.mensaje || 'Comprobante emitido', 'success');
+              sincronizarProductosTrasFacturaExito();
+
+              var resDiv = document.getElementById('arcaResultado');
+              resDiv.style.display = 'block';
+              var cont = document.getElementById('arcaResultadoContenido');
+              var pdfOk = result.pdfUrl && /^https:\/\//i.test(String(result.pdfUrl));
+              var bloque =
+                '<div class="alert" style="background:var(--sv-exito);color:white;padding:1rem;border-radius:8px;">' +
+                '<p style="font-size:0.95rem;line-height:1.4;">' + escapeHtml(String(result.mensaje || '')) + '</p>' +
+                '<p><strong>CAE:</strong> ' + escapeHtml(String(result.cae != null ? result.cae : '')) + '</p>' +
+                '<p><strong>Numero:</strong> ' + escapeHtml(String(result.ptoVta).padStart(5, '0') + '-' + String(result.cbteNro).padStart(8, '0')) + '</p>' +
+                '<p><strong>Total:</strong> $' + escapeHtml(String(Number(result.total).toFixed(2))) + '</p>' +
+                (pdfOk ? '<p style="margin-top:0.5rem;"><a href="' + escapeHtml(String(result.pdfUrl)) + '" target="_blank" rel="noopener noreferrer" style="color:white;text-decoration:underline;">Ver PDF del comprobante</a></p>' : '') +
+                '</div>' +
+                '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;">' +
+                '<button type="button" class="btn btn-primary" data-sv-arca-accion="nuevo">Nuevo Comprobante</button>' +
+                '<button type="button" class="btn btn-outline" data-sv-arca-accion="historial" style="color:inherit;">Ver Historial</button>' +
+                '</div>';
+              cont.innerHTML = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(bloque, { USE_PROFILES: { html: true } }) : bloque;
+              var btnNuevo = cont.querySelector('[data-sv-arca-accion="nuevo"]');
+              var btnHist = cont.querySelector('[data-sv-arca-accion="historial"]');
+              if (btnNuevo) btnNuevo.addEventListener('click', function() { inicializarModuloArca(); });
+              if (btnHist) btnHist.addEventListener('click', function() { navegarA('historial-facturas'); });
+
+              resDiv.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              mostrarToast('Error: ' + result.error, 'error');
+            }
+          })
+          .withFailureHandler(function(error) {
+            mostrarLoading(false);
+            document.getElementById('btnEmitirArca').disabled = false;
+            mostrarToast('Error: ' + error.message, 'error');
+          })
+          .emitirFacturaElectronica({
+            cbteTipo: cbteTipo,
+            clienteNombre: arcaClienteSeleccionado.nombre,
+            clienteRazonSocial: arcaClienteSeleccionado.razonSocial || arcaClienteSeleccionado.nombre,
+            clienteDomicilio: arcaClienteSeleccionado.domicilioFiscal || '',
+            clienteCuit: arcaClienteSeleccionado.cuit || '',
+            clienteCondicion: condicion,
+            clienteCondicionTexto: condicionTexto,
+            importeNeto: neto,
+            detalle: arcaItems
+          });
       }
 
-      mostrarLoading(true);
-      document.getElementById('btnEmitirArca').disabled = true;
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          document.getElementById('btnEmitirArca').disabled = false;
-
-          if (result.success) {
-            mostrarToast(result.mensaje, 'success');
-
-            // Mostrar resultado
-            var resDiv = document.getElementById('arcaResultado');
-            resDiv.style.display = 'block';
-            document.getElementById('arcaResultadoContenido').innerHTML =
-              '<div class="alert" style="background:var(--sv-exito);color:white;padding:1rem;border-radius:8px;">' +
-              '<p><strong>CAE:</strong> ' + result.cae + '</p>' +
-              '<p><strong>Numero:</strong> ' + String(result.ptoVta).padStart(5,'0') + '-' + String(result.cbteNro).padStart(8,'0') + '</p>' +
-              '<p><strong>Total:</strong> $' + result.total.toFixed(2) + '</p>' +
-              (result.pdfUrl ? '<p style="margin-top:0.5rem;"><a href="' + result.pdfUrl + '" target="_blank" style="color:white;text-decoration:underline;">Ver PDF del comprobante</a></p>' : '') +
-              '</div>' +
-              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;">' +
-              '<button class="btn btn-primary" onclick="inicializarModuloArca()">Nuevo Comprobante</button>' +
-              '<button class="btn btn-outline" onclick="navegarA(\'historial-facturas\')">Ver Historial</button>' +
-              '</div>';
-
-            // Scroll al resultado
-            resDiv.scrollIntoView({ behavior: 'smooth' });
-          } else {
-            mostrarToast('Error: ' + result.error, 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          document.getElementById('btnEmitirArca').disabled = false;
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .emitirFacturaElectronica({
-          cbteTipo: cbteTipo,
-          clienteNombre: arcaClienteSeleccionado.nombre,
-          clienteRazonSocial: arcaClienteSeleccionado.razonSocial || arcaClienteSeleccionado.nombre,
-          clienteDomicilio: arcaClienteSeleccionado.domicilioFiscal || '',
-          clienteCuit: arcaClienteSeleccionado.cuit || '',
-          clienteCondicion: condicion,
-          clienteCondicionTexto: condicionTexto,
-          importeNeto: neto,
-          detalle: arcaItems
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: 'Emitir en ARCA',
+          html: htmlConfirm,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Emitir',
+          cancelButtonText: 'Cancelar'
+        }).then(function(r) {
+          if (r.isConfirmed) continuarEmisionArca();
         });
+      } else if (confirm('Emitir comprobante en ARCA? Total $' + total.toFixed(2))) {
+        continuarEmisionArca();
+      }
     }
 
     // ============================================================================
@@ -11134,11 +12313,21 @@
 '<\/script>' +
 '</body></html>';
 
-      var win = window.open('', '_blank', 'width=900,height=1080,scrollbars=yes,resizable=yes');
+      var win = window.open('about:blank', '_blank', 'width=900,height=1080,scrollbars=yes,resizable=yes');
       if (!win) { mostrarToast('Bloqueado por el navegador — habilitá los popups para este sitio.', 'warning'); return; }
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
+      var commitHf = function() {
+        try {
+          win.document.open();
+          win.document.write(html);
+          win.document.close();
+        } catch (e) {}
+        try { win.focus(); } catch (e2) {}
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(commitHf);
+      } else {
+        setTimeout(commitHf, 0);
+      }
     }
 
     function _hfFilasVacias(n) {
@@ -11966,7 +13155,7 @@
 
           if (result.success) {
             EstadoFacturacionUnif.transferencias = result.transferencias || [];
-            EstadoFacturacionUnif.productos = result.productos || [];
+            actualizarProductosLocal(result.productos || []);
             EstadoFacturacionUnif.cargado = true;
             renderTransferenciasUnificadas();
           } else {
@@ -12198,6 +13387,38 @@
           }
         });
       }
+
+      var ac = document.getElementById('arcaCantidad');
+      if (ac && !ac._svStockBind) {
+        ac._svStockBind = true;
+        ac.addEventListener('input', function() {
+          var cbteTipo = parseInt(document.getElementById('arcaCbteTipo').value, 10) || 0;
+          if (cbteTipo !== 1) return;
+          var select = document.getElementById('arcaProducto');
+          var sel = select && select.options[select.selectedIndex];
+          if (!sel || !sel.value || sel.value === 'manual') return;
+          var stockBase = parseInt(sel.dataset.stock, 10);
+          if (isNaN(stockBase) || stockBase >= 999999) return;
+          var pid = parseInt(sel.value, 10);
+          var rest = obtenerStockRestanteArca(pid, stockBase);
+          validarStockEnVivo(this, rest, false);
+        });
+      }
+      var fc = document.getElementById('facturaACantidad');
+      if (fc && !fc._svStockBind) {
+        fc._svStockBind = true;
+        fc.addEventListener('input', function() {
+          var sel = document.getElementById('facturaAProducto');
+          if (sel && sel.value) {
+            aplicarTopeCantidadFacturaADesdeSelect();
+            var p = EstadoFacturacionUnif.productos.find(function(x) { return String(x.id) === String(sel.value); });
+            if (p && p.stock !== 999999) {
+              var rest = obtenerStockRestanteFacturaA(p.id, p.stock);
+              validarStockEnVivo(this, rest, false);
+            }
+          }
+        });
+      }
     });
 
     function seleccionarClienteTransferenciaUnif(cliente) {
@@ -12367,6 +13588,10 @@
       document.getElementById('facturaBTotal').textContent = formatearMonto(transferencia.monto);
 
       abrirModal('modalFacturaB');
+      setTimeout(function() {
+        var btn = document.getElementById('btnEmitirFacturaB');
+        if (btn && btn.focus) btn.focus();
+      }, 100);
     }
 
     function emitirFacturaB() {
@@ -12401,16 +13626,24 @@
           btnEmitir.disabled = false;
           btnEmitir.textContent = '✅ Emitir Factura B en ARCA';
           if (result.success) {
-            if (result.avisoFecha) mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
-            else mostrarToast('¡Factura B emitida! CAE: ' + result.cae, 'success');
+            var msgB = result.mensaje || ('Factura B emitida. CAE: ' + result.cae);
+            mostrarToast(msgB, 'success');
+            sincronizarProductosTrasFacturaExito();
             transferencia.facturada = true;
             marcarTransferenciaFacturadaEnServidor(transferencia.id);
             renderTransferenciasUnificadas();
             cerrarModal('modalFacturaB');
             setTimeout(function() {
-              alert('Factura B emitida correctamente\n\nCAE: ' + result.cae +
-                    '\nNúmero: ' + result.ptoVta + '-' + result.cbteNro +
-                    (result.avisoFecha ? '\n\n⚠️ ' + result.avisoFecha : ''));
+              if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Factura B emitida',
+                  html: '<p style="text-align:left;font-size:0.95rem;">' + escapeHtml(msgB) + '</p>' +
+                    '<p style="margin-top:0.75rem;text-align:left;"><strong>Número:</strong> ' +
+                    escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) + '</p>'
+                });
+              }
+              if (navigator.vibrate) navigator.vibrate(200);
             }, 300);
           } else {
             mostrarToast('Error: ' + result.error, 'error');
@@ -12470,10 +13703,13 @@
             document.getElementById('facturaAPrecio').value = producto.precio;
           }
         }
+        aplicarTopeCantidadFacturaADesdeSelect();
       };
 
+      renderTablaSeleccionProductosFacturaA();
       renderItemsFacturaA();
       actualizarVistaPreviaFacturaA();
+      aplicarTopeCantidadFacturaADesdeSelect();
 
       abrirModal('modalFacturaA');
     }
@@ -12484,10 +13720,19 @@
       const precioUnit = parseFloat(document.getElementById('facturaAPrecio').value) || 0;
 
       let descripcion = '';
+      let productoId = null;
 
       if (selectProd.value) {
         const producto = EstadoFacturacionUnif.productos.find(p => p.id == selectProd.value);
         descripcion = producto ? producto.nombre : '';
+        productoId = producto ? producto.id : null;
+        if (producto && producto.stock !== 999999) {
+          const rest = obtenerStockRestanteFacturaA(producto.id, producto.stock);
+          if (cantidad > rest) {
+            mostrarToast('Stock insuficiente. Disponible: ' + rest, 'error');
+            return;
+          }
+        }
       } else {
         descripcion = selectProd.options[selectProd.selectedIndex]?.text || '';
       }
@@ -12511,22 +13756,27 @@
         descripcion: descripcion,
         cantidad: cantidad,
         precioUnitario: precioUnit,
-        subtotal: cantidad * precioUnit
+        subtotal: cantidad * precioUnit,
+        productoId: productoId
       });
 
       // Resetear formulario
       selectProd.value = '';
       document.getElementById('facturaACantidad').value = 1;
       document.getElementById('facturaAPrecio').value = '';
+      document.getElementById('facturaACantidad').removeAttribute('max');
 
+      renderTablaSeleccionProductosFacturaA();
       renderItemsFacturaA();
       actualizarVistaPreviaFacturaA();
     }
 
     function eliminarItemFacturaA(index) {
       EstadoFacturacionUnif.itemsFacturaA.splice(index, 1);
+      renderTablaSeleccionProductosFacturaA();
       renderItemsFacturaA();
       actualizarVistaPreviaFacturaA();
+      aplicarTopeCantidadFacturaADesdeSelect();
     }
 
     function renderItemsFacturaA() {
@@ -12623,16 +13873,24 @@
           btnEmitir.disabled = false;
           btnEmitir.textContent = '✅ Emitir Factura A en ARCA';
           if (result.success) {
-            if (result.avisoFecha) mostrarToast('⚠️ ' + result.avisoFecha, 'warning');
-            else mostrarToast('¡Factura A emitida! CAE: ' + result.cae, 'success');
+            var msgA = result.mensaje || ('Factura A emitida. CAE: ' + result.cae);
+            mostrarToast(msgA, 'success');
+            sincronizarProductosTrasFacturaExito();
             transferencia.facturada = true;
             marcarTransferenciaFacturadaEnServidor(transferencia.id);
             renderTransferenciasUnificadas();
             cerrarModal('modalFacturaA');
             setTimeout(function() {
-              alert('Factura A emitida correctamente\n\nCAE: ' + result.cae +
-                    '\nNúmero: ' + result.ptoVta + '-' + result.cbteNro +
-                    (result.avisoFecha ? '\n\n⚠️ ' + result.avisoFecha : ''));
+              if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                  icon: 'success',
+                  title: 'Factura A emitida',
+                  html: '<p style="text-align:left;font-size:0.95rem;">' + escapeHtml(msgA) + '</p>' +
+                    '<p style="margin-top:0.75rem;text-align:left;"><strong>Número:</strong> ' +
+                    escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) + '</p>'
+                });
+              }
+              if (navigator.vibrate) navigator.vibrate(200);
             }, 300);
           } else {
             mostrarToast('Error: ' + result.error, 'error');
@@ -12696,7 +13954,34 @@
         (transferencia.obs ? '\nObservaciones: ' + transferencia.obs : '') +
         '\n      ';
 
-      alert(detalle);
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({ title: 'Detalle transferencia', text: detalle, width: 480 });
+      }
+    }
+
+    function facturarIndividualAsync(datosFactura) {
+      return new Promise(function(resolve, reject) {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .emitirFacturaElectronica(datosFactura);
+      });
+    }
+
+    async function procesarFacturasEnLote(listaPayloads, onProgreso) {
+      var total = listaPayloads.length;
+      var ok = 0;
+      for (var i = 0; i < total; i++) {
+        if (onProgreso) onProgreso(i + 1, total);
+        try {
+          var r = await facturarIndividualAsync(listaPayloads[i]);
+          if (r && r.success) ok++;
+          else mostrarToast('Factura ' + (i + 1) + ': ' + (r && r.error ? r.error : 'Error'), 'error');
+        } catch (err) {
+          mostrarToast('Factura ' + (i + 1) + ': ' + err.message, 'error');
+        }
+      }
+      return { procesadas: ok, total: total };
     }
 
     // Eliminar transferencia
@@ -13610,11 +14895,16 @@
         listaMovsHtml +
         '</body></html>';
 
-      var win = window.open('', '_blank', 'width=1100,height=800');
+      var win = window.open('about:blank', '_blank', 'width=1100,height=800');
       if (win) {
-        win.document.write(printHtml);
-        win.document.close();
-        win.onload = function() { win.print(); };
+        var commitAlq = function() {
+          _svCommitPrintDocument(win, printHtml, true);
+        };
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(commitAlq);
+        } else {
+          setTimeout(commitAlq, 0);
+        }
       } else {
         mostrarToast('Habilita las ventanas emergentes para imprimir', 'warning');
       }
@@ -14312,12 +15602,13 @@
             const ctx = CajaDiariaPrinter.buildContext(result.caja, cfg, copies || 1);
             const bodyHtml = CajaDiariaPrinter.buildHtml(ctx);
 
+            // @page vía solVerdePrintPageRuleCss() = misma config que impresión unificada
             const printDoc =
               '<!DOCTYPE html><html><head>' +
               '<meta charset="utf-8">' +
               '<title>Caja Diaria &mdash; ' + (result.caja.fecha || '') + '</title>' +
               '<style>' +
-                '@page { size: A4 portrait; margin: 0.8cm; }' +
+                solVerdePrintPageRuleCss() +
                 'body { font-family: Arial, sans-serif; font-size: 11pt; color: #222; margin: 0; padding: 0; }' +
                 '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
                 '.contab-copy-block { page-break-after: always; }' +
@@ -14327,11 +15618,16 @@
               '</style>' +
               '</head><body>' + bodyHtml + '</body></html>';
 
-            const win = window.open('', '_blank', 'width=820,height=950');
+            const win = window.open('about:blank', '_blank', 'width=820,height=950');
             if (win) {
-              win.document.write(printDoc);
-              win.document.close();
-              win.onload = function() { win.focus(); win.print(); };
+              const commitCaja = function() {
+                _svCommitPrintDocument(win, printDoc, true);
+              };
+              if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(commitCaja);
+              } else {
+                setTimeout(commitCaja, 0);
+              }
             } else {
               mostrarToast('Habilitá las ventanas emergentes para imprimir', 'warning');
             }
@@ -15886,12 +17182,25 @@ body { font-family: 'Courier New', monospace; font-size: 11px; width: 76mm; marg
     }
 
     function vnAbrirVentanaImpresion(html) {
-      const w = window.open('', '_blank', 'width=350,height=700,menubar=no,toolbar=no,location=no');
+      const w = window.open('about:blank', '_blank', 'width=350,height=700,menubar=no,toolbar=no,location=no');
       if (!w) { mostrarToast('Permití ventanas emergentes para imprimir', 'error'); return; }
-      w.document.write(html);
-      w.document.close();
-      w.focus();
-      setTimeout(() => { w.print(); setTimeout(() => w.close(), 500); }, 400);
+      const go = function() {
+        try {
+          w.document.open();
+          w.document.write(html);
+          w.document.close();
+        } catch (e) {}
+        try { w.focus(); } catch (e2) {}
+        setTimeout(function() {
+          try { w.print(); } catch (e3) {}
+          setTimeout(function() { try { w.close(); } catch (e4) {} }, 450);
+        }, 0);
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(go);
+      } else {
+        setTimeout(go, 0);
+      }
     }
 
     // ── Helpers de formato VN ─────────────────────────────────────

@@ -186,18 +186,14 @@ const MovimientosRepository = {
     var lastRow = hoja.getLastRow();
     if (lastRow <= 1) return [];
 
-    var numRows    = lastRow - 1;
+    var numRows = lastRow - 1;
     var cargarTodos = limite <= 0;
 
-    // Si carga total: leer desde fila 2. Si parcial: leer últimas N+10 filas.
-    var rowsToRead = cargarTodos
-      ? numRows
-      : Math.min(limite + 10, numRows);
-    var startRow = cargarTodos
-      ? 2
-      : Math.max(2, lastRow - rowsToRead + 1);
+    // Parcial: leer solo las últimas N filas de datos (constante en tiempo vs tamaño total).
+    var rowsToRead = cargarTodos ? numRows : Math.min(limite, numRows);
+    var startRow = cargarTodos ? 2 : Math.max(2, lastRow - rowsToRead + 1);
 
-    var datos       = hoja.getRange(startRow, 1, rowsToRead, 8).getValues();
+    var datos = hoja.getRange(startRow, 1, rowsToRead, 8).getValues();
     var movimientos = [];
 
     // Recorrer desde el final (más recientes primero)
@@ -354,6 +350,22 @@ const MovimientosRepository = {
   },
 
   /**
+   * True si la fecha del movimiento es de un mes anterior al actual (no editable).
+   * @param {Date|string} fechaMov
+   * @returns {boolean}
+   */
+  _fechaEnMesCerrado: function(fechaMov) {
+    if (!fechaMov) return false;
+    const d = fechaMov instanceof Date ? new Date(fechaMov) : parsearFechaLocal(String(fechaMov));
+    if (isNaN(d.getTime())) return false;
+    const hoy = new Date();
+    const inicioMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    d.setHours(0, 0, 0, 0);
+    inicioMesActual.setHours(0, 0, 0, 0);
+    return d < inicioMesActual;
+  },
+
+  /**
    * Edita un movimiento existente
    * @param {number} id - ID del movimiento
    * @param {Object} datos - Datos a actualizar (monto, obs)
@@ -367,6 +379,10 @@ const MovimientosRepository = {
       const mov = this.buscarPorId(id);
       if (!mov) {
         throw new Error('Movimiento no encontrado: ' + id);
+      }
+
+      if (this._fechaEnMesCerrado(mov.fecha)) {
+        throw new Error('El mes de este movimiento ya está cerrado para edición. No se puede alterar.');
       }
 
       const hoja = this.getHoja();
@@ -421,6 +437,10 @@ const MovimientosRepository = {
       const mov = this.buscarPorId(id);
       if (!mov) {
         throw new Error('Movimiento no encontrado: ' + id);
+      }
+
+      if (this._fechaEnMesCerrado(mov.fecha)) {
+        throw new Error('El mes de este movimiento ya está cerrado para edición. No se puede eliminar.');
       }
 
       // Recalcular saldo del cliente

@@ -57,10 +57,15 @@ function doGet(e) {
   }
 
   // Si no, devolver la Web App
-  return HtmlService.createHtmlOutputFromFile('SistemaSolVerde')
+  // XFrame: Script property XFRAME_DENY=1 → DENY (más seguro si no embebés en iframes)
+  var html = HtmlService.createHtmlOutputFromFile('SistemaSolVerde')
     .setTitle('Sol & Verde - Sistema de Cuenta Corriente')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  var denyFrame = PropertiesService.getScriptProperties().getProperty('XFRAME_DENY') === '1';
+  html.setXFrameOptionsMode(
+    denyFrame ? HtmlService.XFrameOptionsMode.DENY : HtmlService.XFrameOptionsMode.ALLOWALL
+  );
+  return html;
 }
 
 /**
@@ -587,6 +592,58 @@ function obtenerDatosParaHTML() {
   } catch (error) {
     Logger.log('Error en obtenerDatosParaHTML: ' + error.message);
     return { success: false, error: error.message, clientes: [], movimientos: [] };
+  }
+}
+
+/**
+ * Registra error crítico del navegador (window.onerror) en AUDITORIA.
+ * @param {Object} detalle
+ */
+function registrarErrorCritico(detalle) {
+  try {
+    AuditLogger.registrar({
+      modulo: 'FRONTEND',
+      operacion: 'ERROR_JS',
+      entidadId: '',
+      entidadDesc: (detalle && detalle.mensaje) ? String(detalle.mensaje).substring(0, 240) : 'Error desconocido',
+      antes: null,
+      despues: detalle || {},
+      montoImpacto: 0
+    });
+  } catch (e) {
+    /* no propagar */
+  }
+}
+
+/**
+ * Paquete único de arranque: clientes, últimos movimientos, caja diaria, config, API key.
+ * @returns {Object}
+ */
+function obtenerDatosArranqueDashboard() {
+  try {
+    var clientes = ClientesRepository.obtenerTodos(0, 0);
+    var movimientos = MovimientosRepository.obtenerRecientes(50);
+    var estadoCaja = CajaDiariaRepository.obtenerActiva();
+
+    return {
+      success: true,
+      clientes: serializarParaWeb(clientes),
+      movimientos: serializarParaWeb(movimientos),
+      estadoCaja: serializarParaWeb(estadoCaja),
+      configuracion: obtenerConfiguracion(),
+      apiKeyClaude: { presente: ClaudeService.tieneApiKey() },
+      totalClientes: clientes.length,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    Logger.log('Error en obtenerDatosArranqueDashboard: ' + error.message);
+    return {
+      success: false,
+      error: error.message,
+      clientes: [],
+      movimientos: [],
+      estadoCaja: null
+    };
   }
 }
 
