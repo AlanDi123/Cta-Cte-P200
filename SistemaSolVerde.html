@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover">
   <meta name="theme-color" content="#2E7D32">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -49,6 +49,20 @@
       --sv-radius: 8px;
       --sv-transition: 0.25s ease;
       --sv-touch-target: 48px;
+
+      /* Breakpoints (referencia documental; media queries usan px fijos) */
+      --sv-bp-sm: 480px;
+      --sv-bp-md: 768px;
+      --sv-bp-lg: 1024px;
+
+      /* Safe area (notch / home indicator) */
+      --sv-safe-top: env(safe-area-inset-top, 0px);
+      --sv-safe-right: env(safe-area-inset-right, 0px);
+      --sv-safe-bottom: env(safe-area-inset-bottom, 0px);
+      --sv-safe-left: env(safe-area-inset-left, 0px);
+
+      /* Altura útil en móviles (barra del navegador) */
+      --sv-app-height: 100dvh;
     }
 
     [data-theme="dark"] {
@@ -82,7 +96,10 @@
       background: var(--sv-fondo);
       color: var(--sv-texto);
       min-height: 100vh;
+      min-height: 100dvh;
       min-height: -webkit-fill-available;
+      padding-left: var(--sv-safe-left);
+      padding-right: var(--sv-safe-right);
       transition: background var(--sv-transition), color var(--sv-transition);
       overflow-x: hidden;
     }
@@ -134,6 +151,7 @@
     #appContainer {
       display: none;
       min-height: 100vh;
+      min-height: 100dvh;
     }
 
     #appContainer.visible {
@@ -146,16 +164,21 @@
       top: 0;
       left: 0;
       right: 0;
-      height: var(--sv-header-height);
+      height: calc(var(--sv-header-height) + var(--sv-safe-top));
+      min-height: calc(var(--sv-header-height) + var(--sv-safe-top));
+      padding-top: var(--sv-safe-top);
+      padding-left: max(0.75rem, var(--sv-safe-left));
+      padding-right: max(0.75rem, var(--sv-safe-right));
       background: var(--sv-primario);
       color: white;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 1rem;
+      padding-bottom: 0;
       gap: 0.75rem;
       z-index: 100;
       box-shadow: 0 2px 8px var(--sv-sombra);
+      box-sizing: border-box;
     }
 
     .header-logo {
@@ -213,10 +236,12 @@
     /* Sidebar */
     .sidebar {
       position: fixed;
-      top: var(--sv-header-height);
+      top: calc(var(--sv-header-height) + var(--sv-safe-top));
       left: 0;
       bottom: 0;
       width: var(--sv-sidebar-width);
+      max-width: min(var(--sv-sidebar-width), calc(100vw - var(--sv-safe-left) - var(--sv-safe-right)));
+      padding-bottom: var(--sv-safe-bottom);
       background: var(--sv-superficie);
       border-right: 1px solid var(--sv-borde);
       overflow-y: auto;
@@ -233,7 +258,7 @@
       display: none;
       position: fixed;
       inset: 0;
-      top: var(--sv-header-height);
+      top: calc(var(--sv-header-height) + var(--sv-safe-top));
       background: rgba(0,0,0,0.5);
       z-index: 85;
     }
@@ -290,9 +315,11 @@
     /* Main Content */
     .main-content {
       margin-left: var(--sv-sidebar-width);
-      margin-top: var(--sv-header-height);
+      margin-top: calc(var(--sv-header-height) + var(--sv-safe-top));
       padding: 1rem;
-      min-height: calc(100vh - var(--sv-header-height));
+      padding-bottom: calc(1rem + var(--sv-safe-bottom));
+      min-height: calc(100dvh - var(--sv-header-height) - var(--sv-safe-top));
+      min-height: calc(100vh - var(--sv-header-height) - var(--sv-safe-top));
       transition: margin var(--sv-transition);
     }
 
@@ -320,11 +347,18 @@
       .sidebar.open {
         transform: translateX(0);
         box-shadow: 4px 0 12px var(--sv-sombra);
+        z-index: 220;
+      }
+
+      .sidebar-overlay.active {
+        z-index: 210;
       }
 
       .main-content {
         margin-left: 0;
         padding: 0.75rem;
+        padding-left: max(0.75rem, var(--sv-safe-left));
+        padding-right: max(0.75rem, var(--sv-safe-right));
       }
 
       .grid-2, .grid-3, .grid-4 {
@@ -362,10 +396,25 @@
         margin-bottom: 1rem;
       }
 
-      /* Botones full-width en móvil solo si están solos */
-      .btn:not(.btn-sm):not(.btn-group > .btn) {
+      /* Botones a ancho completo solo donde se pide explícitamente (evita barras de herramientas rotas) */
+      .form-actions-stacked > .btn:not(.btn-sm),
+      .btn-block-sm {
         width: 100%;
         justify-content: center;
+      }
+
+      .toolbar-responsive {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: stretch;
+      }
+
+      .toolbar-responsive > .btn:not(.btn-sm) {
+        flex: 1 1 auto;
+        min-width: min(100%, 7.5rem);
+        max-width: 100%;
+        width: auto;
       }
 
       .btn-group {
@@ -374,8 +423,10 @@
       }
 
       .btn-group > .btn {
-        flex: 1;
-        min-width: 100px;
+        flex: 1 1 auto;
+        min-width: min(100%, 100px);
+        max-width: 100%;
+        width: auto;
       }
 
       /* Inputs más grandes */
@@ -386,6 +437,7 @@
       /* Modales fullscreen en móvil */
       .modal-content {
         max-width: 100%;
+        max-height: 100dvh;
         max-height: 100vh;
         border-radius: 0;
       }
@@ -424,12 +476,14 @@
       /* Modales como bottom sheet en móvil */
       .modal {
         align-items: flex-end;
+        padding: 0 max(0.5rem, var(--sv-safe-left)) max(0.5rem, var(--sv-safe-bottom)) max(0.5rem, var(--sv-safe-right));
       }
       .modal-content {
         border-radius: var(--sv-radius) var(--sv-radius) 0 0;
-        max-height: 90vh;
+        max-height: min(90dvh, 90vh);
         width: 100%;
         max-width: 100%;
+        -webkit-overflow-scrolling: touch;
       }
 
       /* Botones de acción primaria: mínimo 44px */
@@ -437,9 +491,16 @@
         min-height: 44px;
       }
 
-      /* Área táctil mínima para todos los botones */
-      button {
+      /* Área táctil mínima para botones (excepto cabecera circular) */
+      button:not(.header-btn) {
         min-height: 44px;
+      }
+
+      .app-header .header-btn {
+        min-height: var(--sv-touch-target);
+        min-width: var(--sv-touch-target);
+        width: var(--sv-touch-target);
+        height: var(--sv-touch-target);
       }
 
       /* Config tabs: scroll horizontal en mobile */
@@ -586,6 +647,27 @@
       -webkit-overflow-scrolling: touch;
       margin: 0 -1rem;
       padding: 0 1rem;
+      max-width: 100%;
+      box-sizing: content-box;
+    }
+
+    /* Indicador sutil de scroll horizontal en tablas anchas */
+    .table-container.sv-scroll-hint {
+      background:
+        linear-gradient(to right, var(--sv-superficie) 0, rgba(255,255,255,0) 12px) left,
+        linear-gradient(to left, var(--sv-superficie) 0, rgba(255,255,255,0) 12px) right;
+      background-size: 16px 100%;
+      background-repeat: no-repeat;
+      background-attachment: local, local;
+    }
+
+    [data-theme="dark"] .table-container.sv-scroll-hint {
+      background:
+        linear-gradient(to right, var(--sv-superficie) 0, rgba(26,61,28,0) 12px) left,
+        linear-gradient(to left, var(--sv-superficie) 0, rgba(26,61,28,0) 12px) right;
+      background-size: 16px 100%;
+      background-repeat: no-repeat;
+      background-attachment: local, local;
     }
 
     .table {
@@ -706,10 +788,10 @@
     /* Toast */
     .toast-container {
       position: fixed;
-      bottom: 1rem;
-      left: 1rem;
-      right: 1rem;
-      z-index: 1000;
+      bottom: max(1rem, var(--sv-safe-bottom));
+      left: max(1rem, var(--sv-safe-left));
+      right: max(1rem, var(--sv-safe-right));
+      z-index: 10050;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
@@ -883,8 +965,8 @@
        ============================================================================ */
     #bgTaskIndicator {
       position: fixed;
-      bottom: 1rem;
-      right: 1rem;
+      bottom: max(1rem, var(--sv-safe-bottom));
+      right: max(1rem, var(--sv-safe-right));
       background: var(--sv-primario-oscuro);
       color: white;
       border-radius: 999px;
@@ -1072,7 +1154,7 @@
       align-items: center;
       justify-content: center;
       z-index: 1000;
-      padding: 1rem;
+      padding: max(1rem, var(--sv-safe-top)) max(1rem, var(--sv-safe-right)) max(1rem, var(--sv-safe-bottom)) max(1rem, var(--sv-safe-left));
     }
 
     .modal.active {
@@ -1085,8 +1167,9 @@
       padding: 1.25rem;
       width: 100%;
       max-width: 500px;
-      max-height: 90vh;
+      max-height: min(90dvh, 90vh);
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       animation: scaleIn 0.25s ease;
       will-change: transform, opacity; /* FASE 4: Hardware acceleration */
     }
@@ -2122,6 +2205,7 @@
     #module-venta-nocturna {
       padding: 0;
       background: var(--sv-fondo);
+      min-height: calc(100dvh - var(--sv-header-height) - var(--sv-safe-top));
       min-height: calc(100vh - 60px);
     }
     .vn-sesion-bar {
@@ -2176,6 +2260,7 @@
       display: grid;
       grid-template-columns: 1fr 340px;
       gap: 0;
+      height: calc(100dvh - 110px - var(--sv-safe-top));
       height: calc(100vh - 110px);
       overflow: hidden;
     }
@@ -2466,7 +2551,7 @@
       display: none;
       position: fixed;
       inset: 0;
-      z-index: 10001;
+      z-index: 10070;
       align-items: center;
       justify-content: center;
       background: rgba(0, 0, 0, 0.45);
@@ -2530,6 +2615,12 @@
     .btn-success:hover { background: #059669; transform: translateY(-1px); }
     .btn-outline { background: transparent; border: 2px solid #e5e7eb; color: #4b5563; }
     .btn-outline:hover { border-color: #d1d5db; background: #f9fafb; }
+
+    .dataTables_wrapper {
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
 
     table.dataTable, .table-limpia {
       width: 100%;
@@ -2697,6 +2788,11 @@
         background-color: #ffffff !important;
         color: #000000 !important;
       }
+    }
+
+    /* SweetAlert2 por encima de modales (.modal z-index 1000) */
+    .swal2-container {
+      z-index: 10060 !important;
     }
 
   </style>
@@ -2949,7 +3045,7 @@
         <div class="card" id="vrResultados" style="display: none;">
           <div class="card-title">Movimientos Detectados</div>
           <div class="table-container">
-            <table class="table">
+            <table class="table table-responsive-cards">
               <thead>
                 <tr>
                   <th>Cliente</th>
@@ -3363,8 +3459,8 @@
         <h2 style="margin-bottom: 1rem;">Gestion de Clientes</h2>
 
         <div class="card">
-          <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
-            <input type="text" class="form-input" id="filtroClientes" placeholder="Filtrar por nombre..." style="flex: 1; min-width: 200px;" oninput="filtrarClientesDebounce()">
+          <div class="toolbar-responsive" style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: stretch;">
+            <input type="text" class="form-input" id="filtroClientes" placeholder="Filtrar por nombre..." style="flex: 1; min-width: 0;" oninput="filtrarClientesDebounce()">
             <button class="btn btn-primary" onclick="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
             <button type="button" class="btn btn-outline no-print" onclick="abrirVistaImpresion('contenedor-tabla-clientes', 'Estado de Cuenta - Clientes')" title="Imprimir">
               <i class="fa-solid fa-print"></i> Imprimir Saldos
@@ -3393,8 +3489,8 @@
         <h2 style="margin-bottom: 1rem;">💰 Facturación & Transferencias ARCA</h2>
 
         <div class="card" style="margin-bottom: 1rem;">
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
-            <div class="form-group" style="margin: 0; flex: 1; min-width: 150px;">
+          <div class="toolbar-responsive" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+            <div class="form-group" style="margin: 0; flex: 1; min-width: min(100%, 150px);">
               <label class="form-label">Filtrar por mes</label>
               <input type="month" class="form-input" id="filtroMesTransfUnif" onchange="cargarTransferenciasUnificadas()">
             </div>
@@ -3404,10 +3500,10 @@
         </div>
 
         <!-- Tabs para filtrar por estado -->
-        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
-          <button class="btn btn-outline" id="tabTodasUnif" onclick="filtrarTransferenciasUnif('todas')" style="flex: 1; min-width: 120px;">Todas</button>
-          <button class="btn btn-outline" id="tabPendientesUnif" onclick="filtrarTransferenciasUnif('pendientes')" style="flex: 1; min-width: 120px;">Pendientes</button>
-          <button class="btn btn-outline" id="tabFacturadasUnif" onclick="filtrarTransferenciasUnif('facturadas')" style="flex: 1; min-width: 120px;">Facturadas</button>
+        <div class="toolbar-responsive" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: stretch;">
+          <button class="btn btn-outline" id="tabTodasUnif" onclick="filtrarTransferenciasUnif('todas')" style="flex: 1; min-width: 0;">Todas</button>
+          <button class="btn btn-outline" id="tabPendientesUnif" onclick="filtrarTransferenciasUnif('pendientes')" style="flex: 1; min-width: 0;">Pendientes</button>
+          <button class="btn btn-outline" id="tabFacturadasUnif" onclick="filtrarTransferenciasUnif('facturadas')" style="flex: 1; min-width: 0;">Facturadas</button>
         </div>
 
         <div class="card">
@@ -3439,9 +3535,9 @@
           <div>
             <div class="card">
               <div class="card-title">1. Tipo de Comprobante</div>
-              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button class="btn btn-outline" id="btnCbteTipoFA" onclick="seleccionarCbteTipo(1)" style="flex:1; min-width: 120px;">Factura A</button>
-                <button class="btn btn-outline" id="btnCbteTipoFB" onclick="seleccionarCbteTipo(6)" style="flex:1; min-width: 120px;">Factura B</button>
+              <div class="toolbar-responsive" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="btn btn-outline" id="btnCbteTipoFA" onclick="seleccionarCbteTipo(1)" style="flex:1; min-width:0;">Factura A</button>
+                <button class="btn btn-outline" id="btnCbteTipoFB" onclick="seleccionarCbteTipo(6)" style="flex:1; min-width:0;">Factura B</button>
               </div>
               <input type="hidden" id="arcaCbteTipo" value="">
             </div>
@@ -3466,25 +3562,25 @@
 
             <div class="card">
               <div class="card-title">3. Detalle de Productos</div>
-              <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem;">
-                <div class="form-group" style="margin:0; flex:2;">
+              <div class="toolbar-responsive" style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.75rem; flex-wrap: wrap;">
+                <div class="form-group" style="margin:0; flex:2; min-width:min(100%,140px);">
                   <label class="form-label">Producto</label>
                   <select class="form-input" id="arcaProducto">
                     <option value="">Seleccionar...</option>
                   </select>
                 </div>
-                <div class="form-group" style="margin:0; flex:1;">
+                <div class="form-group" style="margin:0; flex:1; min-width:min(100%,88px);">
                   <label class="form-label">Cant.</label>
                   <input type="number" class="form-input input-cantidad-factura" id="arcaCantidad" value="1" min="1">
                 </div>
-                <div class="form-group" style="margin:0; flex:1;">
+                <div class="form-group" style="margin:0; flex:1; min-width:min(100%,110px);">
                   <label class="form-label">P.Unit s/IVA</label>
                   <input type="number" class="form-input" id="arcaPrecioUnit" step="0.01" min="0">
                 </div>
-                <button class="btn btn-primary" onclick="agregarItemFactura()" style="height: 40px;">+</button>
+                <button class="btn btn-primary btn-sm" type="button" onclick="agregarItemFactura()" style="align-self:flex-end;">+</button>
               </div>
               <div class="table-container" style="max-height: 250px; overflow-y: auto;">
-                <table class="table">
+                <table class="table table-responsive-cards">
                   <thead>
                     <tr>
                       <th>Cant.</th>
@@ -3557,7 +3653,7 @@
 
         <!-- Barra de acciones -->
         <div class="card" style="margin-bottom: 1rem;">
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+          <div class="toolbar-responsive" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
               <button class="btn btn-primary" onclick="cargarHistorialFacturas(true)">🔄 Actualizar</button>
               <button class="btn btn-outline" onclick="navegarA('facturacion-arca')">+ Nuevo Comprobante</button>
@@ -5020,7 +5116,9 @@
           <label class="form-label">Observaciones</label>
           <input type="text" class="form-input" id="editMovObs">
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar Cambios</button>
+        <div class="form-actions-stacked" style="margin-top:1rem;">
+          <button type="submit" class="btn btn-primary btn-block-sm">Guardar Cambios</button>
+        </div>
       </form>
     </div>
   </div>
@@ -6464,6 +6562,65 @@
     };
 
     // ============================================================================
+    // RESPONSIVE: data-label fallback + hints de scroll en tablas
+    // ============================================================================
+    function svApplyDataLabelsFromHeaders(root) {
+      root = root || document;
+      var tables = root.querySelectorAll('table.table-responsive-cards');
+      for (var t = 0; t < tables.length; t++) {
+        var table = tables[t];
+        var ths = table.querySelectorAll('thead tr:last-child th');
+        if (!ths.length) continue;
+        var headers = [];
+        for (var h = 0; h < ths.length; h++) {
+          headers.push((ths[h].textContent || '').trim() || ('Col ' + (h + 1)));
+        }
+        var rows = table.querySelectorAll('tbody tr');
+        for (var r = 0; r < rows.length; r++) {
+          var tr = rows[r];
+          var cells = tr.querySelectorAll('td');
+          var colIdx = 0;
+          for (var c = 0; c < cells.length; c++) {
+            var td = cells[c];
+            var cs = parseInt(td.getAttribute('colspan') || '1', 10) || 1;
+            if (cs > 1) {
+              colIdx += cs;
+              continue;
+            }
+            if (td.hasAttribute('data-label') && String(td.getAttribute('data-label')).trim()) {
+              colIdx++;
+              continue;
+            }
+            var label = headers[colIdx] || '';
+            if (label) td.setAttribute('data-label', label);
+            colIdx++;
+          }
+        }
+      }
+    }
+
+    function svInitTableScrollHints() {
+      document.querySelectorAll('.table-container').forEach(function(wrap) {
+        if (wrap._svScrollHintInit) return;
+        wrap._svScrollHintInit = true;
+        var table = wrap.querySelector('table');
+        if (!table) return;
+        function update() {
+          try {
+            wrap.classList.toggle('sv-scroll-hint', table.scrollWidth > wrap.clientWidth + 2);
+          } catch (e) { /* ignore */ }
+        }
+        update();
+        wrap.addEventListener('scroll', update);
+        if (typeof ResizeObserver !== 'undefined') {
+          var ro = new ResizeObserver(update);
+          ro.observe(wrap);
+          ro.observe(table);
+        }
+      });
+    }
+
+    // ============================================================================
     // INICIALIZACION
     // ============================================================================
     // Obtener fecha local en formato YYYY-MM-DD (sin problemas de zona horaria)
@@ -6491,6 +6648,13 @@
       setupEventos();
       setupNavegacionTeclado();
       ColaTareas.init();
+
+      svApplyDataLabelsFromHeaders();
+      svInitTableScrollHints();
+      setTimeout(function() {
+        svApplyDataLabelsFromHeaders();
+        svInitTableScrollHints();
+      }, 600);
 
       // BUG A FIX: Aplicar config visual desde localStorage SINCRÓNICAMENTE
       // antes de mostrar nada, para evitar el flash de módulos que deben estar ocultos
@@ -7725,6 +7889,11 @@
       if (modulo === 'venta-nocturna') {
         vnOnActivar();
       }
+
+      requestAnimationFrame(function() {
+        svApplyDataLabelsFromHeaders(targetModule);
+        svInitTableScrollHints();
+      });
     }
 
     // ============================================================================
@@ -7888,11 +8057,17 @@
           jQuery('#tablaMovimientos').DataTable({
             pageLength: 25,
             order: [[0, 'desc']],
+            scrollX: true,
+            autoWidth: false,
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' },
             createdRow: function(row) {
               var tag = row.querySelector('.tag-debe, .tag-pago, .tag-habe');
               if (tag && tag.classList.contains('tag-debe')) row.classList.add('sv-row-debe');
               else if (tag && (tag.classList.contains('tag-pago') || tag.classList.contains('tag-habe'))) row.classList.add('sv-row-pago');
+            },
+            drawCallback: function() {
+              svApplyDataLabelsFromHeaders(document.getElementById('tablaMovimientos'));
+              svInitTableScrollHints();
             }
           });
         }
@@ -8377,13 +8552,15 @@
           '</select>';
         var estadoCell = m.valido ? '&#10003;' : (m.sugerencias && m.sugerencias.length ? '&#9888;&#65039;' : '&#10007;');
         return '<tr>' +
-          '<td>' + clienteCell + '</td>' +
-          '<td><span class="tag tag-' + m.tipo.toLowerCase() + '">' + (m.tipo === 'DEBE' ? 'FIADO' : 'PAGO') + '</span></td>' +
-          '<td><input type="number" class="form-input" value="' + m.monto + '" onchange="actualizarMontoVR(' + i + ', this.value)" style="width: 100px; padding: 0.5rem;" inputmode="numeric"></td>' +
-          '<td>' + estadoCell + '</td>' +
-          '<td><button class="btn btn-outline btn-sm" onclick="eliminarMovVR(' + i + ')">&#10007;</button></td>' +
+          '<td data-label="Cliente">' + clienteCell + '</td>' +
+          '<td data-label="Tipo"><span class="tag tag-' + m.tipo.toLowerCase() + '">' + (m.tipo === 'DEBE' ? 'FIADO' : 'PAGO') + '</span></td>' +
+          '<td data-label="Monto"><input type="number" class="form-input" value="' + m.monto + '" onchange="actualizarMontoVR(' + i + ', this.value)" style="max-width:100%;min-width:0;width:8rem;padding:0.5rem;" inputmode="numeric"></td>' +
+          '<td data-label="Estado">' + estadoCell + '</td>' +
+          '<td data-label=""><button type="button" class="btn btn-outline btn-sm" onclick="eliminarMovVR(' + i + ')">&#10007;</button></td>' +
         '</tr>';
       }).join('');
+      svApplyDataLabelsFromHeaders(document.getElementById('module-visual-reasoning'));
+      svInitTableScrollHints();
     }
 
     function seleccionarClienteVR(index, cliente) {
@@ -9461,7 +9638,13 @@
           jQuery('#tablaGestionClientes').DataTable({
             pageLength: 50,
             order: [[0, 'asc']],
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' }
+            scrollX: true,
+            autoWidth: false,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' },
+            drawCallback: function() {
+              svApplyDataLabelsFromHeaders(document.getElementById('tablaGestionClientes'));
+              svInitTableScrollHints();
+            }
           });
         }
       } catch (e) { console.warn('DataTable clientes:', e); }
@@ -9506,7 +9689,13 @@
           jQuery('#tablaGestionClientes').DataTable({
             pageLength: 50,
             order: [[0, 'asc']],
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' }
+            scrollX: true,
+            autoWidth: false,
+            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-AR.json' },
+            drawCallback: function() {
+              svApplyDataLabelsFromHeaders(document.getElementById('tablaGestionClientes'));
+              svInitTableScrollHints();
+            }
           });
         }
       } catch (e) { console.warn('DataTable clientes filtro:', e); }
@@ -9798,7 +9987,7 @@
       // Control de página única vs múltiples páginas
       let pageModeCss = '';
       if (pageMode === 'single') {
-        pageModeCss = '.module-view.active { max-height: 100vh !important; overflow: hidden !important; }';
+        pageModeCss = '.module-view.active { max-height: 100dvh !important; max-height: 100vh !important; overflow: hidden !important; }';
       } else if (pageMode === 'multi') {
         pageModeCss = '.module-view.active { max-height: none !important; overflow: visible !important; }';
       }
@@ -11478,13 +11667,15 @@
       }
       tbody.innerHTML = arcaItems.map(function(item, i) {
         return '<tr>' +
-          '<td>' + item.cantidad + '</td>' +
-          '<td>' + escapeHtml(item.descripcion) + '</td>' +
-          '<td style="text-align:right">$' + item.precioUnit.toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
-          '<td style="text-align:right">$' + item.subtotal.toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
-          '<td><button class="btn btn-outline" style="padding:2px 8px;font-size:0.7rem;" onclick="eliminarItemFactura(' + i + ')">X</button></td>' +
+          '<td data-label="Cant.">' + item.cantidad + '</td>' +
+          '<td data-label="Descripción">' + escapeHtml(item.descripcion) + '</td>' +
+          '<td data-label="P.Unit" style="text-align:right">$' + item.precioUnit.toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
+          '<td data-label="Subtotal" style="text-align:right">$' + item.subtotal.toLocaleString('es-AR', {minimumFractionDigits:2}) + '</td>' +
+          '<td data-label=""><button type="button" class="btn btn-outline btn-sm" onclick="eliminarItemFactura(' + i + ')">X</button></td>' +
           '</tr>';
       }).join('');
+      svApplyDataLabelsFromHeaders(document.getElementById('module-facturacion-arca'));
+      svInitTableScrollHints();
     }
 
     function actualizarArcaPreview() {
@@ -13331,6 +13522,9 @@
           '</td>' +
         '</tr>';
       }).join('');
+
+      svApplyDataLabelsFromHeaders(document.getElementById('module-facturacion-unificada'));
+      svInitTableScrollHints();
 
       _renderPaginacionTransf(TransfUnifPag.pagina, totalPaginas, total);
     }
