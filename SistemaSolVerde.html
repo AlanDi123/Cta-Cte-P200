@@ -3561,6 +3561,7 @@
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
               <button class="btn btn-primary" onclick="cargarHistorialFacturas(true)">🔄 Actualizar</button>
               <button class="btn btn-outline" onclick="navegarA('facturacion-arca')">+ Nuevo Comprobante</button>
+              <button class="btn btn-outline btn-sm" onclick="hfReconstruirDetalleHistorico()" id="btnHfRecuperarDetalle" title="Completar DETALLE en filas antiguas para impresión">📋 Recuperar líneas (histórico)</button>
               <button class="btn btn-outline btn-sm" onclick="hfExportarCSV()" id="btnHfExportCSV" style="display:none;">📥 Exportar CSV</button>
             </div>
             <span style="font-size: 0.85rem; color: var(--sv-texto-muted);" id="historialFacturasCount"></span>
@@ -11955,6 +11956,61 @@
       _hfRenderizarTabla();
     }
 
+    /**
+     * Rellena DETALLE en la planilla para comprobantes sin ítems (histórico).
+     * ARCA no devuelve producto por producto; se graba una línea sintética con el neto gravado.
+     */
+    function hfReconstruirDetalleHistorico() {
+      var htmlMsg =
+        '<p style="text-align:left;font-size:0.9rem;line-height:1.45;">' +
+        'Se escribirá en la columna <strong>DETALLE</strong> (solo donde esté vacío) <strong>una línea</strong> con el importe neto gravado según NETO/TOTAL de la planilla. ' +
+        'No es posible recuperar el listado real de productos: en ARCA la emisión fue consolidada.</p>' +
+        '<p style="text-align:left;font-size:0.85rem;color:#666;">' +
+        '<strong>Solo importes:</strong> rápido.<br>' +
+        '<strong>+ Padrón CUIT:</strong> completa razón social y condición IVA donde falten (una consulta por fila; puede tardar).</p>';
+
+      function ejecutar(enriquecerReceptor) {
+        mostrarLoading(true);
+        google.script.run
+          .withSuccessHandler(function(res) {
+            mostrarLoading(false);
+            var msg = (res && res.mensaje) ? res.mensaje : 'Proceso finalizado.';
+            if (res && res.errores && res.errores.length) {
+              console.warn(res.errores);
+            }
+            mostrarToast(msg, res && res.success !== false ? 'success' : 'warning');
+            cargarHistorialFacturas(true);
+          })
+          .withFailureHandler(function(err) {
+            mostrarLoading(false);
+            mostrarToast(err.message || 'Error', 'error');
+          })
+          .reconstruirDetalleFacturasHistoricas({
+            soloVacios: true,
+            enriquecerReceptor: enriquecerReceptor,
+            limite: 0
+          });
+      }
+
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: 'Recuperar líneas para impresión',
+          html: htmlMsg,
+          icon: 'question',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: 'Solo importes (rápido)',
+          denyButtonText: 'Importes + padrón CUIT',
+          cancelButtonText: 'Cancelar'
+        }).then(function(r) {
+          if (r.isConfirmed) ejecutar(false);
+          else if (r.isDenied) ejecutar(true);
+        });
+      } else if (confirm('¿Completar DETALLE vacío con una línea por comprobante (importe neto)?')) {
+        ejecutar(false);
+      }
+    }
+
     function hfExportarCSV() {
       var datos = _HF.filtradas;
       if (datos.length === 0) { mostrarToast('No hay datos para exportar', 'warning'); return; }
@@ -12016,7 +12072,7 @@
         '</div>' +
         '<table style="width:100%;border-collapse:collapse;font-size:0.875rem;">' +
           _hfFilaDetalle('📅 Fecha',    escapeHtml(f.fecha || '-')) +
-          _hfFilaDetalle('👤 Cliente',  escapeHtml(f.clienteNombre || '-')) +
+          _hfFilaDetalle('👤 Cliente',  escapeHtml((f.clienteRazonSocial && String(f.clienteRazonSocial).trim()) || f.clienteNombre || '-')) +
           _hfFilaDetalle('🔢 CUIT',     escapeHtml(f.clienteCuit || 'Consumidor Final')) +
           _hfFilaDetalle('💰 Total',    '$' + (Number(f.total) || 0).toLocaleString('es-AR', {minimumFractionDigits:2})) +
           _hfFilaDetalle('🔑 CAE',      '<span style="font-family:monospace;">' + escapeHtml(String(f.cae || '-')) + '</span>') +
@@ -12170,7 +12226,7 @@
         filasBlancoExtra = Math.max(0, 12 - items.length);
         itemsHTML = items.map(function(it) {
           var cant = Number(it.cantidad || it.qty || 1);
-          var pu   = Number(it.precioUnit || it.precio_unit || it.precio || it.unit_price || 0);
+          var pu   = Number(it.precioUnitario || it.precioUnit || it.precio_unit || it.precio || it.unit_price || 0);
           var bon  = Number(it.bonif || it.descuento || it.discount || 0);
           var sub  = Number(it.subtotal || it.importe || (pu * cant * (1 - bon/100)));
           return '<tr>' +
@@ -12310,11 +12366,12 @@
 '</div>' +
 '<div class="receptor">' +
   '<div class="receptor-grid">' +
-    '<div class="rc"><b>Sr./Sra.:</b> ' + escHtml(f.clienteNombre || 'CONSUMIDOR FINAL') + '</div>' +
+    '<div class="rc"><b>Razón social / Denominación:</b> ' + escHtml((f.clienteRazonSocial && String(f.clienteRazonSocial).trim()) || f.clienteNombre || 'CONSUMIDOR FINAL') + '</div>' +
     '<div class="rc"><b>CUIT / DNI Nro.:</b> ' + escHtml(f.clienteCuit || '-') + '</div>' +
-    '<div class="rc"><b>Condición frente al IVA:</b> ' + escHtml(esA ? 'RESPONSABLE INSCRIPTO' : 'CONSUMIDOR FINAL') + '</div>' +
+    '<div class="rc"><b>Condición frente al IVA:</b> ' + escHtml((f.clienteCondicionTexto && String(f.clienteCondicionTexto).trim()) ? f.clienteCondicionTexto : (esA ? 'RESPONSABLE INSCRIPTO' : 'CONSUMIDOR FINAL')) + '</div>' +
     '<div class="rc"><b>Condición de Venta:</b> ' + escHtml(f.condicionVenta || 'CONTADO') + '</div>' +
   '</div>' +
+  (f.clienteDomicilioFiscal ? '<div style="margin-top:6px;font-size:9.5px;"><b>Domicilio fiscal:</b> ' + escHtml(f.clienteDomicilioFiscal) + '</div>' : '') +
 '</div>' +
 '<table class="items" style="border:2px solid #000;border-top:2px solid #000;">' +
   '<thead><tr>' +
