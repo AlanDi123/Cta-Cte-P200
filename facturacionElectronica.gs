@@ -128,7 +128,7 @@ function emitirFacturaElectronica(datosFactura) {
       total = Math.round((neto + iva) * 100) / 100;
     } else if (datos.detalle && datos.detalle.length > 0) {
       neto = datos.detalle.reduce(function(s, item) {
-        return s + (Number(item.precioUnitario || item.precio || 0) * Number(item.cantidad || 1));
+        return s + (Number(item.precioUnitario || item.precioUnit || item.precio || 0) * Number(item.cantidad || 1));
       }, 0);
       neto  = Math.round(neto * 100) / 100;
       iva   = Math.round(neto * ivaPct * 100) / 100;
@@ -221,7 +221,12 @@ function emitirFacturaElectronica(datosFactura) {
       cbteNro:       resultado.cbteNro || 0,
       clienteNombre: datos.clienteNombre,
       clienteCuit:   datos.clienteCuit || '',
+      clienteRazonSocial: datos.clienteRazonSocial || '',
+      condicionIvaReceptor: datos.clienteCondicionTexto || '',
+      impNeto:       neto,
+      impIVA:        iva,
       total:         total,
+      detalle:       datos.detalle || [],
       cae:           resultado.cae || '',
       caeVto:        resultado.caeVencimiento || '',
       estado:        'EMITIDA',
@@ -281,7 +286,9 @@ var ALIASES_COLUMNAS = {
   'CBTE_TIPO_NOMBRE':['CBTE_TIPO_NOMBRE','TIPO_NOMBRE','NOMBRE_TIPO','CBTE_TIPO_NOM'],
   'CBTE_NRO':        ['CBTE_NRO','NRO','NUMERO','NRO_COMPROBANTE','CBTE_NUMERO'],
   'PTO_VTA':         ['PTO_VTA','PUNTO_VENTA','PTOVTA','PV'],
-  'CLIENTE':         ['CLIENTE','RAZON_SOCIAL_CLIENTE','NOMBRE_CLIENTE','CLIENTE_NOMBRE','RAZON_SOCIAL'],
+  'CLIENTE':         ['CLIENTE','CLIENTE_NOMBRE','RAZON_SOCIAL_CLIENTE','NOMBRE_CLIENTE'],
+  'RAZON_SOCIAL':    ['RAZON_SOCIAL','CLIENTE_RAZON_SOCIAL','RAZON_SOCIAL_CLIENTE','RAZON_SOCIAL_RECEPTOR'],
+  'CONDICION_IVA':   ['CONDICION_IVA','COND_IVA_RECEPTOR','RECEPTOR_IVA','IVA_RECEPTOR'],
   'CUIT':            ['CUIT','CUIT_CLIENTE','DOCUMENTO','DOC_NRO'],
   'CONDICION':       ['CONDICION','CONDICION_VENTA','COND_VENTA','CONDICION_PAGO'],
   'NETO':            ['NETO','IMP_NETO','IMPORTE_NETO','NETO_GRAVADO'],
@@ -371,6 +378,8 @@ function obtenerHistorialFacturas() {
           cbteNro:        Number(get(fila, 'CBTE_NRO'))   || 0,
           ptoVta:         Number(get(fila, 'PTO_VTA'))    || 0,
           clienteNombre:  String(get(fila, 'CLIENTE')     || ''),
+          clienteRazonSocial: String(get(fila, 'RAZON_SOCIAL') || ''),
+          clienteCondicionTexto: String(get(fila, 'CONDICION_IVA') || ''),
           clienteCuit:    String(get(fila, 'CUIT')        || ''),
           condicionVenta: String(get(fila, 'CONDICION')   || 'CONTADO'),
           impNeto:        impNeto,
@@ -457,6 +466,179 @@ function _hfParsearDetalle(valor) {
   } catch (e) {
     return [];
   }
+}
+
+/**
+ * Porcentaje IVA configurado (mismo criterio que emisión) para estimar neto desde total.
+ */
+function _hfIvaPctParaNetoDesdeTotal() {
+  var p = parseFloat(PropertiesService.getScriptProperties().getProperty('IVA_PORCENTAJE') || '21');
+  if (isNaN(p) || p <= 0) p = 21;
+  return p / 100;
+}
+
+/**
+ * Rellena la columna DETALLE en facturas antiguas donde está vacío.
+ *
+ * ARCA/FECompConsultar no devuelve renglones de productos: la integración emite totales consolidados,
+ * así que no es posible recuperar el detalle real. Se graba UNA línea sintética con el importe neto
+ * gravado (desde columnas NETO/TOTAL) para que la impresión RG muestre importes coherentes.
+ *
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.soloVacios=true]  No pisar filas que ya tienen JSON de ítems.
+ * @param {boolean} [opciones.enriquecerReceptor=false]  Completar RAZON_SOCIAL y CONDICION_IVA desde padrón (lento; 1 llamada/CUIT).
+ * @param {number} [opciones.limite=0]  Máx. filas a actualizar (DETALLE); 0 = sin límite.
+ * @returns {{ success:boolean, mensaje:string, actualizadasDetalle:number, actualizadasReceptor:number, omitidas:number, errores:Array, porHoja:Array }}
+ */
+function reconstruirDetalleFacturasHistoricas(opciones) {
+  opciones = opciones || {};
+  var soloVacios = opciones.soloVacios !== false;
+  var enriquecerReceptor = opciones.enriquecerReceptor === true;
+  var limite = Number(opciones.limite) || 0;
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var HOJAS_FUENTE = ['FACTURAS_EMITIDAS', 'FacturasARCA', 'Facturas_ARCA', 'FACTURAS_ARCA'];
+  var ivaPct = _hfIvaPctParaNetoDesdeTotal();
+
+  var actualizadasDetalle = 0;
+  var actualizadasReceptor = 0;
+  var omitidas = 0;
+  var errores = [];
+  var porHoja = [];
+
+  HOJAS_FUENTE.forEach(function(nombreHoja) {
+    var hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja) return;
+
+    if (nombreHoja === (typeof AFIP_CONFIG !== 'undefined' && AFIP_CONFIG.HOJA_FACTURAS
+      ? AFIP_CONFIG.HOJA_FACTURAS
+      : 'FACTURAS_EMITIDAS')) {
+      _hfEnsureFacturasEmitidasColumns(hoja);
+    }
+    if (enriquecerReceptor) {
+      _hfEnsureColumnasReceptorOpcional(hoja);
+    }
+
+    var datos = hoja.getDataRange().getValues();
+    if (datos.length <= 1) return;
+
+    var cabecera = datos[0].map(function(c) {
+      return String(c).toUpperCase().trim().replace(/\s+/g, '_');
+    });
+    var col = {};
+    cabecera.forEach(function(n, idx) { col[n] = idx; });
+
+    function findCol(aliases) {
+      for (var a = 0; a < aliases.length; a++) {
+        var u = aliases[a].toUpperCase();
+        if (col[u] !== undefined) return col[u];
+      }
+      return -1;
+    }
+
+    var idxDetalle = findCol(['DETALLE', 'ITEMS', 'DETALLE_ITEMS', 'LINEAS']);
+    var idxNeto = findCol(['NETO', 'IMP_NETO', 'IMPORTE_NETO', 'NETO_GRAVADO']);
+    var idxTotal = findCol(['TOTAL', 'IMP_TOTAL', 'IMPORTE_TOTAL', 'MONTO_TOTAL']);
+    var idxCbteTipo = findCol(['CBTE_TIPO', 'TIPO', 'TIPO_CBTE', 'CBTE_TYPE']);
+    var idxCuit = findCol(['CUIT', 'CUIT_CLIENTE', 'DOCUMENTO', 'DOC_NRO']);
+    var idxRazon = findCol(['RAZON_SOCIAL', 'CLIENTE_RAZON_SOCIAL', 'RAZON_SOCIAL_CLIENTE']);
+    var idxCondIva = findCol(['CONDICION_IVA', 'COND_IVA_RECEPTOR', 'RECEPTOR_IVA', 'IVA_RECEPTOR']);
+
+    if (idxDetalle < 0) {
+      errores.push(nombreHoja + ': sin columna DETALLE');
+      return;
+    }
+
+    var rep = { nombre: nombreHoja, detalle: 0, receptor: 0, omitidas: 0 };
+
+    for (var i = 1; i < datos.length; i++) {
+      if (limite > 0 && actualizadasDetalle >= limite) break;
+
+      var fila = datos[i];
+      var rawDet = fila[idxDetalle];
+      var detalle = _hfParsearDetalle(rawDet);
+
+      var total = idxTotal >= 0 ? Number(fila[idxTotal]) : 0;
+      var impNeto = idxNeto >= 0 ? Number(fila[idxNeto]) : 0;
+      var cbteTipoNum = idxCbteTipo >= 0 ? Number(fila[idxCbteTipo]) : 0;
+
+      if (!impNeto && total > 0 && (cbteTipoNum === 1 || cbteTipoNum === 2 || cbteTipoNum === 3)) {
+        impNeto = Math.round((total / (1 + ivaPct)) * 100) / 100;
+      } else if (!impNeto && total > 0) {
+        impNeto = total;
+      }
+
+      if (soloVacios && detalle.length > 0) {
+        rep.omitidas++;
+        omitidas++;
+      } else {
+        var netoLinea = impNeto > 0 ? impNeto : (total > 0 ? total : 0);
+        if (netoLinea > 0) {
+          var items = [{
+            descripcion: 'Importe neto gravado (recuperado; sin detalle de productos en archivo)',
+            cantidad: 1,
+            precioUnitario: netoLinea,
+            precioUnit: netoLinea,
+            subtotal: netoLinea
+          }];
+          try {
+            hoja.getRange(i + 1, idxDetalle + 1).setValue(JSON.stringify(items));
+            actualizadasDetalle++;
+            rep.detalle++;
+          } catch (e1) {
+            errores.push(nombreHoja + ' fila ' + (i + 1) + ': ' + e1.message);
+          }
+        } else {
+          rep.omitidas++;
+          omitidas++;
+        }
+      }
+
+      if (enriquecerReceptor && idxCuit >= 0 && idxRazon >= 0 && idxCondIva >= 0) {
+        var cuitRaw = String(fila[idxCuit] || '').replace(/[^0-9]/g, '');
+        var razonActual = String(fila[idxRazon] || '').trim();
+        var condActual = String(fila[idxCondIva] || '').trim();
+        if (cuitRaw.length === 11 && (!razonActual || !condActual)) {
+          try {
+            Utilities.sleep(350);
+            var pad = afipConsultarCUITWrapper(cuitRaw);
+            if (pad && pad.encontrado) {
+              var hubo = false;
+              if (!razonActual && pad.razonSocial) {
+                hoja.getRange(i + 1, idxRazon + 1).setValue(pad.razonSocial);
+                hubo = true;
+              }
+              if (!condActual && pad.condicionTexto) {
+                hoja.getRange(i + 1, idxCondIva + 1).setValue(pad.condicionTexto);
+                hubo = true;
+              }
+              if (hubo) {
+                actualizadasReceptor++;
+                rep.receptor++;
+              }
+            }
+          } catch (e2) {
+            errores.push('Padrón ' + nombreHoja + ' fila ' + (i + 1) + ': ' + e2.message);
+          }
+        }
+      }
+    }
+
+    if (rep.detalle > 0 || rep.receptor > 0 || rep.omitidas > 0) porHoja.push(rep);
+  });
+
+  var mensaje = 'Detalle recuperado: ' + actualizadasDetalle + ' fila(s). Receptor (padrón): ' + actualizadasReceptor + '. Omitidas: ' + omitidas + '.';
+  if (errores.length) mensaje += ' Avisos: ' + errores.length + '.';
+
+  return {
+    success: true,
+    mensaje: mensaje,
+    actualizadasDetalle: actualizadasDetalle,
+    actualizadasReceptor: actualizadasReceptor,
+    omitidas: omitidas,
+    errores: errores,
+    porHoja: porHoja
+  };
 }
 
 /**
@@ -855,7 +1037,7 @@ function _normalizarDatosFactura(datos) {
   if (importeNeto <= 0 && detalle.length > 0) {
     // Suma los subtotales de los ítems (precioUnitario × cantidad = precio SIN IVA)
     importeNeto = detalle.reduce(function(sum, item) {
-      var pu  = Number(item.precioUnitario || item.precio || 0);
+      var pu  = Number(item.precioUnitario || item.precioUnit || item.precio || 0);
       var qty = Number(item.cantidad || 1);
       return sum + (pu * qty);
     }, 0);
@@ -870,6 +1052,7 @@ function _normalizarDatosFactura(datos) {
     clienteDomicilio:  clienteDom,
     clienteCuit:       clienteCuit.toString().replace(/[-\s]/g, ''),
     clienteCondicion:  clienteCondicion,
+    clienteCondicionTexto: String(datos.clienteCondicionTexto || '').trim(),
     importeNeto:       importeNeto,
     detalle:           detalle,
     fechaTransferencia: datos.fechaTransferencia || null
@@ -906,15 +1089,59 @@ function _nombreTipoComprobante(cbteTipo) {
   return nombres[cbteTipo] || 'Comprobante ' + cbteTipo;
 }
 
+function _hfNormHeaderFactura(v) {
+  return String(v || '').toUpperCase().trim().replace(/\s+/g, '_');
+}
+
+/**
+ * Añade columnas NETO, IVA, DETALLE, RAZON_SOCIAL, CONDICION_IVA si la hoja es antigua (13 cols).
+ */
+function _hfEnsureFacturasEmitidasColumns(hoja) {
+  var lastCol = Math.max(hoja.getLastColumn(), 1);
+  var headers = hoja.getRange(1, 1, 1, lastCol).getValues()[0].map(_hfNormHeaderFactura);
+  var extra = ['NETO', 'IVA', 'DETALLE', 'RAZON_SOCIAL', 'CONDICION_IVA'];
+  var toAdd = [];
+  for (var i = 0; i < extra.length; i++) {
+    if (headers.indexOf(extra[i]) === -1) toAdd.push(extra[i]);
+  }
+  if (toAdd.length === 0) return;
+  var startCol = lastCol + 1;
+  hoja.getRange(1, startCol, 1, startCol + toAdd.length - 1).setValues([toAdd]);
+  hoja.getRange(1, startCol, 1, startCol + toAdd.length - 1)
+    .setFontWeight('bold').setBackground('#1565C0').setFontColor('#FFFFFF');
+}
+
+/**
+ * Añade RAZON_SOCIAL y CONDICION_IVA al final si no existen (p. ej. hoja FacturasARCA antigua).
+ */
+function _hfEnsureColumnasReceptorOpcional(hoja) {
+  var lastCol = Math.max(hoja.getLastColumn(), 1);
+  var headers = hoja.getRange(1, 1, 1, lastCol).getValues()[0].map(_hfNormHeaderFactura);
+  var extras = ['RAZON_SOCIAL', 'CONDICION_IVA'];
+  var toAdd = [];
+  for (var i = 0; i < extras.length; i++) {
+    if (headers.indexOf(extras[i]) === -1) toAdd.push(extras[i]);
+  }
+  if (toAdd.length === 0) return;
+  var startCol = lastCol + 1;
+  hoja.getRange(1, startCol, 1, startCol + toAdd.length - 1).setValues([toAdd]);
+  hoja.getRange(1, startCol, 1, startCol + toAdd.length - 1)
+    .setFontWeight('bold').setBackground('#E8F5E9').setFontColor('#000000');
+}
+
 function _getHojaFacturas() {
   var ss  = getSpreadsheet();
   var nombre = AFIP_CONFIG.HOJA_FACTURAS || 'FACTURAS_EMITIDAS';
   var hoja = ss.getSheetByName(nombre);
   if (!hoja) {
     hoja = ss.insertSheet(nombre);
-    hoja.appendRow(['ID','FECHA','CBTE_TIPO','CBTE_TIPO_NOMBRE','PTO_VTA','CBTE_NRO',
-                    'CLIENTE_NOMBRE','CLIENTE_CUIT','TOTAL','CAE','CAE_VTO','ESTADO','USUARIO']);
-    hoja.getRange(1,1,1,13).setFontWeight('bold').setBackground('#1565C0').setFontColor('#FFFFFF');
+    var hdr = [
+      'ID', 'FECHA', 'CBTE_TIPO', 'CBTE_TIPO_NOMBRE', 'PTO_VTA', 'CBTE_NRO',
+      'CLIENTE_NOMBRE', 'CLIENTE_CUIT', 'TOTAL', 'CAE', 'CAE_VTO', 'ESTADO', 'USUARIO',
+      'NETO', 'IVA', 'DETALLE', 'RAZON_SOCIAL', 'CONDICION_IVA'
+    ];
+    hoja.appendRow(hdr);
+    hoja.getRange(1, 1, 1, hdr.length).setFontWeight('bold').setBackground('#1565C0').setFontColor('#FFFFFF');
     hoja.setFrozenRows(1);
   }
   return hoja;
@@ -922,11 +1149,41 @@ function _getHojaFacturas() {
 
 function _guardarFacturaEnHoja(datos) {
   var hoja = _getHojaFacturas();
-  hoja.appendRow([
-    datos.id, datos.fecha, datos.cbteTipo, datos.cbteTipoNombre,
-    datos.ptoVta, datos.cbteNro, datos.clienteNombre, datos.clienteCuit,
-    datos.total, datos.cae, datos.caeVto, datos.estado, datos.usuario
-  ]);
+  _hfEnsureFacturasEmitidasColumns(hoja);
+
+  var lastCol = hoja.getLastColumn();
+  var headers = hoja.getRange(1, 1, 1, lastCol).getValues()[0].map(_hfNormHeaderFactura);
+
+  var detalleStr = '';
+  if (datos.detalle && datos.detalle.length > 0) {
+    detalleStr = JSON.stringify(datos.detalle);
+  }
+
+  var rowVals = headers.map(function(h) {
+    switch (h) {
+      case 'ID': return datos.id;
+      case 'FECHA': return datos.fecha;
+      case 'CBTE_TIPO': return datos.cbteTipo;
+      case 'CBTE_TIPO_NOMBRE': return datos.cbteTipoNombre;
+      case 'PTO_VTA': return datos.ptoVta;
+      case 'CBTE_NRO': return datos.cbteNro;
+      case 'CLIENTE_NOMBRE': return datos.clienteNombre;
+      case 'CLIENTE_CUIT': return datos.clienteCuit;
+      case 'TOTAL': return datos.total;
+      case 'CAE': return datos.cae;
+      case 'CAE_VTO': return datos.caeVto;
+      case 'ESTADO': return datos.estado;
+      case 'USUARIO': return datos.usuario;
+      case 'NETO': return datos.impNeto !== undefined && datos.impNeto !== null ? datos.impNeto : '';
+      case 'IVA': return datos.impIVA !== undefined && datos.impIVA !== null ? datos.impIVA : '';
+      case 'DETALLE': return detalleStr;
+      case 'RAZON_SOCIAL': return datos.clienteRazonSocial || '';
+      case 'CONDICION_IVA': return datos.condicionIvaReceptor || '';
+      default: return '';
+    }
+  });
+
+  hoja.appendRow(rowVals);
 }
 
 /**
@@ -1362,6 +1619,26 @@ function obtenerDatosParaImpresion(facturaId) {
       }
     }
     if (!factura) return { success: false, error: 'Factura no encontrada: ' + facturaId };
+
+    // ── 3. Completar receptor con padrón ARCA solo si falta algo en hoja (evita llamadas innecesarias) ──
+    try {
+      var cuitL = String(factura.clienteCuit || '').replace(/[^0-9]/g, '');
+      if (cuitL.length === 11) {
+        var faltaRs = !String(factura.clienteRazonSocial || '').trim();
+        var faltaCond = !String(factura.clienteCondicionTexto || '').trim();
+        var faltaDom = !String(factura.clienteDomicilioFiscal || '').trim();
+        if (faltaRs || faltaCond || faltaDom) {
+          var pad = afipConsultarCUITWrapper(cuitL);
+          if (pad && pad.encontrado) {
+            if (faltaRs && pad.razonSocial) factura.clienteRazonSocial = pad.razonSocial;
+            if (faltaCond && pad.condicionTexto) factura.clienteCondicionTexto = pad.condicionTexto;
+            if (faltaDom && pad.domicilio) factura.clienteDomicilioFiscal = pad.domicilio;
+          }
+        }
+      }
+    } catch (ePad) {
+      Logger.log('[obtenerDatosParaImpresion] Padron: ' + ePad.message);
+    }
 
     return { success: true, config: cfg, factura: factura };
 

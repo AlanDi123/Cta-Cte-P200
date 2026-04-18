@@ -3073,7 +3073,7 @@
             <button class="btn btn-primary" onclick="imprimirSaldosPendientesVentana()">🖨️ Imprimir</button>
           </div>
 
-          <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" class="print-logo">
+          <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" class="print-logo" style="max-width:72px;max-height:72px;width:auto;height:auto;object-fit:contain;display:block;margin:0 auto 0.5rem;">
           <h3 class="print-header" style="text-align: center; margin-bottom: 0.5rem;">Saldos Pendientes - Sol & Verde</h3>
           <p style="text-align: center; margin-bottom: 1rem; font-size: 0.875rem;" id="fechaImpresion"></p>
 
@@ -3172,7 +3172,7 @@
         <div id="resumenArqueoImpresion" class="print-only" style="display: none;">
           <!-- Encabezado -->
           <div style="text-align: center; margin-bottom: 1.2rem; padding-bottom: 1rem; border-bottom: 4px solid #2E7D32;">
-            <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 65px; margin: 0 auto 0.5rem; display: block;">
+            <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="max-width:72px;max-height:72px;width:auto;height:auto;object-fit:contain;margin:0 auto 0.5rem;display:block;">
             <h2 style="margin: 0; color: #2E7D32; font-size: 20pt; letter-spacing: 1px;">ARQUEO DE CAJA</h2>
             <p style="margin: 0.4rem 0 0 0; font-size: 11pt; color: #555;" id="resumenArqueoFecha"></p>
             <p style="margin: 0.2rem 0 0 0; font-size: 9pt; color: #777;" id="resumenArqueoSistema">Sol & Verde - Sistema de Cuenta Corriente</p>
@@ -3561,6 +3561,7 @@
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
               <button class="btn btn-primary" onclick="cargarHistorialFacturas(true)">🔄 Actualizar</button>
               <button class="btn btn-outline" onclick="navegarA('facturacion-arca')">+ Nuevo Comprobante</button>
+              <button class="btn btn-outline btn-sm" onclick="hfReconstruirDetalleHistorico()" id="btnHfRecuperarDetalle" title="Completar DETALLE en filas antiguas para impresión">📋 Recuperar líneas (histórico)</button>
               <button class="btn btn-outline btn-sm" onclick="hfExportarCSV()" id="btnHfExportCSV" style="display:none;">📥 Exportar CSV</button>
             </div>
             <span style="font-size: 0.85rem; color: var(--sv-texto-muted);" id="historialFacturasCount"></span>
@@ -9865,13 +9866,39 @@
 
     /** CSS fijo del shell (cacheado; no incluye @page ni tamaños variables). */
     var _svPrintShellCssStatic = (
-      'body{margin:0;padding:16px;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:#fff;color:#111;}' +
-      '.sv-print-toolbar{background:#f5f5f5;padding:12px 16px;text-align:right;border-bottom:1px solid #ddd;margin:-16px -16px 16px -16px;}' +
+      /* Variables para estilos inline del DOM clonado (var(--sv-*) no existen en esta ventana) */
+      ':root{' +
+        '--sv-primario:#2E7D32;--sv-peligro:#C62828;--sv-exito:#2E7D32;--sv-advertencia:#F57C00;--sv-info:#1565C0;' +
+        '--sv-texto:#1a1a1a;--sv-texto-secundario:#555;--sv-texto-muted:#777;--sv-fondo:#fff;--sv-superficie:#fff;' +
+        '--sv-superficie-elevada:#f0f4f0;--sv-borde:#ccc;--sv-radius:6px;' +
+      '}' +
+      'html,body{box-sizing:border-box;margin:0;padding:0;width:100%;max-width:100%;overflow-x:hidden;}' +
+      'body{padding:12px 10px 16px;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:#eceff1;color:#111;}' +
+      '.sv-print-toolbar{background:#f5f5f5;padding:12px 16px;text-align:right;border-bottom:1px solid #ddd;margin:0 0 12px 0;border-radius:6px;}' +
       '.sv-print-toolbar button{margin-left:8px;padding:8px 16px;font-size:14px;border-radius:6px;cursor:pointer;border:none;}' +
       '.btn-print-go{background:#1565C0;color:#fff;font-weight:bold;}' +
       '.btn-print-close{background:#616161;color:#fff;}' +
-      '.sv-print-root{font-size:11pt;line-height:1.35;}' +
-      '@media print{.sv-print-toolbar{display:none!important;}body{padding:0!important;}}'
+      /* Hoja centrada tipo A4: evita banda vacía a la derecha en ventana ancha */
+      '.sv-print-root{box-sizing:border-box;font-size:11pt;line-height:1.35;width:100%;max-width:210mm;margin:0 auto;padding:14px 12px;background:#fff;color:#111;border:1px solid #cfd8dc;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);}' +
+      /* Tablas: líneas y cabecera (el clon no trae la hoja de estilos de la app) */
+      '.sv-print-root .card{background:#fff;border:1px solid #cfd8dc;border-radius:6px;padding:12px;margin:0 0 10px;}' +
+      '.sv-print-root .table-container{width:100%;overflow-x:visible;}' +
+      '.sv-print-root table{width:100%;border-collapse:collapse;border-spacing:0;table-layout:auto;}' +
+      '.sv-print-root th,.sv-print-root td{border:1px solid #9e9e9e;padding:6px 8px;vertical-align:middle;}' +
+      '.sv-print-root thead th{background:#d5e8d5;color:#1b5e20;font-weight:600;text-align:left;}' +
+      '.sv-print-root tbody tr:nth-child(even) td{background:#f5faf5;}' +
+      '.sv-print-root tbody tr:nth-child(odd) td{background:#fff;}' +
+      '.sv-print-root tfoot td,.sv-print-root tfoot th{background:#e8e8e8;font-weight:700;border-top:2px solid #616161;}' +
+      '.sv-print-root .tag-debe,.sv-print-root .tag-fiado{color:#b71c1c!important;}' +
+      '.sv-print-root .tag-haber,.sv-print-root .tag-pago{color:#1b5e20!important;}' +
+      /* Logos */
+      '.sv-print-root img,.sv-print-root picture>img{max-height:56px!important;max-width:220px!important;width:auto!important;height:auto!important;object-fit:contain!important;flex-shrink:0!important;}' +
+      '@media print{' +
+        'html,body{background:#fff!important;overflow:visible!important;max-width:none!important;}' +
+        '.sv-print-toolbar{display:none!important;}' +
+        'body{padding:0!important;margin:0!important;}' +
+        '.sv-print-root{max-width:none!important;width:100%!important;margin:0!important;padding:0!important;border:none!important;box-shadow:none!important;border-radius:0!important;}' +
+      '}'
     );
 
     var _SV_SEL_NO_IMPRIMIR = 'button,.acciones,.no-print,.dataTables_length,.dataTables_filter,.dataTables_info,.dataTables_paginate';
@@ -9938,11 +9965,19 @@
       var autoPrint = opts.autoPrint === true;
       var cfg = obtenerConfigImpresionActiva();
       var sc = (cfg.escalaPct || 100) / 100;
-      var scaleCss = cfg.fitWidth
-        ? '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;width:fit-content;max-width:100%;}'
-        : '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;}';
+      /* Escala solo si ≠ 100%: scale(1) sobre el root agrandaba mal imágenes en algunos navegadores */
+      var scaleCss = '';
+      if (Math.abs(sc - 1) > 0.001) {
+        scaleCss = cfg.fitWidth
+          ? '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;width:fit-content;max-width:100%;}'
+          : '.sv-print-root{transform:scale(' + sc + ');transform-origin:top left;}';
+      }
       var fontCss = '.sv-print-root .table th,.sv-print-root .table td{font-size:' + cfg.fontSaldos + 'pt;}' +
         '.sv-print-root h3{font-size:' + cfg.fontHeader + 'pt;}';
+      var confGlob = (typeof Estado !== 'undefined' && Estado && Estado.configuracion) ? Estado.configuracion : {};
+      if (opts.hideLogos === true || confGlob.printShowLogo === false) {
+        cssExtra += '.print-logo,.sv-print-root img,.sv-print-root picture{display:none!important;}';
+      }
 
       var docHtml =
         '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>' + tituloEsc + ' - Sol & Verde</title><style>' +
@@ -11921,6 +11956,61 @@
       _hfRenderizarTabla();
     }
 
+    /**
+     * Rellena DETALLE en la planilla para comprobantes sin ítems (histórico).
+     * ARCA no devuelve producto por producto; se graba una línea sintética con el neto gravado.
+     */
+    function hfReconstruirDetalleHistorico() {
+      var htmlMsg =
+        '<p style="text-align:left;font-size:0.9rem;line-height:1.45;">' +
+        'Se escribirá en la columna <strong>DETALLE</strong> (solo donde esté vacío) <strong>una línea</strong> con el importe neto gravado según NETO/TOTAL de la planilla. ' +
+        'No es posible recuperar el listado real de productos: en ARCA la emisión fue consolidada.</p>' +
+        '<p style="text-align:left;font-size:0.85rem;color:#666;">' +
+        '<strong>Solo importes:</strong> rápido.<br>' +
+        '<strong>+ Padrón CUIT:</strong> completa razón social y condición IVA donde falten (una consulta por fila; puede tardar).</p>';
+
+      function ejecutar(enriquecerReceptor) {
+        mostrarLoading(true);
+        google.script.run
+          .withSuccessHandler(function(res) {
+            mostrarLoading(false);
+            var msg = (res && res.mensaje) ? res.mensaje : 'Proceso finalizado.';
+            if (res && res.errores && res.errores.length) {
+              console.warn(res.errores);
+            }
+            mostrarToast(msg, res && res.success !== false ? 'success' : 'warning');
+            cargarHistorialFacturas(true);
+          })
+          .withFailureHandler(function(err) {
+            mostrarLoading(false);
+            mostrarToast(err.message || 'Error', 'error');
+          })
+          .reconstruirDetalleFacturasHistoricas({
+            soloVacios: true,
+            enriquecerReceptor: enriquecerReceptor,
+            limite: 0
+          });
+      }
+
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: 'Recuperar líneas para impresión',
+          html: htmlMsg,
+          icon: 'question',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: 'Solo importes (rápido)',
+          denyButtonText: 'Importes + padrón CUIT',
+          cancelButtonText: 'Cancelar'
+        }).then(function(r) {
+          if (r.isConfirmed) ejecutar(false);
+          else if (r.isDenied) ejecutar(true);
+        });
+      } else if (confirm('¿Completar DETALLE vacío con una línea por comprobante (importe neto)?')) {
+        ejecutar(false);
+      }
+    }
+
     function hfExportarCSV() {
       var datos = _HF.filtradas;
       if (datos.length === 0) { mostrarToast('No hay datos para exportar', 'warning'); return; }
@@ -11982,7 +12072,7 @@
         '</div>' +
         '<table style="width:100%;border-collapse:collapse;font-size:0.875rem;">' +
           _hfFilaDetalle('📅 Fecha',    escapeHtml(f.fecha || '-')) +
-          _hfFilaDetalle('👤 Cliente',  escapeHtml(f.clienteNombre || '-')) +
+          _hfFilaDetalle('👤 Cliente',  escapeHtml((f.clienteRazonSocial && String(f.clienteRazonSocial).trim()) || f.clienteNombre || '-')) +
           _hfFilaDetalle('🔢 CUIT',     escapeHtml(f.clienteCuit || 'Consumidor Final')) +
           _hfFilaDetalle('💰 Total',    '$' + (Number(f.total) || 0).toLocaleString('es-AR', {minimumFractionDigits:2})) +
           _hfFilaDetalle('🔑 CAE',      '<span style="font-family:monospace;">' + escapeHtml(String(f.cae || '-')) + '</span>') +
@@ -12136,7 +12226,7 @@
         filasBlancoExtra = Math.max(0, 12 - items.length);
         itemsHTML = items.map(function(it) {
           var cant = Number(it.cantidad || it.qty || 1);
-          var pu   = Number(it.precioUnit || it.precio_unit || it.precio || it.unit_price || 0);
+          var pu   = Number(it.precioUnitario || it.precioUnit || it.precio_unit || it.precio || it.unit_price || 0);
           var bon  = Number(it.bonif || it.descuento || it.discount || 0);
           var sub  = Number(it.subtotal || it.importe || (pu * cant * (1 - bon/100)));
           return '<tr>' +
@@ -12276,11 +12366,12 @@
 '</div>' +
 '<div class="receptor">' +
   '<div class="receptor-grid">' +
-    '<div class="rc"><b>Sr./Sra.:</b> ' + escHtml(f.clienteNombre || 'CONSUMIDOR FINAL') + '</div>' +
+    '<div class="rc"><b>Razón social / Denominación:</b> ' + escHtml((f.clienteRazonSocial && String(f.clienteRazonSocial).trim()) || f.clienteNombre || 'CONSUMIDOR FINAL') + '</div>' +
     '<div class="rc"><b>CUIT / DNI Nro.:</b> ' + escHtml(f.clienteCuit || '-') + '</div>' +
-    '<div class="rc"><b>Condición frente al IVA:</b> ' + escHtml(esA ? 'RESPONSABLE INSCRIPTO' : 'CONSUMIDOR FINAL') + '</div>' +
+    '<div class="rc"><b>Condición frente al IVA:</b> ' + escHtml((f.clienteCondicionTexto && String(f.clienteCondicionTexto).trim()) ? f.clienteCondicionTexto : (esA ? 'RESPONSABLE INSCRIPTO' : 'CONSUMIDOR FINAL')) + '</div>' +
     '<div class="rc"><b>Condición de Venta:</b> ' + escHtml(f.condicionVenta || 'CONTADO') + '</div>' +
   '</div>' +
+  (f.clienteDomicilioFiscal ? '<div style="margin-top:6px;font-size:9.5px;"><b>Domicilio fiscal:</b> ' + escHtml(f.clienteDomicilioFiscal) + '</div>' : '') +
 '</div>' +
 '<table class="items" style="border:2px solid #000;border-top:2px solid #000;">' +
   '<thead><tr>' +
@@ -15434,7 +15525,12 @@
        * @returns {Object} PrintContext
        */
       buildContext: function(caja, cfg, copies) {
-        const empresa = Estado.configuracion || {};
+        const conf = Estado.configuracion || {};
+        const cfgSafe = cfg || {};
+        const showLogo =
+          cfgSafe.SHOW_LOGO !== false &&
+          cfgSafe.showLogo !== false &&
+          conf.printShowLogo !== false;
         return {
           // Datos de la caja (snapshot inmutable)
           caja: {
@@ -15455,14 +15551,14 @@
           resumen:      JSON.parse(JSON.stringify(caja.resumen)),
           // Empresa
           empresa: {
-            nombre: empresa.nombreEmisor || empresa.nombre || (empresa.sistema && empresa.sistema.NOMBRE) || 'Sol & Verde',
-            logo:   cfg.SHOW_LOGO !== false
+            nombre: conf.nombreEmisor || conf.nombre || (conf.sistema && conf.sistema.NOMBRE) || 'Sol & Verde',
+            logoUrl: String(conf.logoUrl || '').trim()
           },
           // Configuración de impresión
           config: {
             copies:    copies || 1,
-            footer:    cfg.FOOTER || '',
-            showLogo:  cfg.SHOW_LOGO !== false
+            footer:    cfgSafe.FOOTER || conf.printFooter || '',
+            showLogo:  showLogo
           },
           generado: new Date().toISOString()
         };
@@ -15480,11 +15576,17 @@
 
         const copias = ['Original', 'COPIA', 'COPIA 2', 'COPIA 3'].slice(0, config.copies);
 
+        var logoDefaultCaja = 'https://i.imgur.com/tStvmV1.png';
+        var logoSrcCaja = (empresa.logoUrl && empresa.logoUrl.length > 0) ? escapeHtml(empresa.logoUrl) : logoDefaultCaja;
+        var logoImgCaja = config.showLogo
+          ? '<img src="' + logoSrcCaja + '" alt="Logo" crossorigin="anonymous" class="contab-print-logo" style="max-height:55px;max-width:200px;width:auto;height:auto;object-fit:contain;display:block;margin:0 0 0.3rem 0;flex-shrink:0;">'
+          : '';
+
         return copias.map(function(etiqueta, idx) {
           return '<div class="contab-copy-block" style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 1.5rem;">' +
             '<div style="border-bottom: 3px solid #2E7D32; padding-bottom: 0.75rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">' +
-              '<div>' +
-                (config.showLogo ? '<img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width:55px; margin-bottom:0.3rem; display:block;">' : '') +
+              '<div style="min-width:0;max-width:100%;">' +
+                logoImgCaja +
                 '<div style="font-size: 18pt; font-weight: 800; color: #2E7D32;">' + escapeHtml(empresa.nombre) + '</div>' +
                 '<div style="font-size: 12pt; font-weight: 700; color: #555; margin-top: 0.1rem;">CAJA DIARIA &mdash; ' + fechaStr + '</div>' +
               '</div>' +
@@ -15610,6 +15712,7 @@
               '<style>' +
                 solVerdePrintPageRuleCss() +
                 'body { font-family: Arial, sans-serif; font-size: 11pt; color: #222; margin: 0; padding: 0; }' +
+                '.contab-print-logo,.contab-copy-block img{max-height:55px!important;max-width:200px!important;width:auto!important;height:auto!important;object-fit:contain!important;display:block!important;}' +
                 '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
                 '.contab-copy-block { page-break-after: always; }' +
                 '.contab-copy-block:last-child { page-break-after: avoid; }' +
