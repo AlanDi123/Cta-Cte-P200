@@ -3372,8 +3372,11 @@
               Agrega liquidaciones de dias anteriores que no se enviaron y se incluyen hoy.
             </p>
             <div id="liquidacionesPendientesList" style="margin-bottom: 0.75rem;"></div>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <input type="text" class="form-input" id="liqPendienteDesc" placeholder="Descripcion" style="flex: 2; min-width: 120px;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-start;">
+              <div class="form-group-autocomplete" style="flex: 2; min-width: 120px; position: relative; margin: 0;">
+                <input type="text" class="form-input" id="liqPendienteDesc" placeholder="Descripcion" style="width: 100%;" autocomplete="off" oninput="_debouncedBuscarLiqPendienteSug(this)" onfocus="buscarLiqPendienteSug(this)">
+                <div class="suggestions-list liq-pend-sugerencias" style="display: none;"></div>
+              </div>
               <input type="number" class="form-input" id="liqPendienteMonto" placeholder="Monto" style="flex: 1; min-width: 80px;">
               <button class="btn btn-outline" onclick="agregarLiquidacionPendiente()">+ Agregar</button>
             </div>
@@ -5037,10 +5040,11 @@
           </div>
           <input type="hidden" id="movCajaTipo" value="">
         </div>
-        <div class="form-group">
+        <div class="form-group form-group-autocomplete">
           <label class="form-label">Descripción *</label>
-          <input type="text" class="form-input" id="movCajaDesc" placeholder="Ej: Retiro para cambio, pago de limpieza..." list="movCajaDescSuggestions" autocomplete="off">
+          <input type="text" class="form-input" id="movCajaDesc" placeholder="Ej: Retiro para cambio, pago de limpieza..." list="movCajaDescSuggestions" autocomplete="off" oninput="_debouncedActualizarMovCajaDescSug(this)" onfocus="actualizarMovCajaDescSugerencias(this)">
           <datalist id="movCajaDescSuggestions"></datalist>
+          <div class="suggestions-list" id="movCajaDescSugPanel" style="display: none;"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Monto * <small style="color:var(--sv-texto-muted);">(mayor a 0)</small></label>
@@ -6988,7 +6992,7 @@
       }, 200));
 
       inputCliente.addEventListener('focus', function() {
-        if (this.value.length >= 2) {
+        if (busquedaClienteSuficiente(this.value)) {
           buscarClienteAutocomplete(this.value, 'clienteSugerencias');
         }
       });
@@ -7006,7 +7010,7 @@
           buscarClienteAutocompleteTransf(this.value);
         }, 200));
         inputTransfCliente.addEventListener('focus', function() {
-          if (this.value.length >= 2) {
+          if (busquedaClienteSuficiente(this.value)) {
             buscarClienteAutocompleteTransf(this.value);
           }
         });
@@ -7157,7 +7161,7 @@
             if (ultimo) {
               const descInput = ultimo.querySelector('.prov-desc');
               const montoInput = ultimo.querySelector('.prov-monto');
-              if (descInput) descInput.value = p.descripcion || '';
+              if (descInput) descInput.value = p.descripcion || p.nombre || '';
               if (montoInput) montoInput.value = Math.abs(Number(p.monto)) || 0;
             }
           });
@@ -8172,10 +8176,36 @@
         .trim();
     }
 
+    /** Al menos 2 caracteres no espacio en la consulta normalizada (evita cortes al escribir espacio). */
+    function busquedaClienteSuficiente(termino) {
+      var q = normalizarTexto(termino);
+      return q.replace(/\s/g, '').length >= 2;
+    }
+
+    /**
+     * Coincidencia nombre+apellido: frase completa como substring, o cada palabra de búsqueda
+     * como prefijo de alguna palabra del nombre (AND entre palabras).
+     */
+    function clienteNombreCoincideBusqueda(nombre, termino) {
+      var q = normalizarTexto(termino);
+      if (!q || q.replace(/\s/g, '').length < 2) return false;
+      var nombreNorm = normalizarTexto(nombre);
+      if (!nombreNorm) return false;
+      if (nombreNorm.indexOf(q) !== -1) return true;
+      var palabras = q.split(' ').filter(function(p) { return p.length > 0; });
+      if (palabras.length === 0) return false;
+      var tokensNombre = nombreNorm.split(' ').filter(function(p) { return p.length > 0; });
+      return palabras.every(function(pb) {
+        return tokensNombre.some(function(pn) {
+          return pn.indexOf(pb) === 0;
+        });
+      });
+    }
+
     function buscarClienteAutocomplete(termino, contenedorId, esVisor = false, callback = null) {
       const contenedor = document.getElementById(contenedorId);
 
-      if (!termino || termino.length < 2) {
+      if (!busquedaClienteSuficiente(termino)) {
         contenedor.style.display = 'none';
         return;
       }
@@ -8185,25 +8215,9 @@
         return;
       }
 
-      // Normalizar término de búsqueda
-      const terminoNorm = normalizarTexto(termino);
-      const palabras = terminoNorm.split(' ').filter(p => p.length >= 1);
-
-      // Buscar coincidencia
-      const matches = Estado.clientes.filter(c => {
-        const nombreNorm = normalizarTexto(c.nombre);
-        const palabrasNombre = nombreNorm.split(' ');
-
-        // Coincidencia directa del término completo
-        if (nombreNorm.includes(terminoNorm)) return true;
-
-        // Coincidencia por cualquier palabra del término en cualquier palabra del nombre
-        return palabras.some(palabraBusqueda =>
-          palabrasNombre.some(palabraNombre =>
-            palabraNombre.startsWith(palabraBusqueda) || palabraNombre.includes(palabraBusqueda)
-          )
-        );
-      }).slice(0, 10); // Aumentado a 10 resultados
+      const matches = Estado.clientes.filter(function(c) {
+        return clienteNombreCoincideBusqueda(c.nombre, termino);
+      }).slice(0, 10);
 
       if (matches.length === 0) {
         contenedor.style.display = 'none';
@@ -8245,23 +8259,16 @@
       const contenedor = document.getElementById('transfClienteSugerencias');
       const cfHint = document.getElementById('transfCfHint');
 
-      if (!termino || termino.length < 2) {
+      if (!busquedaClienteSuficiente(termino)) {
         contenedor.style.display = 'none';
         if (cfHint) cfHint.style.display = 'none';
         return;
       }
 
-      // Verificar si coincide exactamente con algún cliente
       const terminoNorm = normalizarTexto(termino);
-      const palabras = terminoNorm.split(' ').filter(p => p.length >= 1);
 
-      const matches = (Estado.clientes || []).filter(c => {
-        const nombreNorm = normalizarTexto(c.nombre);
-        const palabrasNombre = nombreNorm.split(' ');
-        if (nombreNorm.includes(terminoNorm)) return true;
-        return palabras.some(pb =>
-          palabrasNombre.some(pn => pn.startsWith(pb) || pn.includes(pb))
-        );
+      const matches = (Estado.clientes || []).filter(function(c) {
+        return clienteNombreCoincideBusqueda(c.nombre, termino);
       }).slice(0, 8);
 
       // Mostrar/ocultar hint de consumidor final
@@ -8269,7 +8276,7 @@
         const esClienteConocido = (Estado.clientes || []).some(c =>
           normalizarTexto(c.nombre) === terminoNorm
         );
-        cfHint.style.display = (!esClienteConocido && termino.length >= 2) ? 'block' : 'none';
+        cfHint.style.display = (!esClienteConocido && busquedaClienteSuficiente(termino)) ? 'block' : 'none';
       }
 
       if (matches.length === 0) {
@@ -8653,11 +8660,11 @@
       item.className = 'proveedor-item';
       item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; flex-wrap: wrap;';
 
-      const itemId = 'prov-' + Date.now();
+      const itemId = 'prov-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
 
       item.innerHTML =
         '<div class="form-group-autocomplete" style="flex: 1; min-width: 150px; position: relative; margin: 0;">' +
-          '<input type="text" class="form-input prov-desc" placeholder="Proveedor" id="' + itemId + '" autocomplete="off" oninput="buscarProveedorAutocomplete(this)" onfocus="buscarProveedorAutocomplete(this)">' +
+          '<input type="text" class="form-input prov-desc" placeholder="Proveedor" id="' + itemId + '" autocomplete="off" oninput="_debouncedBuscarProveedorAutocomplete(this)" onfocus="buscarProveedorAutocomplete(this)">' +
           '<div class="suggestions-list prov-sugerencias" style="display: none;"></div>' +
         '</div>' +
         '<input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
@@ -8668,40 +8675,52 @@
 
     function buscarProveedorAutocomplete(input) {
       const sugerenciasDiv = input.parentElement.querySelector('.prov-sugerencias');
-      const termino = input.value.toLowerCase();
+      if (!sugerenciasDiv) return;
+      const terminoRaw = input.value;
 
-      if (termino.length === 0 && Estado.proveedoresHistorial.length > 0) {
-        var inputId = input.id;
-        sugerenciasDiv.innerHTML = Estado.proveedoresHistorial.slice(0, 5).map(function(p) {
-          return '<div class="suggestion-item" data-nombre="' + escapeHtml(p) + '" data-input="' + inputId + '">' + escapeHtml(p) + '</div>';
-        }).join('');
-        attachProveedorListeners(sugerenciasDiv);
-        sugerenciasDiv.style.display = 'block';
+      if (!busquedaClienteSuficiente(terminoRaw)) {
+        if (!terminoRaw.trim() && Estado.proveedoresHistorial.length > 0) {
+          sugerenciasDiv.innerHTML = Estado.proveedoresHistorial.slice(0, 5).map(function(p) {
+            return '<div class="suggestion-item" data-nombre="' + escapeHtml(p) + '">' + escapeHtml(p) + '</div>';
+          }).join('');
+          attachProveedorListeners(sugerenciasDiv);
+          sugerenciasDiv.style.display = 'block';
+          return;
+        }
+        sugerenciasDiv.style.display = 'none';
         return;
       }
 
-      const matches = Estado.proveedoresHistorial.filter(p => p.toLowerCase().includes(termino)).slice(0, 5);
+      const matches = Estado.proveedoresHistorial
+        .filter(function(p) { return clienteNombreCoincideBusqueda(p, terminoRaw); })
+        .slice(0, 5);
 
       if (matches.length === 0) {
         sugerenciasDiv.style.display = 'none';
         return;
       }
 
-      var _inputId = input.id;
       sugerenciasDiv.innerHTML = matches.map(function(p) {
-        return '<div class="suggestion-item" data-nombre="' + escapeHtml(p) + '" data-input="' + _inputId + '">' + escapeHtml(p) + '</div>';
+        return '<div class="suggestion-item" data-nombre="' + escapeHtml(p) + '">' + escapeHtml(p) + '</div>';
       }).join('');
       attachProveedorListeners(sugerenciasDiv);
       sugerenciasDiv.style.display = 'block';
     }
 
+    var _debouncedBuscarProveedorAutocomplete = debounce(buscarProveedorAutocomplete, 200);
+
     function attachProveedorListeners(container) {
-      container.querySelectorAll('.suggestion-item').forEach(item => {
-        item.addEventListener('click', function() {
-          const input = document.getElementById(this.dataset.input);
-          input.value = this.dataset.nombre;
+      container.querySelectorAll('.suggestion-item').forEach(function(sug) {
+        sug.addEventListener('mousedown', function(ev) {
+          ev.preventDefault();
+          const ac = this.closest('.form-group-autocomplete');
+          const input = ac && ac.querySelector('.prov-desc');
+          if (!input) return;
+          input.value = this.dataset.nombre || '';
           container.style.display = 'none';
-          input.parentElement.parentElement.querySelector('.prov-monto').focus();
+          const row = input.closest('.proveedor-item');
+          const monto = row && row.querySelector('.prov-monto');
+          if (monto) monto.focus();
         });
       });
     }
@@ -9304,6 +9323,83 @@
       return gastos;
     }
 
+    function _pushLiqDescHistorialLocal(desc) {
+      try {
+        var d = String(desc || '').trim();
+        if (!d) return;
+        var arr = JSON.parse(localStorage.getItem('hojaRutaLiqDescHistorial') || '[]');
+        if (!Array.isArray(arr)) arr = [];
+        arr = arr.filter(function(x) { return String(x).toLowerCase() !== d.toLowerCase(); });
+        arr.unshift(d);
+        arr = arr.slice(0, 20);
+        localStorage.setItem('hojaRutaLiqDescHistorial', JSON.stringify(arr));
+      } catch (e) {}
+    }
+
+    function _candidatosLiqPendienteSug() {
+      var set = {};
+      var out = [];
+      function add(s) {
+        if (!s || !String(s).trim()) return;
+        var k = String(s).trim().toLowerCase();
+        if (set[k]) return;
+        set[k] = true;
+        out.push(String(s).trim());
+      }
+      liquidacionesPendientes.forEach(function(l) { add(l.descripcion); });
+      try {
+        var h = JSON.parse(localStorage.getItem('hojaRutaLiqDescHistorial') || '[]');
+        if (Array.isArray(h)) h.forEach(add);
+      } catch (e) {}
+      return out;
+    }
+
+    function buscarLiqPendienteSug(input) {
+      var sugerenciasDiv = input.parentElement && input.parentElement.querySelector('.liq-pend-sugerencias');
+      if (!sugerenciasDiv) return;
+      var terminoRaw = input.value;
+      var pool = _candidatosLiqPendienteSug();
+
+      if (!busquedaClienteSuficiente(terminoRaw)) {
+        if (!terminoRaw.trim() && pool.length > 0) {
+          sugerenciasDiv.innerHTML = pool.slice(0, 5).map(function(p) {
+            return '<div class="suggestion-item" data-liq-sug="' + escapeHtml(p) + '">' + escapeHtml(p) + '</div>';
+          }).join('');
+          _attachLiqPendienteSugListeners(sugerenciasDiv);
+          sugerenciasDiv.style.display = 'block';
+          return;
+        }
+        sugerenciasDiv.style.display = 'none';
+        return;
+      }
+
+      var matches = pool.filter(function(p) { return clienteNombreCoincideBusqueda(p, terminoRaw); }).slice(0, 5);
+      if (matches.length === 0) {
+        sugerenciasDiv.style.display = 'none';
+        return;
+      }
+      sugerenciasDiv.innerHTML = matches.map(function(p) {
+        return '<div class="suggestion-item" data-liq-sug="' + escapeHtml(p) + '">' + escapeHtml(p) + '</div>';
+      }).join('');
+      _attachLiqPendienteSugListeners(sugerenciasDiv);
+      sugerenciasDiv.style.display = 'block';
+    }
+
+    function _attachLiqPendienteSugListeners(container) {
+      container.querySelectorAll('.suggestion-item').forEach(function(sug) {
+        sug.addEventListener('mousedown', function(ev) {
+          ev.preventDefault();
+          var val = this.getAttribute('data-liq-sug') || '';
+          var inp = document.getElementById('liqPendienteDesc');
+          if (inp) inp.value = val;
+          container.style.display = 'none';
+          if (inp) inp.focus();
+        });
+      });
+    }
+
+    var _debouncedBuscarLiqPendienteSug = debounce(buscarLiqPendienteSug, 200);
+
     function agregarLiquidacionPendiente() {
       const descInput = document.getElementById('liqPendienteDesc');
       const montoInput = document.getElementById('liqPendienteMonto');
@@ -9324,6 +9420,7 @@
       }
 
       liquidacionesPendientes.push({ descripcion, monto, id: Date.now() });
+      _pushLiqDescHistorialLocal(descripcion);
 
       descInput.value = '';
       montoInput.value = '';
@@ -9651,15 +9748,15 @@
     }
 
     const filtrarClientesDebounce = debounce(function() {
-      const termino = (document.getElementById('filtroClientes').value || '').trim().toLowerCase();
+      const termino = (document.getElementById('filtroClientes').value || '').trim();
       const tbody = document.getElementById('gestionClientesTbody');
       if (!tbody) return;
 
       _destruirDataTableSiExiste('tablaGestionClientes');
 
-      const clientesFiltrados = (termino ?
+      const clientesFiltrados = (termino && busquedaClienteSuficiente(termino) ?
         Estado.clientes.filter(function(c) {
-          return String(c.nombre || '').toLowerCase().includes(termino);
+          return clienteNombreCoincideBusqueda(c.nombre, termino);
         }) :
         Estado.clientes
       ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -11444,6 +11541,26 @@
     var arcaItems = [];
     var arcaClienteSeleccionado = null;
 
+    /** Misma lógica que _normalizarTextoCondicionFiscal / _esReceptorFacturaA en facturacionElectronica.gs */
+    function _svNormCondicionFiscal(s) {
+      var t = String(s || '');
+      try {
+        if (typeof t.normalize === 'function') {
+          t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+      } catch (e) { /* ignore */ }
+      return t.toUpperCase().trim();
+    }
+    function _svEsReceptorFacturaA(condicion) {
+      var c = _svNormCondicionFiscal(condicion);
+      if (!c) return false;
+      if (c === 'RI' || c === 'M') return true;
+      if (c.indexOf('RESPONSABLE') >= 0 && c.indexOf('INSCRIP') >= 0) return true;
+      if (c.indexOf('MONOTRIBUT') >= 0) return true;
+      if (c.indexOf('SOCIAL') >= 0 && c.indexOf('MONOTRIBUT') >= 0) return true;
+      return false;
+    }
+
     function inicializarModuloArca() {
       arcaItems = [];
       arcaClienteSeleccionado = null;
@@ -11494,13 +11611,13 @@
 
     function buscarClienteAutocompleteArca(valor) {
       var contenedor = document.getElementById('arcaClienteSugerencias');
-      if (!valor || valor.length < 1) {
+      if (!busquedaClienteSuficiente(valor)) {
         contenedor.style.display = 'none';
         return;
       }
 
       var resultados = Estado.clientes.filter(function(c) {
-        return c.nombre.toUpperCase().includes(valor.toUpperCase());
+        return clienteNombreCoincideBusqueda(c.nombre, valor);
       }).slice(0, 10);
 
       if (resultados.length === 0) {
@@ -11529,13 +11646,8 @@
         document.getElementById('arcaClienteCUIT').textContent = cliente.cuit || 'Sin CUIT';
         document.getElementById('arcaClienteIVA').textContent = cliente.condicionFiscal || 'Consumidor Final';
 
-        // Auto-seleccionar tipo de comprobante
-        // Factura A: Responsables Inscriptos o Monotributistas con CUIT
-        // Factura B: Consumidores Finales
-        if (cliente.cuit && (cliente.condicionFiscal === 'Responsable Inscripto' || 
-                             cliente.condicionFiscal === 'RI' || 
-                             cliente.condicionFiscal.includes('Monotribut') ||
-                             cliente.condicionFiscal === 'M')) {
+        // Auto-seleccionar tipo de comprobante (criterio alineado con servidor)
+        if (cliente.cuit && _svEsReceptorFacturaA(cliente.condicionFiscal)) {
           seleccionarCbteTipo(1); // Factura A
         } else {
           seleccionarCbteTipo(6); // Factura B
@@ -11782,13 +11894,15 @@
       function continuarEmisionArca() {
         var condicion = 'CF';
         var condicionTexto = 'Consumidor Final';
-        if (arcaClienteSeleccionado.condicionFiscal) {
-          if (arcaClienteSeleccionado.condicionFiscal.includes('Responsable') || arcaClienteSeleccionado.condicionFiscal === 'RI') {
+        var cfArca = arcaClienteSeleccionado.condicionFiscal;
+        if (cfArca && _svEsReceptorFacturaA(cfArca)) {
+          var cn = _svNormCondicionFiscal(cfArca);
+          if (cn === 'RI' || (cn.indexOf('RESPONSABLE') >= 0 && cn.indexOf('INSCRIP') >= 0)) {
             condicion = 'RI';
             condicionTexto = 'Responsable Inscripto';
-          } else if (arcaClienteSeleccionado.condicionFiscal.includes('Monotributo') || arcaClienteSeleccionado.condicionFiscal === 'M') {
+          } else {
             condicion = 'M';
-            condicionTexto = 'Monotributo';
+            condicionTexto = (cn.indexOf('SOCIAL') >= 0 && cn.indexOf('MONOTRIBUT') >= 0) ? 'Monotributo Social' : 'Monotributo';
           }
         }
 
@@ -11802,6 +11916,9 @@
 
             if (result.success) {
               mostrarToast(result.mensaje || 'Comprobante emitido', 'success');
+              if (result.advertencia) {
+                mostrarToast(result.advertencia, 'warning');
+              }
               sincronizarProductosTrasFacturaExito();
 
               var resDiv = document.getElementById('arcaResultado');
@@ -13645,7 +13762,7 @@
           const cfHint = document.getElementById('transfUnifCfHint');
           const infoDiv = document.getElementById('transfUnifClienteInfo');
 
-          if (termino.length >= 2) {
+          if (busquedaClienteSuficiente(termino)) {
             const esConocido = (Estado.clientes || []).some(c =>
               normalizarTexto(c.nombre) === normalizarTexto(termino)
             );
@@ -16110,6 +16227,53 @@
         .reabrirCajaDiaria(id, razon);
     }
 
+    var _movCajaDescCache = [];
+
+    function actualizarMovCajaDescSugerencias(input) {
+      var panel = document.getElementById('movCajaDescSugPanel');
+      if (!panel || !input) return;
+      var terminoRaw = input.value;
+      var pool = _movCajaDescCache || [];
+
+      if (!busquedaClienteSuficiente(terminoRaw)) {
+        if (!terminoRaw.trim() && pool.length > 0) {
+          panel.innerHTML = pool.slice(0, 5).map(function(p) {
+            return '<div class="suggestion-item" data-mov-desc-sug="' + escapeHtml(p) + '">' + escapeHtml(p) + '</div>';
+          }).join('');
+          _attachMovCajaDescSugListeners(panel, input);
+          panel.style.display = 'block';
+          return;
+        }
+        panel.style.display = 'none';
+        return;
+      }
+
+      var matches = pool.filter(function(p) { return clienteNombreCoincideBusqueda(p, terminoRaw); }).slice(0, 5);
+      if (matches.length === 0) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.innerHTML = matches.map(function(p) {
+        return '<div class="suggestion-item" data-mov-desc-sug="' + escapeHtml(p) + '">' + escapeHtml(p) + '</div>';
+      }).join('');
+      _attachMovCajaDescSugListeners(panel, input);
+      panel.style.display = 'block';
+    }
+
+    function _attachMovCajaDescSugListeners(panel, input) {
+      panel.querySelectorAll('.suggestion-item').forEach(function(sug) {
+        sug.addEventListener('mousedown', function(ev) {
+          ev.preventDefault();
+          var val = this.getAttribute('data-mov-desc-sug') || '';
+          input.value = val;
+          panel.style.display = 'none';
+          input.focus();
+        });
+      });
+    }
+
+    var _debouncedActualizarMovCajaDescSug = debounce(actualizarMovCajaDescSugerencias, 200);
+
     /** Abre el modal de agregar movimiento manual */
     function abrirModalMovManual() {
       const caja = EstadoCajaDiaria.cajaActual;
@@ -16123,15 +16287,25 @@
       document.querySelectorAll('#modalMovCaja .banco-option').forEach(b => b.classList.remove('selected'));
 
       // Cargar sugerencias de descripciones previas
+      _movCajaDescCache = [];
+      var sugPanel = document.getElementById('movCajaDescSugPanel');
+      if (sugPanel) {
+        sugPanel.innerHTML = '';
+        sugPanel.style.display = 'none';
+      }
+
       google.script.run
         .withSuccessHandler(function(r) {
           if (r.success && r.descripciones && r.descripciones.length > 0) {
+            _movCajaDescCache = r.descripciones.slice();
             const dl = document.getElementById('movCajaDescSuggestions');
             if (dl) {
               dl.innerHTML = r.descripciones.map(function(d) {
                 return '<option value="' + escapeHtml(d) + '">';
               }).join('');
             }
+          } else {
+            _movCajaDescCache = [];
           }
         })
         .obtenerDescripcionesMovManual();
@@ -16789,7 +16963,7 @@
     }
 
     function vnBuscarClientePOS(termino) {
-      if (termino.length < 2) { document.getElementById('vnClienteSugerencias').innerHTML = ''; return; }
+      if (!busquedaClienteSuficiente(termino)) { document.getElementById('vnClienteSugerencias').innerHTML = ''; return; }
       llamarServidor({ action: 'vnGetClientes', termino }, res => {
         const sug = document.getElementById('vnClienteSugerencias');
         const lista = res.clientes || [];
