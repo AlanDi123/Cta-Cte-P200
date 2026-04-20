@@ -48,6 +48,33 @@ function afipEmitirFacturaWrapper(datosFactura) {
   }
 }
 
+/**
+ * Normaliza texto de condición fiscal (mayúsculas + sin diacríticos) para comparar.
+ */
+function _normalizarTextoCondicionFiscal(s) {
+  var t = String(s || '');
+  try {
+    if (typeof t.normalize === 'function') {
+      t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+  } catch (ignore) { /* entorno sin normalize */ }
+  return t.toUpperCase().trim();
+}
+
+/**
+ * True si el receptor puede recibir Factura A (RI, Monotributo o Monotributo Social).
+ * Criterio alineado con afipConstruirFECAEDetRequest (condId 1, 6, 13).
+ */
+function _esReceptorFacturaA(clienteCondicion) {
+  var cond = _normalizarTextoCondicionFiscal(clienteCondicion);
+  if (!cond) return false;
+  if (cond === 'RI' || cond === 'M') return true;
+  if (cond.indexOf('RESPONSABLE') >= 0 && cond.indexOf('INSCRIP') >= 0) return true;
+  if (cond.indexOf('MONOTRIBUT') >= 0) return true;
+  if (cond.indexOf('SOCIAL') >= 0 && cond.indexOf('MONOTRIBUT') >= 0) return true;
+  return false;
+}
+
 // ─── SECCIÓN 2: FUNCIONES PÚBLICAS LLAMADAS DESDE EL FRONTEND ──────────────
 // Estas son las funciones que el HTML llama via google.script.run.*
 // Todas deben existir aquí y ser globales.
@@ -101,12 +128,7 @@ function emitirFacturaElectronica(datosFactura) {
       } else if (!validarCuitModulo11(datos.clienteCuit)) {
         erroresValidacion.push('CUIT del cliente inválido (verificador).');
       }
-      var condUp = String(datos.clienteCondicion || '').toUpperCase();
-      var esRIoM = condUp === 'RI' ||
-                   condUp === 'M'  ||
-                   condUp.indexOf('RESPONSABLE INSCRIPTO') >= 0 ||
-                   condUp.indexOf('MONOTRIBUT') >= 0;
-      if (!esRIoM) {
+      if (!_esReceptorFacturaA(datos.clienteCondicion)) {
         erroresValidacion.push('Factura A solo para Responsable Inscripto o Monotributista. Condición actual: ' + (datos.clienteCondicion || 'no especificada'));
       }
       if (!datos.clienteRazonSocial || datos.clienteRazonSocial.trim() === '') {
@@ -119,8 +141,18 @@ function emitirFacturaElectronica(datosFactura) {
     }
 
     // ── Calcular importes ────────────────────────────────────────────────────
-    var ivaPct = parseFloat(PropertiesService.getScriptProperties()
-                   .getProperty('IVA_PORCENTAJE') || '10.5') / 100;
+    var propsFact = PropertiesService.getScriptProperties();
+    var ivaPct = parseFloat(propsFact.getProperty('IVA_PORCENTAJE') || '10.5') / 100;
+    var ivaAlicIdCfg = parseInt(propsFact.getProperty('IVA_ALICUOTA_ID') || '4', 10);
+    var alicuotaPctEsperado = { 3: 0, 4: 10.5, 5: 21, 6: 27 };
+    var pctAlic = alicuotaPctEsperado[ivaAlicIdCfg];
+    if (pctAlic !== undefined && Math.abs(ivaPct * 100 - pctAlic) > 0.02) {
+      return {
+        success: false,
+        error: 'Configuración IVA incoherente: IVA_PORCENTAJE=' + (ivaPct * 100) + '% no coincide con IVA_ALICUOTA_ID=' + ivaAlicIdCfg +
+          ' (alícuota ARCA ' + pctAlic + '%). Revisá IVA_PORCENTAJE e IVA_ALICUOTA_ID en Propiedades del script.'
+      };
+    }
 
     if (datos.importeNeto > 0) {
       neto  = Math.round(datos.importeNeto * 100) / 100;
@@ -196,45 +228,54 @@ function emitirFacturaElectronica(datosFactura) {
       return resultado;
     }
 
-    // ── Descontar stock de productos facturados ──────────────────────────────
-    if (datos.detalle && datos.detalle.length > 0) {
-      datos.detalle.forEach(function(item) {
-        var prodId = parseInt(item.productoId || item.id || 0);
-        if (prodId > 0) {
-          try {
-            ProductosRepository.descontarStock(prodId, parseInt(item.cantidad) || 1);
-            Logger.log('[FACT] Stock descontado: prodId=' + prodId);
-          } catch (e) {
-            Logger.log('[FACT] Aviso stock prodId=' + prodId + ': ' + e.message);
+    var postAfipError = '';
+    try {
+      // ── Descontar stock de productos facturados ────────────────────────────
+      if (datos.detalle && datos.detalle.length > 0) {
+        datos.detalle.forEach(function(item) {
+          var prodId = parseInt(item.productoId || item.id || 0);
+          if (prodId > 0) {
+            try {
+              ProductosRepository.descontarStock(prodId, parseInt(item.cantidad) || 1);
+              Logger.log('[FACT] Stock descontado: prodId=' + prodId);
+            } catch (e) {
+              Logger.log('[FACT] Aviso stock prodId=' + prodId + ': ' + e.message);
+            }
           }
-        }
-      });
-    }
+        });
+      }
 
-    // ── Guardar en hoja FACTURAS_EMITIDAS ────────────────────────────────────
-    _guardarFacturaEnHoja({
-      id:            Utilities.getUuid().substring(0, 8).toUpperCase(),
-      fecha:         formatearFechaLocal(new Date()),
-      cbteTipo:      datos.cbteTipo,
-      cbteTipoNombre: _nombreTipoComprobante(datos.cbteTipo),
-      ptoVta:        resultado.ptoVta || resultado.puntoVenta || 0,
-      cbteNro:       resultado.cbteNro || 0,
-      clienteNombre: datos.clienteNombre,
-      clienteCuit:   datos.clienteCuit || '',
-      clienteRazonSocial: datos.clienteRazonSocial || '',
-      condicionIvaReceptor: datos.clienteCondicionTexto || '',
-      impNeto:       neto,
-      impIVA:        iva,
-      total:         total,
-      detalle:       datos.detalle || [],
-      cae:           resultado.cae || '',
-      caeVto:        resultado.caeVencimiento || '',
-      estado:        'EMITIDA',
-      usuario:       Session.getActiveUser().getEmail()
-    });
+      // ── Guardar en hoja FACTURAS_EMITIDAS ───────────────────────────────────
+      _guardarFacturaEnHoja({
+        id:            Utilities.getUuid().substring(0, 8).toUpperCase(),
+        fecha:         formatearFechaLocal(new Date()),
+        cbteTipo:      datos.cbteTipo,
+        cbteTipoNombre: _nombreTipoComprobante(datos.cbteTipo),
+        ptoVta:        resultado.ptoVta || resultado.puntoVenta || 0,
+        cbteNro:       resultado.cbteNro || 0,
+        clienteNombre: datos.clienteNombre,
+        clienteCuit:   datos.clienteCuit || '',
+        clienteRazonSocial: datos.clienteRazonSocial || '',
+        condicionIvaReceptor: datos.clienteCondicionTexto || '',
+        impNeto:       neto,
+        impIVA:        iva,
+        total:         total,
+        detalle:       datos.detalle || [],
+        cae:           resultado.cae || '',
+        caeVto:        resultado.caeVencimiento || '',
+        estado:        'EMITIDA',
+        usuario:       Session.getActiveUser().getEmail()
+      });
+    } catch (ePost) {
+      postAfipError = ePost.message || String(ePost);
+      Logger.log('[FACT] Error post-AFIP (stock/hoja, CAE ya emitido): ' + postAfipError);
+    }
 
     var mensajeFront = resultado.mensaje || ('Comprobante emitido correctamente. CAE: ' + resultado.cae);
     if (avisoFecha) mensajeFront = mensajeFront + ' · ' + avisoFecha;
+    if (postAfipError) {
+      mensajeFront = mensajeFront + ' · Atención: el comprobante fue autorizado en ARCA pero falló guardar stock o la hoja local: ' + postAfipError;
+    }
 
     return {
       success:    true,
@@ -243,7 +284,8 @@ function emitirFacturaElectronica(datosFactura) {
       cbteNro:    resultado.cbteNro,
       total:      total,
       mensaje:    mensajeFront,
-      avisoFecha: avisoFecha
+      avisoFecha: avisoFecha,
+      advertencia: postAfipError || undefined
     };
 
   } catch (error) {
@@ -269,7 +311,7 @@ function emitirFacturaElectronica(datosFactura) {
         });
       }
     } catch (ignore) { /* cola opcional */ }
-    return { success: false, error: 'Error al conectar con AFIP: ' + error.message };
+    return { success: false, error: 'Error al emitir o guardar el comprobante: ' + error.message };
   }
 }
 

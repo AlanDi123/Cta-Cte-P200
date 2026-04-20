@@ -381,13 +381,31 @@ function vnToggleProducto(id) {
 //  CLIENTES (lectura del sheet CLIENTES existente)
 // ─────────────────────────────────────────────────────────────
 
+/** Misma lógica multi-palabra que clienteNombreCoincideBusqueda en el HTML (normalizarString en GAS). */
+function vnNombreCoincideBusqueda(nombre, termino) {
+  var q = normalizarString(termino);
+  if (!q || String(q).replace(/\s/g, '').length < 2) return false;
+  var nombreNorm = normalizarString(nombre);
+  if (!nombreNorm) return false;
+  if (nombreNorm.indexOf(q) !== -1) return true;
+  var palabras = String(q).split(' ').filter(function(p) { return p.length > 0; });
+  if (palabras.length === 0) return false;
+  var tokensNombre = String(nombreNorm).split(' ').filter(function(p) { return p.length > 0; });
+  return palabras.every(function(pb) {
+    return tokensNombre.some(function(pn) {
+      return pn.indexOf(pb) === 0;
+    });
+  });
+}
+
 function vnGetClientes(termino) {
   try {
-    if (!termino || termino.trim().length < 2) {
+    var t = termino ? String(termino).trim() : '';
+    if (!t || String(normalizarString(t)).replace(/\s/g, '').length < 2) {
       return { success: true, clientes: [] };
     }
     // FIX: era ClientesRepo (indefinido) → ClientesRepository
-    var resultado = ClientesRepository.buscarConSugerencias(termino.trim());
+    var resultado = ClientesRepository.buscarConSugerencias(t);
     var lista = [];
     if (resultado.exacto) lista.push(resultado.exacto.nombre);
     if (resultado.sugerencias) {
@@ -396,6 +414,9 @@ function vnGetClientes(termino) {
         if (nombre && lista.indexOf(nombre) === -1) lista.push(nombre);
       });
     }
+    lista = lista.filter(function(nombre) {
+      return vnNombreCoincideBusqueda(nombre, t);
+    });
     return { success: true, clientes: lista };
   } catch (e) {
     Logger.log('[VN] vnGetClientes error: ' + e.message);
