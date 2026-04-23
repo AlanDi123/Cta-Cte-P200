@@ -184,8 +184,8 @@ function emitirFacturaElectronica(datosFactura) {
       var fTrans   = parsearFechaLocal(datos.fechaTransferencia);
       var diffDias = Math.floor((new Date() - fTrans) / 86400000);
       if (diffDias > 5) {
-        avisoFecha = 'Transferencia de hace ' + diffDias +
-                     ' días. ARCA usará la fecha máxima permitida (5 días).';
+        avisoFecha = 'Operación con fecha de hace ' + diffDias +
+                     ' días. ARCA usará la fecha máxima permitida (5 días hacia atrás).';
       }
     }
 
@@ -1053,6 +1053,24 @@ function actualizarCondicionesFiscalesDesdeArca() {
 
 // ─── SECCIÓN 3: HELPERS PRIVADOS ────────────────────────────────────────────
 
+/**
+ * Limpia la descripcion de renglones de Factura A: sin datos de medios de pago o transfer.
+ */
+function _hfSanitizarDescripcionItemFacturaA(s) {
+  if (!s) return '';
+  var t = String(s);
+  t = t.replace(/\s*[-–—:]\s*transfer(?:\s*encia)?[^\n\]]*/gi, ' ');
+  t = t.replace(/\btransfer(?:\s*encia|encias)?[:\s]+[^,;\n]*/gi, ' ');
+  t = t.replace(
+    /\b(santander|mercado\s*pago|mercadopago|banco\s*macro|banco\s*galicia|banco\s*nacion|banco\s*naci[oó]n|bbva|bna|brubank|uala|icbc)\b/gi,
+    ' '
+  );
+  t = t.replace(/\b(cbu|cvu|alias)(?:\s*[:.]?\s*)([^\s,;]+)/gi, ' ');
+  t = t.replace(/\s{2,}/g, ' ').replace(/^\s*[,;]\s*|\s*[,;]\s*$/g, ' ').trim();
+  if (!t) return 'Venta de Productos';
+  return t;
+}
+
 function _normalizarDatosFactura(datos) {
   // Soporta AMBAS estructuras:
   //   A) Plana: { clienteNombre, clienteCondicion, importeNeto, ... }
@@ -1087,8 +1105,29 @@ function _normalizarDatosFactura(datos) {
     Logger.log('[NORM] importeNeto calculado desde items: $' + importeNeto);
   }
 
+  var cbteTipoN = Number(datos.cbteTipo) || 6;
+
+  if (cbteTipoN === 6) {
+    if (importeNeto > 0) {
+      detalle = [{
+        descripcion:     'Venta de Productos',
+        cantidad:        1,
+        precioUnitario:  importeNeto
+      }];
+    }
+  } else if (cbteTipoN === 1) {
+    detalle = (detalle || []).map(function(it) {
+      return {
+        descripcion:     _hfSanitizarDescripcionItemFacturaA(String(it.descripcion != null ? it.descripcion : '')),
+        cantidad:        Number(it.cantidad) > 0 ? Number(it.cantidad) : 1,
+        precioUnitario:  Number(it.precioUnitario != null ? it.precioUnitario : (it.precioUnit || it.precio)) || 0,
+        productoId:      (it.productoId != null && it.productoId !== '') ? it.productoId : (it.id != null ? it.id : null)
+      };
+    });
+  }
+
   return {
-    cbteTipo:          Number(datos.cbteTipo) || 6,
+    cbteTipo:          cbteTipoN,
     clienteNombre:     clienteNombre.toString().toUpperCase().trim(),
     clienteRazonSocial: clienteRS,
     clienteDomicilio:  clienteDom,
