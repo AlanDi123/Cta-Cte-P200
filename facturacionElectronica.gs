@@ -1148,8 +1148,9 @@ function _hfEnsureFacturasEmitidasColumns(hoja) {
   }
   if (toAdd.length === 0) return;
   var startCol = lastCol + 1;
-  hoja.getRange(1, startCol, 1, startCol + toAdd.length - 1).setValues([toAdd]);
-  hoja.getRange(1, startCol, 1, startCol + toAdd.length - 1)
+  // getRange(fila, col, numFilas, numColumnas) — 4.º parámetro es cantidad de columnas, no col final
+  hoja.getRange(1, startCol, 1, toAdd.length).setValues([toAdd]);
+  hoja.getRange(1, startCol, 1, toAdd.length)
     .setFontWeight('bold').setBackground('#1565C0').setFontColor('#FFFFFF');
 }
 
@@ -1166,8 +1167,8 @@ function _hfEnsureColumnasReceptorOpcional(hoja) {
   }
   if (toAdd.length === 0) return;
   var startCol = lastCol + 1;
-  hoja.getRange(1, startCol, 1, startCol + toAdd.length - 1).setValues([toAdd]);
-  hoja.getRange(1, startCol, 1, startCol + toAdd.length - 1)
+  hoja.getRange(1, startCol, 1, toAdd.length).setValues([toAdd]);
+  hoja.getRange(1, startCol, 1, toAdd.length)
     .setFontWeight('bold').setBackground('#E8F5E9').setFontColor('#000000');
 }
 
