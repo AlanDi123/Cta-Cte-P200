@@ -12489,10 +12489,39 @@
       var pv  = String(f.ptoVta  || 0).padStart(5,  '0');
       var nro = String(f.cbteNro || 0).padStart(8, '0');
 
-      // ── IMPORTES ──────────────────────────────────────────────────────────────
+      // ── IMPORTES (IVA según IVA_PORCENTAJE / IVA_ALICUOTA_ID en config; no fijar 21%) ──
       var total   = Number(f.total)   || 0;
-      var impNeto = Number(f.impNeto) || (esA ? parseFloat((total/1.21).toFixed(2)) : total);
-      var impIVA21= Number(f.impIVA)  || (esA ? parseFloat((total - impNeto).toFixed(2)) : 0);
+      var ivaCfgPct = (cfg.ivaPorcentaje != null && !isNaN(Number(cfg.ivaPorcentaje)))
+        ? (Number(cfg.ivaPorcentaje) / 100) : 0.105;
+      var alicId = (cfg.ivaAlicuotaId != null) ? parseInt(String(cfg.ivaAlicuotaId), 10) : 4;
+      if (isNaN(alicId) || alicId < 3) alicId = 4;
+
+      var impNeto = Number(f.impNeto);
+      var impIVA  = Number(f.impIVA);
+      if (esA) {
+        if (f.impNeto == null || f.impNeto === '' || isNaN(impNeto) || impNeto <= 0) {
+          var div0 = 1 + ivaCfgPct;
+          impNeto = Math.round((total / div0) * 100) / 100;
+        } else {
+          impNeto = Math.round(impNeto * 100) / 100;
+        }
+        if (f.impIVA == null || f.impIVA === '' || (isNaN(impIVA) && f.impIVA !== 0)) {
+          impIVA = Math.round((total - impNeto) * 100) / 100;
+        } else {
+          impIVA = Math.round(impIVA * 100) / 100;
+        }
+      } else {
+        impNeto = (!isNaN(impNeto) && impNeto > 0) ? impNeto : total;
+        impIVA  = 0;
+      }
+      var impIVA25 = 0, impIVA5 = 0, impIVA10 = 0, impIVA21b = 0, impIVA27 = 0;
+      if (esA) {
+        if (alicId === 3) { /* 0% */ }
+        else if (alicId === 4) { impIVA10 = impIVA; }
+        else if (alicId === 5) { impIVA21b = impIVA; }
+        else if (alicId === 6) { impIVA27 = impIVA; }
+        else { impIVA10 = impIVA; }
+      }
 
       // ── FECHA ─────────────────────────────────────────────────────────────────
       var fechaEmision = f.fecha || '';
@@ -12502,10 +12531,14 @@
         fechaQR = (fp[2]||'2024') + '-' + (fp[1]||'01').padStart(2,'0') + '-' + (fp[0]||'01').padStart(2,'0');
       }
 
-      // ── RECEPTOR ─────────────────────────────────────────────────────────────
-      var cuitLimpio  = (f.clienteCuit || '').replace(/[^0-9]/g, '');
-      var tipoDocRec  = (cuitLimpio.length === 11 && esA) ? 80 : 99;
-      var nroDocRec   = parseInt(cuitLimpio) || 0;
+      // ── RECEPTOR (QR: CUIT 80, DNI 7–8 díg. 96, sino 99) ─────────────────────
+      var digitosReceptor = String(f.clienteCuit || '').replace(/[^0-9]/g, '');
+      if (!digitosReceptor) digitosReceptor = String(f.clienteCuitDni || '').replace(/[^0-9]/g, '');
+      var tipoDocRec = 99;
+      var nroDocRec = 0;
+      if (digitosReceptor.length === 11) { tipoDocRec = 80; nroDocRec = parseInt(digitosReceptor, 10); }
+      else if (digitosReceptor.length === 7 || digitosReceptor.length === 8) { tipoDocRec = 96; nroDocRec = parseInt(digitosReceptor, 10); }
+      var cuitDniReceptor = (f.clienteCuitDni && String(f.clienteCuitDni).trim()) ? f.clienteCuitDni : (f.clienteCuit || '-');
 
       // ── QR ARCA (RG 4291) ─────────────────────────────────────────────────────
       var cuitEmitNum = parseInt((cuitEmit || '').replace(/[^0-9]/g, '')) || 0;
@@ -12578,9 +12611,9 @@
           '<tr><td colspan="2" class="tcell">Importe Neto Gravado</td><td class="tcell tar">' + fmtARS(impNeto) + '</td></tr>' +
           '<tr><td colspan="2" class="tcell">IVA 2,5%</td><td class="tcell tar">$0,00</td></tr>' +
           '<tr><td colspan="2" class="tcell">IVA 5%</td><td class="tcell tar">$0,00</td></tr>' +
-          '<tr><td colspan="2" class="tcell">IVA 10,5%</td><td class="tcell tar">$0,00</td></tr>' +
-          '<tr><td colspan="2" class="tcell">IVA 21%</td><td class="tcell tar">' + fmtARS(impIVA21) + '</td></tr>' +
-          '<tr><td colspan="2" class="tcell">IVA 27%</td><td class="tcell tar">$0,00</td></tr>' +
+          '<tr><td colspan="2" class="tcell">IVA 10,5%</td><td class="tcell tar">' + fmtARS(impIVA10) + '</td></tr>' +
+          '<tr><td colspan="2" class="tcell">IVA 21%</td><td class="tcell tar">' + fmtARS(impIVA21b) + '</td></tr>' +
+          '<tr><td colspan="2" class="tcell">IVA 27%</td><td class="tcell tar">' + fmtARS(impIVA27) + '</td></tr>' +
           '<tr><td colspan="2" class="tcell">Otros Tributos</td><td class="tcell tar">$0,00</td></tr>';
       }
       totalesHTML +=
@@ -12675,7 +12708,7 @@
 '<div class="receptor">' +
   '<div class="receptor-grid">' +
     '<div class="rc"><b>Razón social / Denominación:</b> ' + escHtml((f.clienteRazonSocial && String(f.clienteRazonSocial).trim()) || f.clienteNombre || 'CONSUMIDOR FINAL') + '</div>' +
-    '<div class="rc"><b>CUIT / DNI Nro.:</b> ' + escHtml(f.clienteCuit || '-') + '</div>' +
+    '<div class="rc"><b>CUIT / DNI Nro.:</b> ' + escHtml(cuitDniReceptor) + '</div>' +
     '<div class="rc"><b>Condición frente al IVA:</b> ' + escHtml((f.clienteCondicionTexto && String(f.clienteCondicionTexto).trim()) ? f.clienteCondicionTexto : (esA ? 'RESPONSABLE INSCRIPTO' : 'CONSUMIDOR FINAL')) + '</div>' +
     '<div class="rc"><b>Condición de Venta:</b> ' + escHtml(f.condicionVenta || 'CONTADO') + '</div>' +
   '</div>' +

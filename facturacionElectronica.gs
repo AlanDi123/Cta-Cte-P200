@@ -1305,7 +1305,7 @@ function verificarComprobanteARCA(cbteTipo, cbteNro, ptoVta) {
       key:  creds.key
     };
 
-    var resultado = afipFetch('/requests', payload, headers);
+    var resultado = afipFetchConRetry('/requests', payload, headers);
     Logger.log('[VERIFICAR_ARCA] Respuesta: ' + JSON.stringify(resultado).substring(0, 400));
 
     var res = resultado.FECompConsultarResult || resultado;
@@ -1509,6 +1509,9 @@ function emitirNotaCredito(facturaId) {
     var auth  = afipGetAuth(AFIP_CONFIG.WS.FE);
     var creds = afipGetCredentials();
 
+    var ivaAlicIdNC = parseInt(PropertiesService.getScriptProperties().getProperty('IVA_ALICUOTA_ID') || '4', 10);
+    if (isNaN(ivaAlicIdNC) || ivaAlicIdNC < 3) ivaAlicIdNC = 4;
+
     var cuitLimpio = (original.clienteCuit || '').replace(/[^0-9]/g, '');
     var tipoDocRec = (cuitLimpio.length === 11) ? 80 : 99;
     var nroDocRec  = parseInt(cuitLimpio) || 0;
@@ -1549,7 +1552,7 @@ function emitirNotaCredito(facturaId) {
               MonId:       'PES',
               MonCotiz:    1,
               Iva: [{
-                Id:    5,  // 21%
+                Id:      ivaAlicIdNC,  // misma alícuota que en emisión (p. ej. 4=10,5%)
                 BaseImp: Number(original.impNeto),
                 Importe: Number(original.impIVA)
               }],
@@ -1567,7 +1570,7 @@ function emitirNotaCredito(facturaId) {
       'Authorization': 'Bearer ' + creds.accessToken,
       'Content-Type':  'application/json'
     };
-    var respuesta = afipFetch('/requests', payload, headers);
+    var respuesta = afipFetchConRetry('/requests', payload, headers);
     Logger.log('[emitirNotaCredito] Respuesta ARCA: ' + JSON.stringify(respuesta).substring(0, 500));
 
     var detResp = ((respuesta.FeCAESolicitarResult || respuesta).FeDetResp || {}).FECAEDetResponse;
@@ -1667,7 +1670,7 @@ function afipUltimoComprobante(cbteTipo, ptoVta) {
       key:  creds.key
     };
 
-    var res = afipFetch('/requests', payload, headers);
+    var res = afipFetchConRetry('/requests', payload, headers);
     if (res && res.FECompUltimoAutorizadoResult) {
       return Number(res.FECompUltimoAutorizadoResult.CbteNro) || 0;
     }
@@ -1722,6 +1725,8 @@ function obtenerDatosParaImpresion(facturaId) {
       Logger.log('[obtenerDatosParaImpresion] Padron: ' + ePad.message);
     }
 
+    factura.clienteCuitDni = _hfCompletarDocumentoReceptor(factura);
+
     return { success: true, config: cfg, factura: factura };
 
   } catch (e) {
@@ -1762,6 +1767,11 @@ function _leerConfiguracionEmisor() {
     return v;
   }
 
+  var ivaP = parseFloat(p('IVA_PORCENTAJE', '10.5'));
+  if (isNaN(ivaP)) ivaP = 10.5;
+  var ivaAlic = parseInt(p('IVA_ALICUOTA_ID', '4'), 10);
+  if (isNaN(ivaAlic)) ivaAlic = 4;
+
   return {
     razonSocial:       p('EMISOR_RAZON_SOCIAL'),
     cuit:              formatearCuit(p('EMISOR_CUIT', p('AFIP_CUIT'))),
@@ -1775,8 +1785,51 @@ function _leerConfiguracionEmisor() {
     ptoVta:            p('AFIP_PUNTO_VENTA', '1'),
     telefono:          p('EMISOR_TELEFONO'),
     email:             p('EMISOR_EMAIL'),
-    web:               p('EMISOR_WEB')
+    web:               p('EMISOR_WEB'),
+    ivaPorcentaje:     ivaP,
+    ivaAlicuotaId:     ivaAlic
   };
+}
+
+/**
+ * Muestra CUIT con guiones o DNI con separadores según largo (datos de hoja / clientes).
+ */
+function _hfFormatearCuitDniStr(raw) {
+  if (raw == null) return '';
+  var s = String(raw).trim();
+  if (!s) return '';
+  var d = s.replace(/[^0-9]/g, '');
+  if (d.length === 11) {
+    return d.substring(0, 2) + '-' + d.substring(2, 10) + '-' + d.substring(10, 11);
+  }
+  if (d.length === 7) {
+    return 'DNI ' + d.charAt(0) + '.' + d.substring(1, 4) + '.' + d.substring(4, 7);
+  }
+  if (d.length === 8) {
+    return 'DNI ' + d.substring(0, 2) + '.' + d.substring(2, 5) + '.' + d.substring(5, 8);
+  }
+  if (d.length > 0) return s;
+  return '';
+}
+
+/**
+ * CUIT/DNI en comprobante: factura, si falta dato hoja, clientes por nombre.
+ */
+function _hfCompletarDocumentoReceptor(factura) {
+  var doc = _hfFormatearCuitDniStr(factura.clienteCuit);
+  if (doc) return doc;
+  var nom = String(factura.clienteNombre || factura.cliente || '').trim();
+  if (!nom) return '-';
+  try {
+    var cl = ClientesRepository.buscarPorNombre(nom);
+    if (cl && cl.cuit) {
+      var d2 = _hfFormatearCuitDniStr(cl.cuit);
+      if (d2) return d2;
+    }
+  } catch (e0) {
+    Logger.log('[_hfCompletarDocumentoReceptor] ' + e0.message);
+  }
+  return '-';
 }
 
 /**

@@ -108,15 +108,24 @@ function afipFetch(endpoint, payload, headers, method) {
 }
 
 function afipFetchConRetry(endpoint, payload, headers, method) {
-  var max = 3, delay = 1000;
+  var max = 5, delay = 2000; // reintentos por ancho de banda / 429 / límites de AfipSDK
   for (var i = 1; i <= max; i++) {
     try {
       return afipFetch(endpoint, payload, headers, method);
     } catch (e) {
-      var msg = e.message.toLowerCase();
+      var msg = String(e && e.message ? e.message : e).toLowerCase();
       var retry = msg.indexOf('timeout') >= 0 ||
                   msg.indexOf('unavailable') >= 0 ||
                   msg.indexOf('exceeded') >= 0 ||
+                  msg.indexOf('bandwidth') >= 0 ||
+                  msg.indexOf('rate') >= 0 ||
+                  msg.indexOf('throttl') >= 0 ||
+                  msg.indexOf('limite') >= 0 ||
+                  msg.indexOf('límite') >= 0 ||
+                  msg.indexOf('temporarily') >= 0 ||
+                  msg.indexOf('429') >= 0 ||
+                  msg.indexOf('503') >= 0 ||
+                  /http 429/.test(msg) ||
                   /http 5\d\d/.test(msg);
       if (!retry || i === max) throw e;
       Utilities.sleep(delay * Math.pow(2, i - 1));
@@ -155,7 +164,7 @@ function afipGetAuth(wsid) {
     'Content-Type':  'application/json'
   };
 
-  var res = afipFetch('/auth', payload, headers);
+  var res = afipFetchConRetry('/auth', payload, headers);
   if (!res.token || !res.sign)
     throw new Error('Auth ARCA inválida. Respuesta: ' + JSON.stringify(res).substring(0, 200));
 
@@ -326,7 +335,7 @@ function afipEmitirFactura(datosFactura) {
       key:  creds.key
     };
 
-    var resUlt = afipFetch('/requests', payloadUlt, headers);
+    var resUlt = afipFetchConRetry('/requests', payloadUlt, headers);
 
     // Verificación estricta: no dejamos pasar errores ocultos
     if (resUlt && resUlt.Errors) {
@@ -599,7 +608,7 @@ function afipObtenerFechaUltimoComprobante(auth, creds, ptoVta, cbteTipo, cbteNr
       'Content-Type':  'application/json'
     };
 
-    var res = afipFetch('/requests', payload, headers);
+    var res = afipFetchConRetry('/requests', payload, headers);
 
     var fechaStr = afipBuscarCampo(res, 'CbteFch');
     return fechaStr ? String(fechaStr) : null;
