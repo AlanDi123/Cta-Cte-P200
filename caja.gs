@@ -66,13 +66,35 @@ const CajaRepository = {
 
       // 1. Guardar denominaciones de efectivo (billetes y monedas)
       if (datos.arqueo) {
-        for (const [tipo, cantidad] of Object.entries(datos.arqueo)) {
-          if (cantidad > 0) {
+        for (const [key, value] of Object.entries(datos.arqueo)) {
+          if (typeof value === 'object' && value !== null) {
+            const contador = key;
+            for (const [tipo, cantidad] of Object.entries(value)) {
+              if (cantidad > 0) {
+                const denom = [...DENOMINACIONES.BILLETES, ...DENOMINACIONES.MONEDAS].find(d => d.tipo === tipo);
+                if (denom) {
+                  const monto = cantidad * denom.valor;
+                  registros.push([
+                    idActual++,
+                    fecha,
+                    sesionId,
+                    tipo + '::' + contador,
+                    `${contador}: ${cantidad} x ${denom.nombre}`,
+                    monto,
+                    usuario,
+                    timestamp
+                  ]);
+                }
+              }
+            }
+          } else if (typeof value === 'number' && value > 0) {
+            const tipo = key;
+            const cantidad = value;
             const denom = [...DENOMINACIONES.BILLETES, ...DENOMINACIONES.MONEDAS].find(d => d.tipo === tipo);
             if (denom) {
               const monto = cantidad * denom.valor;
               registros.push([
-                idActual++,              // ← usar y luego incrementar
+                idActual++,
                 fecha,
                 sesionId,
                 tipo,
@@ -220,10 +242,11 @@ const CajaRepository = {
     let totalFiados = 0;
 
     for (const reg of registros) {
-      const tipo = reg[3];
+      const tipo = String(reg[3] || '');
       const monto = reg[5];
+      const tipoBase = tipo.split('::')[0];
 
-      if (tipo.startsWith('BILLETE_') || tipo.startsWith('MONEDA_')) {
+      if (tipoBase.startsWith('BILLETE_') || tipoBase.startsWith('MONEDA_')) {
         totalEfectivo += monto;
       } else if (tipo === CONFIG.TIPOS_CAJA.PROVEEDOR) {
         totalProveedores += Math.abs(monto);
@@ -298,7 +321,8 @@ const CajaRepository = {
       };
 
       for (const reg of sesion.registros) {
-        if (reg.tipo.startsWith('BILLETE_') || reg.tipo.startsWith('MONEDA_')) {
+        const tipoBase = String(reg.tipo || '').split('::')[0];
+        if (tipoBase.startsWith('BILLETE_') || tipoBase.startsWith('MONEDA_')) {
           sesion.totales.efectivo += reg.monto;
         } else if (reg.tipo === CONFIG.TIPOS_CAJA.PROVEEDOR) {
           sesion.totales.proveedores += Math.abs(reg.monto);
@@ -446,18 +470,19 @@ function generarResumenArqueo(sesionId) {
   const ingresos = [];
 
   for (const reg of sesion.registros) {
-    if (reg.tipo.startsWith('BILLETE_')) {
-      const denom = DENOMINACIONES.BILLETES.find(d => d.tipo === reg.tipo);
+    const tipoBase = String(reg.tipo || '').split('::')[0];
+    if (tipoBase.startsWith('BILLETE_')) {
+      const denom = DENOMINACIONES.BILLETES.find(d => d.tipo === tipoBase);
       efectivo.billetes.push({
-        denominacion: denom ? denom.nombre : reg.tipo,
+        denominacion: denom ? denom.nombre : tipoBase,
         descripcion: reg.descripcion,
         monto: reg.monto
       });
       efectivo.total += reg.monto;
-    } else if (reg.tipo.startsWith('MONEDA_')) {
-      const denom = DENOMINACIONES.MONEDAS.find(d => d.tipo === reg.tipo);
+    } else if (tipoBase.startsWith('MONEDA_')) {
+      const denom = DENOMINACIONES.MONEDAS.find(d => d.tipo === tipoBase);
       efectivo.monedas.push({
-        denominacion: denom ? denom.nombre : reg.tipo,
+        denominacion: denom ? denom.nombre : tipoBase,
         descripcion: reg.descripcion,
         monto: reg.monto
       });

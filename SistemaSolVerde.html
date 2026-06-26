@@ -1655,6 +1655,35 @@
       gap: 0.75rem;
     }
 
+    .contador-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .contador-card {
+      background: var(--sv-superficie-elevada);
+      border-radius: var(--sv-radius);
+      padding: 0.85rem;
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .contador-card .card-title {
+      margin-bottom: 0.85rem;
+    }
+
+    .contador-total {
+      margin-top: 0.85rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-align: right;
+      color: var(--sv-primario);
+    }
+
     .denom-item {
       background: var(--sv-superficie-elevada);
       border-radius: var(--sv-radius);
@@ -3210,10 +3239,29 @@
         <div class="arqueo-form-content">
           <div class="card">
             <div class="card-title">Billetes</div>
-            <div class="denom-grid" id="gridBilletes"></div>
+            <div class="contador-grid" id="gridBilletes"></div>
 
             <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid var(--sv-borde);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; align-items: center;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:0.95rem;font-weight:bold;">Total Diego</span>
+                  <span id="totalContadorDiego" style="font-size:1rem;font-weight:bold;color:var(--sv-primario);">$0</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:0.95rem;font-weight:bold;">Total Oscar</span>
+                  <span id="totalContadorOscar" style="font-size:1rem;font-weight:bold;color:var(--sv-primario);">$0</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:0.95rem;font-weight:bold;">Total Aldo</span>
+                  <span id="totalContadorAldo" style="font-size:1rem;font-weight:bold;color:var(--sv-primario);">$0</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:0.95rem;font-weight:bold;">Total General</span>
+                  <span id="totalContadorGeneral" style="font-size:1rem;font-weight:bold;color:var(--sv-primario);">$0</span>
+                </div>
+              </div>
+
+              <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-size: 1.125rem; font-weight: bold;">Total Efectivo:</span>
                 <span style="font-size: 1.5rem; font-weight: bold; color: var(--sv-primario);" id="totalEfectivo">$0</span>
               </div>
@@ -7107,9 +7155,12 @@
 
     function _serializarEstadoCaja() {
       const billetes = {};
-      // BUGFIX D1: era input.dataset.denom (undefined); el atributo real es data-tipo
+      // Guardar los cuatro contadores con sus denominaciones separadas
       document.querySelectorAll('.denom-input').forEach(input => {
-        billetes[input.dataset.tipo] = input.value;
+        const contador = input.dataset.contador || 'General';
+        const tipo = input.dataset.tipo;
+        if (!billetes[contador]) billetes[contador] = {};
+        billetes[contador][tipo] = input.value;
       });
 
       const proveedores = [];
@@ -7141,11 +7192,23 @@
 
         // BUGFIX D2: era [data-denom=...] (no existe); el atributo real es data-tipo
         if (datos.billetes) {
-          Object.entries(datos.billetes).forEach(([tipo, val]) => {
-            if (!val || val === '0') return;
-            const input = document.querySelector(`.denom-input[data-tipo="${tipo}"]`);
-            if (input) { input.value = val; }
-          });
+          const isGrouped = Object.values(datos.billetes).some(v => typeof v === 'object' && v !== null);
+          if (isGrouped) {
+            Object.entries(datos.billetes).forEach(([contador, grupo]) => {
+              if (typeof grupo !== 'object' || !grupo) return;
+              Object.entries(grupo).forEach(([tipo, val]) => {
+                if (!val || val === '0') return;
+                const input = document.querySelector(`.denom-input[data-tipo="${tipo}"][data-contador="${contador}"]`);
+                if (input) { input.value = val; }
+              });
+            });
+          } else {
+            Object.entries(datos.billetes).forEach(([tipo, val]) => {
+              if (!val || val === '0') return;
+              const input = document.querySelector(`.denom-input[data-tipo="${tipo}"]`);
+              if (input) { input.value = val; }
+            });
+          }
           calcularTotalEfectivo();
         }
 
@@ -8623,31 +8686,50 @@
     function renderDenominaciones() {
       if (!Estado.configuracion) return;
 
+      const contadores = ['Diego', 'Oscar', 'Aldo', 'General'];
       const grid = document.getElementById('gridBilletes');
-      grid.innerHTML = Estado.configuracion.denominaciones.BILLETES.map(function(d) {
-        return '<div class="denom-item">' +
-          '<span class="denom-label">' + escapeHtml(d.nombre) + '</span>' +
-          '<input type="number" class="denom-input" min="0" value="0" data-tipo="' + d.tipo + '" data-valor="' + d.valor + '" onchange="calcularTotalEfectivo()" inputmode="numeric">' +
-          '<span class="denom-total" data-total="' + d.tipo + '">$0</span>' +
+      grid.innerHTML = contadores.map(function(contador) {
+        return '<div class="contador-card">' +
+          '<div class="card-title">' + escapeHtml(contador) + '</div>' +
+          '<div class="denom-grid">' +
+            Estado.configuracion.denominaciones.BILLETES.map(function(d) {
+              const key = contador + '::' + d.tipo;
+              return '<div class="denom-item">' +
+                '<span class="denom-label">' + escapeHtml(d.nombre) + '</span>' +
+                '<input type="number" class="denom-input" min="0" value="0" data-tipo="' + d.tipo + '" data-contador="' + escapeHtml(contador) + '" data-valor="' + d.valor + '" onchange="calcularTotalEfectivo()" inputmode="numeric">' +
+                '<span class="denom-total" data-total="' + escapeHtml(key) + '">$0</span>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+          '<div class="contador-total">Total ' + escapeHtml(contador) + ': <span id="totalContador' + escapeHtml(contador) + '">$0</span></div>' +
         '</div>';
       }).join('');
     }
 
     function calcularTotalEfectivo() {
       let total = 0;
-      Estado.arqueo = {};
+      Estado.arqueo = { Diego: {}, Oscar: {}, Aldo: {}, General: {} };
+      const contadoresTotales = { Diego: 0, Oscar: 0, Aldo: 0, General: 0 };
 
       document.querySelectorAll('.denom-input').forEach(input => {
         const cantidad = parseInt(input.value) || 0;
-        const valor = parseInt(input.dataset.valor);
+        const valor = parseInt(input.dataset.valor) || 0;
         const tipo = input.dataset.tipo;
+        const contador = input.dataset.contador || 'General';
         const subtotal = cantidad * valor;
 
-        Estado.arqueo[tipo] = cantidad;
+        if (!Estado.arqueo[contador]) Estado.arqueo[contador] = {};
+        Estado.arqueo[contador][tipo] = cantidad;
+        contadoresTotales[contador] = (contadoresTotales[contador] || 0) + subtotal;
         total += subtotal;
 
-        const totalSpan = document.querySelector('[data-total="' + tipo + '"]');
+        const totalSpan = document.querySelector('[data-total="' + contador + '::' + tipo + '"]');
         if (totalSpan) totalSpan.textContent = formatearMonto(subtotal);
+      });
+
+      Object.keys(contadoresTotales).forEach(function(contador) {
+        const el = document.getElementById('totalContador' + contador);
+        if (el) el.textContent = formatearMonto(contadoresTotales[contador]);
       });
 
       document.getElementById('totalEfectivo').textContent = formatearMonto(total);
