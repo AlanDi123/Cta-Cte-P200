@@ -1516,6 +1516,13 @@
       z-index: 50;
     }
 
+    .prov-sugerencias {
+      max-height: 200px;
+      overflow-y: auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
     .suggestion-item {
       padding: 0.875rem 1rem;
       min-height: var(--sv-touch-target);
@@ -1646,6 +1653,17 @@
     .upload-icon {
       font-size: 3rem;
       margin-bottom: 0.5rem;
+    }
+
+    /* Arqueo de caja - layout de tarjetas */
+    .arqueo-form-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      align-items: start;
+    }
+    .arqueo-form-content > .card:last-child {
+      grid-column: 1 / -1;
     }
 
     /* Denominaciones */
@@ -7228,6 +7246,10 @@
               if (montoInput) montoInput.value = Math.abs(Number(p.monto)) || 0;
             }
           });
+          document.querySelectorAll('#listaProveedores .prov-sugerencias').forEach(div => {
+            div.style.display = 'none';
+            div.innerHTML = '';
+          });
         }
 
         // BUGFIX B: d.monto es negativo en la hoja; el input espera positivo
@@ -7308,6 +7330,7 @@
       if (!confirm('¿Limpiar todos los datos del arqueo para comenzar uno nuevo?\n\nSe borrarán billetes, proveedores, gastos e ingresos.')) return;
       document.querySelectorAll('.denom-input').forEach(function(i) { i.value = 0; });
       document.getElementById('listaProveedores').innerHTML = '';
+      document.querySelectorAll('.prov-sugerencias').forEach(div => { div.style.display = 'none'; div.innerHTML = ''; });
       document.getElementById('listaGastos').innerHTML = '';
       document.getElementById('listaIngresos').innerHTML = '';
       Estado.arqueo = {};
@@ -8758,6 +8781,9 @@
     function buscarProveedorAutocomplete(input) {
       const sugerenciasDiv = input.parentElement.querySelector('.prov-sugerencias');
       if (!sugerenciasDiv) return;
+      document.querySelectorAll('#listaProveedores .prov-sugerencias').forEach(function(div) {
+        if (div !== sugerenciasDiv) div.style.display = 'none';
+      });
       const terminoRaw = input.value;
 
       if (!busquedaClienteSuficiente(terminoRaw)) {
