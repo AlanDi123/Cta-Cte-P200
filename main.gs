@@ -1295,6 +1295,34 @@ function obtenerResumenArqueo(sesionId) {
 }
 
 /**
+ * Obtiene los contadores configurables de caja (Arqueo de Efectivo).
+ * "General" no se incluye acá: el frontend lo agrega fijo al final.
+ * @returns {Array<{nombre:string, activo:boolean}>}
+ */
+function obtenerContadoresCajaConfig() {
+  var DEFAULT_CONTADORES = [
+    { nombre: 'Diego', activo: true },
+    { nombre: 'Oscar', activo: true },
+    { nombre: 'Aldo', activo: true }
+  ];
+  try {
+    var raw = PropertiesService.getScriptProperties().getProperty('CONTADORES_CAJA');
+    if (!raw) return DEFAULT_CONTADORES;
+    var parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length !== 3) return DEFAULT_CONTADORES;
+    return parsed.map(function(c, i) {
+      return {
+        nombre: (c && c.nombre) ? String(c.nombre).trim().slice(0, 20) : DEFAULT_CONTADORES[i].nombre,
+        activo: !!(c && c.activo)
+      };
+    });
+  } catch (e) {
+    Logger.log('Error en obtenerContadoresCajaConfig: ' + e.message);
+    return DEFAULT_CONTADORES;
+  }
+}
+
+/**
  * Obtiene la configuracion del sistema
  * @returns {Object} Configuracion
  */
@@ -1304,7 +1332,8 @@ function obtenerConfiguracion() {
     tiposMovimiento: CONFIG.TIPOS_MOVIMIENTO,
     colores: CONFIG.COLORES,
     sistema: CONFIG.SISTEMA,
-    print: CONFIG.getPrint()
+    print: CONFIG.getPrint(),
+    contadoresCaja: obtenerContadoresCajaConfig()
   };
 }
 
@@ -1461,7 +1490,10 @@ function obtenerConfiguracionCompleta() {
       inquilinos: inquilinosFiltrados,
 
       // Textos de Ayuda
-      ayudaTutoriales: props.getProperty('AYUDA_TUTORIALES') || ''
+      ayudaTutoriales: props.getProperty('AYUDA_TUTORIALES') || '',
+
+      // Contadores de Caja (Arqueo de Efectivo)
+      contadoresCaja: obtenerContadoresCajaConfig()
     };
     
     return {
@@ -1670,6 +1702,24 @@ function guardarConfiguracionGeneral(config) {
     if (config.ayudaTutoriales !== undefined) {
       // ScriptProperties tiene un límite de ~9KB por valor; 5000 chars es suficiente para tutoriales
       props.setProperty('AYUDA_TUTORIALES', (config.ayudaTutoriales || '').substring(0, 5000));
+    }
+
+    // Contadores de Caja (Arqueo de Efectivo): siempre 3 slots (Diego/Oscar/Aldo
+    // por defecto). "General" no se guarda acá, el frontend lo agrega fijo.
+    if (config.contadoresCaja !== undefined) {
+      if (!Array.isArray(config.contadoresCaja)) {
+        throw new Error('Contadores de caja debe ser una lista');
+      }
+      const DEFAULT_NOMBRES = ['Diego', 'Oscar', 'Aldo'];
+      const contadoresSanitizados = DEFAULT_NOMBRES.map(function(nombreDefault, i) {
+        const c = config.contadoresCaja[i];
+        const nombre = (c && c.nombre) ? String(c.nombre).trim().slice(0, 20) : '';
+        return {
+          nombre: nombre || nombreDefault,
+          activo: !!(c && c.activo)
+        };
+      });
+      props.setProperty('CONTADORES_CAJA', JSON.stringify(contadoresSanitizados));
     }
     
     Logger.log('Configuración general guardada correctamente');

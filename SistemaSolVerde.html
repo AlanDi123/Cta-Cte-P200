@@ -3296,24 +3296,7 @@
             <div class="contador-grid" id="gridBilletes"></div>
 
             <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid var(--sv-borde);">
-              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; align-items: center;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:0.95rem;font-weight:bold;">Total Diego</span>
-                  <span id="totalContadorDiego" style="font-size:1rem;font-weight:bold;color:var(--sv-primario);">$0</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:0.95rem;font-weight:bold;">Total Oscar</span>
-                  <span id="totalContadorOscar" style="font-size:1rem;font-weight:bold;color:var(--sv-primario);">$0</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:0.95rem;font-weight:bold;">Total Aldo</span>
-                  <span id="totalContadorAldo" style="font-size:1rem;font-weight:bold;color:var(--sv-primario);">$0</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:0.95rem;font-weight:bold;">Total General</span>
-                  <span id="totalContadorGeneral" style="font-size:1rem;font-weight:bold;color:var(--sv-primario);">$0</span>
-                </div>
-              </div>
+                <div id="totalesPorContador" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; align-items: center;"></div>
 
               <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-size: 1.125rem; font-weight: bold;">Total Efectivo:</span>
@@ -3326,10 +3309,10 @@
             <div class="card">
               <div class="card-title">Pagos a Proveedores</div>
               <p style="font-size: 0.75rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;">
-                Escribi el nombre para ver sugerencias del historial
+                Cargá el remito en la ventana y se suma acá con nombre y total
               </p>
               <div id="listaProveedores"></div>
-              <button class="btn btn-outline" onclick="agregarProveedor()" style="width: 100%;">+ Agregar Proveedor</button>
+              <button class="btn btn-outline" onclick="abrirModalRemitoProveedor()" style="width: 100%;">+ Agregar Proveedor</button>
             </div>
 
             <div class="card">
@@ -4160,6 +4143,14 @@
                   <label class="form-label">Tamaño Máximo de Página</label>
                   <input type="number" class="form-input" id="inputPaginaTamanoMax" placeholder="100" min="1" max="500">
                 </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">👥 Contadores de Caja (Arqueo de Efectivo)</div>
+                <p style="font-size: 0.75rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;">
+                  Activá, desactivá o renombrá quién cuenta efectivo en el Arqueo. El contador "General" siempre permanece activo con ese nombre.
+                </p>
+                <div id="configContadoresCaja"></div>
               </div>
             </div>
 
@@ -5156,6 +5147,55 @@
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%;">Agregar Movimiento</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Remito de Proveedor (carga de compra con formato tipo remito) -->
+  <div class="modal" id="modalRemitoProveedor">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <div class="modal-title" id="remitoModalTitulo">Remito de Proveedor</div>
+        <button class="modal-close" onclick="cerrarModalRemitoProveedor()">&times;</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+        <div class="form-group form-group-autocomplete" style="margin: 0; position: relative;">
+          <label class="form-label">Proveedor *</label>
+          <input type="text" class="form-input" id="remitoProveedorNombre" placeholder="Nombre del proveedor" autocomplete="off" oninput="_debouncedBuscarProveedorAutocompleteRemito(this)" onfocus="buscarProveedorAutocompleteRemito(this)">
+          <div class="suggestions-list" id="remitoProveedorSugerencias" style="display: none;"></div>
+        </div>
+        <div class="form-group" style="margin: 0;">
+          <label class="form-label">Fecha</label>
+          <input type="date" class="form-input" id="remitoFecha">
+        </div>
+      </div>
+
+      <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--sv-borde); border-radius: var(--sv-radius);">
+        <table style="width: 100%; border-collapse: collapse; min-width: 520px;">
+          <thead>
+            <tr style="background: var(--sv-superficie-elevada);">
+              <th style="padding: 0.5rem; text-align: left; font-size: 0.75rem; white-space: nowrap;">Unidad</th>
+              <th style="padding: 0.5rem; text-align: left; font-size: 0.75rem;">Descripción / Item</th>
+              <th style="padding: 0.5rem; text-align: right; font-size: 0.75rem; white-space: nowrap;">Precio Unitario</th>
+              <th style="padding: 0.5rem; text-align: right; font-size: 0.75rem; white-space: nowrap;">Total</th>
+              <th style="width: 40px;"></th>
+            </tr>
+          </thead>
+          <tbody id="remitoItemsTbody"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-outline" onclick="agregarFilaRemito()" style="width: 100%; margin-top: 0.5rem;">+ Agregar línea</button>
+
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid var(--sv-borde); display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: bold;">Total Final</span>
+        <span id="remitoTotalFinal" style="font-size: 1.4rem; font-weight: bold; color: var(--sv-primario);">$0</span>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
+        <button class="btn btn-outline" onclick="imprimirRemitoProveedor()" style="flex: 1; min-width: 150px;">🖨️ Imprimir Remito</button>
+        <button class="btn btn-outline" onclick="cerrarModalRemitoProveedor()" style="flex: 1; min-width: 110px;">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarRemitoProveedor()" style="flex: 1; min-width: 110px;">💾 Guardar</button>
+      </div>
     </div>
   </div>
 
@@ -7223,7 +7263,7 @@
       document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
         const desc = item.querySelector('.prov-desc');
         const monto = item.querySelector('.prov-monto');
-        proveedores.push({ descripcion: desc ? desc.value : '', monto: monto ? monto.value : '' });
+        proveedores.push({ descripcion: desc ? desc.value : '', monto: monto ? monto.value : '', remito: item.dataset.remito || '' });
       });
 
       const gastos = [];
@@ -7282,6 +7322,11 @@
               const montoInput = ultimo.querySelector('.prov-monto');
               if (descInput) descInput.value = p.descripcion || p.nombre || '';
               if (montoInput) montoInput.value = Math.abs(Number(p.monto)) || 0;
+              if (p.remito) {
+                ultimo.dataset.remito = p.remito;
+                ultimo.dataset.remitoId = 'rem-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+                _asegurarBotonVerRemito(ultimo);
+              }
             }
           });
           document.querySelectorAll('#listaProveedores .prov-sugerencias').forEach(div => {
@@ -8744,12 +8789,48 @@
     // ============================================================================
     // ARQUEO DE CAJA
     // ============================================================================
+    // Lista de contadores de billetes activos, en orden. "General" siempre
+    // está presente al final y no es configurable. Los otros 3 vienen de
+    // Estado.configuracion.contadoresCaja (panel Configuración > General).
+    function obtenerListaContadores() {
+      const confGuardada = (Estado.configuracion && Array.isArray(Estado.configuracion.contadoresCaja))
+        ? Estado.configuracion.contadoresCaja : null;
+      const base = (confGuardada && confGuardada.length)
+        ? confGuardada
+        : [{ nombre: 'Diego', activo: true }, { nombre: 'Oscar', activo: true }, { nombre: 'Aldo', activo: true }];
+      const nombres = base
+        .filter(function(c) { return c && c.activo && c.nombre && String(c.nombre).trim(); })
+        .map(function(c) { return String(c.nombre).trim(); });
+      nombres.push('General');
+      return nombres;
+    }
+
+    function _idContador(nombre) {
+      const slug = String(nombre)
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9]/g, '');
+      return slug || 'X';
+    }
+
+    function renderTotalesPorContador(contadores) {
+      const cont = document.getElementById('totalesPorContador');
+      if (!cont) return;
+      cont.innerHTML = contadores.map(function(c) {
+        const idc = _idContador(c);
+        return '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<span style="font-size:0.95rem;font-weight:bold;">Total ' + escapeHtml(c) + '</span>' +
+          '<span id="resumenContador' + idc + '" style="font-size:1rem;font-weight:bold;color:var(--sv-primario);">$0</span>' +
+        '</div>';
+      }).join('');
+    }
+
     function renderDenominaciones() {
       if (!Estado.configuracion) return;
 
-      const contadores = ['Diego', 'Oscar', 'Aldo', 'General'];
+      const contadores = obtenerListaContadores();
       const grid = document.getElementById('gridBilletes');
       grid.innerHTML = contadores.map(function(contador) {
+        const idc = _idContador(contador);
         return '<div class="contador-card">' +
           '<div class="card-title">' + escapeHtml(contador) + '</div>' +
           '<div class="denom-grid">' +
@@ -8762,15 +8843,19 @@
               '</div>';
             }).join('') +
           '</div>' +
-          '<div class="contador-total">Total ' + escapeHtml(contador) + ': <span id="totalContador' + escapeHtml(contador) + '">$0</span></div>' +
+          '<div class="contador-total">Total ' + escapeHtml(contador) + ': <span id="totalContador' + idc + '">$0</span></div>' +
         '</div>';
       }).join('');
+
+      renderTotalesPorContador(contadores);
     }
 
     function calcularTotalEfectivo() {
       let total = 0;
-      Estado.arqueo = { Diego: {}, Oscar: {}, Aldo: {}, General: {} };
-      const contadoresTotales = { Diego: 0, Oscar: 0, Aldo: 0, General: 0 };
+      const listaContadores = obtenerListaContadores();
+      Estado.arqueo = {};
+      const contadoresTotales = {};
+      listaContadores.forEach(function(c) { Estado.arqueo[c] = {}; contadoresTotales[c] = 0; });
 
       document.querySelectorAll('.denom-input').forEach(input => {
         const cantidad = parseInt(input.value) || 0;
@@ -8789,8 +8874,11 @@
       });
 
       Object.keys(contadoresTotales).forEach(function(contador) {
-        const el = document.getElementById('totalContador' + contador);
-        if (el) el.textContent = formatearMonto(contadoresTotales[contador]);
+        const idc = _idContador(contador);
+        const elCard = document.getElementById('totalContador' + idc);
+        if (elCard) elCard.textContent = formatearMonto(contadoresTotales[contador]);
+        const elResumen = document.getElementById('resumenContador' + idc);
+        if (elResumen) elResumen.textContent = formatearMonto(contadoresTotales[contador]);
       });
 
       document.getElementById('totalEfectivo').textContent = formatearMonto(total);
@@ -8798,22 +8886,12 @@
     }
 
     function agregarProveedor() {
-      const lista = document.getElementById('listaProveedores');
-      const item = document.createElement('div');
-      item.className = 'proveedor-item';
-      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; flex-wrap: wrap;';
-
-      const itemId = 'prov-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-
-      item.innerHTML =
-        '<div class="form-group-autocomplete" style="flex: 1; min-width: 150px; position: relative; margin: 0;">' +
-          '<input type="text" class="form-input prov-desc" placeholder="Proveedor" id="' + itemId + '" autocomplete="off" oninput="_debouncedBuscarProveedorAutocomplete(this)" onfocus="buscarProveedorAutocomplete(this)">' +
-          '<div class="suggestions-list prov-sugerencias" style="display: none;"></div>' +
-        '</div>' +
-        '<input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
-        '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
-      lista.appendChild(item);
-      item.querySelector('.prov-desc').focus();
+      const item = crearFilaProveedorEnLista('', 0, null);
+      if (item) {
+        const input = item.querySelector('.prov-desc');
+        if (input) input.focus();
+      }
+      return item;
     }
 
     function buscarProveedorAutocomplete(input) {
@@ -8891,6 +8969,275 @@
         item.remove();
         calcularNetoArqueo();
       }, 200);
+    }
+
+    // ---- Modal: Remito de Proveedor ----
+    let _remitoItems = [];
+    let _remitoEditandoItemId = null;
+
+    function abrirModalRemitoProveedor(itemExistente) {
+      _remitoItems = [];
+      _remitoEditandoItemId = null;
+      document.getElementById('remitoModalTitulo').textContent = 'Remito de Proveedor';
+      document.getElementById('remitoProveedorNombre').value = '';
+      document.getElementById('remitoFecha').value = obtenerFechaLocal();
+
+      if (itemExistente) {
+        const remitoJSON = itemExistente.dataset.remito;
+        if (remitoJSON) {
+          try {
+            const datos = JSON.parse(remitoJSON);
+            document.getElementById('remitoProveedorNombre').value = datos.nombre || '';
+            document.getElementById('remitoFecha').value = datos.fecha || obtenerFechaLocal();
+            _remitoItems = Array.isArray(datos.items)
+              ? datos.items.map(function(it) { return { unidad: it.unidad, descripcion: it.descripcion, precio: it.precio }; })
+              : [];
+            document.getElementById('remitoModalTitulo').textContent = 'Editar Remito de Proveedor';
+          } catch (e) { /* remito corrupto: arrancamos vacío */ }
+        }
+        _remitoEditandoItemId = itemExistente.dataset.remitoId || null;
+      }
+
+      if (_remitoItems.length === 0) {
+        _remitoItems.push({ unidad: '', descripcion: '', precio: '' });
+      }
+      renderFilasRemito();
+
+      abrirModal('modalRemitoProveedor');
+      setTimeout(function() {
+        const inputNombre = document.getElementById('remitoProveedorNombre');
+        if (inputNombre) inputNombre.focus();
+      }, 150);
+    }
+
+    function cerrarModalRemitoProveedor() {
+      cerrarModal('modalRemitoProveedor');
+      const sug = document.getElementById('remitoProveedorSugerencias');
+      if (sug) sug.style.display = 'none';
+    }
+
+    function agregarFilaRemito() {
+      _remitoItems.push({ unidad: '', descripcion: '', precio: '' });
+      renderFilasRemito();
+      const filas = document.querySelectorAll('#remitoItemsTbody tr');
+      const ultima = filas[filas.length - 1];
+      const inputUnidad = ultima ? ultima.querySelector('.remito-unidad') : null;
+      if (inputUnidad) inputUnidad.focus();
+    }
+
+    function eliminarFilaRemito(index) {
+      _remitoItems.splice(index, 1);
+      if (_remitoItems.length === 0) {
+        _remitoItems.push({ unidad: '', descripcion: '', precio: '' });
+      }
+      renderFilasRemito();
+    }
+
+    function renderFilasRemito() {
+      const tbody = document.getElementById('remitoItemsTbody');
+      tbody.innerHTML = _remitoItems.map(function(item, i) {
+        return '<tr>' +
+          '<td style="padding: 0.35rem;"><input type="number" class="form-input remito-unidad" min="0" step="any" value="' + escapeHtml(item.unidad != null ? item.unidad : '') + '" oninput="calcularTotalRemito()" style="min-height: 36px; padding: 0.4rem;" inputmode="decimal"></td>' +
+          '<td style="padding: 0.35rem;"><input type="text" class="form-input remito-descripcion" value="' + escapeHtml(item.descripcion || '') + '" oninput="_remitoItems[' + i + '].descripcion = this.value" placeholder="Descripción / item" style="min-height: 36px; padding: 0.4rem;"></td>' +
+          '<td style="padding: 0.35rem;"><input type="number" class="form-input remito-precio" min="0" step="any" value="' + escapeHtml(item.precio != null ? item.precio : '') + '" oninput="calcularTotalRemito()" style="min-height: 36px; padding: 0.4rem; text-align: right;" inputmode="decimal"></td>' +
+          '<td style="padding: 0.35rem; text-align: right; font-weight: 600;" class="remito-subtotal">$0</td>' +
+          '<td style="padding: 0.35rem; text-align: center;"><button class="btn btn-outline btn-sm" onclick="eliminarFilaRemito(' + i + ')" style="color: var(--sv-peligro);">&#10007;</button></td>' +
+        '</tr>';
+      }).join('');
+      calcularTotalRemito();
+    }
+
+    function calcularTotalRemito() {
+      let total = 0;
+      document.querySelectorAll('#remitoItemsTbody tr').forEach(function(tr, i) {
+        const unidadInput = tr.querySelector('.remito-unidad');
+        const precioInput = tr.querySelector('.remito-precio');
+        const unidadVal = unidadInput.value;
+        const precioVal = precioInput.value;
+        const unidad = parseFloat(unidadVal) || 0;
+        const precio = parseFloat(precioVal) || 0;
+        const subtotal = unidad * precio;
+        if (_remitoItems[i]) {
+          _remitoItems[i].unidad = unidadVal;
+          _remitoItems[i].precio = precioVal;
+        }
+        tr.querySelector('.remito-subtotal').textContent = formatearMonto(subtotal);
+        total += subtotal;
+      });
+      document.getElementById('remitoTotalFinal').textContent = formatearMonto(total);
+      return total;
+    }
+
+    function guardarRemitoProveedor() {
+      const nombre = document.getElementById('remitoProveedorNombre').value.trim();
+      const fecha = document.getElementById('remitoFecha').value || obtenerFechaLocal();
+      const total = calcularTotalRemito();
+
+      if (!nombre) {
+        mostrarToast('Ingresá el nombre del proveedor', 'error');
+        document.getElementById('remitoProveedorNombre').focus();
+        return;
+      }
+      if (total <= 0) {
+        mostrarToast('Cargá al menos una línea con unidad y precio unitario', 'error');
+        return;
+      }
+
+      const itemsValidos = _remitoItems.filter(function(it) {
+        return (parseFloat(it.unidad) || 0) > 0 || (it.descripcion && it.descripcion.trim());
+      });
+      const remitoData = { nombre: nombre, fecha: fecha, items: itemsValidos, total: total };
+      const remitoJSON = JSON.stringify(remitoData);
+
+      const filaExistente = _remitoEditandoItemId
+        ? document.querySelector('.proveedor-item[data-remito-id="' + _remitoEditandoItemId + '"]')
+        : null;
+
+      if (filaExistente) {
+        filaExistente.querySelector('.prov-desc').value = nombre;
+        filaExistente.querySelector('.prov-monto').value = total;
+        filaExistente.dataset.remito = remitoJSON;
+        _asegurarBotonVerRemito(filaExistente);
+      } else {
+        crearFilaProveedorEnLista(nombre, total, remitoJSON);
+      }
+
+      guardarProveedorEnHistorial(nombre);
+      calcularNetoArqueo();
+      cerrarModalRemitoProveedor();
+      mostrarToast('Proveedor cargado: ' + nombre + ' - ' + formatearMonto(total), 'success');
+    }
+
+    function _asegurarBotonVerRemito(item) {
+      if (!item || item.querySelector('.prov-ver-remito')) return;
+      const boton = document.createElement('button');
+      boton.className = 'btn btn-outline btn-sm prov-ver-remito';
+      boton.title = 'Ver / editar remito';
+      boton.innerHTML = '&#128203;';
+      boton.setAttribute('onclick', 'verRemitoProveedor(this)');
+      const botonEliminar = item.querySelector('button.btn-outline.btn-sm');
+      item.insertBefore(boton, botonEliminar);
+    }
+
+    function crearFilaProveedorEnLista(nombre, monto, remitoJSON) {
+      const lista = document.getElementById('listaProveedores');
+      const item = document.createElement('div');
+      item.className = 'proveedor-item';
+      item.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; flex-wrap: wrap;';
+
+      const itemId = 'prov-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+      const remitoId = 'rem-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+      item.dataset.remitoId = remitoId;
+      if (remitoJSON) item.dataset.remito = remitoJSON;
+
+      item.innerHTML =
+        '<div class="form-group-autocomplete" style="flex: 1; min-width: 150px; position: relative; margin: 0;">' +
+          '<input type="text" class="form-input prov-desc" placeholder="Proveedor" id="' + itemId + '" autocomplete="off" oninput="_debouncedBuscarProveedorAutocomplete(this)" onfocus="buscarProveedorAutocomplete(this)">' +
+          '<div class="suggestions-list prov-sugerencias" style="display: none;"></div>' +
+        '</div>' +
+        '<input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
+        (remitoJSON ? '<button class="btn btn-outline btn-sm prov-ver-remito" title="Ver / editar remito" onclick="verRemitoProveedor(this)">&#128203;</button>' : '') +
+        '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
+
+      lista.appendChild(item);
+      item.querySelector('.prov-desc').value = nombre || '';
+      item.querySelector('.prov-monto').value = monto || 0;
+      if (remitoJSON) _asegurarBotonVerRemito(item);
+      return item;
+    }
+
+    function verRemitoProveedor(btn) {
+      const item = btn.closest('.proveedor-item');
+      if (item) abrirModalRemitoProveedor(item);
+    }
+
+    function buscarProveedorAutocompleteRemito(input) {
+      const sugerenciasDiv = document.getElementById('remitoProveedorSugerencias');
+      if (!sugerenciasDiv) return;
+      const terminoRaw = input.value;
+
+      if (!busquedaClienteSuficiente(terminoRaw)) {
+        if (!terminoRaw.trim() && Estado.proveedoresHistorial.length > 0) {
+          sugerenciasDiv.innerHTML = Estado.proveedoresHistorial.slice(0, 5).map(function(p) {
+            return '<div class="suggestion-item" data-nombre="' + escapeHtml(p) + '">' + escapeHtml(p) + '</div>';
+          }).join('');
+          _attachProveedorListenersRemito(sugerenciasDiv);
+          sugerenciasDiv.style.display = 'block';
+          return;
+        }
+        sugerenciasDiv.style.display = 'none';
+        return;
+      }
+
+      const matches = Estado.proveedoresHistorial
+        .filter(function(p) { return clienteNombreCoincideBusqueda(p, terminoRaw); })
+        .slice(0, 5);
+
+      if (matches.length === 0) { sugerenciasDiv.style.display = 'none'; return; }
+      sugerenciasDiv.innerHTML = matches.map(function(p) {
+        return '<div class="suggestion-item" data-nombre="' + escapeHtml(p) + '">' + escapeHtml(p) + '</div>';
+      }).join('');
+      _attachProveedorListenersRemito(sugerenciasDiv);
+      sugerenciasDiv.style.display = 'block';
+    }
+    const _debouncedBuscarProveedorAutocompleteRemito = debounce(buscarProveedorAutocompleteRemito, 200);
+
+    function _attachProveedorListenersRemito(container) {
+      container.querySelectorAll('.suggestion-item').forEach(function(sug) {
+        sug.addEventListener('mousedown', function(ev) {
+          ev.preventDefault();
+          const inputNombre = document.getElementById('remitoProveedorNombre');
+          if (inputNombre) inputNombre.value = this.dataset.nombre || '';
+          container.style.display = 'none';
+        });
+      });
+    }
+
+    function imprimirRemitoProveedor() {
+      const nombre = document.getElementById('remitoProveedorNombre').value.trim() || 'Proveedor';
+      const fecha = document.getElementById('remitoFecha').value || obtenerFechaLocal();
+      const total = calcularTotalRemito();
+
+      const filasHtml = _remitoItems.map(function(it) {
+        const unidad = parseFloat(it.unidad) || 0;
+        const precio = parseFloat(it.precio) || 0;
+        if (unidad <= 0 && !(it.descripcion && it.descripcion.trim())) return '';
+        const subtotal = unidad * precio;
+        return '<tr>' +
+          '<td style="text-align:center;">' + (unidad || '-') + '</td>' +
+          '<td>' + escapeHtml(it.descripcion || '-') + '</td>' +
+          '<td style="text-align:right;">' + formatearMonto(precio) + '</td>' +
+          '<td style="text-align:right; font-weight:bold;">' + formatearMonto(subtotal) + '</td>' +
+        '</tr>';
+      }).join('');
+
+      const cuerpo =
+        '<div style="max-width: 380px; margin: 0 auto; font-size: 10pt;">' +
+          '<div style="text-align:center; margin-bottom:0.8rem; border-bottom:2px solid var(--sv-primario); padding-bottom:0.5rem;">' +
+            '<h2 style="margin:0; color:var(--sv-primario); font-size:14pt;">REMITO DE PROVEEDOR</h2>' +
+          '</div>' +
+          '<table style="width:100%; margin-bottom:0.6rem; border:none;">' +
+            '<tr><td style="border:none; padding:2px 0;"><strong>Proveedor:</strong> ' + escapeHtml(nombre) + '</td></tr>' +
+            '<tr><td style="border:none; padding:2px 0;"><strong>Fecha:</strong> ' + escapeHtml(formatearFecha(fecha)) + '</td></tr>' +
+          '</table>' +
+          '<table style="width:100%; font-size:9pt;">' +
+            '<thead><tr>' +
+              '<th>Unidad</th><th>Descripción</th><th style="text-align:right;">Precio Unit.</th><th style="text-align:right;">Total</th>' +
+            '</tr></thead>' +
+            '<tbody>' + filasHtml + '</tbody>' +
+            '<tfoot><tr>' +
+              '<td colspan="3" style="text-align:right; font-weight:bold;">TOTAL FINAL</td>' +
+              '<td style="text-align:right; font-weight:bold; font-size:11pt;">' + formatearMonto(total) + '</td>' +
+            '</tr></tfoot>' +
+          '</table>' +
+        '</div>';
+
+      abrirVentanaImpresionSolVerde({
+        tituloDocumento: 'Remito - ' + nombre,
+        cuerpoHtml: cuerpo,
+        cssExtra: '@page{size:letter portrait;margin:1.5cm;} .sv-print-root{max-width:380px!important;margin:0 auto!important;}',
+        winFeatures: 'width=480,height=720,scrollbars=yes,resizable=yes'
+      });
     }
 
     function agregarGasto() {
@@ -13295,6 +13642,40 @@
     // CONFIGURACION GENERAL DEL SISTEMA
     // ============================================================================
 
+    function renderConfigContadoresCaja(contadoresGuardados) {
+      const cont = document.getElementById('configContadoresCaja');
+      if (!cont) return;
+      const lista = (Array.isArray(contadoresGuardados) && contadoresGuardados.length === 3)
+        ? contadoresGuardados
+        : [{ nombre: 'Diego', activo: true }, { nombre: 'Oscar', activo: true }, { nombre: 'Aldo', activo: true }];
+
+      cont.innerHTML = lista.map(function(c, i) {
+        return '<div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">' +
+          '<input type="checkbox" data-contador-slot="' + i + '" class="cfg-contador-activo" ' + (c.activo ? 'checked' : '') + ' style="width:20px; height:20px; flex:0 0 auto;">' +
+          '<input type="text" class="form-input cfg-contador-nombre" data-contador-slot="' + i + '" value="' + escapeHtml(c.nombre || '') + '" placeholder="Nombre" maxlength="20" style="flex:1;">' +
+        '</div>';
+      }).join('') +
+      '<div style="display:flex; align-items:center; gap:0.5rem; opacity:0.6;">' +
+        '<input type="checkbox" checked disabled style="width:20px; height:20px;">' +
+        '<input type="text" class="form-input" value="General" disabled style="flex:1;">' +
+      '</div>';
+    }
+
+    function obtenerContadoresCajaDesdeForm() {
+      const out = [{ nombre: 'Diego', activo: true }, { nombre: 'Oscar', activo: true }, { nombre: 'Aldo', activo: true }];
+      document.querySelectorAll('#configContadoresCaja .cfg-contador-nombre').forEach(function(input) {
+        const i = parseInt(input.dataset.contadorSlot, 10);
+        if (isNaN(i) || !out[i]) return;
+        out[i].nombre = input.value.trim() || out[i].nombre;
+      });
+      document.querySelectorAll('#configContadoresCaja .cfg-contador-activo').forEach(function(input) {
+        const i = parseInt(input.dataset.contadorSlot, 10);
+        if (isNaN(i) || !out[i]) return;
+        out[i].activo = input.checked;
+      });
+      return out;
+    }
+
     /**
      * Carga la configuración general del sistema
      */
@@ -13380,6 +13761,9 @@
               config.printPageBreak
             );
             
+            // Contadores de Caja (Arqueo de Efectivo)
+            renderConfigContadoresCaja(config.contadoresCaja);
+
             // Inquilinos
             if (config.inquilinos && config.inquilinos.length > 0) {
               document.getElementById('inputInquilinos').value = config.inquilinos.join(', ');
@@ -13436,7 +13820,8 @@
         printShowCompany: document.getElementById('inputPrintShowCompany') ? document.getElementById('inputPrintShowCompany').checked : true,
         printFooter: (document.getElementById('inputPrintFooter') || {}).value || '',
         printPageBreak: document.getElementById('inputPrintPageBreak') ? document.getElementById('inputPrintPageBreak').checked : false,
-        calPrintCellHeight: parseFloat((document.getElementById('inputCalPrintCellHeight') || {}).value) || 3.0
+        calPrintCellHeight: parseFloat((document.getElementById('inputCalPrintCellHeight') || {}).value) || 3.0,
+        contadoresCaja: obtenerContadoresCajaDesdeForm()
       };
 
       const estado = document.getElementById('estadoConfigGeneral');
@@ -13476,6 +13861,20 @@
             // Aplicar altura de celda de calendario
             if (config.calPrintCellHeight) {
               _calPrintCellHeight = parseFloat(config.calPrintCellHeight) || 3.0;
+            }
+
+            if (Estado.configuracion) {
+              Estado.configuracion.contadoresCaja = config.contadoresCaja;
+              const hayContado = Array.prototype.some.call(
+                document.querySelectorAll('.denom-input'),
+                function(i) { return (parseInt(i.value) || 0) > 0; }
+              );
+              if (!hayContado) {
+                renderDenominaciones();
+              } else if (confirm('Los contadores de caja cambiaron.\n\n¿Actualizar la grilla del Arqueo de Efectivo ahora? Se perderán los billetes ya contados en esta sesión.')) {
+                renderDenominaciones();
+                calcularTotalEfectivo();
+              }
             }
 
             setTimeout(function() {
