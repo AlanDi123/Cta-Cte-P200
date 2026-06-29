@@ -9069,43 +9069,35 @@
     }
 
     function guardarRemitoProveedor() {
-      const nombre = document.getElementById('remitoProveedorNombre').value.trim();
-      const fecha = document.getElementById('remitoFecha').value || obtenerFechaLocal();
-      const total = calcularTotalRemito();
+      _confirmarGuardarRemito(function() {
+        const nombre = document.getElementById('remitoProveedorNombre').value.trim();
+        const fecha = document.getElementById('remitoFecha').value || obtenerFechaLocal();
+        const total = calcularTotalRemito();
 
-      if (!nombre) {
-        mostrarToast('Ingresá el nombre del proveedor', 'error');
-        document.getElementById('remitoProveedorNombre').focus();
-        return;
-      }
-      if (total <= 0) {
-        mostrarToast('Cargá al menos una línea con unidad y precio unitario', 'error');
-        return;
-      }
+        const itemsValidos = _remitoItems.filter(function(it) {
+          return (parseFloat(it.unidad) || 0) > 0 || (parseFloat(it.precio) || 0) > 0 || (it.descripcion && it.descripcion.trim());
+        });
+        const remitoData = { nombre: nombre, fecha: fecha, items: itemsValidos, total: total };
+        const remitoJSON = JSON.stringify(remitoData);
 
-      const itemsValidos = _remitoItems.filter(function(it) {
-        return (parseFloat(it.unidad) || 0) > 0 || (it.descripcion && it.descripcion.trim());
+        const filaExistente = _remitoEditandoItemId
+          ? document.querySelector('.proveedor-item[data-remito-id="' + _remitoEditandoItemId + '"]')
+          : null;
+
+        if (filaExistente) {
+          filaExistente.querySelector('.prov-desc').value = nombre;
+          filaExistente.querySelector('.prov-monto').value = total;
+          filaExistente.dataset.remito = remitoJSON;
+          _asegurarBotonVerRemito(filaExistente);
+        } else {
+          crearFilaProveedorEnLista(nombre, total, remitoJSON);
+        }
+
+        guardarProveedorEnHistorial(nombre);
+        calcularNetoArqueo();
+        cerrarModalRemitoProveedor();
+        mostrarToast('Proveedor cargado: ' + nombre + ' — ' + formatearMonto(total), 'success');
       });
-      const remitoData = { nombre: nombre, fecha: fecha, items: itemsValidos, total: total };
-      const remitoJSON = JSON.stringify(remitoData);
-
-      const filaExistente = _remitoEditandoItemId
-        ? document.querySelector('.proveedor-item[data-remito-id="' + _remitoEditandoItemId + '"]')
-        : null;
-
-      if (filaExistente) {
-        filaExistente.querySelector('.prov-desc').value = nombre;
-        filaExistente.querySelector('.prov-monto').value = total;
-        filaExistente.dataset.remito = remitoJSON;
-        _asegurarBotonVerRemito(filaExistente);
-      } else {
-        crearFilaProveedorEnLista(nombre, total, remitoJSON);
-      }
-
-      guardarProveedorEnHistorial(nombre);
-      calcularNetoArqueo();
-      cerrarModalRemitoProveedor();
-      mostrarToast('Proveedor cargado: ' + nombre + ' - ' + formatearMonto(total), 'success');
     }
 
     function _asegurarBotonVerRemito(item) {
@@ -9135,7 +9127,7 @@
           '<input type="text" class="form-input prov-desc" placeholder="Proveedor" id="' + itemId + '" autocomplete="off" oninput="_debouncedBuscarProveedorAutocomplete(this)" onfocus="buscarProveedorAutocomplete(this)">' +
           '<div class="suggestions-list prov-sugerencias" style="display: none;"></div>' +
         '</div>' +
-        '<input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="calcularNetoArqueo()" inputmode="numeric">' +
+        '<input type="number" class="form-input prov-monto" placeholder="Monto" style="width: 120px;" onchange="_validarMontoProv(this); calcularNetoArqueo()" inputmode="numeric">' +
         (remitoJSON ? '<button class="btn btn-outline btn-sm prov-ver-remito" title="Ver / editar remito" onclick="verRemitoProveedor(this)">&#128203;</button>' : '') +
         '<button class="btn btn-outline btn-sm" onclick="confirmarEliminarItem(this)" style="color: var(--sv-peligro);">&#10007;</button>';
 
@@ -9193,51 +9185,253 @@
       });
     }
 
+    // ============================================================
+    // IMPRESION: Talonario de Remito estilo argentino
+    // Formato: media carta (17×22 cm) centrado en hoja Letter.
+    // Diseño fiel al talonario manifold estándar: encabezado con
+    // 3 columnas (empresa | X | "REMITO / N°"), franja de datos del
+    // proveedor (Sr./Cuit), tabla CANTIDAD|DESCRIPCIÓN|PRECIO|IMPORTE
+    // con 15 filas mínimo (iguala el estándar Taloffice), y TOTAL en
+    // caja inferior derecha con línea de recepción.
+    // ============================================================
     function imprimirRemitoProveedor() {
-      const nombre = document.getElementById('remitoProveedorNombre').value.trim() || 'Proveedor';
-      const fecha = document.getElementById('remitoFecha').value || obtenerFechaLocal();
-      const total = calcularTotalRemito();
+      const nombre  = document.getElementById('remitoProveedorNombre').value.trim() || 'Proveedor';
+      const fecha   = document.getElementById('remitoFecha').value || obtenerFechaLocal();
+      const total   = calcularTotalRemito();
 
-      const filasHtml = _remitoItems.map(function(it) {
-        const unidad = parseFloat(it.unidad) || 0;
-        const precio = parseFloat(it.precio) || 0;
-        if (unidad <= 0 && !(it.descripcion && it.descripcion.trim())) return '';
-        const subtotal = unidad * precio;
-        return '<tr>' +
-          '<td style="text-align:center;">' + (unidad || '-') + '</td>' +
-          '<td>' + escapeHtml(it.descripcion || '-') + '</td>' +
-          '<td style="text-align:right;">' + formatearMonto(precio) + '</td>' +
-          '<td style="text-align:right; font-weight:bold;">' + formatearMonto(subtotal) + '</td>' +
-        '</tr>';
-      }).join('');
+      // Datos del emisor: leer de los inputs de Config > Facturación (ARCA)
+      const razonSocial = (document.getElementById('inputEmisorRazonSocial') || {}).value || 'Sol & Verde';
+      const domicilio   = (document.getElementById('inputEmisorDomicilio')   || {}).value || '';
+      const cuitEm      = (document.getElementById('inputEmisorCuit')         || {}).value || '';
+
+      // Número de remito: timestamp compacto (YYYYMMDD-HHMM).
+      const ahora  = new Date();
+      const nroRem = ahora.getFullYear().toString() +
+                     String(ahora.getMonth() + 1).padStart(2, '0') +
+                     String(ahora.getDate()).padStart(2, '0') +
+                     '-' +
+                     String(ahora.getHours()).padStart(2, '0') +
+                     String(ahora.getMinutes()).padStart(2, '0');
+
+      // Armar filas; rellenar hasta 15 para que la impresión muestre
+      // las líneas del talonario vacías (igual al físico de 15 líneas).
+      const MIN_FILAS = 15;
+      const itemsFiltrados = _remitoItems.filter(function(it) {
+        return (parseFloat(it.unidad) || 0) > 0 || (it.descripcion && it.descripcion.trim());
+      });
+      const filasHtml = [];
+      for (let i = 0; i < MIN_FILAS; i++) {
+        const it = itemsFiltrados[i];
+        const celUni  = it ? (parseFloat(it.unidad) || '') : '';
+        const celDesc = it ? escapeHtml(it.descripcion || '') : '';
+        const celPre  = it ? formatearMonto(parseFloat(it.precio) || 0) : '';
+        const celSub  = it ? formatearMonto((parseFloat(it.unidad) || 0) * (parseFloat(it.precio) || 0)) : '';
+
+        filasHtml.push(
+          '<tr>' +
+            '<td style="padding:2px 4px; text-align:center; border-bottom:0.5px solid #ccc; min-height:20px;">' + celUni  + '</td>' +
+            '<td style="padding:2px 4px; border-bottom:0.5px solid #ccc; min-height:20px;">' + celDesc + '</td>' +
+            '<td style="padding:2px 4px; text-align:right; border-bottom:0.5px solid #ccc; min-height:20px;">' + celPre  + '</td>' +
+            '<td style="padding:2px 4px; text-align:right; border-bottom:0.5px solid #ccc; min-height:20px; font-weight:bold;">' + celSub + '</td>' +
+          '</tr>'
+        );
+      }
 
       const cuerpo =
-        '<div style="max-width: 380px; margin: 0 auto; font-size: 10pt;">' +
-          '<div style="text-align:center; margin-bottom:0.8rem; border-bottom:2px solid var(--sv-primario); padding-bottom:0.5rem;">' +
-            '<h2 style="margin:0; color:var(--sv-primario); font-size:14pt;">REMITO DE PROVEEDOR</h2>' +
+        '<div style="width:100%; max-width:none; font-family:Arial,sans-serif; font-size:9pt; line-height:1.2; margin:0; padding:0;">' +
+          '<table style="width:100%; border-collapse:collapse; margin-bottom:0.5rem;">' +
+            '<tr>' +
+              '<td style="text-align:left; vertical-align:top; padding:0; width:40%;">' +
+                '<div style="border:1px solid #000; padding:4px; font-size:8pt; line-height:1.3;">' +
+                  'DOCUMENTO NO VÁLIDO COMO FACTURA<br>' +
+                  '<strong>' + escapeHtml(razonSocial) + '</strong><br>' +
+                  (domicilio ? escapeHtml(domicilio) + '<br>' : '') +
+                  (cuitEm   ? 'CUIT: ' + escapeHtml(cuitEm) + '<br>' : '') +
+                '</div>' +
+              '</td>' +
+              '<td style="text-align:center; vertical-align:middle; padding:0 4px; width:15%; font-size:18pt; font-weight:bold; color:#333;">X</td>' +
+              '<td style="text-align:right; vertical-align:top; padding:0; width:45%;">' +
+                '<div style="text-align:center; margin-bottom:2px;">' +
+                  '<span style="font-size:12pt; font-weight:bold;">REMITO</span><br>' +
+                  '<span style="font-size:10pt;"><strong>N.° ' + escapeHtml(nroRem) + '</strong></span><br>' +
+                  '<span style="font-size:9pt;">Fecha: <strong>' + escapeHtml(formatearFecha(fecha)) + '</strong></span>' +
+                '</div>' +
+              '</td>' +
+            '</tr>' +
+          '</table>' +
+          '<div style="border:1px solid #000; padding:3px; margin-bottom:0.5rem; font-size:9pt;">' +
+            'Sr./Sra.: <strong>' + escapeHtml(nombre) + '</strong>' +
           '</div>' +
-          '<table style="width:100%; margin-bottom:0.6rem; border:none;">' +
-            '<tr><td style="border:none; padding:2px 0;"><strong>Proveedor:</strong> ' + escapeHtml(nombre) + '</td></tr>' +
-            '<tr><td style="border:none; padding:2px 0;"><strong>Fecha:</strong> ' + escapeHtml(formatearFecha(fecha)) + '</td></tr>' +
+          '<table style="width:100%; border-collapse:collapse; font-size:8pt; border:1px solid #000;">' +
+            '<thead>' +
+              '<tr style="background:#f0f0f0;">' +
+                '<th style="border:1px solid #000; padding:2px; text-align:center; width:12%; font-weight:bold;">CANTIDAD</th>' +
+                '<th style="border:1px solid #000; padding:2px; text-align:left; font-weight:bold;">DESCRIPCIÓN</th>' +
+                '<th style="border:1px solid #000; padding:2px; text-align:right; width:18%; font-weight:bold;">PRECIO UNIT.</th>' +
+                '<th style="border:1px solid #000; padding:2px; text-align:right; width:18%; font-weight:bold;">IMPORTE</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + filasHtml.join('') + '</tbody>' +
           '</table>' +
-          '<table style="width:100%; font-size:9pt;">' +
-            '<thead><tr>' +
-              '<th>Unidad</th><th>Descripción</th><th style="text-align:right;">Precio Unit.</th><th style="text-align:right;">Total</th>' +
-            '</tr></thead>' +
-            '<tbody>' + filasHtml + '</tbody>' +
-            '<tfoot><tr>' +
-              '<td colspan="3" style="text-align:right; font-weight:bold;">TOTAL FINAL</td>' +
-              '<td style="text-align:right; font-weight:bold; font-size:11pt;">' + formatearMonto(total) + '</td>' +
-            '</tr></tfoot>' +
-          '</table>' +
+          '<div style="border:1px solid #000; border-top:none; padding:3px; margin-bottom:0.8rem; font-size:8pt;">' +
+            '<div style="margin-bottom:6px;">Recibí conforme: _______________________________________________</div>' +
+            '<div style="text-align:right;">' +
+              '<span style="font-size:9pt;">TOTAL</span><br>' +
+              '<span style="font-size:11pt; font-weight:bold;">' + formatearMonto(total) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div style="text-align:center; font-size:7pt; color:#666; margin-top:1rem;">' +
+            'Documento interno de control — Sol & Verde — generado el ' + escapeHtml(formatearFecha(obtenerFechaLocal())) +
+          '</div>' +
         '</div>';
 
       abrirVentanaImpresionSolVerde({
         tituloDocumento: 'Remito - ' + nombre,
         cuerpoHtml: cuerpo,
-        cssExtra: '@page{size:letter portrait;margin:1.5cm;} .sv-print-root{max-width:380px!important;margin:0 auto!important;}',
-        winFeatures: 'width=480,height=720,scrollbars=yes,resizable=yes'
+        cssExtra: [
+          '@page { size: letter portrait; margin: 1.2cm; }',
+          'body { background: #fff !important; margin: 0 !important; padding: 0.5cm !important; }',
+          '.sv-print-root { max-width: none !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }',
+          'table { border-collapse: collapse !important; }',
+          'td, th { box-sizing: border-box; }',
+          'tr { page-break-inside: avoid; }',
+          '@media print {',
+          '  body { margin: 0; padding: 0; }',
+          '  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
+          '}'
+        ].join(' '),
+        winFeatures: 'width=720,height=900,scrollbars=yes,resizable=yes'
       });
+    }
+
+
+    // ============================================================
+    // VALIDACIONES Y SEGURIDAD DEL REMITO DE PROVEEDOR
+    // ============================================================
+
+    const _REM_VALIDACION = {
+      PRECIO_MAXIMO_SIN_CONFIRMAR : 500000,
+      TOTAL_MAXIMO_SIN_CONFIRMAR  : 5000000,
+      DIFF_MONTO_EXTERNO_PCT      : 0.02,
+      MAX_CANTIDAD_SIN_CONFIRMAR  : 9999,
+    };
+
+    function _validarFilasRemito() {
+      const errores = [];
+      const advertencias = [];
+      _remitoItems.forEach(function(it, i) {
+        const uni  = parseFloat(it.unidad) || 0;
+        const pre  = parseFloat(it.precio) || 0;
+        const desc = (it.descripcion || '').trim();
+        const n    = i + 1;
+
+        if (uni === 0 && pre === 0 && !desc) return;
+
+        if (desc && uni === 0 && pre === 0) {
+          errores.push({ fila: n, tipo: 'error', msg: 'Fila ' + n + ': tiene descripción pero no tiene cantidad ni precio.' });
+          return;
+        }
+        if (uni > 0 && pre === 0) {
+          errores.push({ fila: n, tipo: 'error', msg: 'Fila ' + n + ': tiene cantidad ' + uni + ' pero el precio unitario es $0.' });
+        }
+        if (uni === 0 && pre > 0) {
+          advertencias.push({ fila: n, tipo: 'warn', msg: 'Fila ' + n + ': precio cargado (' + formatearMonto(pre) + ') pero cantidad = 0. ¿La cantidad es 1?' });
+        }
+        if (pre > _REM_VALIDACION.PRECIO_MAXIMO_SIN_CONFIRMAR) {
+          advertencias.push({ fila: n, tipo: 'warn', msg: 'Fila ' + n + ': precio unitario ' + formatearMonto(pre) + ' es inusualmente alto. ¿Es correcto?' });
+        }
+        if (uni > _REM_VALIDACION.MAX_CANTIDAD_SIN_CONFIRMAR) {
+          advertencias.push({ fila: n, tipo: 'warn', msg: 'Fila ' + n + ': cantidad ' + uni + ' es muy alta. ¿Revisaste los dígitos?' });
+        }
+        if (uni > 100 && pre < 1) {
+          advertencias.push({ fila: n, tipo: 'warn', msg: 'Fila ' + n + ': ¿Invertiste cantidad (' + uni + ') y precio (' + formatearMonto(pre) + ')?' });
+        }
+      });
+      return { errores, advertencias };
+    }
+
+    function _confirmarGuardarRemito(onConfirmar) {
+      const nombre = document.getElementById('remitoProveedorNombre').value.trim();
+      const total  = calcularTotalRemito();
+      const { errores, advertencias } = _validarFilasRemito();
+
+      if (errores.length > 0) {
+        const listaErr = errores.map(function(e) { return '• ' + e.msg; }).join('\n');
+        mostrarToast('Corregí los errores antes de guardar', 'error');
+        alert('❌ No se puede guardar. Corregí lo siguiente:\n\n' + listaErr);
+        return;
+      }
+
+      if (advertencias.length > 0) {
+        const listaWarn = advertencias.map(function(w) { return '• ' + w.msg; }).join('\n');
+        const ok = confirm(
+          '⚠️ Revisá estos puntos antes de confirmar:\n\n' +
+          listaWarn +
+          '\n\n¿Continuás de todos modos?'
+        );
+        if (!ok) return;
+      }
+
+      if (total > _REM_VALIDACION.TOTAL_MAXIMO_SIN_CONFIRMAR) {
+        const ok = confirm(
+          '💰 El total del remito es ' + formatearMonto(total) + '.\n\n' +
+          '¿Estás seguro de que el importe es correcto?\n\nProveedor: ' + nombre
+        );
+        if (!ok) return;
+      }
+
+      const itemsValidos = _remitoItems.filter(function(it) {
+        const u = parseFloat(it.unidad) || 0;
+        const p = parseFloat(it.precio) || 0;
+        return u > 0 || p > 0 || (it.descripcion && it.descripcion.trim());
+      });
+
+      const resumenLineas = itemsValidos.map(function(it, i) {
+        const u = parseFloat(it.unidad) || 0;
+        const p = parseFloat(it.precio) || 0;
+        return (i + 1) + '. ' + (it.descripcion || '(sin descripción)') +
+               ' — Cant: ' + (u || '-') +
+               ' × Precio: ' + (p ? formatearMonto(p) : '-') +
+               ' = ' + formatearMonto(u * p);
+      }).join('\n');
+
+      const ok = confirm(
+        '✅ Confirmá el remito antes de guardar:\n\n' +
+        'Proveedor: ' + nombre + '\n' +
+        '─────────────────────────────\n' +
+        resumenLineas + '\n' +
+        '─────────────────────────────\n' +
+        'TOTAL: ' + formatearMonto(total) + '\n\n' +
+        '¿Guardás este remito?'
+      );
+      if (!ok) return;
+
+      onConfirmar();
+    }
+
+    function _validarMontoProv(input) {
+      const item = input.closest('.proveedor-item');
+      if (!item || !item.dataset.remito) return;
+
+      let remitoTotal = 0;
+      try {
+        remitoTotal = JSON.parse(item.dataset.remito).total || 0;
+      } catch (e) { return; }
+
+      const montoNuevo = parseFloat(input.value) || 0;
+      if (remitoTotal === 0) return;
+      const diff = Math.abs(montoNuevo - remitoTotal) / remitoTotal;
+      if (diff > _REM_VALIDACION.DIFF_MONTO_EXTERNO_PCT) {
+        const ok = confirm(
+          '⚠️ El monto que ingresaste (' + formatearMonto(montoNuevo) + ') difiere ' +
+          Math.round(diff * 100) + '% del total del remito cargado (' + formatearMonto(remitoTotal) + ').\n\n' +
+          '¿Estás seguro de que querés cambiarlo?'
+        );
+        if (!ok) {
+          input.value = remitoTotal;
+          calcularNetoArqueo();
+        }
+      }
     }
 
     function agregarGasto() {
