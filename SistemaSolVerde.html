@@ -3149,7 +3149,10 @@
 
       <!-- MODULO: VISOR CLIENTE -->
       <div class="module-view" id="module-visor-cliente">
-        <h2 style="margin-bottom: 1rem;">Visor de Cliente</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+          <h2 style="margin:0;">Visor de Cliente</h2>
+          <button class="btn btn-outline" id="btnImprimirVisor" onclick="imprimirVisorCliente()" style="display:none;">🖨️ Imprimir ficha</button>
+        </div>
 
         <div class="card">
           <div class="form-group form-group-autocomplete">
@@ -3170,18 +3173,20 @@
               <div class="stat-label">Movimientos</div>
             </div>
             <div class="stat-card">
-              <div class="stat-value" id="visorLimite">$0</div>
-              <div class="stat-label">Limite</div>
+              <div class="stat-value" id="visorUltimoPago" style="font-size:0.95rem;">-</div>
+              <div class="stat-label">Último pago</div>
             </div>
             <div class="stat-card">
-              <div class="stat-value" id="visorAlta" style="font-size: 1rem;">-</div>
-              <div class="stat-label">Alta</div>
+              <div class="stat-value" id="visorUltimoFiado" style="font-size:0.95rem;">-</div>
+              <div class="stat-label">Último fiado</div>
             </div>
           </div>
 
           <div class="card">
-            <div class="card-title">Historial de <span id="visorClienteNombre"></span></div>
-            <div class="table-container">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+              <div class="card-title" style="margin:0;">Últimos 10 movimientos de <span id="visorClienteNombre"></span></div>
+            </div>
+            <div class="table-container" style="margin-top:0.75rem;">
               <table class="table table-responsive-cards">
                 <thead>
                   <tr>
@@ -3198,10 +3203,12 @@
           </div>
         </div>
       </div>
-
-      <!-- MODULO: ESTADISTICAS -->
+<!-- MODULO: ESTADISTICAS -->
       <div class="module-view" id="module-estadisticas">
-        <h2 style="margin-bottom: 1rem;">Estadisticas</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+          <h2 style="margin:0;">Estadísticas</h2>
+          <button class="btn btn-outline" onclick="imprimirEstadisticas()">🖨️ Imprimir reporte</button>
+        </div>
 
         <div class="grid grid-4">
           <div class="stat-card">
@@ -5192,9 +5199,10 @@
       </div>
 
       <div style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
-        <button class="btn btn-outline" onclick="imprimirRemitoProveedor()" style="flex: 1; min-width: 150px;">🖨️ Imprimir Remito</button>
-        <button class="btn btn-outline" onclick="cerrarModalRemitoProveedor()" style="flex: 1; min-width: 110px;">Cancelar</button>
-        <button class="btn btn-primary" onclick="guardarRemitoProveedor()" style="flex: 1; min-width: 110px;">💾 Guardar</button>
+        <button class="btn btn-outline" onclick="abrirCargaRemitoExcel()" style="flex: 1; min-width: 150px;" title="Cargar desde archivo Excel (Próximamente)">📂 Cargar Remito</button>
+        <button class="btn btn-outline" onclick="imprimirRemitoProveedor()" style="flex: 1; min-width: 130px;">🖨️ Imprimir</button>
+        <button class="btn btn-outline" onclick="cerrarModalRemitoProveedor()" style="flex: 1; min-width: 90px;">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarRemitoProveedor()" style="flex: 1; min-width: 90px;">💾 Guardar</button>
       </div>
     </div>
   </div>
@@ -7391,10 +7399,20 @@
     }
 
     function _cargarBorradorNube() {
+      // BUG 2 FIX: la restauración se hace con scroll bloqueado para que
+      // el usuario no sienta el salto de pantalla mientras se inyectan
+      // los items de proveedores/gastos/ingresos en el DOM.
       google.script.run
         .withSuccessHandler(function(res) {
-          if (res.success && res.datos) {
-            _restaurarEstadoCaja(res.datos, true);
+          if (!res.success || !res.datos) return;
+          const mainContent = document.querySelector('.main-content');
+          const scrollAntes = mainContent ? mainContent.scrollTop : 0;
+          _restaurarEstadoCaja(res.datos, true);
+          // Restaurar la posición exacta de scroll después de la inyección DOM
+          if (mainContent) {
+            requestAnimationFrame(function() {
+              mainContent.scrollTop = scrollAntes;
+            });
           }
         })
         .withFailureHandler(function(e) { console.warn('Cargar borrador falló:', e.message); })
@@ -8503,29 +8521,43 @@
     function cargarHistorialCliente(nombre) {
       mostrarLoading(true);
       document.getElementById('visorResultado').style.display = 'none';
+      const btnImpr = document.getElementById('btnImprimirVisor');
+      if (btnImpr) btnImpr.style.display = 'none';
 
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
           if (result.success) {
             const c = result.cliente;
+            // Guardar en Estado para que imprimirVisorCliente() lo use
+            Estado._visorClienteActual = { cliente: c, movimientos: result.movimientos };
+
             document.getElementById('visorSaldo').textContent = formatearMonto(c.saldo);
-            document.getElementById('visorMovs').textContent = c.totalMovs;
-            document.getElementById('visorLimite').textContent = formatearMonto(c.limite);
-            document.getElementById('visorAlta').textContent = c.alta ? formatearFecha(c.alta) : '-';
+            document.getElementById('visorMovs').textContent = c.totalMovs || result.movimientos.length;
             document.getElementById('visorClienteNombre').textContent = escapeHtml(c.nombre);
 
-            document.getElementById('visorHistorial').innerHTML = result.movimientos.map(function(m) {
+            // Calcular último pago y último fiado desde el historial
+            const movs = result.movimientos || [];
+            const ultimoPago  = movs.find(function(m) { return m.tipo === 'HABER'; });
+            const ultimoFiado = movs.find(function(m) { return m.tipo === 'DEBE'; });
+            document.getElementById('visorUltimoPago').textContent  = ultimoPago  ? formatearFecha(ultimoPago.fecha)  : '-';
+            document.getElementById('visorUltimoFiado').textContent = ultimoFiado ? formatearFecha(ultimoFiado.fecha) : '-';
+
+            // Solo los últimos 10 movimientos (vienen ordenados desc por ID)
+            const ultimos10 = movs.slice(0, 10);
+            document.getElementById('visorHistorial').innerHTML = ultimos10.map(function(m) {
+              const esDebe = m.tipo === 'DEBE';
               return '<tr>' +
                 '<td data-label="Fecha">' + formatearFecha(m.fecha) + '</td>' +
-                '<td data-label="Tipo"><span class="tag tag-' + m.tipo.toLowerCase() + '">' + (m.tipo === 'DEBE' ? 'FIADO' : 'PAGO') + '</span></td>' +
-                '<td data-label="Monto">' + formatearMonto(m.monto) + '</td>' +
+                '<td data-label="Tipo"><span class="tag tag-' + m.tipo.toLowerCase() + '">' + (esDebe ? 'FIADO' : 'PAGO') + '</span></td>' +
+                '<td data-label="Monto" style="color:' + (esDebe ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';font-weight:bold;">' + formatearMonto(m.monto) + '</td>' +
                 '<td data-label="Saldo">' + formatearMonto(m.saldoPost) + '</td>' +
                 '<td data-label="Obs">' + (escapeHtml(m.obs) || '-') + '</td>' +
               '</tr>';
             }).join('');
 
             document.getElementById('visorResultado').style.display = 'block';
+            if (btnImpr) btnImpr.style.display = '';
           } else {
             mostrarToast(result.error, 'error');
           }
@@ -8569,7 +8601,205 @@
         .obtenerEstadisticas();
     }
 
-    function renderEstadisticas(result) {
+    
+    // ── Punto 7: Cargar Remito desde Excel (esqueleto - PRÓXIMAMENTE) ──────────
+    
+    function abrirCargaRemitoExcel() {
+      alert(
+        '📂 PRÓXIMAMENTE\n\n' +
+        'Esta función permitirá cargar boletas y remitos desde archivos Excel\n' +
+        '(.xlsx, .xls, .ods, .csv) para completar automáticamente\n' +
+        'los items del remito sin tipear nada.\n\n' +
+        'Estamos trabajando en ello.'
+      );
+    }
+
+    
+
+    // ── Punto 6: Imprimir Estadísticas ───────────────────────────────────────
+    function imprimirEstadisticas() {
+      const datos = CacheModulos.estadisticas.datos;
+      if (!datos) {
+        mostrarToast('Cargá las estadísticas primero', 'error');
+        return;
+      }
+
+      const filas = (datos.topDeudores || []).map(function(d, i) {
+        const rank = i + 1;
+        const bg = rank === 1 ? '#FFF3CD' : rank === 2 ? '#F8F9FA' : rank === 3 ? '#FFF8F0' : '#fff';
+        const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : String(rank);
+        return '<tr style="background:' + bg + ';">' +
+          '<td style="text-align:center;font-size:11pt;padding:4px 6px;">' + rankIcon + '</td>' +
+          '<td style="padding:4px 8px;font-size:10pt;">' + escapeHtml(d.nombre) + '</td>' +
+          '<td style="text-align:right;font-weight:bold;padding:4px 8px;font-size:10pt;color:#C62828;">' + formatearMonto(d.saldo) + '</td>' +
+        '</tr>';
+      }).join('');
+
+      const hoy = formatearFecha(obtenerFechaLocal());
+
+      const cuerpo =
+        '<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">' +
+          '<div style="text-align:center;border-bottom:3px solid #2E7D32;padding-bottom:8px;margin-bottom:12px;">' +
+            '<div style="font-size:16pt;font-weight:bold;color:#2E7D32;">SOL &amp; VERDE</div>' +
+            '<div style="font-size:12pt;font-weight:bold;margin-top:4px;">Reporte de Estadísticas</div>' +
+            '<div style="font-size:8pt;color:#666;margin-top:2px;">Generado el ' + hoy + '</div>' +
+          '</div>' +
+          '<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">' +
+            '<tr>' +
+              '<td style="width:50%;padding:4px;">' +
+                '<div style="background:#f5f5f5;border-left:4px solid #2E7D32;padding:6px 10px;">' +
+                  '<div style="font-size:7.5pt;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Clientes totales</div>' +
+                  '<div style="font-size:14pt;font-weight:bold;">' + (datos.totalClientes || 0) + '</div>' +
+                '</div>' +
+              '</td>' +
+              '<td style="width:50%;padding:4px;">' +
+                '<div style="background:#f5f5f5;border-left:4px solid #C62828;padding:6px 10px;">' +
+                  '<div style="font-size:7.5pt;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Con deuda activa</div>' +
+                  '<div style="font-size:14pt;font-weight:bold;color:#C62828;">' + (datos.totalDeudores || 0) + '</div>' +
+                '</div>' +
+              '</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="padding:4px;">' +
+                '<div style="background:#f5f5f5;border-left:4px solid #C62828;padding:6px 10px;">' +
+                  '<div style="font-size:7.5pt;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Deuda total</div>' +
+                  '<div style="font-size:14pt;font-weight:bold;color:#C62828;">' + formatearMonto(datos.totalAdeudado) + '</div>' +
+                '</div>' +
+              '</td>' +
+              '<td style="padding:4px;">' +
+                '<div style="background:#f5f5f5;border-left:4px solid #1565C0;padding:6px 10px;">' +
+                  '<div style="font-size:7.5pt;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Movimientos</div>' +
+                  '<div style="font-size:14pt;font-weight:bold;">' + (datos.movimientos ? datos.movimientos.totalMovimientos : 0) + '</div>' +
+                '</div>' +
+              '</td>' +
+            '</tr>' +
+          '</table>' +
+          '<div style="font-size:10pt;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:4px;">Top 10 — Mayores deudores</div>' +
+          '<table style="width:100%;border-collapse:collapse;">' +
+            '<thead>' +
+              '<tr style="background:#2E7D32;color:#fff;">' +
+                '<th style="padding:4px 6px;text-align:center;font-size:8.5pt;width:10%;">#</th>' +
+                '<th style="padding:4px 8px;text-align:left;font-size:8.5pt;">Cliente</th>' +
+                '<th style="padding:4px 8px;text-align:right;font-size:8.5pt;width:28%;">Saldo</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + filas + '</tbody>' +
+          '</table>' +
+          '<div style="margin-top:12px;border-top:1px solid #ccc;padding-top:6px;font-size:7pt;color:#888;text-align:center;">' +
+            'Documento interno — Sol &amp; Verde — ' + hoy +
+          '</div>' +
+        '</div>';
+
+      abrirVentanaImpresionSolVerde({
+        tituloDocumento: 'Estadísticas Sol &amp; Verde',
+        cuerpoHtml: cuerpo,
+        cssExtra: [
+          '@page{size:letter portrait;margin:1.5cm;}',
+          'body{background:#fff!important;}',
+          '.sv-print-root{max-width:none!important;background:#fff!important;}',
+          '@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}}'
+        ].join(' '),
+        winFeatures: 'width=700,height=850,scrollbars=yes,resizable=yes'
+      });
+    }
+
+    // ── Punto 6: Imprimir ficha Visor de Cliente ─────────────────────────────
+    function imprimirVisorCliente() {
+      const datos = Estado._visorClienteActual;
+      if (!datos || !datos.cliente) {
+        mostrarToast('Buscá un cliente primero', 'error');
+        return;
+      }
+      const c    = datos.cliente;
+      const movs = (datos.movimientos || []).slice(0, 10);
+      const hoy  = formatearFecha(obtenerFechaLocal());
+
+      const ultimoPago  = movs.find(function(m) { return m.tipo === 'HABER'; });
+      const ultimoFiado = movs.find(function(m) { return m.tipo === 'DEBE'; });
+
+      const filasMovs = movs.map(function(m, i) {
+        const esDebe = m.tipo === 'DEBE';
+        const bg = i % 2 === 0 ? '#fff' : '#f9f9f9';
+        return '<tr style="background:' + bg + ';">' +
+          '<td style="padding:3px 6px;font-size:8.5pt;">' + formatearFecha(m.fecha) + '</td>' +
+          '<td style="padding:3px 6px;font-size:8.5pt;text-align:center;">' +
+            '<span style="background:' + (esDebe ? '#FFEBEE' : '#E8F5E9') + ';color:' + (esDebe ? '#C62828' : '#2E7D32') + ';padding:1px 6px;border-radius:3px;font-size:7.5pt;font-weight:bold;">' +
+              (esDebe ? 'FIADO' : 'PAGO') +
+            '</span>' +
+          '</td>' +
+          '<td style="padding:3px 6px;font-size:8.5pt;text-align:right;font-weight:bold;color:' + (esDebe ? '#C62828' : '#2E7D32') + ';">' + formatearMonto(m.monto) + '</td>' +
+          '<td style="padding:3px 6px;font-size:8.5pt;text-align:right;">' + formatearMonto(m.saldoPost) + '</td>' +
+          '<td style="padding:3px 6px;font-size:8.5pt;color:#555;">' + (escapeHtml(m.obs) || '-') + '</td>' +
+        '</tr>';
+      }).join('');
+
+      const saldoColor = (c.saldo || 0) > 0 ? '#C62828' : '#2E7D32';
+
+      const cuerpo =
+        '<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #2E7D32;padding-bottom:8px;margin-bottom:12px;">' +
+            '<div>' +
+              '<div style="font-size:15pt;font-weight:bold;color:#2E7D32;">SOL &amp; VERDE</div>' +
+              '<div style="font-size:9pt;color:#666;">Ficha de Cliente — ' + hoy + '</div>' +
+            '</div>' +
+            '<div style="text-align:right;">' +
+              '<div style="font-size:8pt;color:#666;">Saldo actual</div>' +
+              '<div style="font-size:18pt;font-weight:bold;color:' + saldoColor + ';">' + formatearMonto(c.saldo || 0) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="background:#f5f5f5;border-radius:6px;padding:8px 12px;margin-bottom:12px;">' +
+            '<div style="font-size:14pt;font-weight:bold;margin-bottom:6px;">' + escapeHtml(c.nombre) + '</div>' +
+            '<table style="width:100%;border:none;">' +
+              '<tr>' +
+                '<td style="border:none;padding:2px 0;font-size:8.5pt;">' +
+                  '<strong>Alta:</strong> ' + (c.alta ? formatearFecha(c.alta) : '-') +
+                '</td>' +
+                '<td style="border:none;padding:2px 0;font-size:8.5pt;">' +
+                  '<strong>Límite:</strong> ' + formatearMonto(c.limite || 0) +
+                '</td>' +
+              '</tr>' +
+              '<tr>' +
+                '<td style="border:none;padding:2px 0;font-size:8.5pt;">' +
+                  '<strong>Último pago:</strong> ' + (ultimoPago ? formatearFecha(ultimoPago.fecha) : '-') +
+                '</td>' +
+                '<td style="border:none;padding:2px 0;font-size:8.5pt;">' +
+                  '<strong>Último fiado:</strong> ' + (ultimoFiado ? formatearFecha(ultimoFiado.fecha) : '-') +
+                '</td>' +
+              '</tr>' +
+            '</table>' +
+          '</div>' +
+          '<div style="font-size:9.5pt;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:4px;">Últimos 10 movimientos</div>' +
+          '<table style="width:100%;border-collapse:collapse;">' +
+            '<thead>' +
+              '<tr style="background:#2E7D32;color:#fff;">' +
+                '<th style="padding:4px 6px;font-size:8pt;text-align:left;">Fecha</th>' +
+                '<th style="padding:4px 6px;font-size:8pt;text-align:center;">Tipo</th>' +
+                '<th style="padding:4px 6px;font-size:8pt;text-align:right;">Monto</th>' +
+                '<th style="padding:4px 6px;font-size:8pt;text-align:right;">Saldo</th>' +
+                '<th style="padding:4px 6px;font-size:8pt;text-align:left;">Obs.</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + filasMovs + '</tbody>' +
+          '</table>' +
+          '<div style="margin-top:10px;border-top:1px solid #ccc;padding-top:5px;font-size:7pt;color:#888;text-align:center;">' +
+            'Documento interno confidencial — Sol &amp; Verde — ' + hoy +
+          '</div>' +
+        '</div>';
+
+      abrirVentanaImpresionSolVerde({
+        tituloDocumento: 'Ficha Cliente — ' + c.nombre,
+        cuerpoHtml: cuerpo,
+        cssExtra: [
+          '@page{size:letter portrait;margin:1.5cm;}',
+          'body{background:#fff!important;}',
+          '.sv-print-root{max-width:none!important;background:#fff!important;}',
+          '@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}}'
+        ].join(' '),
+        winFeatures: 'width=700,height=850,scrollbars=yes,resizable=yes'
+      });
+    }
+
+function renderEstadisticas(result) {
       document.getElementById('statClientes').textContent = result.totalClientes;
       document.getElementById('statDeudores').textContent = result.totalDeudores;
       document.getElementById('statTotalDeuda').textContent = formatearMonto(result.totalAdeudado);
@@ -8621,11 +8851,14 @@
                 '</tr>';
               }).join('');
 
-              // CORRECCIÓN: Usar totales del backend que incluyen TODOS los movimientos
-              // incluyendo clientes que saldaron su deuda (saldo=0, no aparecen en la lista)
+              // BUG 3 FIX: en fechas históricas totalFiadosDia/totalPagosDia son los
+              // movimientos de ESE día (correcto), y totalAdeudado/saldoAFavor son los
+              // saldos acumulados hasta esa fecha (correcto). El saldo neto visible es
+              // deuda_activa - a_favor, no una diferencia de flujos del día.
               var totalFiados = result.totalFiadosDia || 0;
               var totalPagos  = result.totalPagosDia  || 0;
-              var totalSaldos = result.totalAdeudado - result.saldoAFavor;
+              // Saldo neto = lo que nos deben − lo que tenemos a favor
+              var totalSaldos = (result.totalAdeudado || 0) - (result.saldoAFavor || 0);
 
               document.getElementById('totalFiadosDia').textContent = formatearMonto(totalFiados);
               document.getElementById('totalPagosDia').textContent  = formatearMonto(totalPagos);
@@ -8958,16 +9191,19 @@
     }
 
     function confirmarEliminarItem(btn) {
-      const item = btn.closest('.proveedor-item') || btn.parentElement;
+      const item = btn.closest('.proveedor-item, .gasto-item, .ingreso-item') || btn.parentElement;
       const montoInput = item.querySelector('.prov-monto, .gasto-monto, .ingreso-monto');
       const monto = montoInput ? parseFloat(montoInput.value) : 0;
 
       if (monto > 0 && !confirm('¿Eliminar este item?')) return;
 
       item.classList.add('fadeOut');
-      setTimeout(() => {
+      setTimeout(function() {
         item.remove();
         calcularNetoArqueo();
+        // BUG 1 FIX: persistir la eliminación inmediatamente en la nube.
+        // Sin esto, al cargar el borrador reaparecían items ya borrados.
+        _autoSaveBorradorFn();
       }, 200);
     }
 
@@ -9094,6 +9330,8 @@
         }
 
         guardarProveedorEnHistorial(nombre);
+        // Punto 4/5: persistir las descripciones de items para futuras boletas
+        itemsValidos.forEach(function(it) { _guardarItemHistorial(it.descripcion); });
         calcularNetoArqueo();
         cerrarModalRemitoProveedor();
         mostrarToast('Proveedor cargado: ' + nombre + ' — ' + formatearMonto(total), 'success');
