@@ -2624,28 +2624,6 @@
       .vn-ticket-print { display: block !important; }
     }
 
-    /* Pantalla por inactividad (montos sensibles) */
-    body.sv-idle-privacy #appContainer {
-      filter: blur(14px);
-      pointer-events: none;
-      user-select: none;
-    }
-    #svPrivacyShield {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 10070;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.45);
-      color: #fff;
-      font-size: 1.1rem;
-      text-align: center;
-      padding: 1rem;
-      cursor: pointer;
-    }
-    body.sv-idle-privacy #svPrivacyShield { display: flex; flex-direction: column; gap: 0.5rem; }
-
     #tablaMovimientos tbody tr.sv-row-debe > td { background: rgba(255, 152, 0, 0.07); }
     #tablaMovimientos tbody tr.sv-row-pago > td { background: rgba(46, 125, 50, 0.07); }
 
@@ -2881,10 +2859,6 @@
   </style>
 </head>
 <body>
-  <div id="svPrivacyShield" aria-live="polite">
-    <span>Inactividad prolongada — tocar para desbloquear</span>
-    <span style="font-size:0.85rem;opacity:0.9;">(Configurá PIN en el navegador: localStorage clave <code>sv_idle_pin</code>)</span>
-  </div>
   <!-- Splash Screen -->
   <div id="splashScreen">
     <img src="https://i.imgur.com/tStvmV1.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 12px;">
@@ -6463,61 +6437,6 @@
           Swal.fire('Sin conexión', 'Se cortó la conexión a internet.', 'error');
         }
       });
-
-      // Inactividad ~30 min: difumina montos hasta desbloquear (PIN opcional: localStorage sv_idle_pin)
-      var SV_IDLE_MS = 30 * 60 * 1000;
-      var svIdleTimer = null;
-      function svResetIdleTimer() {
-        clearTimeout(svIdleTimer);
-        svIdleTimer = setTimeout(function() {
-          document.body.classList.add('sv-idle-privacy');
-        }, SV_IDLE_MS);
-      }
-      ['click', 'keydown', 'scroll', 'touchstart'].forEach(function(ev) {
-        window.addEventListener(ev, function() {
-          if (!document.body.classList.contains('sv-idle-privacy')) svResetIdleTimer();
-        }, { passive: true });
-      });
-      svResetIdleTimer();
-
-      var shield = document.getElementById('svPrivacyShield');
-      if (shield) {
-        shield.addEventListener('click', function() {
-          var pin = '';
-          try { pin = (localStorage.getItem('sv_idle_pin') || '').trim(); } catch (e) {}
-          function unlock() {
-            document.body.classList.remove('sv-idle-privacy');
-            svResetIdleTimer();
-          }
-          if (!pin) {
-            if (typeof Swal !== 'undefined') {
-              Swal.fire({
-                title: 'Desbloquear',
-                text: 'Confirmá para volver a ver montos y datos.',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Continuar'
-              }).then(function(r) { if (r.isConfirmed) unlock(); });
-            } else if (confirm('¿Desbloquear pantalla?')) unlock();
-            return;
-          }
-          if (typeof Swal !== 'undefined') {
-            Swal.fire({
-              title: 'PIN',
-              input: 'password',
-              inputPlaceholder: 'PIN',
-              showCancelButton: true,
-              confirmButtonText: 'Desbloquear',
-              inputValidator: function(v) {
-                return v !== pin ? 'PIN incorrecto' : null;
-              }
-            }).then(function(r) { if (r.isConfirmed) unlock(); });
-          } else {
-            var p = prompt('PIN:');
-            if (p === pin) unlock();
-          }
-        });
-      }
 
       document.addEventListener('keydown', function(e) {
         if (!(e.ctrlKey || e.metaKey) || (e.key !== 's' && e.key !== 'S')) return;
