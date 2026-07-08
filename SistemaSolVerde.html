@@ -9272,15 +9272,95 @@ function renderEstadisticas(result) {
     function renderFilasRemito() {
       const tbody = document.getElementById('remitoItemsTbody');
       tbody.innerHTML = _remitoItems.map(function(item, i) {
-        return '<tr>' +
-          '<td style="padding: 0.35rem;"><input type="number" class="form-input remito-unidad" min="0" step="any" value="' + escapeHtml(item.unidad != null ? item.unidad : '') + '" oninput="calcularTotalRemito()" style="min-height: 36px; padding: 0.4rem;" inputmode="decimal"></td>' +
-          '<td style="padding: 0.35rem;"><input type="text" class="form-input remito-descripcion" value="' + escapeHtml(item.descripcion || '') + '" oninput="_remitoItems[' + i + '].descripcion = this.value" placeholder="Descripción / item" style="min-height: 36px; padding: 0.4rem;"></td>' +
-          '<td style="padding: 0.35rem;"><input type="number" class="form-input remito-precio" min="0" step="any" value="' + escapeHtml(item.precio != null ? item.precio : '') + '" oninput="calcularTotalRemito()" style="min-height: 36px; padding: 0.4rem; text-align: right;" inputmode="decimal"></td>' +
-          '<td style="padding: 0.35rem; text-align: right; font-weight: 600;" class="remito-subtotal">$0</td>' +
-          '<td style="padding: 0.35rem; text-align: center;"><button class="btn btn-outline btn-sm" onclick="eliminarFilaRemito(' + i + ')" style="color: var(--sv-peligro);">&#10007;</button></td>' +
+        const descId = 'rdesc-' + i;
+        const sugId  = 'rsugs-' + i;
+        return '<tr data-fila="' + i + '">' +
+          '<td style="padding:0.35rem;">' +
+            '<input type="number" class="form-input remito-unidad" min="0" step="any" value="' + escapeHtml(item.unidad != null ? item.unidad : '') + '" oninput="calcularTotalRemito()" style="min-height:36px;padding:0.4rem;width:72px;" inputmode="decimal">' +
+          '</td>' +
+          '<td style="padding:0.35rem;position:relative;">' +
+            '<input type="text" id="' + descId + '" class="form-input remito-descripcion" value="' + escapeHtml(item.descripcion || '') + '"' +
+              ' placeholder="Descripción / item"' +
+              ' style="min-height:36px;padding:0.4rem;width:100%;min-width:140px;"' +
+              ' autocomplete="off"' +
+              ' oninput="_remitoItems[' + i + '].descripcion=this.value; _debouncedBuscarItemHistorial(this,' + i + ')"' +
+              ' ondblclick="_buscarItemHistorial(this,' + i + ',true)"' +
+              ' onblur="_cerrarSugsRemito(this)">' +
+            '<div id="' + sugId + '" class="suggestions-list" style="display:none;position:absolute;z-index:9999;left:0;right:0;top:100%;"></div>' +
+          '</td>' +
+          '<td style="padding:0.35rem;">' +
+            '<input type="number" class="form-input remito-precio" min="0" step="any" value="' + escapeHtml(item.precio != null ? item.precio : '') + '" oninput="calcularTotalRemito()" style="min-height:36px;padding:0.4rem;text-align:right;width:110px;" inputmode="decimal">' +
+          '</td>' +
+          '<td style="padding:0.35rem;text-align:right;font-weight:600;white-space:nowrap;" class="remito-subtotal">$0</td>' +
+          '<td style="padding:0.35rem;text-align:center;">' +
+            '<button class="btn btn-outline btn-sm" onclick="eliminarFilaRemito(' + i + ')" style="color:var(--sv-peligro);">&#10007;</button>' +
+          '</td>' +
         '</tr>';
       }).join('');
       calcularTotalRemito();
+    }
+
+    // ── Historial de Items del Remito (localStorage) ──────────────────────────
+    function _obtenerItemsHistorial() {
+      try { return JSON.parse(localStorage.getItem('remitoItemsHistorial') || '[]'); }
+      catch (e) { return []; }
+    }
+    function _guardarItemHistorial(desc) {
+      if (!desc || !desc.trim()) return;
+      desc = desc.trim();
+      let lista = _obtenerItemsHistorial().filter(function(d) { return d.toLowerCase() !== desc.toLowerCase(); });
+      lista.unshift(desc);
+      lista = lista.slice(0, 50);
+      try { localStorage.setItem('remitoItemsHistorial', JSON.stringify(lista)); } catch (e) {}
+    }
+    function _buscarItemHistorial(input, filaIdx, forzarTodos) {
+      const fila = input.closest('tr');
+      if (!fila) return;
+      const sugDiv = fila.querySelector('.suggestions-list');
+      if (!sugDiv) return;
+      const termino = (input.value || '').trim();
+      const historial = _obtenerItemsHistorial();
+      let matches;
+      if (forzarTodos) {
+        matches = termino
+          ? historial.filter(function(d) { return d.toLowerCase().includes(termino.toLowerCase()); })
+          : historial;
+      } else {
+        if (termino.length < 3) { sugDiv.style.display = 'none'; sugDiv.innerHTML = ''; return; }
+        matches = historial.filter(function(d) {
+          return clienteNombreCoincideBusqueda(d, termino);
+        });
+      }
+      if (matches.length === 0) { sugDiv.style.display = 'none'; sugDiv.innerHTML = ''; return; }
+      sugDiv.innerHTML = matches.slice(0, 8).map(function(d) {
+        return '<div class="suggestion-item" data-desc="' + escapeHtml(d) + '">' + escapeHtml(d) + '</div>';
+      }).join('');
+      sugDiv.querySelectorAll('.suggestion-item').forEach(function(el) {
+        el.addEventListener('mousedown', function(ev) {
+          ev.preventDefault();
+          const desc = this.dataset.desc;
+          input.value = desc;
+          if (_remitoItems[filaIdx]) _remitoItems[filaIdx].descripcion = desc;
+          sugDiv.style.display = 'none';
+          const tr = input.closest('tr');
+          const precioInput = tr ? tr.querySelector('.remito-precio') : null;
+          if (precioInput) precioInput.focus();
+        });
+      });
+      sugDiv.style.display = 'block';
+    }
+    const _debouncedBuscarItemHistorial = debounce(_buscarItemHistorial, 180);
+    function _cerrarSugsRemito(input) {
+      setTimeout(function() {
+        const fila = input ? input.closest('tr') : null;
+        if (!fila) return;
+        const sugDiv = fila.querySelector('.suggestions-list');
+        if (sugDiv) { sugDiv.style.display = 'none'; }
+        if (_remitoItems) {
+          const i = parseInt((fila.dataset.fila || '-1'), 10);
+          if (!isNaN(i) && _remitoItems[i]) _guardarItemHistorial(_remitoItems[i].descripcion);
+        }
+      }, 180);
     }
 
     function calcularTotalRemito() {
@@ -10217,19 +10297,27 @@ function renderEstadisticas(result) {
 
     // Lee los proveedores actuales del formulario de Arqueo de Caja
     function obtenerProveedoresEnVivo() {
-      const proveedores = [];
+      const acumulado = new Map(); // key = nombre normalizado -> { nombre, monto }
+
       document.querySelectorAll('#listaProveedores .proveedor-item').forEach(item => {
         const desc = item.querySelector('.prov-desc');
         const monto = item.querySelector('.prov-monto');
         const montoVal = parseFloat(monto?.value) || 0;
-        if (montoVal > 0) {
-          proveedores.push({
-            nombre: desc?.value?.trim() || 'Proveedor',
-            monto: montoVal
-          });
+        if (montoVal <= 0) return;
+
+        const nombreOriginal = desc?.value?.trim() || 'Proveedor';
+        const clave = nombreOriginal.toLowerCase().replace(/\s+/g, ' ');
+
+        if (acumulado.has(clave)) {
+          acumulado.get(clave).monto += montoVal;
+        } else {
+          acumulado.set(clave, { nombre: nombreOriginal, monto: montoVal });
         }
       });
-      return proveedores;
+
+      const lista = Array.from(acumulado.values());
+      lista.sort(function(a, b) { return a.nombre.localeCompare(b.nombre, 'es'); });
+      return lista;
     }
 
     // Lee los gastos actuales del formulario de Arqueo de Caja
