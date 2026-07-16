@@ -145,6 +145,26 @@
       to { transform: rotate(360deg); }
     }
 
+    .sv-inline-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--sv-borde);
+      border-top-color: var(--sv-primario);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    .sv-inline-loading {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.875rem;
+      color: var(--sv-texto-muted);
+      padding: 0.5rem 0;
+    }
+
     /* ============================================================================
        LAYOUT PRINCIPAL
        ============================================================================ */
@@ -1198,6 +1218,100 @@
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+
+    /* PIN Lock */
+    #pinLockOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0,0,0,0.72);
+      align-items: center;
+      justify-content: center;
+    }
+    #pinLockOverlay.active {
+      display: flex;
+    }
+    .pin-lock-card {
+      background: var(--sv-superficie);
+      border-radius: var(--sv-radius-lg, 12px);
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 320px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    .pin-lock-title {
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--sv-texto);
+    }
+    .pin-lock-subtitle {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--sv-texto-muted);
+      margin-bottom: 1rem;
+    }
+    .pin-lock-dots {
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .pin-lock-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid var(--sv-borde);
+      background: transparent;
+      transition: background 0.15s;
+    }
+    .pin-lock-dot.filled {
+      background: var(--sv-primario);
+      border-color: var(--sv-primario);
+    }
+    .pin-lock-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .pin-lock-key {
+      background: var(--sv-superficie-elevada);
+      border: 1px solid var(--sv-borde);
+      border-radius: var(--sv-radius);
+      font-size: 1.2rem;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: var(--sv-touch-target, 44px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.1s;
+    }
+    .pin-lock-key:active {
+      background: var(--sv-primario);
+      color: #fff;
+    }
+    .pin-lock-error {
+      color: var(--sv-peligro);
+      text-align: center;
+      font-size: 0.8rem;
+      min-height: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+    .pin-lock-cancel {
+      width: 100%;
+      background: none;
+      border: 1px solid var(--sv-borde);
+      border-radius: var(--sv-radius);
+      padding: 0.5rem;
+      cursor: pointer;
+      color: var(--sv-texto-muted);
+      font-size: 0.875rem;
+      min-height: var(--sv-touch-target, 44px);
     }
 
     /* Impresion A4 - OPTIMIZADO PARA 1 PÁGINA */
@@ -2868,6 +2982,37 @@
 
   <!-- App Container -->
   <div id="appContainer">
+
+    <!-- PIN Lock Overlay -->
+    <div id="pinLockOverlay">
+      <div class="pin-lock-card">
+        <div class="pin-lock-title">🔒 Acceso protegido</div>
+        <div class="pin-lock-subtitle" id="pinLockSubtitle">Ingresá el PIN de 4 dígitos</div>
+        <div class="pin-lock-dots">
+          <div class="pin-lock-dot" id="pinDot0"></div>
+          <div class="pin-lock-dot" id="pinDot1"></div>
+          <div class="pin-lock-dot" id="pinDot2"></div>
+          <div class="pin-lock-dot" id="pinDot3"></div>
+        </div>
+        <div class="pin-lock-error" id="pinLockError"></div>
+        <div class="pin-lock-grid">
+          <button class="pin-lock-key" onclick="PinLock._key('1')">1</button>
+          <button class="pin-lock-key" onclick="PinLock._key('2')">2</button>
+          <button class="pin-lock-key" onclick="PinLock._key('3')">3</button>
+          <button class="pin-lock-key" onclick="PinLock._key('4')">4</button>
+          <button class="pin-lock-key" onclick="PinLock._key('5')">5</button>
+          <button class="pin-lock-key" onclick="PinLock._key('6')">6</button>
+          <button class="pin-lock-key" onclick="PinLock._key('7')">7</button>
+          <button class="pin-lock-key" onclick="PinLock._key('8')">8</button>
+          <button class="pin-lock-key" onclick="PinLock._key('9')">9</button>
+          <button class="pin-lock-key" onclick="PinLock._key('borrar')" style="font-size:0.9rem;">⌫</button>
+          <button class="pin-lock-key" onclick="PinLock._key('0')">0</button>
+          <button class="pin-lock-key" onclick="PinLock._key('ok')" style="font-size:0.85rem;">OK</button>
+        </div>
+        <button class="pin-lock-cancel" onclick="PinLock.cancelar()">Cancelar</button>
+      </div>
+    </div>
+
     <!-- Header -->
     <header class="app-header no-print">
       <button class="header-btn" id="menuToggle" title="Menu" aria-label="Abrir menu">☰</button>
@@ -3158,7 +3303,7 @@
 
           <div class="card">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
-              <div class="card-title" style="margin:0;">Últimos 10 movimientos de <span id="visorClienteNombre"></span></div>
+              <div class="card-title" style="margin:0;">Últimos 30 movimientos de <span id="visorClienteNombre"></span></div>
             </div>
             <div class="table-container" style="margin-top:0.75rem;">
               <table class="table table-responsive-cards">
@@ -5560,7 +5705,7 @@
     <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
         <div class="modal-title">Vista Previa - Factura B (Consumidor Final)</div>
-        <button class="modal-close" onclick="cerrarModal('modalFacturaB')">&times;</button>
+        <button class="modal-close" onclick="_cerrarModalFacturaSinEmitir('modalFacturaB')">&times;</button>
       </div>
 
       <div class="alert alert-info" style="margin-bottom: 1rem;">
@@ -5603,7 +5748,7 @@
       </div>
 
       <div style="display: flex; gap: 0.5rem;">
-        <button class="btn btn-outline" style="flex: 1;" onclick="cerrarModal('modalFacturaB')">Cancelar</button>
+        <button class="btn btn-outline" style="flex: 1;" onclick="_cerrarModalFacturaSinEmitir('modalFacturaB')">Cancelar</button>
         <button class="btn btn-primary" style="flex: 1;" onclick="emitirFacturaB()" id="btnEmitirFacturaB">✅ Emitir Factura B en ARCA</button>
       </div>
 
@@ -5618,7 +5763,7 @@
     <div class="modal-content" style="max-width: 900px;">
       <div class="modal-header">
         <div class="modal-title">Factura A - Selección de Productos</div>
-        <button class="modal-close" onclick="cerrarModal('modalFacturaA')">&times;</button>
+        <button class="modal-close" onclick="_cerrarModalFacturaSinEmitir('modalFacturaA')">&times;</button>
       </div>
 
       <div class="alert alert-info" style="margin-bottom: 1rem;">
@@ -7718,6 +7863,16 @@
       document.getElementById(id).classList.remove('active');
     }
 
+    // Cerrar modal Factura A o B sin emitir → reabrir modal Nueva Transferencia
+    function _cerrarModalFacturaSinEmitir(idModal) {
+      cerrarModal(idModal);
+      setTimeout(function() {
+        if (typeof abrirModalNuevaTransferenciaUnif === 'function') {
+          abrirModalNuevaTransferenciaUnif();
+        }
+      }, 200);
+    }
+
     // ============================================================================
     // SV — SISTEMA UNIVERSAL: TECLADO + BACKGROUND LOADING
     // Aplica a todos los módulos con formularios de entrada de datos.
@@ -7925,9 +8080,129 @@
     }
 
     // ============================================================================
+    // PIN LOCK — Protección de módulos Facturación y Transferencias
+    // ============================================================================
+    var PinLock = (function() {
+      var PIN_CORRECTO = '1234'; // PIN por defecto — cambiar según necesidad
+      var MODULOS_PROTEGIDOS = ['facturacion', 'transferencias', 'listas-facturas', 'facturacion-arca'];
+      var _buffer = '';
+      var _intentosFallidos = 0;
+      var _bloqueadoHasta = 0;
+      var _moduloPendiente = null;
+      var _onSuccess = null;
+
+      function _actualizarDots() {
+        for (var i = 0; i < 4; i++) {
+          var dot = document.getElementById('pinDot' + i);
+          if (dot) dot.classList.toggle('filled', i < _buffer.length);
+        }
+      }
+
+      function _setError(msg) {
+        var el = document.getElementById('pinLockError');
+        if (el) el.textContent = msg;
+      }
+
+      function _abrir(modulo, cb) {
+        _moduloPendiente = modulo;
+        _onSuccess = cb;
+        _buffer = '';
+        _actualizarDots();
+        _setError('');
+        var sub = document.getElementById('pinLockSubtitle');
+        if (sub) sub.textContent = 'Ingresá el PIN para acceder a ' + modulo;
+        document.getElementById('pinLockOverlay').classList.add('active');
+      }
+
+      function _key(val) {
+        var ahora = Date.now();
+        if (ahora < _bloqueadoHasta) {
+          var seg = Math.ceil((_bloqueadoHasta - ahora) / 1000);
+          _setError('Bloqueado ' + seg + 's. Esperá.');
+          return;
+        }
+        if (val === 'borrar') {
+          _buffer = _buffer.slice(0, -1);
+          _actualizarDots();
+          _setError('');
+          return;
+        }
+        if (val === 'ok') {
+          _verificar();
+          return;
+        }
+        if (_buffer.length < 4) {
+          _buffer += val;
+          _actualizarDots();
+          if (_buffer.length === 4) _verificar();
+        }
+      }
+
+      function _verificar() {
+        if (_buffer === PIN_CORRECTO) {
+          _intentosFallidos = 0;
+          document.getElementById('pinLockOverlay').classList.remove('active');
+          var cb = _onSuccess;
+          var mod = _moduloPendiente;
+          _onSuccess = null;
+          _moduloPendiente = null;
+          _buffer = '';
+          _actualizarDots();
+          if (cb) cb(mod);
+        } else {
+          _intentosFallidos++;
+          _buffer = '';
+          _actualizarDots();
+          if (_intentosFallidos >= 3) {
+            var espera = Math.min(30 * Math.pow(2, _intentosFallidos - 3), 300) * 1000;
+            _bloqueadoHasta = Date.now() + espera;
+            _setError('Demasiados intentos. Bloqueado ' + Math.ceil(espera / 1000) + 's.');
+          } else {
+            _setError('PIN incorrecto. Intentos restantes: ' + (3 - _intentosFallidos));
+          }
+        }
+      }
+
+      function cancelar() {
+        document.getElementById('pinLockOverlay').classList.remove('active');
+        _buffer = '';
+        _actualizarDots();
+        _setError('');
+        _moduloPendiente = null;
+        _onSuccess = null;
+      }
+
+      // Listener de teclado físico para PIN
+      document.addEventListener('keydown', function(e) {
+        if (!document.getElementById('pinLockOverlay').classList.contains('active')) return;
+        if (e.key >= '0' && e.key <= '9') { _key(e.key); e.preventDefault(); }
+        else if (e.key === 'Backspace') { _key('borrar'); e.preventDefault(); }
+        else if (e.key === 'Enter') { _key('ok'); e.preventDefault(); }
+        else if (e.key === 'Escape') { cancelar(); e.preventDefault(); }
+      });
+
+      return {
+        modulos: MODULOS_PROTEGIDOS,
+        necesitaPin: function(mod) { return MODULOS_PROTEGIDOS.indexOf(mod) !== -1; },
+        pedir: _abrir,
+        _key: _key,
+        cancelar: cancelar
+      };
+    })();
+
+    // ============================================================================
     // NAVEGACION
     // ============================================================================
     function navegarA(modulo) {
+      // Verificar PIN para módulos protegidos
+      if (typeof PinLock !== 'undefined' && PinLock.necesitaPin(modulo)) {
+        PinLock.pedir(modulo, function(mod) { _navegarADirecto(mod); });
+        return;
+      }
+      _navegarADirecto(modulo);
+    }
+
+    function _navegarADirecto(modulo) {
       // Verificar que existe el módulo
       const targetModule = document.getElementById('module-' + modulo);
       if (!targetModule) {
@@ -8146,7 +8421,9 @@
         const esPendiente = m._pendiente;
         const rowStyle = esPendiente ? 'opacity: 0.6; background: var(--sv-superficie-elevada);' : '';
         const pendienteBadge = esPendiente ? '<span style="font-size:0.65rem;background:#FFF3E0;color:#E65100;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:4px;">guardando...</span>' : '';
-        return '<tr style="' + rowStyle + '">' +
+        var _fechaIso = (m.fecha || '').replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$3-$2-$1');
+        var _idPad = String(m.id || 0).padStart(10, '0');
+        return '<tr style="' + rowStyle + '" data-order="' + _fechaIso + '_' + _idPad + '">' +
           '<td data-label="Fecha">' + formatearFecha(m.fecha) + '</td>' +
           '<td data-label="Cliente">' + escapeHtml(m.cliente || '') + pendienteBadge + '</td>' +
           '<td data-label="Tipo"><span class="tag tag-' + (m.tipo || '').toLowerCase() + '">' + (m.tipo === 'DEBE' ? 'FIADO' : 'PAGO') + '</span></td>' +
@@ -8462,9 +8739,9 @@
             document.getElementById('visorUltimoPago').textContent  = ultimoPago  ? formatearFecha(ultimoPago.fecha)  : '-';
             document.getElementById('visorUltimoFiado').textContent = ultimoFiado ? formatearFecha(ultimoFiado.fecha) : '-';
 
-            // Solo los últimos 10 movimientos (vienen ordenados desc por ID)
-            const ultimos10 = movs.slice(0, 10);
-            document.getElementById('visorHistorial').innerHTML = ultimos10.map(function(m) {
+            // Solo los últimos 30 movimientos (vienen ordenados desc por ID)
+            const ultimosMovs = movs.slice(0, 30);
+            document.getElementById('visorHistorial').innerHTML = ultimosMovs.map(function(m) {
               const esDebe = m.tipo === 'DEBE';
               return '<tr>' +
                 '<td data-label="Fecha">' + formatearFecha(m.fecha) + '</td>' +
@@ -8630,7 +8907,7 @@
         return;
       }
       const c    = datos.cliente;
-      const movs = (datos.movimientos || []).slice(0, 10);
+      const movs = (datos.movimientos || []).slice(0, 30);
       const hoy  = formatearFecha(obtenerFechaLocal());
 
       const ultimoPago  = movs.find(function(m) { return m.tipo === 'HABER'; });
@@ -8687,7 +8964,7 @@
               '</tr>' +
             '</table>' +
           '</div>' +
-          '<div style="font-size:9.5pt;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:4px;">Últimos 10 movimientos</div>' +
+          '<div style="font-size:9.5pt;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:4px;">Últimos 30 movimientos</div>' +
           '<table style="width:100%;border-collapse:collapse;">' +
             '<thead>' +
               '<tr style="background:#2E7D32;color:#fff;">' +
@@ -8740,6 +9017,12 @@ function renderEstadisticas(result) {
       if (mostrarSpinner) mostrarLoading(true);
       const fecha = document.getElementById('fechaSaldos').value || obtenerFechaLocal();
 
+      // Mostrar spinner inline en la tabla mientras carga
+      var tbodySaldos = document.getElementById('tbodySaldos');
+      if (tbodySaldos) {
+        tbodySaldos.innerHTML = '<tr><td colspan="4"><span class="sv-inline-loading"><span class="sv-inline-spinner"></span>Cargando saldos…</span></td></tr>';
+      }
+
       google.script.run
         .withSuccessHandler(function(result) {
           if (mostrarSpinner) mostrarLoading(false);
@@ -8789,7 +9072,9 @@ function renderEstadisticas(result) {
         })
         .withFailureHandler(function(error) {
           if (mostrarSpinner) mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
+          var tbodyErr = document.getElementById('tbodySaldos');
+          if (tbodyErr) tbodyErr.innerHTML = '';
+          mostrarToast('Error al cargar saldos: ' + (error.message || error), 'error');
         })
         .obtenerSaldosConMovimientosDia(fecha);
     }
@@ -14768,6 +15053,25 @@ function renderEstadisticas(result) {
       if (cfHint) cfHint.style.display = 'none';
       EstadoFacturacionUnif.clienteActual = null;
       abrirModal('modalTransferenciaUnif');
+      // Enfocar campo cliente al abrir
+      setTimeout(function() {
+        var cl = document.getElementById('transfUnifCliente');
+        if (cl) cl.focus();
+      }, 120);
+    }
+
+    // Avanzar entre campos del formulario de transferencia con Enter
+    function _transfUnifAvanzar(campoActual) {
+      var orden = ['transfUnifFecha', 'transfUnifCliente', 'transfUnifMonto', 'transfUnifObs'];
+      var idx = orden.indexOf(campoActual);
+      if (idx !== -1 && idx < orden.length - 1) {
+        var sig = document.getElementById(orden[idx + 1]);
+        if (sig) { sig.focus(); sig.select && sig.select(); }
+      } else {
+        // Último campo — enfocar botón submit
+        var btn = document.querySelector('#formTransferenciaUnif [type="submit"]');
+        if (btn) btn.focus();
+      }
     }
 
     // Autocompletar cliente en transferencia unificada
@@ -14804,6 +15108,39 @@ function renderEstadisticas(result) {
             const cfHint = document.getElementById('transfUnifCfHint');
             if (cfHint) cfHint.style.display = 'none';
           }
+        });
+
+        // Navegación por teclado en campo cliente (flechas ↑↓ para sugerencias, Enter para avanzar)
+        input.addEventListener('keydown', function(e) {
+          var sug = document.getElementById('transfUnifClienteSugerencias');
+          var items = sug ? sug.querySelectorAll('li, .suggestion-item, [data-nombre]') : [];
+          if (e.key === 'Enter' && (!items.length || sug.style.display === 'none')) {
+            e.preventDefault();
+            _transfUnifAvanzar('transfUnifCliente');
+          }
+        });
+      }
+
+      // Navegación Enter en campo fecha
+      var fld = document.getElementById('transfUnifFecha');
+      if (fld && !fld._svKeyNav) {
+        fld._svKeyNav = true;
+        fld.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') { e.preventDefault(); _transfUnifAvanzar('transfUnifFecha'); }
+        });
+      }
+
+      // Navegación Enter en campo monto + flechas ←→ para banco
+      var monto = document.getElementById('transfUnifMonto');
+      if (monto && !monto._svKeyNav) {
+        monto._svKeyNav = true;
+        monto.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') { e.preventDefault(); _transfUnifAvanzar('transfUnifMonto'); }
+          var bancos = ['Santander', 'Mercado Pago', 'Macro'];
+          var actualBanco = document.getElementById('transfUnifBanco').value;
+          var idxB = bancos.indexOf(actualBanco);
+          if (e.key === 'ArrowRight') { seleccionarBancoUnif(bancos[(idxB + 1) % bancos.length]); e.preventDefault(); }
+          if (e.key === 'ArrowLeft')  { seleccionarBancoUnif(bancos[(idxB - 1 + bancos.length) % bancos.length]); e.preventDefault(); }
         });
       }
 
@@ -14880,6 +15217,9 @@ function renderEstadisticas(result) {
           btn.classList.add('selected');
         }
       });
+      // Enfocar observaciones al elegir banco
+      var obs = document.getElementById('transfUnifObs');
+      if (obs) setTimeout(function() { obs.focus(); }, 50);
     }
 
     // Guardar transferencia unificada
@@ -14887,12 +15227,15 @@ function renderEstadisticas(result) {
       event.preventDefault();
 
       // Si no hay cliente seleccionado de la lista, tratar como Consumidor Final
+      // Preservar el nombre libre ingresado para no pisarlo con "CONSUMIDOR FINAL"
+      var nombreLibreTransferencia = '';
       if (!EstadoFacturacionUnif.clienteActual) {
         const nombreLibre = document.getElementById('transfUnifCliente').value.trim();
         if (!nombreLibre) {
           mostrarToast('Ingrese el nombre del cliente o use "Consumidor Final"', 'error');
           return;
         }
+        nombreLibreTransferencia = nombreLibre;
         // Nombre libre no registrado → registrar como Consumidor Final
         EstadoFacturacionUnif.clienteActual = {
           nombre: 'CONSUMIDOR FINAL',
@@ -14903,7 +15246,7 @@ function renderEstadisticas(result) {
 
       const datos = {
         fecha: document.getElementById('transfUnifFecha').value,
-        cliente: EstadoFacturacionUnif.clienteActual.nombre,
+        cliente: nombreLibreTransferencia || EstadoFacturacionUnif.clienteActual.nombre,
         clienteObj: EstadoFacturacionUnif.clienteActual,
         monto: parseFloat(document.getElementById('transfUnifMonto').value),
         banco: document.getElementById('transfUnifBanco').value,
@@ -15060,6 +15403,10 @@ function renderEstadisticas(result) {
                   html: '<p style="text-align:left;font-size:0.95rem;">' + escapeHtml(msgB) + '</p>' +
                     '<p style="margin-top:0.75rem;text-align:left;"><strong>Número:</strong> ' +
                     escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) + '</p>'
+                }).then(function() {
+                  if (typeof abrirModalNuevaTransferenciaUnif === 'function') {
+                    abrirModalNuevaTransferenciaUnif();
+                  }
                 });
               }
               if (navigator.vibrate) navigator.vibrate(200);
@@ -15307,6 +15654,10 @@ function renderEstadisticas(result) {
                   html: '<p style="text-align:left;font-size:0.95rem;">' + escapeHtml(msgA) + '</p>' +
                     '<p style="margin-top:0.75rem;text-align:left;"><strong>Número:</strong> ' +
                     escapeHtml(String(result.ptoVta)) + '-' + escapeHtml(String(result.cbteNro)) + '</p>'
+                }).then(function() {
+                  if (typeof abrirModalNuevaTransferenciaUnif === 'function') {
+                    abrirModalNuevaTransferenciaUnif();
+                  }
                 });
               }
               if (navigator.vibrate) navigator.vibrate(200);
