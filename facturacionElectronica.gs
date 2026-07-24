@@ -1580,17 +1580,21 @@ function emitirNotaCredito(facturaId) {
     var respuesta = afipFetchConRetry('/requests', payload, headers);
     Logger.log('[emitirNotaCredito] Respuesta ARCA: ' + JSON.stringify(respuesta).substring(0, 500));
 
+    // feResp: el cuerpo real de la respuesta, esté envuelto en
+    // FECAESolicitarResult o no (según el endpoint del proxy).
+    var feResp = respuesta.FECAESolicitarResult || respuesta;
+
     // Si ARCA devuelve un rechazo explícito (p. ej. campo obligatorio faltante,
     // CUIT inválido, etc.) viene como { Errors: { Err: [...] } } en vez de la
     // estructura normal de éxito. Antes esto cortaba directo a "Respuesta
     // vacía de ARCA", ocultando el motivo real del rechazo.
-    if (respuesta && respuesta.Errors) {
-      var errsNC = Array.isArray(respuesta.Errors.Err) ? respuesta.Errors.Err : [respuesta.Errors.Err];
+    if (feResp && feResp.Errors && feResp.Errors.Err) {
+      var errsNC = Array.isArray(feResp.Errors.Err) ? feResp.Errors.Err : [feResp.Errors.Err];
       var msgsNC = errsNC.map(function(e) { return (e && (e.Msg || e.Code)) ? ('[' + e.Code + '] ' + e.Msg) : JSON.stringify(e); });
       return { success: false, error: 'ARCA rechazó la Nota de Crédito: ' + msgsNC.join(' | ') };
     }
 
-    var detResp = ((respuesta.FeCAESolicitarResult || respuesta).FeDetResp || {}).FECAEDetResponse;
+    var detResp = (feResp.FeDetResp || {}).FECAEDetResponse;
     if (!detResp) {
       return {
         success: false,
@@ -1602,11 +1606,11 @@ function emitirNotaCredito(facturaId) {
 
     if (det.Resultado !== 'A') {
       var obs = [];
-      if (det.Obs && det.Obs.Ob) {
-        obs = (Array.isArray(det.Obs.Ob) ? det.Obs.Ob : [det.Obs.Ob])
+      if (det.Observaciones && det.Observaciones.Obs) {
+        obs = (Array.isArray(det.Observaciones.Obs) ? det.Observaciones.Obs : [det.Observaciones.Obs])
               .map(function(o) { return '(' + o.Code + ') ' + o.Msg; });
       }
-      return { success: false, error: 'ARCA rechazó la NC. ' + obs.join(' | ') };
+      return { success: false, error: 'ARCA rechazó la NC. ' + (obs.join(' | ') || 'Sin detalle de observaciones. Respuesta cruda: ' + JSON.stringify(det).substring(0, 300)) };
     }
 
     var caeNC    = String(det.CAE || '');
