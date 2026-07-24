@@ -7818,7 +7818,7 @@
       if (!mensaje) return mensaje;
       for (var i = 0; i < _ERRORES_CODIGOS.length; i++) {
         if (_ERRORES_CODIGOS[i].pattern.test(mensaje)) {
-          return '[' + _ERRORES_CODIGOS[i].code + '] ' + _ERRORES_CODIGOS[i].msg;
+          return '[' + _ERRORES_CODIGOS[i].code + '] ' + _ERRORES_CODIGOS[i].msg + ' — Detalle: ' + mensaje;
         }
       }
       return mensaje;
@@ -7835,7 +7835,8 @@
           'linear-gradient(to right, #1565C0, #42A5F5)';
         Toastify({
           text: tipo === 'error' ? errorAmigable(mensaje) : mensaje,
-          duration: tipo === 'error' ? 4500 : 2500,
+          duration: tipo === 'error' ? 9000 : 2500,
+          close: tipo === 'error',
           gravity: 'top',
           position: 'right',
           style: { background: bg }
@@ -7852,7 +7853,7 @@
       setTimeout(() => {
         toast.classList.add('fadeOut');
         setTimeout(() => toast.remove(), 300);
-      }, 4000);
+      }, tipo === 'error' ? 9000 : 4000);
     }
 
     function abrirModal(id) {
