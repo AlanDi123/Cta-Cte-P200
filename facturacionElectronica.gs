@@ -111,8 +111,40 @@ function emitirFacturaElectronica(datosFactura) {
   var iva = 0;
   var total = 0;
   var fechaCbte = '';
+  var lock = null;
+  var lockAdquirido = false;
+
   try {
     datos = _normalizarDatosFactura(datosFactura);
+
+    // ── ANTI-DUPLICADOS: candado de concurrencia ─────────────────────────────
+    // Si dos pedidos de emisión llegan casi al mismo tiempo (doble click,
+    // reintento del usuario porque ARCA tardó y pareció que había fallado,
+    // recarga de página con el mismo formulario, etc.), sin este candado
+    // AMBOS pueden llegar a completarse y generar dos comprobantes reales y
+    // válidos en ARCA para la misma operación. El candado serializa la
+    // emisión: el segundo pedido espera a que termine el primero.
+    lock = LockService.getScriptLock();
+    lockAdquirido = lock.tryLock(30000); // espera hasta 30s a que el otro pedido termine
+    if (!lockAdquirido) {
+      return {
+        success: false,
+        error: 'Ya hay una factura emitiéndose en este momento. Esperá a que termine antes de volver a intentar (revisá el Historial ARCA antes de reintentar).'
+      };
+    }
+
+    // ── ANTI-DUPLICADOS: si esta transferencia ya fue facturada, cortar acá ──
+    // Se revisa DESPUÉS de tomar el candado, así el chequeo es confiable
+    // incluso si el pedido anterior todavía estaba escribiendo el resultado.
+    if (datosFactura && datosFactura.transferenciaId) {
+      var transfExistente = TransferenciasRepository.buscarPorId(datosFactura.transferenciaId);
+      if (transfExistente && transfExistente.facturada) {
+        return {
+          success: false,
+          error: 'Esta transferencia ya fue facturada anteriormente. Revisá el Historial ARCA — no se generó una factura nueva.'
+        };
+      }
+    }
 
     // ── Validación inline (sin depender de utils.gs) ─────────────────────────
     var erroresValidacion = [];
@@ -312,6 +344,12 @@ function emitirFacturaElectronica(datosFactura) {
       }
     } catch (ignore) { /* cola opcional */ }
     return { success: false, error: 'Error al emitir o guardar el comprobante: ' + error.message };
+  } finally {
+    // ANTI-DUPLICADOS: liberar el candado siempre, para no dejar el sistema
+    // bloqueado si algo falla a mitad de camino.
+    if (lockAdquirido && lock) {
+      try { lock.releaseLock(); } catch (eLock) { /* nada más que hacer */ }
+    }
   }
 }
 
@@ -684,58 +722,14 @@ function reconstruirDetalleFacturasHistoricas(opciones) {
 }
 
 /**
- * Emite una Nota de Crédito para anular una factura emitida.
- * Llamada desde: emitirNCDesdeHistorial()
+ * NOTA: la implementación de emitirNotaCredito() vive más abajo en este
+ * archivo (usa el esquema actual de FacturasARCA vía obtenerHistorialFacturas
+ * / guardarComprobanteARCA). Había una versión duplicada acá arriba que usaba
+ * el esquema viejo (_getHojaFacturas + afipEmitirFacturaWrapper) y que nunca
+ * se ejecutaba (en Apps Script, la última función declarada con el mismo
+ * nombre es la que gana). Se eliminó para evitar que alguien la edite
+ * pensando que es la activa.
  */
-function emitirNotaCredito(facturaId) {
-  try {
-    var hoja = _getHojaFacturas();
-    var datos = hoja.getDataRange().getValues();
-    var facturaFila = null, filaIdx = -1;
-
-    for (var i = 1; i < datos.length; i++) {
-      if (String(datos[i][0]) === String(facturaId)) {
-        facturaFila = datos[i];
-        filaIdx = i + 1;
-        break;
-      }
-    }
-
-    if (!facturaFila) return { success: false, error: 'Factura no encontrada: ' + facturaId };
-    if (facturaFila[11] === 'ANULADA') return { success: false, error: 'La factura ya fue anulada.' };
-
-    var cbteTipoOrig = Number(facturaFila[2]);
-    var cbteTipoNC   = cbteTipoOrig === 1 ? 3 : 8; // NCA o NCB
-
-    var resultado = afipEmitirFacturaWrapper({
-      cbteTipo:          cbteTipoNC,
-      clienteNombre:     facturaFila[6],
-      clienteRazonSocial: facturaFila[6],
-      clienteDomicilio:  '',
-      clienteCuit:       facturaFila[7] || '',
-      clienteCondicion:  facturaFila[7] ? 'RI' : 'CF',
-      neto:              Number(facturaFila[8]) / 1.105,
-      iva:               Number(facturaFila[8]) - (Number(facturaFila[8]) / 1.105),
-      total:             Number(facturaFila[8]),
-      items:             [{ descripcion: 'Nota de Crédito s/ Comp ' + facturaFila[4] + '-' + facturaFila[5], cantidad: 1, precioUnitario: Number(facturaFila[8]) / 1.105 }]
-    });
-
-    if (!resultado.success) return resultado;
-
-    // Marcar factura original como ANULADA
-    hoja.getRange(filaIdx, 12).setValue('ANULADA');
-
-    return {
-      success: true,
-      cae:     resultado.cae,
-      cbteNro: resultado.cbteNro,
-      mensaje: 'Nota de crédito emitida correctamente'
-    };
-  } catch (error) {
-    Logger.log('[NC] Error: ' + error.message);
-    return { success: false, error: afipFormatearErrorUsuario(error) };
-  }
-}
 
 /**
  * Guarda configuración AFIP SDK en ScriptProperties.
