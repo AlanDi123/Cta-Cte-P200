@@ -1510,6 +1510,18 @@ function emitirNotaCredito(facturaId) {
     var tipoDocRec = (cuitLimpio.length === 11) ? 80 : 99;
     var nroDocRec  = parseInt(cuitLimpio) || 0;
 
+    // CondicionIVAReceptorId — OBLIGATORIO desde RG ARCA 5616/2024 (mismo
+    // mapeo que usa afipConstruirFECAEDetRequest para facturas normales).
+    // Sin este campo, ARCA rechaza el comprobante y la respuesta no trae
+    // FECAEDetResponse, lo que antes se veía como "Respuesta vacía de ARCA."
+    var condRawNC = String(original.clienteCondicionTexto || 'CF').toUpperCase();
+    var condIdNC;
+    if      (condRawNC === 'RI' || condRawNC.indexOf('RESPONSABLE') >= 0) condIdNC = 1;
+    else if (condRawNC === 'M'  || condRawNC.indexOf('MONOTRIBUT')  >= 0) condIdNC = 6;
+    else if (condRawNC.indexOf('SOCIAL') >= 0)                           condIdNC = 13;
+    else if (condRawNC.indexOf('EXENTO') >= 0)                           condIdNC = 4;
+    else                                                                  condIdNC = 5; // CF
+
     // Comprobante asociado: la factura original
     var cbteAsoc = [{
       Tipo:    Number(original.cbteTipo),
@@ -1545,6 +1557,7 @@ function emitirNotaCredito(facturaId) {
               ImpTrib:     0,
               MonId:       'PES',
               MonCotiz:    1,
+              CondicionIVAReceptorId: condIdNC,
               Iva: [{
                 Id:      ivaAlicIdNC,  // misma alícuota que en emisión (p. ej. 4=10,5%)
                 BaseImp: Number(original.impNeto),
@@ -1567,8 +1580,23 @@ function emitirNotaCredito(facturaId) {
     var respuesta = afipFetchConRetry('/requests', payload, headers);
     Logger.log('[emitirNotaCredito] Respuesta ARCA: ' + JSON.stringify(respuesta).substring(0, 500));
 
+    // Si ARCA devuelve un rechazo explícito (p. ej. campo obligatorio faltante,
+    // CUIT inválido, etc.) viene como { Errors: { Err: [...] } } en vez de la
+    // estructura normal de éxito. Antes esto cortaba directo a "Respuesta
+    // vacía de ARCA", ocultando el motivo real del rechazo.
+    if (respuesta && respuesta.Errors) {
+      var errsNC = Array.isArray(respuesta.Errors.Err) ? respuesta.Errors.Err : [respuesta.Errors.Err];
+      var msgsNC = errsNC.map(function(e) { return (e && (e.Msg || e.Code)) ? ('[' + e.Code + '] ' + e.Msg) : JSON.stringify(e); });
+      return { success: false, error: 'ARCA rechazó la Nota de Crédito: ' + msgsNC.join(' | ') };
+    }
+
     var detResp = ((respuesta.FeCAESolicitarResult || respuesta).FeDetResp || {}).FECAEDetResponse;
-    if (!detResp) return { success: false, error: 'Respuesta vacía de ARCA.' };
+    if (!detResp) {
+      return {
+        success: false,
+        error: 'Respuesta vacía de ARCA (sin FECAEDetResponse ni Errors). Respuesta cruda: ' + JSON.stringify(respuesta).substring(0, 300)
+      };
+    }
 
     var det = Array.isArray(detResp) ? detResp[0] : detResp;
 
