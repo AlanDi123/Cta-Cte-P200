@@ -369,7 +369,7 @@ var ALIASES_COLUMNAS = {
   'CLIENTE':         ['CLIENTE','CLIENTE_NOMBRE','RAZON_SOCIAL_CLIENTE','NOMBRE_CLIENTE'],
   'RAZON_SOCIAL':    ['RAZON_SOCIAL','CLIENTE_RAZON_SOCIAL','RAZON_SOCIAL_CLIENTE','RAZON_SOCIAL_RECEPTOR'],
   'CONDICION_IVA':   ['CONDICION_IVA','COND_IVA_RECEPTOR','RECEPTOR_IVA','IVA_RECEPTOR'],
-  'CUIT':            ['CUIT','CUIT_CLIENTE','DOCUMENTO','DOC_NRO'],
+  'CUIT':            ['CUIT','CLIENTE_CUIT','CUIT_CLIENTE','DOCUMENTO','DOC_NRO'],
   'CONDICION':       ['CONDICION','CONDICION_VENTA','COND_VENTA','CONDICION_PAGO'],
   'NETO':            ['NETO','IMP_NETO','IMPORTE_NETO','NETO_GRAVADO'],
   'IVA':             ['IVA','IMP_IVA','IMPORTE_IVA','TOTAL_IVA'],
@@ -1522,12 +1522,17 @@ function emitirNotaCredito(facturaId) {
     else if (condRawNC.indexOf('EXENTO') >= 0)                           condIdNC = 4;
     else                                                                  condIdNC = 5; // CF
 
-    // Comprobante asociado: la factura original
-    var cbteAsoc = [{
-      Tipo:    Number(original.cbteTipo),
-      PtoVta:  Number(original.ptoVta),
-      Nro:     Number(original.cbteNro)
-    }];
+    // Comprobante asociado: la factura original.
+    // BUGFIX: ARCA exige CbtesAsoc envuelto en { CbteAsoc: [...] }, no un
+    // array directo (confirmado contra la documentación de AFIP SDK, que
+    // muestra exactamente esta forma para Notas de Crédito).
+    var cbteAsoc = {
+      CbteAsoc: [{
+        Tipo:    Number(original.cbteTipo),
+        PtoVta:  Number(original.ptoVta),
+        Nro:     Number(original.cbteNro)
+      }]
+    };
 
     var payload = {
       environment: AFIP_CONFIG.ENVIRONMENT,
@@ -1558,11 +1563,17 @@ function emitirNotaCredito(facturaId) {
               MonId:       'PES',
               MonCotiz:    1,
               CondicionIVAReceptorId: condIdNC,
-              Iva: [{
-                Id:      ivaAlicIdNC,  // misma alícuota que en emisión (p. ej. 4=10,5%)
-                BaseImp: Number(original.impNeto),
-                Importe: Number(original.impIVA)
-              }],
+              // BUGFIX: la estructura real que exige ARCA es {Iva:{AlicIva:[...]}},
+              // no {Iva:[...]} directamente (confirmado contra la documentación de
+              // AFIP SDK y contra afipModule.gs, que arma las facturas normales
+              // de esta misma manera).
+              Iva: {
+                AlicIva: [{
+                  Id:      ivaAlicIdNC,  // misma alícuota que en emisión (p. ej. 4=10,5%)
+                  BaseImp: Number(original.impNeto),
+                  Importe: Number(original.impIVA)
+                }]
+              },
               CbtesAsoc: cbteAsoc
             }]
           }
