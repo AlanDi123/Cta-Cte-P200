@@ -1127,7 +1127,14 @@ function _normalizarDatosFactura(datos) {
     clienteDomicilio:  clienteDom,
     clienteCuit:       clienteCuit.toString().replace(/[-\s]/g, ''),
     clienteCondicion:  clienteCondicion,
-    clienteCondicionTexto: String(datos.clienteCondicionTexto || '').trim(),
+    // BUGFIX: antes leía datos.clienteCondicionTexto, un campo que el
+    // frontend nunca manda (emitirFacturaA/B envían 'clienteCondicion').
+    // Esto dejaba la columna CONDICION_IVA vacía en TODAS las facturas
+    // emitidas, lo que a su vez rompía la Nota de Crédito más tarde: al leer
+    // una condición vacía, el cálculo de CondicionIVAReceptorId caía a
+    // "Consumidor Final" (id 5), un valor inválido para comprobantes clase A
+    // → error (10243) de ARCA.
+    clienteCondicionTexto: String(datos.clienteCondicionTexto || clienteCondicion || '').trim(),
     importeNeto:       importeNeto,
     detalle:           detalle,
     fechaTransferencia: datos.fechaTransferencia || null
@@ -1514,13 +1521,25 @@ function emitirNotaCredito(facturaId) {
     // mapeo que usa afipConstruirFECAEDetRequest para facturas normales).
     // Sin este campo, ARCA rechaza el comprobante y la respuesta no trae
     // FECAEDetResponse, lo que antes se veía como "Respuesta vacía de ARCA."
-    var condRawNC = String(original.clienteCondicionTexto || 'CF').toUpperCase();
+    var condRawNC  = String(original.clienteCondicionTexto || '').toUpperCase().trim();
+    var esNcClaseA = (cbteTipoNum === 1); // la NC hereda la clase de la factura original
     var condIdNC;
     if      (condRawNC === 'RI' || condRawNC.indexOf('RESPONSABLE') >= 0) condIdNC = 1;
     else if (condRawNC === 'M'  || condRawNC.indexOf('MONOTRIBUT')  >= 0) condIdNC = 6;
     else if (condRawNC.indexOf('SOCIAL') >= 0)                           condIdNC = 13;
-    else if (condRawNC.indexOf('EXENTO') >= 0)                           condIdNC = 4;
-    else                                                                  condIdNC = 5; // CF
+    else if (!esNcClaseA && condRawNC.indexOf('EXENTO') >= 0)            condIdNC = 4; // 4 no es válido para clase A
+    else if (esNcClaseA) {
+      // Salvaguarda para facturas históricas con CONDICION_IVA vacía (bug ya
+      // corregido en _normalizarDatosFactura, pero irrecuperable para
+      // facturas ya emitidas). Una NC de clase A solo puede surgir de una
+      // Factura A, y una Factura A únicamente se emite a RI/Monotributo/
+      // Social (ver _esReceptorFacturaA) — "Responsable Inscripto" es la
+      // única opción segura acá; "Consumidor Final" (5) es inválido para
+      // clase A y es justo lo que generaba el error (10243).
+      condIdNC = 1;
+    } else {
+      condIdNC = 5; // CF — válido solo para NC de clase B
+    }
 
     // Comprobante asociado: la factura original.
     // BUGFIX: ARCA exige CbtesAsoc envuelto en { CbteAsoc: [...] }, no un
