@@ -111,8 +111,40 @@ function emitirFacturaElectronica(datosFactura) {
   var iva = 0;
   var total = 0;
   var fechaCbte = '';
+  var lock = null;
+  var lockAdquirido = false;
+
   try {
     datos = _normalizarDatosFactura(datosFactura);
+
+    // ── ANTI-DUPLICADOS: candado de concurrencia ─────────────────────────────
+    // Si dos pedidos de emisión llegan casi al mismo tiempo (doble click,
+    // reintento del usuario porque ARCA tardó y pareció que había fallado,
+    // recarga de página con el mismo formulario, etc.), sin este candado
+    // AMBOS pueden llegar a completarse y generar dos comprobantes reales y
+    // válidos en ARCA para la misma operación. El candado serializa la
+    // emisión: el segundo pedido espera a que termine el primero.
+    lock = LockService.getScriptLock();
+    lockAdquirido = lock.tryLock(30000); // espera hasta 30s a que el otro pedido termine
+    if (!lockAdquirido) {
+      return {
+        success: false,
+        error: 'Ya hay una factura emitiéndose en este momento. Esperá a que termine antes de volver a intentar (revisá el Historial ARCA antes de reintentar).'
+      };
+    }
+
+    // ── ANTI-DUPLICADOS: si esta transferencia ya fue facturada, cortar acá ──
+    // Se revisa DESPUÉS de tomar el candado, así el chequeo es confiable
+    // incluso si el pedido anterior todavía estaba escribiendo el resultado.
+    if (datosFactura && datosFactura.transferenciaId) {
+      var transfExistente = TransferenciasRepository.buscarPorId(datosFactura.transferenciaId);
+      if (transfExistente && transfExistente.facturada) {
+        return {
+          success: false,
+          error: 'Esta transferencia ya fue facturada anteriormente. Revisá el Historial ARCA — no se generó una factura nueva.'
+        };
+      }
+    }
 
     // ── Validación inline (sin depender de utils.gs) ─────────────────────────
     var erroresValidacion = [];
@@ -312,6 +344,12 @@ function emitirFacturaElectronica(datosFactura) {
       }
     } catch (ignore) { /* cola opcional */ }
     return { success: false, error: 'Error al emitir o guardar el comprobante: ' + error.message };
+  } finally {
+    // ANTI-DUPLICADOS: liberar el candado siempre, para no dejar el sistema
+    // bloqueado si algo falla a mitad de camino.
+    if (lockAdquirido && lock) {
+      try { lock.releaseLock(); } catch (eLock) { /* nada más que hacer */ }
+    }
   }
 }
 
@@ -331,7 +369,7 @@ var ALIASES_COLUMNAS = {
   'CLIENTE':         ['CLIENTE','CLIENTE_NOMBRE','RAZON_SOCIAL_CLIENTE','NOMBRE_CLIENTE'],
   'RAZON_SOCIAL':    ['RAZON_SOCIAL','CLIENTE_RAZON_SOCIAL','RAZON_SOCIAL_CLIENTE','RAZON_SOCIAL_RECEPTOR'],
   'CONDICION_IVA':   ['CONDICION_IVA','COND_IVA_RECEPTOR','RECEPTOR_IVA','IVA_RECEPTOR'],
-  'CUIT':            ['CUIT','CUIT_CLIENTE','DOCUMENTO','DOC_NRO'],
+  'CUIT':            ['CUIT','CLIENTE_CUIT','CUIT_CLIENTE','DOCUMENTO','DOC_NRO'],
   'CONDICION':       ['CONDICION','CONDICION_VENTA','COND_VENTA','CONDICION_PAGO'],
   'NETO':            ['NETO','IMP_NETO','IMPORTE_NETO','NETO_GRAVADO'],
   'IVA':             ['IVA','IMP_IVA','IMPORTE_IVA','TOTAL_IVA'],
@@ -684,58 +722,14 @@ function reconstruirDetalleFacturasHistoricas(opciones) {
 }
 
 /**
- * Emite una Nota de Crédito para anular una factura emitida.
- * Llamada desde: emitirNCDesdeHistorial()
+ * NOTA: la implementación de emitirNotaCredito() vive más abajo en este
+ * archivo (usa el esquema actual de FacturasARCA vía obtenerHistorialFacturas
+ * / guardarComprobanteARCA). Había una versión duplicada acá arriba que usaba
+ * el esquema viejo (_getHojaFacturas + afipEmitirFacturaWrapper) y que nunca
+ * se ejecutaba (en Apps Script, la última función declarada con el mismo
+ * nombre es la que gana). Se eliminó para evitar que alguien la edite
+ * pensando que es la activa.
  */
-function emitirNotaCredito(facturaId) {
-  try {
-    var hoja = _getHojaFacturas();
-    var datos = hoja.getDataRange().getValues();
-    var facturaFila = null, filaIdx = -1;
-
-    for (var i = 1; i < datos.length; i++) {
-      if (String(datos[i][0]) === String(facturaId)) {
-        facturaFila = datos[i];
-        filaIdx = i + 1;
-        break;
-      }
-    }
-
-    if (!facturaFila) return { success: false, error: 'Factura no encontrada: ' + facturaId };
-    if (facturaFila[11] === 'ANULADA') return { success: false, error: 'La factura ya fue anulada.' };
-
-    var cbteTipoOrig = Number(facturaFila[2]);
-    var cbteTipoNC   = cbteTipoOrig === 1 ? 3 : 8; // NCA o NCB
-
-    var resultado = afipEmitirFacturaWrapper({
-      cbteTipo:          cbteTipoNC,
-      clienteNombre:     facturaFila[6],
-      clienteRazonSocial: facturaFila[6],
-      clienteDomicilio:  '',
-      clienteCuit:       facturaFila[7] || '',
-      clienteCondicion:  facturaFila[7] ? 'RI' : 'CF',
-      neto:              Number(facturaFila[8]) / 1.105,
-      iva:               Number(facturaFila[8]) - (Number(facturaFila[8]) / 1.105),
-      total:             Number(facturaFila[8]),
-      items:             [{ descripcion: 'Nota de Crédito s/ Comp ' + facturaFila[4] + '-' + facturaFila[5], cantidad: 1, precioUnitario: Number(facturaFila[8]) / 1.105 }]
-    });
-
-    if (!resultado.success) return resultado;
-
-    // Marcar factura original como ANULADA
-    hoja.getRange(filaIdx, 12).setValue('ANULADA');
-
-    return {
-      success: true,
-      cae:     resultado.cae,
-      cbteNro: resultado.cbteNro,
-      mensaje: 'Nota de crédito emitida correctamente'
-    };
-  } catch (error) {
-    Logger.log('[NC] Error: ' + error.message);
-    return { success: false, error: afipFormatearErrorUsuario(error) };
-  }
-}
 
 /**
  * Guarda configuración AFIP SDK en ScriptProperties.
@@ -1133,7 +1127,14 @@ function _normalizarDatosFactura(datos) {
     clienteDomicilio:  clienteDom,
     clienteCuit:       clienteCuit.toString().replace(/[-\s]/g, ''),
     clienteCondicion:  clienteCondicion,
-    clienteCondicionTexto: String(datos.clienteCondicionTexto || '').trim(),
+    // BUGFIX: antes leía datos.clienteCondicionTexto, un campo que el
+    // frontend nunca manda (emitirFacturaA/B envían 'clienteCondicion').
+    // Esto dejaba la columna CONDICION_IVA vacía en TODAS las facturas
+    // emitidas, lo que a su vez rompía la Nota de Crédito más tarde: al leer
+    // una condición vacía, el cálculo de CondicionIVAReceptorId caía a
+    // "Consumidor Final" (id 5), un valor inválido para comprobantes clase A
+    // → error (10243) de ARCA.
+    clienteCondicionTexto: String(datos.clienteCondicionTexto || clienteCondicion || '').trim(),
     importeNeto:       importeNeto,
     detalle:           detalle,
     fechaTransferencia: datos.fechaTransferencia || null
@@ -1516,12 +1517,41 @@ function emitirNotaCredito(facturaId) {
     var tipoDocRec = (cuitLimpio.length === 11) ? 80 : 99;
     var nroDocRec  = parseInt(cuitLimpio) || 0;
 
-    // Comprobante asociado: la factura original
-    var cbteAsoc = [{
-      Tipo:    Number(original.cbteTipo),
-      PtoVta:  Number(original.ptoVta),
-      Nro:     Number(original.cbteNro)
-    }];
+    // CondicionIVAReceptorId — OBLIGATORIO desde RG ARCA 5616/2024 (mismo
+    // mapeo que usa afipConstruirFECAEDetRequest para facturas normales).
+    // Sin este campo, ARCA rechaza el comprobante y la respuesta no trae
+    // FECAEDetResponse, lo que antes se veía como "Respuesta vacía de ARCA."
+    var condRawNC  = String(original.clienteCondicionTexto || '').toUpperCase().trim();
+    var esNcClaseA = (cbteTipoNum === 1); // la NC hereda la clase de la factura original
+    var condIdNC;
+    if      (condRawNC === 'RI' || condRawNC.indexOf('RESPONSABLE') >= 0) condIdNC = 1;
+    else if (condRawNC === 'M'  || condRawNC.indexOf('MONOTRIBUT')  >= 0) condIdNC = 6;
+    else if (condRawNC.indexOf('SOCIAL') >= 0)                           condIdNC = 13;
+    else if (!esNcClaseA && condRawNC.indexOf('EXENTO') >= 0)            condIdNC = 4; // 4 no es válido para clase A
+    else if (esNcClaseA) {
+      // Salvaguarda para facturas históricas con CONDICION_IVA vacía (bug ya
+      // corregido en _normalizarDatosFactura, pero irrecuperable para
+      // facturas ya emitidas). Una NC de clase A solo puede surgir de una
+      // Factura A, y una Factura A únicamente se emite a RI/Monotributo/
+      // Social (ver _esReceptorFacturaA) — "Responsable Inscripto" es la
+      // única opción segura acá; "Consumidor Final" (5) es inválido para
+      // clase A y es justo lo que generaba el error (10243).
+      condIdNC = 1;
+    } else {
+      condIdNC = 5; // CF — válido solo para NC de clase B
+    }
+
+    // Comprobante asociado: la factura original.
+    // BUGFIX: ARCA exige CbtesAsoc envuelto en { CbteAsoc: [...] }, no un
+    // array directo (confirmado contra la documentación de AFIP SDK, que
+    // muestra exactamente esta forma para Notas de Crédito).
+    var cbteAsoc = {
+      CbteAsoc: [{
+        Tipo:    Number(original.cbteTipo),
+        PtoVta:  Number(original.ptoVta),
+        Nro:     Number(original.cbteNro)
+      }]
+    };
 
     var payload = {
       environment: AFIP_CONFIG.ENVIRONMENT,
@@ -1551,11 +1581,18 @@ function emitirNotaCredito(facturaId) {
               ImpTrib:     0,
               MonId:       'PES',
               MonCotiz:    1,
-              Iva: [{
-                Id:      ivaAlicIdNC,  // misma alícuota que en emisión (p. ej. 4=10,5%)
-                BaseImp: Number(original.impNeto),
-                Importe: Number(original.impIVA)
-              }],
+              CondicionIVAReceptorId: condIdNC,
+              // BUGFIX: la estructura real que exige ARCA es {Iva:{AlicIva:[...]}},
+              // no {Iva:[...]} directamente (confirmado contra la documentación de
+              // AFIP SDK y contra afipModule.gs, que arma las facturas normales
+              // de esta misma manera).
+              Iva: {
+                AlicIva: [{
+                  Id:      ivaAlicIdNC,  // misma alícuota que en emisión (p. ej. 4=10,5%)
+                  BaseImp: Number(original.impNeto),
+                  Importe: Number(original.impIVA)
+                }]
+              },
               CbtesAsoc: cbteAsoc
             }]
           }
@@ -1573,18 +1610,37 @@ function emitirNotaCredito(facturaId) {
     var respuesta = afipFetchConRetry('/requests', payload, headers);
     Logger.log('[emitirNotaCredito] Respuesta ARCA: ' + JSON.stringify(respuesta).substring(0, 500));
 
-    var detResp = ((respuesta.FeCAESolicitarResult || respuesta).FeDetResp || {}).FECAEDetResponse;
-    if (!detResp) return { success: false, error: 'Respuesta vacía de ARCA.' };
+    // feResp: el cuerpo real de la respuesta, esté envuelto en
+    // FECAESolicitarResult o no (según el endpoint del proxy).
+    var feResp = respuesta.FECAESolicitarResult || respuesta;
+
+    // Si ARCA devuelve un rechazo explícito (p. ej. campo obligatorio faltante,
+    // CUIT inválido, etc.) viene como { Errors: { Err: [...] } } en vez de la
+    // estructura normal de éxito. Antes esto cortaba directo a "Respuesta
+    // vacía de ARCA", ocultando el motivo real del rechazo.
+    if (feResp && feResp.Errors && feResp.Errors.Err) {
+      var errsNC = Array.isArray(feResp.Errors.Err) ? feResp.Errors.Err : [feResp.Errors.Err];
+      var msgsNC = errsNC.map(function(e) { return (e && (e.Msg || e.Code)) ? ('[' + e.Code + '] ' + e.Msg) : JSON.stringify(e); });
+      return { success: false, error: 'ARCA rechazó la Nota de Crédito: ' + msgsNC.join(' | ') };
+    }
+
+    var detResp = (feResp.FeDetResp || {}).FECAEDetResponse;
+    if (!detResp) {
+      return {
+        success: false,
+        error: 'Respuesta vacía de ARCA (sin FECAEDetResponse ni Errors). Respuesta cruda: ' + JSON.stringify(respuesta).substring(0, 300)
+      };
+    }
 
     var det = Array.isArray(detResp) ? detResp[0] : detResp;
 
     if (det.Resultado !== 'A') {
       var obs = [];
-      if (det.Obs && det.Obs.Ob) {
-        obs = (Array.isArray(det.Obs.Ob) ? det.Obs.Ob : [det.Obs.Ob])
+      if (det.Observaciones && det.Observaciones.Obs) {
+        obs = (Array.isArray(det.Observaciones.Obs) ? det.Observaciones.Obs : [det.Observaciones.Obs])
               .map(function(o) { return '(' + o.Code + ') ' + o.Msg; });
       }
-      return { success: false, error: 'ARCA rechazó la NC. ' + obs.join(' | ') };
+      return { success: false, error: 'ARCA rechazó la NC. ' + (obs.join(' | ') || 'Sin detalle de observaciones. Respuesta cruda: ' + JSON.stringify(det).substring(0, 300)) };
     }
 
     var caeNC    = String(det.CAE || '');

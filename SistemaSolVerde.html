@@ -7818,7 +7818,7 @@
       if (!mensaje) return mensaje;
       for (var i = 0; i < _ERRORES_CODIGOS.length; i++) {
         if (_ERRORES_CODIGOS[i].pattern.test(mensaje)) {
-          return '[' + _ERRORES_CODIGOS[i].code + '] ' + _ERRORES_CODIGOS[i].msg;
+          return '[' + _ERRORES_CODIGOS[i].code + '] ' + _ERRORES_CODIGOS[i].msg + ' — Detalle: ' + mensaje;
         }
       }
       return mensaje;
@@ -7835,7 +7835,8 @@
           'linear-gradient(to right, #1565C0, #42A5F5)';
         Toastify({
           text: tipo === 'error' ? errorAmigable(mensaje) : mensaje,
-          duration: tipo === 'error' ? 4500 : 2500,
+          duration: tipo === 'error' ? 9000 : 2500,
+          close: tipo === 'error',
           gravity: 'top',
           position: 'right',
           style: { background: bg }
@@ -7852,7 +7853,7 @@
       setTimeout(() => {
         toast.classList.add('fadeOut');
         setTimeout(() => toast.remove(), 300);
-      }, 4000);
+      }, tipo === 'error' ? 9000 : 4000);
     }
 
     function abrirModal(id) {
@@ -8084,12 +8085,21 @@
     // ============================================================================
     var PinLock = (function() {
       var PIN_CORRECTO = '1234'; // PIN por defecto — cambiar según necesidad
-      var MODULOS_PROTEGIDOS = ['facturacion', 'transferencias', 'listas-facturas', 'facturacion-arca'];
+
+      // BUGFIX: la lista anterior tenía nombres inventados ('facturacion',
+      // 'transferencias', 'listas-facturas') que no coinciden con ningún
+      // data-module real del menú, por eso PinLock.necesitaPin() siempre
+      // devolvía false y el candado nunca se mostraba. Estos son los
+      // data-module reales de los 4 ítems del menú "Facturacion" + el
+      // acceso alternativo a "Emitir Comprobante ARCA" desde Historial.
+      var MODULOS_PROTEGIDOS = ['facturacion-unificada', 'productos', 'escanear', 'historial-facturas', 'facturacion-arca'];
+
       var _buffer = '';
       var _intentosFallidos = 0;
       var _bloqueadoHasta = 0;
       var _moduloPendiente = null;
       var _onSuccess = null;
+      var _desbloqueado = false; // una vez correcto, no vuelve a pedir hasta recargar la página
 
       function _actualizarDots() {
         for (var i = 0; i < 4; i++) {
@@ -8104,6 +8114,8 @@
       }
 
       function _abrir(modulo, cb) {
+        // Ya desbloqueado en esta sesión: no volver a pedir el PIN.
+        if (_desbloqueado) { cb(modulo); return; }
         _moduloPendiente = modulo;
         _onSuccess = cb;
         _buffer = '';
@@ -8141,6 +8153,7 @@
       function _verificar() {
         if (_buffer === PIN_CORRECTO) {
           _intentosFallidos = 0;
+          _desbloqueado = true;
           document.getElementById('pinLockOverlay').classList.remove('active');
           var cb = _onSuccess;
           var mod = _moduloPendiente;
@@ -8184,6 +8197,7 @@
       return {
         modulos: MODULOS_PROTEGIDOS,
         necesitaPin: function(mod) { return MODULOS_PROTEGIDOS.indexOf(mod) !== -1; },
+        estaDesbloqueado: function() { return _desbloqueado; },
         pedir: _abrir,
         _key: _key,
         cancelar: cancelar
@@ -11626,7 +11640,8 @@ function renderEstadisticas(result) {
       clienteActual: null,
       itemsFacturaA: [],
       cargado: false,
-      cargando: false
+      cargando: false,
+      _ultimaFechaUsada: null // FIX: recuerda la fecha elegida en Nueva Transferencia entre aperturas
     };
 
     // Estado de paginación para transferencias unificadas
@@ -15046,8 +15061,23 @@ function renderEstadisticas(result) {
 
     // Abrir modal nueva transferencia
     function abrirModalNuevaTransferenciaUnif() {
+      // PIN LOCK: defensa en profundidad. El atajo F2 llama a esta función
+      // directamente sin pasar por navegarA(), así que el candado se repite
+      // acá para que no haya ningún camino que abra el formulario sin PIN.
+      if (typeof PinLock !== 'undefined' && PinLock.necesitaPin('facturacion-unificada') && !PinLock.estaDesbloqueado()) {
+        PinLock.pedir('facturacion-unificada', function() {
+          navegarA('facturacion-unificada');
+          abrirModalNuevaTransferenciaUnif();
+        });
+        return;
+      }
+
       document.getElementById('formTransferenciaUnif').reset();
-      document.getElementById('transfUnifFecha').value = obtenerFechaLocal();
+      // FIX: antes se forzaba obtenerFechaLocal() (hoy) en cada apertura,
+      // pisando la fecha que el usuario había elegido a propósito (ej. 15,
+      // aunque hoy sea 17). Ahora se recuerda la última fecha usada y solo
+      // se usa "hoy" la primera vez que se abre en esta sesión.
+      document.getElementById('transfUnifFecha').value = EstadoFacturacionUnif._ultimaFechaUsada || obtenerFechaLocal();
       document.getElementById('transfUnifClienteInfo').style.display = 'none';
       const cfHint = document.getElementById('transfUnifCfHint');
       if (cfHint) cfHint.style.display = 'none';
@@ -15130,12 +15160,19 @@ function renderEstadisticas(result) {
         });
       }
 
-      // Navegación Enter en campo monto + flechas ←→ para banco
+      // Navegación Enter en campo monto (guarda directo) + flechas ←→ para banco
       var monto = document.getElementById('transfUnifMonto');
       if (monto && !monto._svKeyNav) {
         monto._svKeyNav = true;
         monto.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter') { e.preventDefault(); _transfUnifAvanzar('transfUnifMonto'); }
+          if (e.key === 'Enter') {
+            // FIX: antes esto avanzaba el foco a Observaciones; ahora guarda
+            // la transferencia directamente, que es el flujo rápido esperado
+            // (Fecha → Enter → Cliente → Enter → Monto → Enter = guardado).
+            e.preventDefault();
+            document.getElementById('formTransferenciaUnif').requestSubmit();
+            return;
+          }
           var bancos = ['Santander', 'Mercado Pago', 'Macro'];
           var actualBanco = document.getElementById('transfUnifBanco').value;
           var idxB = bancos.indexOf(actualBanco);
@@ -15252,6 +15289,10 @@ function renderEstadisticas(result) {
         banco: document.getElementById('transfUnifBanco').value,
         obs: document.getElementById('transfUnifObs').value
       };
+
+      // FIX: recordar la fecha usada para que la próxima transferencia que
+      // se cargue arranque con esta misma fecha, en vez de reiniciar a hoy.
+      if (datos.fecha) EstadoFacturacionUnif._ultimaFechaUsada = datos.fecha;
 
       if (!datos.monto || datos.monto <= 0) {
         mostrarToast('Ingrese un monto válido', 'error');
@@ -15423,6 +15464,7 @@ function renderEstadisticas(result) {
         })
         .emitirFacturaElectronica({
           // ESTRUCTURA PLANA — compatible con _normalizarDatosFactura
+          transferenciaId:    transferencia.id, // ANTI-DUPLICADOS: permite al backend detectar reintentos
           cbteTipo:           6,
           clienteNombre:      cliente.nombre || 'CONSUMIDOR FINAL',
           clienteRazonSocial: cliente.razonSocial || cliente.nombre || 'CONSUMIDOR FINAL',
@@ -15674,6 +15716,7 @@ function renderEstadisticas(result) {
         })
         .emitirFacturaElectronica({
           // ESTRUCTURA PLANA — compatible con _normalizarDatosFactura
+          transferenciaId:    transferencia.id, // ANTI-DUPLICADOS: permite al backend detectar reintentos
           cbteTipo:           1,
           clienteNombre:      cliente.nombre,
           clienteRazonSocial: cliente.razonSocial || cliente.nombre,
