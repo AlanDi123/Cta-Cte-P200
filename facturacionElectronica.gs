@@ -118,15 +118,22 @@ function emitirFacturaElectronica(datosFactura) {
     datos = _normalizarDatosFactura(datosFactura);
 
     // ── ANTI-DUPLICADOS: candado de concurrencia ─────────────────────────────
-    // Si dos pedidos de emisión llegan casi al mismo tiempo (doble click,
-    // reintento del usuario porque ARCA tardó y pareció que había fallado,
-    // recarga de página con el mismo formulario, etc.), sin este candado
-    // AMBOS pueden llegar a completarse y generar dos comprobantes reales y
-    // válidos en ARCA para la misma operación. El candado serializa la
-    // emisión: el segundo pedido espera a que termine el primero.
+    // Serializa la emisión: un doble click o reintento no debe generar dos
+    // comprobantes reales en ARCA para la misma operación.
     lock = LockService.getScriptLock();
     lockAdquirido = lock.tryLock(30000); // espera hasta 30s a que el otro pedido termine
     if (!lockAdquirido) {
+      try {
+        AuditLogger.registrar({
+          modulo: 'FACTURACION',
+          operacion: 'BLOQUEO_ANTI_DUPLICADO',
+          entidadId: (datosFactura && datosFactura.transferenciaId) || '',
+          entidadDesc: 'Emisión rechazada: ya había otra emisión en curso (candado ocupado). Cliente: ' + (datos.clienteNombre || ''),
+          antes: null,
+          despues: null,
+          montoImpacto: 0
+        });
+      } catch (eAudit) { /* fire-and-forget */ }
       return {
         success: false,
         error: 'Ya hay una factura emitiéndose en este momento. Esperá a que termine antes de volver a intentar (revisá el Historial ARCA antes de reintentar).'
@@ -134,11 +141,21 @@ function emitirFacturaElectronica(datosFactura) {
     }
 
     // ── ANTI-DUPLICADOS: si esta transferencia ya fue facturada, cortar acá ──
-    // Se revisa DESPUÉS de tomar el candado, así el chequeo es confiable
-    // incluso si el pedido anterior todavía estaba escribiendo el resultado.
+    // Se revisa DESPUÉS de tomar el candado para que el chequeo sea confiable.
     if (datosFactura && datosFactura.transferenciaId) {
       var transfExistente = TransferenciasRepository.buscarPorId(datosFactura.transferenciaId);
       if (transfExistente && transfExistente.facturada) {
+        try {
+          AuditLogger.registrar({
+            modulo: 'FACTURACION',
+            operacion: 'BLOQUEO_ANTI_DUPLICADO',
+            entidadId: datosFactura.transferenciaId,
+            entidadDesc: 'Emisión rechazada: esta transferencia ya estaba facturada. Cliente: ' + (datos.clienteNombre || ''),
+            antes: null,
+            despues: null,
+            montoImpacto: 0
+          });
+        } catch (eAudit) { /* fire-and-forget */ }
         return {
           success: false,
           error: 'Esta transferencia ya fue facturada anteriormente. Revisá el Historial ARCA — no se generó una factura nueva.'
@@ -1175,6 +1192,32 @@ function _hfNormHeaderFactura(v) {
   return String(v || '').toUpperCase().trim().replace(/\s+/g, '_');
 }
 
+// ANTI-DUPLICADOS: marca la factura original como 'ANULADA' tras emitirle
+// una NC, para bloquear reintentos que generarían una segunda NC real.
+function _marcarFacturaOriginalAnulada(facturaId) {
+  var HOJAS_FUENTE = ['FACTURAS_EMITIDAS', 'FacturasARCA', 'Facturas_ARCA', 'FACTURAS_ARCA'];
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  for (var h = 0; h < HOJAS_FUENTE.length; h++) {
+    var hoja = ss.getSheetByName(HOJAS_FUENTE[h]);
+    if (!hoja) continue;
+    var lastCol = hoja.getLastColumn();
+    var lastRow = hoja.getLastRow();
+    if (lastRow < 2) continue;
+    var headers = hoja.getRange(1, 1, 1, lastCol).getValues()[0].map(_hfNormHeaderFactura);
+    var idxId = headers.indexOf('ID');
+    var idxEstado = headers.indexOf('ESTADO');
+    if (idxId === -1 || idxEstado === -1) continue;
+    var datos = hoja.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    for (var i = 0; i < datos.length; i++) {
+      if (String(datos[i][idxId]) === String(facturaId)) {
+        hoja.getRange(i + 2, idxEstado + 1).setValue('ANULADA');
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Añade columnas NETO, IVA, DETALLE, RAZON_SOCIAL, CONDICION_IVA si la hoja es antigua (13 cols).
  */
@@ -1463,8 +1506,29 @@ function guardarComprobanteARCA(datos) {
  * @returns {{ success, mensaje, nc?, error? }}
  */
 function emitirNotaCredito(facturaId) {
+  var lockNC = null;
+  var lockNCAdquirido = false;
   try {
     if (!facturaId) return { success: false, error: 'ID de factura no informado.' };
+
+    // ── ANTI-DUPLICADOS: candado de concurrencia (mismo mecanismo que emitirFacturaElectronica) ──
+    lockNC = LockService.getScriptLock();
+    lockNCAdquirido = lockNC.tryLock(30000);
+    if (!lockNCAdquirido) {
+      try {
+        AuditLogger.registrar({
+          modulo: 'FACTURACION',
+          operacion: 'BLOQUEO_ANTI_DUPLICADO',
+          entidadId: facturaId,
+          entidadDesc: 'Emisión de NC rechazada: ya había otra emisión en curso (candado ocupado).',
+          antes: null, despues: null, montoImpacto: 0
+        });
+      } catch (eAudit) { /* fire-and-forget */ }
+      return {
+        success: false,
+        error: 'Ya se está emitiendo otra Nota de Crédito en este momento. Esperá a que termine antes de reintentar (revisá el Historial ARCA).'
+      };
+    }
 
     // ── Buscar la factura original ───────────────────────────────────────────
     var resultado = obtenerHistorialFacturas();
@@ -1481,7 +1545,18 @@ function emitirNotaCredito(facturaId) {
     if (!original) return { success: false, error: 'Factura no encontrada: ' + facturaId };
 
     // ── Validaciones ─────────────────────────────────────────────────────────
+    // Se re-lee estado DENTRO del candado: si otra NC para esta misma factura
+    // terminó justo antes, ya la vemos ANULADA y cortamos sin tocar ARCA.
     if (original.estado === 'ANULADA') {
+      try {
+        AuditLogger.registrar({
+          modulo: 'FACTURACION',
+          operacion: 'BLOQUEO_ANTI_DUPLICADO',
+          entidadId: facturaId,
+          entidadDesc: 'Emisión de NC rechazada: la factura ya estaba anulada (ya tenía una NC emitida).',
+          antes: null, despues: null, montoImpacto: 0
+        });
+      } catch (eAudit) { /* fire-and-forget */ }
       return { success: false, error: 'La factura ya está anulada.' };
     }
     var cbteTipoNum = Number(original.cbteTipo);
@@ -1607,7 +1682,7 @@ function emitirNotaCredito(facturaId) {
       'Authorization': 'Bearer ' + creds.accessToken,
       'Content-Type':  'application/json'
     };
-    var respuesta = afipFetchConRetry('/requests', payload, headers);
+    var respuesta = afipFetchConRetry('/requests', payload, headers, null, { sinReintentoPorTimeout: true });
     Logger.log('[emitirNotaCredito] Respuesta ARCA: ' + JSON.stringify(respuesta).substring(0, 500));
 
     // feResp: el cuerpo real de la respuesta, esté envuelto en
@@ -1670,14 +1745,20 @@ function emitirNotaCredito(facturaId) {
     });
 
     if (!resultGuardar.success) {
-      // La NC se emitió en ARCA pero no se pudo guardar en Sheets — reportarlo
+      // La NC ya es un documento real en ARCA acá aunque falle el guardado en
+      // Sheets: hay que marcar la original como anulada igual, para bloquear
+      // un reintento que generaría una segunda NC real.
       Logger.log('[emitirNotaCredito] NC emitida en ARCA pero error al guardar: ' + resultGuardar.error);
+      try { _marcarFacturaOriginalAnulada(facturaId); } catch (eMarcar) { Logger.log('[emitirNotaCredito] No se pudo marcar original como anulada: ' + eMarcar.message); }
       return {
         success: true,
         advertencia: 'NC emitida en ARCA (CAE: ' + caeNC + ') pero no se pudo guardar en Sheets: ' + resultGuardar.error,
         nc: { cae: caeNC, caeVto: caeVtoNC, nroNC: nroNC, tipo: tipoNombreNC }
       };
     }
+
+    // ANTI-DUPLICADOS: marcar la original como ANULADA para bloquear otra NC.
+    try { _marcarFacturaOriginalAnulada(facturaId); } catch (eMarcar) { Logger.log('[emitirNotaCredito] No se pudo marcar original como anulada: ' + eMarcar.message); }
 
     return {
       success: true,
@@ -1694,6 +1775,10 @@ function emitirNotaCredito(facturaId) {
   } catch (e) {
     Logger.log('[emitirNotaCredito] Error: ' + e.message + ' | Stack: ' + e.stack);
     return { success: false, error: afipFormatearErrorUsuario(e) };
+  } finally {
+    if (lockNCAdquirido && lockNC) {
+      try { lockNC.releaseLock(); } catch (eLockNC) { /* nada más que hacer */ }
+    }
   }
 }
 

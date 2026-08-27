@@ -107,8 +107,11 @@ function afipFetch(endpoint, payload, headers, method) {
   catch (e) { throw new Error('Respuesta inválida de AfipSDK: ' + text.substring(0, 200)); }
 }
 
-function afipFetchConRetry(endpoint, payload, headers, method) {
-  var max = 5, delay = 2000; // reintentos por ancho de banda / 429 / límites de AfipSDK
+function afipFetchConRetry(endpoint, payload, headers, method, opts) {
+  opts = opts || {};
+  // ANTI-DUPLICADOS: con sinReintentoPorTimeout=true no se reintenta ante un
+  // timeout, porque ARCA puede haber procesado igual el pedido de emisión.
+  var max = opts.sinReintentoPorTimeout ? 1 : 5, delay = 2000; // reintentos por ancho de banda / 429 / límites de AfipSDK
   for (var i = 1; i <= max; i++) {
     try {
       return afipFetch(endpoint, payload, headers, method);
@@ -127,7 +130,12 @@ function afipFetchConRetry(endpoint, payload, headers, method) {
                   msg.indexOf('503') >= 0 ||
                   /http 429/.test(msg) ||
                   /http 5\d\d/.test(msg);
-      if (!retry || i === max) throw e;
+      if (!retry || i === max) {
+        if (opts.sinReintentoPorTimeout) {
+          throw new Error('Se cortó la comunicación con ARCA (posible timeout). NO se reintentó automáticamente para evitar una emisión duplicada. Revisá el Historial ARCA antes de volver a intentar. Detalle original: ' + e.message);
+        }
+        throw e;
+      }
       Utilities.sleep(delay * Math.pow(2, i - 1));
     }
   }
@@ -406,7 +414,7 @@ function afipEmitirFactura(datosFactura) {
     key:  creds.key
   };
 
-  var resultado = afipFetchConRetry('/requests', payload, headers);
+  var resultado = afipFetchConRetry('/requests', payload, headers, null, { sinReintentoPorTimeout: true });
   return afipParsearRespuestaFactura(resultado, datosFactura, nextNro, ptoVtaInt);
 }
 

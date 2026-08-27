@@ -5691,7 +5691,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Observaciones</label>
-          <textarea class="form-textarea" id="transfUnifObs" rows="2"></textarea>
+          <textarea class="form-textarea" id="transfUnifObs" rows="2" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();document.getElementById('formTransferenciaUnif').requestSubmit();}"></textarea>
         </div>
         <div class="form-group">
           <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar y Continuar con Facturación</button>
@@ -9607,6 +9607,7 @@ function renderEstadisticas(result) {
         const nombre = document.getElementById('remitoProveedorNombre').value.trim();
         const fecha = document.getElementById('remitoFecha').value || obtenerFechaLocal();
         const total = calcularTotalRemito();
+        const eraNuevo = !_remitoEditandoItemId; // solo reabrimos en cadena para proveedores nuevos, no al editar uno existente
 
         const itemsValidos = _remitoItems.filter(function(it) {
           return (parseFloat(it.unidad) || 0) > 0 || (parseFloat(it.precio) || 0) > 0 || (it.descripcion && it.descripcion.trim());
@@ -9633,6 +9634,11 @@ function renderEstadisticas(result) {
         calcularNetoArqueo();
         cerrarModalRemitoProveedor();
         mostrarToast('Proveedor cargado: ' + nombre + ' — ' + formatearMonto(total), 'success');
+
+        // Reabrir automáticamente para cargar el próximo proveedor en cadena.
+        if (eraNuevo) {
+          setTimeout(function() { abrirModalRemitoProveedor(); }, 250);
+        }
       });
     }
 
@@ -10231,7 +10237,15 @@ function renderEstadisticas(result) {
         const desc = item.querySelector('.prov-desc');
         const monto = item.querySelector('.prov-monto');
         if (monto && monto.value) {
-          proveedores.push({ descripcion: desc ? desc.value : '', monto: parseFloat(monto.value) });
+          // Extraer el detalle de items del remito, si existe, para no perderlo al cerrar el arqueo.
+          let itemsProv = [];
+          if (item.dataset.remito) {
+            try {
+              const rd = JSON.parse(item.dataset.remito);
+              itemsProv = Array.isArray(rd.items) ? rd.items : [];
+            } catch (e) { /* remito corrupto: se guarda sin desglose */ }
+          }
+          proveedores.push({ descripcion: desc ? desc.value : '', monto: parseFloat(monto.value), items: itemsProv });
           if (desc && desc.value.trim()) guardarProveedorEnHistorial(desc.value);
         }
       });
@@ -10814,10 +10828,35 @@ function renderEstadisticas(result) {
           var esNeg = (d.monto || 0) < 0;
           var montoFmt = (esNeg ? '-' : '') + formatearMonto(montoAbs);
           var colorMonto = esNeg ? 'var(--sv-peligro)' : 'inherit';
-          return '<div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--sv-borde);">' +
-            '<span>' + escapeHtml(d.tipo) + ': ' + escapeHtml(d.descripcion || '-') + '</span>' +
-            '<strong style="color:' + colorMonto + ';">' + montoFmt + '</strong>' +
-          '</div>';
+
+          var filaPrincipal =
+            '<div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">' +
+              '<span>' + escapeHtml(d.tipo) + ': ' + escapeHtml(d.descripcion || '-') + '</span>' +
+              '<strong style="color:' + colorMonto + ';">' + montoFmt + '</strong>' +
+            '</div>';
+
+          // Si es un registro de PROVEEDOR con items guardados, mostrar el desglose de productos debajo.
+          var esProveedor = String(d.tipo) === 'PROVEEDOR' || String(d.tipo).toUpperCase().indexOf('PROVEEDOR') !== -1;
+          var detalleItemsHtml = '';
+          if (esProveedor && Array.isArray(d.items) && d.items.length > 0) {
+            var filasItems = d.items.map(function(it) {
+              var unidad = parseFloat(it.unidad) || 0;
+              var precio = parseFloat(it.precio) || 0;
+              var subtotal = unidad * precio;
+              var descItem = it.descripcion || '(sin descripción)';
+              var detalleCantidad = unidad ? (unidad + ' × ' + formatearMonto(precio)) : '';
+              return '<div style="display:flex; justify-content:space-between; gap:0.5rem; padding:0.25rem 0; font-size:0.85rem; color: var(--sv-texto-secundario);">' +
+                '<span>• ' + escapeHtml(descItem) + (detalleCantidad ? ' <span style="opacity:0.75;">(' + escapeHtml(detalleCantidad) + ')</span>' : '') + '</span>' +
+                (subtotal ? '<span style="white-space:nowrap;">' + formatearMonto(subtotal) + '</span>' : '') +
+              '</div>';
+            }).join('');
+            detalleItemsHtml =
+              '<div style="margin: 0 0 0.5rem 1rem; padding: 0.4rem 0.6rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius); border-left: 3px solid var(--sv-primario);">' +
+                filasItems +
+              '</div>';
+          }
+
+          return '<div style="border-bottom: 1px solid var(--sv-borde);">' + filaPrincipal + detalleItemsHtml + '</div>';
         }).join('');
       }
 
@@ -13334,7 +13373,7 @@ function renderEstadisticas(result) {
 
         var idE  = escapeHtml(String(f.id || ''));
         var ncBtn = (f.estado === 'EMITIDA' && (cbteTipoNum===1||cbteTipoNum===6))
-          ? '<button class="btn btn-outline" style="padding:2px 7px;font-size:0.72rem;color:var(--sv-peligro);border-color:var(--sv-peligro);" onclick="emitirNCDesdeHistorial(\'' + idE + '\')" title="Emitir NC">NC</button>'
+          ? '<button class="btn btn-outline" style="padding:2px 7px;font-size:0.72rem;color:var(--sv-peligro);border-color:var(--sv-peligro);" onclick="emitirNCDesdeHistorial(\'' + idE + '\', this)" title="Emitir NC">NC</button>'
           : '';
 
         return '<tr style="' + (f.estado==='ANULADA'?'opacity:0.6;':'') + '">' +
@@ -14014,7 +14053,7 @@ function renderEstadisticas(result) {
       return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    function emitirNCDesdeHistorial(facturaId) {
+    function emitirNCDesdeHistorial(facturaId, btn) {
       if (!facturaId) { mostrarToast('ID de factura inválido', 'error'); return; }
 
       var f = _HF.todas.find(function(x) { return String(x.id) === String(facturaId); });
@@ -14028,6 +14067,11 @@ function renderEstadisticas(result) {
       );
       if (!confirmar) return;
 
+      // ANTI-DUPLICADOS (frontend): deshabilitar el botón apenas se confirma,
+      // para que un doble click no dispare una segunda petición. La
+      // protección real está en el backend (candado + chequeo de anulada).
+      if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
       mostrarToast('Emitiendo Nota de Crédito en ARCA…', 'info');
 
       google.script.run
@@ -14040,10 +14084,12 @@ function renderEstadisticas(result) {
             cargarHistorialFacturas(true);
           } else {
             mostrarToast('Error al emitir NC: ' + (result.error || ''), 'error');
+            if (btn) { btn.disabled = false; btn.textContent = 'NC'; }
           }
         })
         .withFailureHandler(function(err) {
           mostrarToast('Error de conexión: ' + err.message, 'error');
+          if (btn) { btn.disabled = false; btn.textContent = 'NC'; }
         })
         .emitirNotaCredito(facturaId);
     }
@@ -15244,6 +15290,10 @@ function renderEstadisticas(result) {
       document.getElementById('transfUnifTipoFactura').textContent = tipoTexto;
       document.getElementById('transfUnifTipoFactura').style.color =
         tipoFactura === 'A' ? 'var(--sv-primario)' : 'var(--sv-secundario)';
+
+      // Pasar el foco directo a Monto, igual que al tipear un nombre libre y presionar Enter.
+      const montoInput = document.getElementById('transfUnifMonto');
+      if (montoInput) montoInput.focus();
     }
 
     function seleccionarBancoUnif(banco) {

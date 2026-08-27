@@ -69,7 +69,8 @@ var CONFIG = {
     DESCRIPCION: 4, // E: String
     MONTO: 5,       // F: Number
     USUARIO: 6,     // G: Email
-    TIMESTAMP: 7    // H: DateTime
+    TIMESTAMP: 7,   // H: DateTime
+    DETALLE_JSON: 8 // I: String (JSON con items del remito, solo en filas de PROVEEDOR)
   },
 
   // Indices de columnas para CAJA_DIARIA (0-based)

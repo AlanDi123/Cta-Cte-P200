@@ -18,12 +18,33 @@ const CajaRepository = {
     // Crear hoja si no existe
     if (!hoja) {
       hoja = ss.insertSheet(CONFIG.HOJAS.CAJA_ARQUEOS);
-      hoja.appendRow(['ID', 'FECHA', 'SESION_ID', 'TIPO', 'DESCRIPCION', 'MONTO', 'USUARIO', 'TIMESTAMP']);
-      hoja.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#FF6F00').setFontColor('#FFFFFF');
+      hoja.appendRow(['ID', 'FECHA', 'SESION_ID', 'TIPO', 'DESCRIPCION', 'MONTO', 'USUARIO', 'TIMESTAMP', 'DETALLE_JSON']);
+      hoja.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#FF6F00').setFontColor('#FFFFFF');
       hoja.setFrozenRows(1);
+    } else {
+      // Migración: agrega la 9na columna a hojas creadas antes de este cambio.
+      var lastColMig = hoja.getLastColumn();
+      if (lastColMig < 9) {
+        hoja.getRange(1, 9).setValue('DETALLE_JSON');
+        hoja.getRange(1, 9).setFontWeight('bold').setBackground('#FF6F00').setFontColor('#FFFFFF');
+      }
     }
 
     return hoja;
+  },
+
+  /**
+   * Parsea de forma segura el JSON de items guardado en DETALLE_JSON.
+   * Devuelve [] si está vacío, corrupto, o no es un array.
+   */
+  _parsearDetalleItems: function(raw) {
+    if (!raw) return [];
+    try {
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
   },
 
   /**
@@ -82,7 +103,8 @@ const CajaRepository = {
                     `${contador}: ${cantidad} x ${denom.nombre}`,
                     monto,
                     usuario,
-                    timestamp
+                    timestamp,
+                    ''
                   ]);
                 }
               }
@@ -101,7 +123,8 @@ const CajaRepository = {
                 `${cantidad} x ${denom.nombre}`,
                 monto,
                 usuario,
-                timestamp
+                timestamp,
+                ''
               ]);
             }
           }
@@ -112,6 +135,12 @@ const CajaRepository = {
       if (datos.proveedores && Array.isArray(datos.proveedores)) {
         for (const prov of datos.proveedores) {
           if (prov.monto > 0) {
+            // Serializar el detalle de items del remito para poder mostrarlo
+            // luego en el historial de caja.
+            var detalleItemsProv = '';
+            if (Array.isArray(prov.items) && prov.items.length > 0) {
+              try { detalleItemsProv = JSON.stringify(prov.items); } catch (eJson) { detalleItemsProv = ''; }
+            }
             registros.push([
               idActual++,              // ← usar y luego incrementar
               fecha,
@@ -120,7 +149,8 @@ const CajaRepository = {
               prov.descripcion || 'Pago proveedor',
               -prov.monto, // Negativo porque es salida
               usuario,
-              timestamp
+              timestamp,
+              detalleItemsProv
             ]);
           }
         }
@@ -138,7 +168,8 @@ const CajaRepository = {
               gasto.descripcion || 'Gasto extra',
               -gasto.monto, // Negativo porque es salida
               usuario,
-              timestamp
+              timestamp,
+              ''
             ]);
           }
         }
@@ -156,7 +187,8 @@ const CajaRepository = {
               ingreso.descripcion || 'Ingreso adicional',
               ingreso.monto,
               usuario,
-              timestamp
+              timestamp,
+              ''
             ]);
           }
         }
@@ -172,7 +204,8 @@ const CajaRepository = {
           'Total cobranzas del dia',
           datos.totalCobranzas,
           usuario,
-          timestamp
+          timestamp,
+          ''
         ]);
       }
 
@@ -186,7 +219,8 @@ const CajaRepository = {
           'Total fiados del dia',
           datos.totalFiados,
           usuario,
-          timestamp
+          timestamp,
+          ''
         ]);
       }
 
@@ -303,7 +337,8 @@ const CajaRepository = {
         id: fila[CONFIG.COLS_CAJA.ID],
         tipo: fila[CONFIG.COLS_CAJA.TIPO],
         descripcion: fila[CONFIG.COLS_CAJA.DESCRIPCION],
-        monto: fila[CONFIG.COLS_CAJA.MONTO]
+        monto: fila[CONFIG.COLS_CAJA.MONTO],
+        items: this._parsearDetalleItems(fila[CONFIG.COLS_CAJA.DETALLE_JSON])
       });
     }
 
@@ -364,7 +399,8 @@ const CajaRepository = {
           id: fila[CONFIG.COLS_CAJA.ID],
           tipo: fila[CONFIG.COLS_CAJA.TIPO],
           descripcion: fila[CONFIG.COLS_CAJA.DESCRIPCION],
-          monto: fila[CONFIG.COLS_CAJA.MONTO]
+          monto: fila[CONFIG.COLS_CAJA.MONTO],
+          items: this._parsearDetalleItems(fila[CONFIG.COLS_CAJA.DETALLE_JSON])
         });
       }
     }
