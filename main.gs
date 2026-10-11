@@ -92,59 +92,34 @@ function doPost(e) {
       return guardarBackupAPI(data.data);
     }
 
-    // ─── VENTA NOCTURNA ───────────────────────────────────────────
-    // Inicialización
-    if (data.action === 'vnInicializarHojas') {
-      return _vnJsonOk(inicializarHojasVN());
+    // ─── LOGÍSTICA: VALES ─────────────────────────────────────────
+    if (data.action === 'valesRegistrar') {
+      return ContentService.createTextOutput(JSON.stringify(valesFisicosRegistrar(data, data.token)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (data.action === 'valesObtener') {
+      return ContentService.createTextOutput(JSON.stringify(valesFisicosObtener(data.token)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (data.action === 'valesAnular') {
+      return ContentService.createTextOutput(JSON.stringify(valesFisicosAnular(data.id, data.motivo, data.token)))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Sesiones
-    if (data.action === 'vnAbrirSesion') return _vnJsonOk(vnAbrirSesion());
-    if (data.action === 'vnCerrarSesion') return _vnJsonOk(vnCerrarSesion(data.sesionId));
-    if (data.action === 'vnGetSesionActiva') return _vnJsonOk(vnGetSesionActiva());
-    if (data.action === 'vnReabrirSesion') return _vnJsonOk(vnReabrirSesion(data));
-    if (data.action === 'vnGetHistorialSesiones') return _vnJsonOk(vnGetHistorialSesiones(data.limit));
-
-    // Productos VN
-    if (data.action === 'vnGetProductos') return _vnJsonOk(vnGetProductos());
-    if (data.action === 'vnCrearProducto') return _vnJsonOk(vnCrearProducto(data));
-    if (data.action === 'vnActualizarProducto') return _vnJsonOk(vnActualizarProducto(data));
-    if (data.action === 'vnToggleProducto') return _vnJsonOk(vnToggleProducto(data.id));
-
-    // Ventas POS
-    if (data.action === 'vnRegistrarVenta') return _vnJsonOk(vnRegistrarVenta(data));
-    if (data.action === 'vnCancelarVenta') return _vnJsonOk(vnCancelarVenta(data.ventaId));
-    if (data.action === 'vnGetVentasSesion') return _vnJsonOk(vnGetVentasSesion(data.sesionId));
-    if (data.action === 'vnGetResumenSesion') return _vnJsonOk(vnGetResumenSesion(data.sesionId));
-
-    // Vales
-    if (data.action === 'vnCrearVale') return _vnJsonOk(vnCrearVale(data));
-    if (data.action === 'vnBuscarVale') return _vnJsonOk(vnBuscarVale(data.numero));
-    if (data.action === 'vnAnularVale') return _vnJsonOk(vnAnularVale(data));
-    if (data.action === 'vnGetVales') return _vnJsonOk(vnGetVales(data.filtros));
-    if (data.action === 'vnGetValesCliente') return _vnJsonOk(vnGetValesCliente(data.cliente));
-
-    // Stock
-    if (data.action === 'vnGetExistencias') return _vnJsonOk(vnGetExistencias());
-    if (data.action === 'vnRegistrarCompra') return _vnJsonOk(vnRegistrarCompra(data));
-    if (data.action === 'vnRegistrarMerma') return _vnJsonOk(vnRegistrarMerma(data));
-    if (data.action === 'vnRegistrarCorreccion') return _vnJsonOk(vnRegistrarCorreccion(data));
-    if (data.action === 'vnGetHistorialCompras') return _vnJsonOk(vnGetHistorialCompras(data.filtros));
-    if (data.action === 'vnGetHistorialMermas') return _vnJsonOk(vnGetHistorialMermas(data.filtros));
-    if (data.action === 'vnGetHistorialCorrecciones') return _vnJsonOk(vnGetHistorialCorrecciones(data.filtros));
-
-    // Pagos / Fiados
-    if (data.action === 'vnRegistrarFiado') return _vnJsonOk(vnRegistrarFiado(data));
-    if (data.action === 'vnRegistrarCobro') return _vnJsonOk(vnRegistrarCobro(data));
-    if (data.action === 'vnRegistrarPagoACuenta') return _vnJsonOk(vnRegistrarPagoACuenta(data));
-    if (data.action === 'vnGetDeudas') return _vnJsonOk(vnGetDeudas(data.cliente));
-    if (data.action === 'vnGetPagosSesion') return _vnJsonOk(vnGetPagosSesion(data.sesionId));
-    if (data.action === 'vnGetSaldoCliente') return _vnJsonOk(vnGetSaldoCliente(data.cliente));
-
-    // Clientes (lectura del módulo principal)
-    if (data.action === 'vnGetClientes') return _vnJsonOk(vnGetClientes(data.termino));
-    if (data.action === 'vnCrearClienteRapido') return _vnJsonOk(vnCrearClienteRapido(data));
-    // ─────────────────────────────────────────────────────────────
+    // ─── LOGÍSTICA: VACÍOS ────────────────────────────────────────
+    if (data.action === 'vaciosEstado') {
+      return ContentService.createTextOutput(JSON.stringify(vaciosDiariosEstado(data.token)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (data.action === 'vaciosAbrir') {
+      return ContentService.createTextOutput(JSON.stringify(vaciosDiariosAbrir(data.token)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (data.action === 'vaciosGuardar' || data.action === 'vaciosCerrar') {
+      return ContentService.createTextOutput(JSON.stringify(vaciosDiariosGuardar(
+        data.sesionId, data.detalles, data.action === 'vaciosCerrar', data.token
+      ))).setMimeType(ContentService.MimeType.JSON);
+    }
 
     return ContentService.createTextOutput(
       JSON.stringify({ success: false, error: 'Acción no reconocida: ' + data.action })
@@ -1428,6 +1403,16 @@ function obtenerDatosEmisor() {
 function obtenerConfiguracionCompleta() {
   try {
     const props = PropertiesService.getScriptProperties();
+    let envasesVacios = CONFIG.MODULOS_EXTRA.ENVASES_DEFAULT;
+    const envasesVaciosGuardados = props.getProperty('ENVASES_VACIOS');
+    if (envasesVaciosGuardados) {
+      try {
+        const envasesParseados = JSON.parse(envasesVaciosGuardados);
+        if (Array.isArray(envasesParseados)) envasesVacios = envasesParseados;
+      } catch (error) {
+        Logger.log('ENVASES_VACIOS inválido; se usarán los valores por defecto.');
+      }
+    }
     
     // Inquilinos (lista separada por comas)
     const inquilinosProp = props.getProperty('INQUILINOS') || CONFIG.INQUILINOS.join(',');
@@ -1493,7 +1478,10 @@ function obtenerConfiguracionCompleta() {
       ayudaTutoriales: props.getProperty('AYUDA_TUTORIALES') || '',
 
       // Contadores de Caja (Arqueo de Efectivo)
-      contadoresCaja: obtenerContadoresCajaConfig()
+      contadoresCaja: obtenerContadoresCajaConfig(),
+
+      // Módulos Extra (PIN y Envases)
+      envasesVacios: envasesVacios
     };
     
     return {
@@ -1721,6 +1709,43 @@ function guardarConfiguracionGeneral(config) {
       });
       props.setProperty('CONTADORES_CAJA', JSON.stringify(contadoresSanitizados));
     }
+
+    // Validar primero los parámetros logísticos para no guardar una parte de ellos si el resto falla.
+    let pinModulosExtraValidado;
+    if (config.pinModulosExtra !== undefined) {
+      pinModulosExtraValidado = String(config.pinModulosExtra).trim();
+      if (!/^\d{4}$/.test(pinModulosExtraValidado)) {
+        throw new Error('El PIN de módulos extra debe tener exactamente 4 dígitos');
+      }
+    }
+    let envasesVaciosValidados;
+    if (config.envasesVacios !== undefined) {
+      if (!Array.isArray(config.envasesVacios)) throw new Error('Envases debe ser una lista');
+      if (config.envasesVacios.length === 0 || config.envasesVacios.length > 50) {
+        throw new Error('Debe haber entre 1 y 50 tipos de envase.');
+      }
+      const idsEnvases = new Set();
+      const envasesSanitizados = config.envasesVacios.map(function(envase) {
+        const id = String(envase && envase.id || '').trim();
+        const nombre = String(envase && envase.nombre || '').trim();
+        const valor = Number(envase && envase.valor);
+        if (!/^[A-Za-z0-9_-]{1,50}$/.test(id) || idsEnvases.has(id)) {
+          throw new Error('Los IDs de envase deben usar letras, números, guion o guion bajo, y ser únicos.');
+        }
+        if (!nombre || nombre.length > 100) {
+          throw new Error('Cada envase necesita un nombre de hasta 100 caracteres.');
+        }
+        if (!Number.isFinite(valor) || valor < 0) {
+          throw new Error('El valor de cada envase debe ser un número mayor o igual a cero.');
+        }
+        idsEnvases.add(id);
+        return { id: id, nombre: nombre, valor: valor };
+      });
+      envasesVaciosValidados = JSON.stringify(envasesSanitizados);
+      if (envasesVaciosValidados.length > 8000) throw new Error('La configuración de envases excede el tamaño permitido.');
+    }
+    if (pinModulosExtraValidado !== undefined) props.setProperty('PIN_MODULOS_EXTRA', pinModulosExtraValidado);
+    if (envasesVaciosValidados !== undefined) props.setProperty('ENVASES_VACIOS', envasesVaciosValidados);
     
     Logger.log('Configuración general guardada correctamente');
     
@@ -1777,15 +1802,6 @@ function restaurarConfiguracionPorDefecto() {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  HELPER: Serializar respuestas del módulo Venta Nocturna
-// ─────────────────────────────────────────────────────────────
-
-function _vnJsonOk(resultado) {
-  return ContentService.createTextOutput(JSON.stringify(resultado))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
 // ============================================================================
 // M-07: HEALTH CHECK — Verificación de integridad del sistema
 // ============================================================================
@@ -1805,10 +1821,9 @@ function verificarIntegridadSistema() {
   try {
     const ss = getSpreadsheet();
     const hojasRequeridas = Object.values(CONFIG.HOJAS);
-    const hojasVN = Object.values(CONFIG_VN ? CONFIG_VN.HOJAS : {});
     const hojasFaltantes = [];
 
-    [...hojasRequeridas, ...hojasVN].forEach(nombre => {
+    hojasRequeridas.forEach(nombre => {
       if (!ss.getSheetByName(nombre)) hojasFaltantes.push(nombre);
     });
 
@@ -1853,41 +1868,7 @@ function verificarIntegridadSistema() {
     chequeos.push({ nombre: 'SALDOS_COHERENTES', estado: 'ERROR', detalle: e.message });
   }
 
-  // ── Chequeo 3: No hay sesión VN abierta sin cierre por más de 24hs ──────
-  try {
-    const ss = getSpreadsheet();
-    const hojaSesiones = ss.getSheetByName(CONFIG_VN ? CONFIG_VN.HOJAS.SESIONES : 'VN_SESIONES');
-    if (!hojaSesiones) {
-      chequeos.push({ nombre: 'SESIONES_VN', estado: 'SKIP', detalle: 'Módulo VN no inicializado' });
-    } else {
-      const datos = hojaSesiones.getDataRange().getValues();
-      const ahora = new Date();
-      const sesionesFantasma = [];
-
-      datos.slice(1).forEach(f => {
-        const estado = f[CONFIG_VN.COLS_SESIONES.ESTADO - 1];
-        const fechaApertura = f[CONFIG_VN.COLS_SESIONES.HORA_APERTURA - 1];
-        if (estado === CONFIG_VN.ESTADOS_SESION.ABIERTA && fechaApertura instanceof Date) {
-          const hs = (ahora - fechaApertura) / 3600000;
-          if (hs > 24) {
-            sesionesFantasma.push({ id: f[0], hs: Math.round(hs) });
-          }
-        }
-      });
-
-      chequeos.push({
-        nombre:  'SESIONES_VN',
-        estado:  sesionesFantasma.length === 0 ? 'OK' : 'ADVERTENCIA',
-        detalle: sesionesFantasma.length === 0
-          ? 'No hay sesiones VN abiertas por más de 24hs'
-          : sesionesFantasma.length + ' sesión(es) abierta(s) > 24hs: ' + JSON.stringify(sesionesFantasma)
-      });
-    }
-  } catch (e) {
-    chequeos.push({ nombre: 'SESIONES_VN', estado: 'ERROR', detalle: e.message });
-  }
-
-  // ── Chequeo 4: API key de Claude configurada ─────────────────────────────
+  // ── Chequeo 3: API key de Claude configurada ─────────────────────────────
   try {
     const props = PropertiesService.getScriptProperties();
     const apiKey = props.getProperty('CLAUDE_API_KEY') || props.getProperty('claude_api_key');

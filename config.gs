@@ -26,6 +26,17 @@ var CONFIG = {
     CAJA_MOV_MANUAL: 'CAJA_MOV_MANUAL'
   },
 
+  // Configuracion base para los nuevos modulos logisticos
+  MODULOS_EXTRA: {
+    PIN_ACCESO: '4646',
+    ENVASES_DEFAULT: [
+      { id: 'E1', nombre: 'Jaulas', valor: 5000 },
+      { id: 'E2', nombre: 'Bandejas Rúcula', valor: 4000 },
+      { id: 'E3', nombre: 'Cajones ST', valor: 4000 },
+      { id: 'E4', nombre: 'S/S', valor: 0 }
+    ]
+  },
+
   // Indices de columnas para CLIENTES (0-based)
   COLS_CLIENTES: {
     NOMBRE: 0,      // A: String, UPPERCASE, clave primaria (Nombre de Fantasía)
