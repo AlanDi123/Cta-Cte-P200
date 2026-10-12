@@ -98,11 +98,15 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     if (data.action === 'valesObtener') {
-      return ContentService.createTextOutput(JSON.stringify(valesFisicosObtener(data.token)))
+      return ContentService.createTextOutput(JSON.stringify(valesFisicosObtener(data.token, data.filtros || {})))
         .setMimeType(ContentService.MimeType.JSON);
     }
     if (data.action === 'valesAnular') {
       return ContentService.createTextOutput(JSON.stringify(valesFisicosAnular(data.id, data.motivo, data.token)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (data.action === 'valesBuscarNumero') {
+      return ContentService.createTextOutput(JSON.stringify(valesFisicosBuscarNumero(data.numero, data.token)))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -119,6 +123,10 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify(vaciosDiariosGuardar(
         data.sesionId, data.detalles, data.action === 'vaciosCerrar', data.token
       ))).setMimeType(ContentService.MimeType.JSON);
+    }
+    if (data.action === 'vaciosHistorial') {
+      return ContentService.createTextOutput(JSON.stringify(vaciosDiariosHistorial(data.token)))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     return ContentService.createTextOutput(

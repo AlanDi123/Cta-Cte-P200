@@ -7,11 +7,43 @@ const ValesFisicosRepository = {
     let hoja = ss.getSheetByName('MOD_VALES');
     if (!hoja) {
       hoja = ss.insertSheet('MOD_VALES');
-      hoja.appendRow(['ID', 'FECHA', 'NUMERO_VALE', 'TIPO_MOVIMIENTO', 'MONTO', 'ESTADO', 'MOTIVO_ANULACION', 'USUARIO']);
-      hoja.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#4A148C').setFontColor('#FFFFFF');
+      hoja.appendRow(['ID', 'FECHA', 'NUMERO_VALE', 'TIPO_MOVIMIENTO', 'MONTO', 'ESTADO', 'MOTIVO_ANULACION', 'USUARIO', 'DETALLE_JSON']);
+      hoja.getRange(1, 1, 1, 9).setFontWeight('bold').setBackground('#4A148C').setFontColor('#FFFFFF');
       hoja.setFrozenRows(1);
+    } else if (hoja.getLastColumn() < 9 || !hoja.getRange(1, 9).getValue()) {
+      hoja.getRange(1, 9).setValue('DETALLE_JSON')
+        .setFontWeight('bold').setBackground('#4A148C').setFontColor('#FFFFFF');
     }
     return hoja;
+  },
+
+  _normalizarDetalle: function(data) {
+    let detalle = data.detalle;
+    if (!Array.isArray(detalle)) {
+      try {
+        detalle = data.detalleJSON ? JSON.parse(data.detalleJSON) : [];
+      } catch (error) {
+        throw new Error('El detalle de envases no tiene un formato válido.');
+      }
+    }
+    if (!Array.isArray(detalle) || detalle.length > 50) throw new Error('El detalle debe ser una lista de hasta 50 envases.');
+
+    const ids = new Set();
+    const normalizado = detalle.map(function(item) {
+      const envaseId = String(item && item.envaseId || '').trim();
+      const nombre = String(item && item.nombre || '').trim();
+      const valor = Number(item && item.valor);
+      const cantidad = Number(item && item.cantidad);
+      if (!/^[A-Za-z0-9_-]{1,50}$/.test(envaseId) || ids.has(envaseId)) throw new Error('El detalle contiene un ID de envase inválido o repetido.');
+      if (!nombre || nombre.length > 100) throw new Error('Cada envase debe tener un nombre de hasta 100 caracteres.');
+      if (!Number.isFinite(valor) || valor < 0) throw new Error('El valor del envase debe ser mayor o igual a cero.');
+      if (!Number.isSafeInteger(cantidad) || cantidad <= 0) throw new Error('La cantidad de cada envase debe ser un entero mayor a cero.');
+      ids.add(envaseId);
+      return { envaseId: envaseId, nombre: nombre, valor: valor, cantidad: cantidad };
+    });
+    const serializado = JSON.stringify(normalizado);
+    if (serializado.length > 7000) throw new Error('El detalle de envases excede el tamaño permitido.');
+    return { detalle: normalizado, serializado: serializado };
   },
 
   generarId: function(hoja) {
@@ -33,6 +65,13 @@ const ValesFisicosRepository = {
       if (numero.length > 100) throw new Error('El número de vale es demasiado largo.');
       if (tipo !== 'ENTREGADO' && tipo !== 'RECIBIDO') throw new Error('Tipo de movimiento inválido.');
       if (!Number.isFinite(monto) || monto <= 0) throw new Error('El monto debe ser mayor a cero.');
+      const detalle = this._normalizarDetalle(data);
+      const totalDetalle = detalle.detalle.reduce(function(total, item) {
+        return total + item.valor * item.cantidad;
+      }, 0);
+      if (detalle.detalle.length && Math.abs(totalDetalle - monto) > 0.01) {
+        throw new Error('El monto no coincide con el detalle de envases.');
+      }
 
       lock = LockService.getScriptLock();
       lock.waitLock(10000);
@@ -41,7 +80,7 @@ const ValesFisicosRepository = {
       const hoja = this.getHoja();
       const nuevoId = this.generarId(hoja);
       const usuario = Session.getActiveUser().getEmail() || '';
-      hoja.appendRow([nuevoId, new Date(), numero, tipo, monto, 'ACTIVO', '', usuario]);
+      hoja.appendRow([nuevoId, new Date(), numero, tipo, monto, 'ACTIVO', '', usuario, detalle.serializado]);
       return { success: true, id: nuevoId };
     } catch (error) {
       return { success: false, error: error.message };
@@ -50,9 +89,9 @@ const ValesFisicosRepository = {
     }
   },
 
-  obtenerUltimos: function(limite) {
+  obtenerTodos: function(filtros) {
     try {
-      const cantidad = Math.min(100, Math.max(1, parseInt(limite, 10) || 10));
+      filtros = filtros || {};
       const hoja = this.getHoja();
       const datos = hoja.getDataRange().getValues();
       let entregados = 0;
@@ -64,33 +103,67 @@ const ValesFisicosRepository = {
         const tipo = String(fila[3] || '').toUpperCase();
         const estado = String(fila[5] || '').toUpperCase();
         const monto = Number(fila[4]) || 0;
+        const fechaObj = fila[1];
         if (estado === 'ACTIVO') {
           if (tipo === 'ENTREGADO') entregados += monto;
           if (tipo === 'RECIBIDO') recibidos += monto;
         }
         vales.push({
           id: fila[0],
-          fecha: fila[1] instanceof Date
-            ? Utilities.formatDate(fila[1], Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')
-            : String(fila[1] || ''),
+          fechaRaw: fechaObj instanceof Date
+            ? Utilities.formatDate(fechaObj, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+            : '',
+          fecha: fechaObj instanceof Date
+            ? Utilities.formatDate(fechaObj, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')
+            : String(fechaObj || ''),
           numero: fila[2],
           tipo: tipo,
           monto: monto,
           estado: estado,
           motivo: fila[6] || '',
-          usuario: fila[7] || ''
+          usuario: fila[7] || '',
+          detalle: this._parsearDetalle(fila[8])
         });
       }
 
       vales.reverse();
+      const numeroFiltro = String(filtros.numero || '').trim().toUpperCase();
+      const fechaFiltro = String(filtros.fecha || '').trim();
+      const valesFiltrados = vales.filter(function(vale) {
+        if (numeroFiltro && String(vale.numero || '').toUpperCase().indexOf(numeroFiltro) === -1) return false;
+        if (fechaFiltro && vale.fechaRaw !== fechaFiltro) return false;
+        return true;
+      });
       return {
         success: true,
-        vales: vales.slice(0, cantidad),
+        vales: valesFiltrados,
         balance: { entregados: entregados, recibidos: recibidos, neto: entregados - recibidos }
       };
     } catch (error) {
       return { success: false, error: error.message, vales: [], balance: { entregados: 0, recibidos: 0, neto: 0 } };
     }
+  },
+
+  _parsearDetalle: function(raw) {
+    if (!raw) return [];
+    try {
+      const detalle = JSON.parse(raw);
+      return Array.isArray(detalle) ? detalle : [];
+    } catch (error) {
+      return [];
+    }
+  },
+
+  buscarPorNumero: function(numero) {
+    const numeroNormalizado = String(numero || '').trim().toUpperCase();
+    if (!numeroNormalizado) return { success: false, error: 'Ingresá un número de vale.' };
+    const resultado = this.obtenerTodos();
+    if (!resultado.success) return resultado;
+    const vale = resultado.vales.find(function(item) {
+      return String(item.numero || '').toUpperCase() === numeroNormalizado &&
+        item.tipo === 'ENTREGADO' && item.estado === 'ACTIVO';
+    });
+    return { success: true, vale: vale || null };
   },
 
   anular: function(id, motivo) {
@@ -172,9 +245,14 @@ function valesFisicosRegistrar(data, token) {
   return ValesFisicosRepository.registrar(data);
 }
 
-function valesFisicosObtener(token) {
+function valesFisicosObtener(token, filtros) {
   if (!_validarTokenVales(token)) return { success: false, error: 'Acceso vencido. Ingresá nuevamente el PIN.' };
-  return ValesFisicosRepository.obtenerUltimos(10);
+  return ValesFisicosRepository.obtenerTodos(filtros || {});
+}
+
+function valesFisicosBuscarNumero(numero, token) {
+  if (!_validarTokenVales(token)) return { success: false, error: 'Acceso vencido. Ingresá nuevamente el PIN.' };
+  return ValesFisicosRepository.buscarPorNumero(numero);
 }
 
 function valesFisicosAnular(id, motivo, token) {
@@ -387,6 +465,44 @@ const VaciosRepository = {
     } finally {
       if (lockAdquirido) lock.releaseLock();
     }
+  },
+
+  obtenerHistorial: function() {
+    try {
+      const hojas = this._getHojas();
+      const datosSesion = hojas.hSesion.getDataRange().getValues();
+      const datosDetalle = hojas.hDetalle.getDataRange().getValues();
+      const historial = [];
+
+      for (let i = 1; i < datosSesion.length; i++) {
+        if (String(datosSesion[i][2]).toUpperCase() !== 'CERRADO') continue;
+        const sesionId = datosSesion[i][0];
+        const fecha = datosSesion[i][1] instanceof Date
+          ? Utilities.formatDate(datosSesion[i][1], Session.getScriptTimeZone(), 'dd/MM/yyyy')
+          : String(datosSesion[i][1] || '');
+        const detalles = datosDetalle.slice(1)
+          .filter(function(fila) { return Number(fila[0]) === Number(sesionId); })
+          .map(function(fila) {
+            return {
+              nombre: String(fila[2] || ''),
+              valor: Number(fila[3]) || 0,
+              difCantidad: Number(fila[8]) || 0,
+              difDinero: Number(fila[9]) || 0
+            };
+          });
+        historial.push({
+          id: sesionId,
+          fecha: fecha,
+          difTotalDinero: Number(datosSesion[i][3]) || 0,
+          usuario: String(datosSesion[i][4] || ''),
+          detalles: detalles
+        });
+      }
+      historial.reverse();
+      return { success: true, historial: historial };
+    } catch (error) {
+      return { success: false, error: error.message, historial: [] };
+    }
   }
 };
 
@@ -407,4 +523,9 @@ function vaciosDiariosAbrir(token) {
 function vaciosDiariosGuardar(sesionId, detalles, esCierre, token) {
   if (!_validarTokenVales(token)) return { success: false, error: 'Acceso vencido. Ingresá nuevamente el PIN.' };
   return VaciosRepository.guardarProgreso(sesionId, detalles, esCierre);
+}
+
+function vaciosDiariosHistorial(token) {
+  if (!_validarTokenVales(token)) return { success: false, error: 'Acceso vencido. Ingresá nuevamente el PIN.' };
+  return VaciosRepository.obtenerHistorial();
 }

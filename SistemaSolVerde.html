@@ -4627,9 +4627,12 @@
 
       <!-- MODULO: VACIOS -->
       <div class="module-view" id="module-vacios">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem;">
           <h2 style="margin:0;">Control de Vacíos</h2>
-          <div id="vaciosStatusBadge" class="caja-estado-badge" style="display:none;"></div>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <div id="vaciosStatusBadge" class="caja-estado-badge" style="display:none;"></div>
+            <button type="button" class="btn btn-outline" onclick="abrirModal('modalHistorialVacios');cargarHistorialVacios();">📚 Ver Historial</button>
+          </div>
         </div>
 
         <div id="vaciosEmptyState" style="display:none;" class="card empty-state">
@@ -4679,19 +4682,25 @@
           <form id="formVales" onsubmit="registrarValeFisico(event)">
             <div class="grid grid-3">
               <div class="form-group">
-                <label class="form-label" for="valeNumero">Número de Vale *</label>
-                <input type="text" class="form-input" id="valeNumero" required maxlength="100" placeholder="Ej. V-001">
-              </div>
-              <div class="form-group">
                 <label class="form-label" for="valeTipo">Tipo de Movimiento *</label>
-                <select class="form-select" id="valeTipo" required>
+                <select class="form-select" id="valeTipo" onchange="resetValeCalculo()" required>
                   <option value="ENTREGADO">Entregado (Sale)</option>
                   <option value="RECIBIDO">Recibido (Entra)</option>
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label" for="valeMonto">Monto *</label>
-                <input type="number" class="form-input" id="valeMonto" required min="1" step="1" placeholder="0">
+                <label class="form-label" for="valeNumero">Número de Vale *</label>
+                <input type="text" class="form-input" id="valeNumero" onblur="verificarCruceVale()" required maxlength="100" placeholder="Ej. V-001">
+                <div id="hintValeRecibido" style="display:none;font-size:.75rem;color:var(--sv-info);margin-top:.3rem;"></div>
+              </div>
+            </div>
+            <div style="background:var(--sv-superficie-elevada);padding:1rem;border-radius:var(--sv-radius);margin-bottom:1rem;">
+              <p style="font-size:.85rem;font-weight:bold;margin-bottom:.5rem;">Calcular Monto por Envases</p>
+              <div id="contenedorEnvasesVale" class="grid grid-3"></div>
+              <div style="text-align:right;margin-top:1rem;border-top:1px solid var(--sv-borde);padding-top:.5rem;">
+                <span style="font-size:.85rem;color:var(--sv-texto-secundario);margin-right:1rem;">Monto Total Calculado:</span>
+                <span id="valeMontoCalculado" style="font-size:1.5rem;font-weight:bold;color:var(--sv-primario);">$0</span>
+                <input type="hidden" id="valeMontoReal" value="0">
               </div>
             </div>
             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">💾 Guardar Vale</button>
@@ -4699,13 +4708,45 @@
         </div>
 
         <div class="card">
-          <div class="card-title">Últimos 10 Vales Registrados</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem;">
+            <div class="card-title" style="margin:0;">Historial de Vales</div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+              <input type="text" id="filtroValeNum" class="form-input" style="width:150px;min-height:36px;" placeholder="Buscar N°..." aria-label="Filtrar número de vale">
+              <input type="date" id="filtroValeFecha" class="form-input" style="width:150px;min-height:36px;" aria-label="Filtrar fecha de vale">
+              <button type="button" class="btn btn-outline btn-sm" onclick="cargarValesFisicos()">🔍 Filtrar</button>
+            </div>
+          </div>
           <div class="table-container">
             <table class="table table-responsive-cards">
               <thead>
                 <tr><th>Fecha</th><th>Número</th><th>Tipo</th><th>Monto</th><th>Estado</th><th>Acción</th></tr>
               </thead>
               <tbody id="tbodyVales"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal" id="modalDetalleVale">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="modal-title">Detalle del Vale <span id="lblDetalleValeNum" style="color:var(--sv-primario);"></span></div>
+            <button class="modal-close" onclick="cerrarModal('modalDetalleVale')" aria-label="Cerrar">×</button>
+          </div>
+          <div id="contenedorDetalleValeContent"></div>
+        </div>
+      </div>
+
+      <div class="modal" id="modalHistorialVacios">
+        <div class="modal-content" style="max-width:700px;">
+          <div class="modal-header">
+            <div class="modal-title">Historial de Turnos de Vacíos</div>
+            <button class="modal-close" onclick="cerrarModal('modalHistorialVacios')" aria-label="Cerrar">×</button>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead><tr><th>Fecha</th><th>Diferencia Dinero</th><th>Usuario</th><th>Detalle</th></tr></thead>
+              <tbody id="tbodyHistorialVacios"></tbody>
             </table>
           </div>
         </div>
@@ -17206,6 +17247,8 @@ function renderEstadisticas(result) {
     // ============================================================================
     // VALES FÍSICOS
     // ============================================================================
+    var valesFisicosActuales = [];
+
     function _gestionarAccesoLogisticoVencido(resultado, modulo, recargar) {
       if (!resultado || resultado.success !== false || !/Acceso vencido/.test(resultado.error || '')) return false;
       PinLock.expirarTokenLogistico();
@@ -17218,16 +17261,26 @@ function renderEstadisticas(result) {
       var tbody = document.getElementById('tbodyVales');
       if (!tbody) return;
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Cargando vales...</td></tr>';
+      renderizarInputsEnvasesVale();
 
       if (!tbody._valesClickHandler) {
         tbody._valesClickHandler = function(event) {
-          var button = event.target.closest('[data-anular-vale]');
+          var button = event.target.closest('[data-anular-vale], [data-detalle-vale]');
           if (!button) return;
+          if (button.hasAttribute('data-detalle-vale')) {
+            mostrarDetalleVale(Number(button.getAttribute('data-detalle-vale')));
+            return;
+          }
           var fila = button.closest('tr');
           prepararAnulacionVale(button.getAttribute('data-anular-vale'), fila.cells[1].textContent);
         };
         tbody.addEventListener('click', tbody._valesClickHandler);
       }
+
+      var filtros = {
+        numero: document.getElementById('filtroValeNum').value.trim(),
+        fecha: document.getElementById('filtroValeFecha').value
+      };
 
       google.script.run
         .withSuccessHandler(function(resultado) {
@@ -17243,20 +17296,23 @@ function renderEstadisticas(result) {
           document.getElementById('valesRecibidos').textContent = formatearMonto(Number(balance.recibidos) || 0);
           document.getElementById('valesNeto').textContent = formatearMonto(Number(balance.neto) || 0);
 
-          var vales = Array.isArray(resultado.vales) ? resultado.vales : [];
-          if (vales.length === 0) {
+          valesFisicosActuales = Array.isArray(resultado.vales) ? resultado.vales : [];
+          if (valesFisicosActuales.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--sv-texto-muted);">No hay vales registrados</td></tr>';
             return;
           }
 
-          tbody.innerHTML = vales.map(function(vale) {
+          tbody.innerHTML = valesFisicosActuales.map(function(vale, index) {
             var anulado = vale.estado === 'ANULADO';
             var tipo = vale.tipo === 'ENTREGADO' ? 'ENTREGADO' : 'RECIBIDO';
             var colorTipo = tipo === 'ENTREGADO' ? 'var(--sv-info)' : 'var(--sv-advertencia)';
-            var accion = anulado
-              ? '<span style="font-size:0.75rem;color:var(--sv-peligro);">' + escapeHtml(vale.motivo || 'Anulado') + '</span>'
-              : '<button type="button" class="btn btn-sm btn-outline" data-anular-vale="' +
+            var accion = '<button type="button" class="btn btn-sm btn-outline" data-detalle-vale="' + index + '" title="Ver detalle del vale">Detalle</button>';
+            if (!anulado) {
+              accion += ' <button type="button" class="btn btn-sm btn-outline" data-anular-vale="' +
                 encodeURIComponent(String(vale.id)) + '" style="color:var(--sv-peligro);border-color:var(--sv-peligro);" title="Anular vale">Anular</button>';
+            } else {
+              accion += '<br><span style="font-size:.75rem;color:var(--sv-peligro);">' + escapeHtml(vale.motivo || 'Anulado') + '</span>';
+            }
             return '<tr style="' + (anulado ? 'opacity:0.6;text-decoration:line-through;' : '') + '">' +
               '<td>' + escapeHtml(vale.fecha || '') + '</td>' +
               '<td style="font-weight:bold;">' + escapeHtml(vale.numero || '') + '</td>' +
@@ -17271,7 +17327,145 @@ function renderEstadisticas(result) {
           tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--sv-peligro);">' +
             escapeHtml(error && error.message ? error.message : 'Error de comunicación') + '</td></tr>';
         })
-        .valesFisicosObtener(PinLock.obtenerTokenLogistico());
+        .valesFisicosObtener(PinLock.obtenerTokenLogistico(), filtros);
+    }
+
+    function renderizarInputsEnvasesVale() {
+      var container = document.getElementById('contenedorEnvasesVale');
+      if (!container) return;
+      if (!window.configSistema) {
+        container.innerHTML = '<p style="grid-column:1/-1;color:var(--sv-texto-muted);">Cargando configuración de envases...</p>';
+        google.script.run
+          .withSuccessHandler(function(resultado) {
+            if (!resultado || !resultado.success) {
+              container.innerHTML = '<p style="grid-column:1/-1;color:var(--sv-peligro);">No se pudo cargar la configuración de envases.</p>';
+              return;
+            }
+            window.configSistema = resultado.config;
+            renderizarInputsEnvasesVale();
+          })
+          .withFailureHandler(function(error) {
+            container.innerHTML = '<p style="grid-column:1/-1;color:var(--sv-peligro);">' +
+              escapeHtml(error && error.message ? error.message : 'Error al cargar la configuración') + '</p>';
+          })
+          .obtenerConfiguracionCompleta();
+        return;
+      }
+      var config = window.configSistema;
+      var envases = Array.isArray(config.envasesVacios) ? config.envasesVacios : [];
+      if (envases.length === 0) {
+        container.innerHTML = '<p style="grid-column:1/-1;color:var(--sv-texto-muted);">No hay envases configurados. Configúralos en el módulo de Configuración.</p>';
+        calcularMontoVale();
+        return;
+      }
+
+      container.innerHTML = envases.map(function(envase) {
+        var id = escaparAtributoHTML(String(envase.id));
+        var nombre = String(envase.nombre || '');
+        var nombreTexto = escapeHtml(nombre);
+        var nombreAtributo = escaparAtributoHTML(nombre);
+        var valor = Number(envase.valor) || 0;
+        return '<div style="background:var(--sv-superficie);border:1px solid var(--sv-borde);padding:.5rem;border-radius:4px;">' +
+          '<label style="font-size:.75rem;color:var(--sv-texto-secundario);display:block;margin-bottom:.3rem;">' +
+            nombreTexto + ' (' + formatearMonto(valor) + ')' +
+          '</label>' +
+          '<input type="number" class="form-input env-vale-input" data-id="' + id + '" data-nombre="' + nombreAtributo + '" data-valor="' + valor + '" data-valor-config="' + valor + '" min="0" step="1" value="0" aria-label="Cantidad de ' + nombreAtributo + '" oninput="calcularMontoVale()">' +
+        '</div>';
+      }).join('');
+      calcularMontoVale();
+    }
+
+    function calcularMontoVale() {
+      var total = 0;
+      document.querySelectorAll('#contenedorEnvasesVale .env-vale-input').forEach(function(input) {
+        total += (Number(input.value) || 0) * (Number(input.getAttribute('data-valor')) || 0);
+      });
+      document.getElementById('valeMontoCalculado').textContent = formatearMonto(total);
+      document.getElementById('valeMontoReal').value = total;
+      var submit = document.querySelector('#formVales button[type="submit"]');
+      if (submit) submit.disabled = total <= 0 || !document.querySelector('#contenedorEnvasesVale .env-vale-input');
+    }
+
+    function resetValeCalculo() {
+      document.querySelectorAll('#contenedorEnvasesVale .env-vale-input').forEach(function(input) {
+        input.value = '0';
+        input.setAttribute('data-valor', input.getAttribute('data-valor-config') || '0');
+      });
+      var hint = document.getElementById('hintValeRecibido');
+      hint.style.display = 'none';
+      hint.textContent = '';
+      calcularMontoVale();
+    }
+
+    function verificarCruceVale() {
+      var tipo = document.getElementById('valeTipo').value;
+      var numero = document.getElementById('valeNumero').value.trim();
+      var hint = document.getElementById('hintValeRecibido');
+      if (tipo !== 'RECIBIDO' || !numero) {
+        hint.style.display = 'none';
+        return;
+      }
+      hint.style.display = 'block';
+      hint.style.color = 'var(--sv-info)';
+      hint.textContent = 'Buscando vale entregado...';
+      var numeroBuscado = numero.toUpperCase();
+      google.script.run
+        .withSuccessHandler(function(resultado) {
+          if (document.getElementById('valeTipo').value !== 'RECIBIDO' || document.getElementById('valeNumero').value.trim().toUpperCase() !== numeroBuscado) return;
+          if (_gestionarAccesoLogisticoVencido(resultado, 'vales', function() { verificarCruceVale(); })) return;
+          if (!resultado || !resultado.success) {
+            hint.style.color = 'var(--sv-peligro)';
+            hint.textContent = resultado && resultado.error ? resultado.error : 'No se pudo buscar el vale.';
+            return;
+          }
+          if (!resultado.vale) {
+            hint.style.color = 'var(--sv-advertencia)';
+            hint.textContent = 'No se encontró un vale ENTREGADO activo con ese número.';
+            return;
+          }
+
+          var detalle = Array.isArray(resultado.vale.detalle) ? resultado.vale.detalle : [];
+          if (!detalle.length) {
+            hint.style.color = 'var(--sv-advertencia)';
+            hint.textContent = 'Vale original encontrado, pero es antiguo y no tiene desglose de envases.';
+            return;
+          }
+          resetValeCalculo();
+          detalle.forEach(function(item) {
+            var input = Array.from(document.querySelectorAll('#contenedorEnvasesVale .env-vale-input'))
+              .find(function(candidato) { return candidato.getAttribute('data-id') === String(item.envaseId); });
+            if (!input) return;
+            input.value = Number(item.cantidad) || 0;
+            input.setAttribute('data-valor', Number(item.valor) || 0);
+          });
+          calcularMontoVale();
+          hint.style.color = 'var(--sv-exito)';
+          hint.textContent = 'Vale entregado encontrado. Se cargó el detalle y el precio original.';
+        })
+        .withFailureHandler(function(error) {
+          hint.style.color = 'var(--sv-peligro)';
+          hint.textContent = 'Error de búsqueda: ' + (error && error.message ? error.message : 'Error de comunicación');
+        })
+        .valesFisicosBuscarNumero(numero, PinLock.obtenerTokenLogistico());
+    }
+
+    function mostrarDetalleVale(index) {
+      var vale = valesFisicosActuales[index];
+      if (!vale) return;
+      document.getElementById('lblDetalleValeNum').textContent = vale.numero || '';
+      var detalle = Array.isArray(vale.detalle) ? vale.detalle : [];
+      var container = document.getElementById('contenedorDetalleValeContent');
+      if (!detalle.length) {
+        container.innerHTML = '<p style="color:var(--sv-texto-muted);">Este vale no tiene desglose de envases.</p>';
+      } else {
+        var filas = detalle.map(function(item) {
+          var cantidad = Number(item.cantidad) || 0;
+          var valor = Number(item.valor) || 0;
+          return '<tr><td>' + escapeHtml(item.nombre || '') + '</td><td>' + cantidad + '</td><td>' + formatearMonto(cantidad * valor) + '</td></tr>';
+        }).join('');
+        container.innerHTML = '<div class="table-container"><table class="table"><thead><tr><th>Envase</th><th>Cantidad</th><th>Subtotal</th></tr></thead><tbody>' + filas + '</tbody></table></div>';
+      }
+      abrirModal('modalDetalleVale');
     }
 
     function registrarValeFisico(event) {
@@ -17285,7 +17479,17 @@ function renderEstadisticas(result) {
       var data = {
         numero: document.getElementById('valeNumero').value,
         tipo: document.getElementById('valeTipo').value,
-        monto: document.getElementById('valeMonto').value
+        monto: document.getElementById('valeMontoReal').value,
+        detalle: Array.from(document.querySelectorAll('#contenedorEnvasesVale .env-vale-input'))
+          .filter(function(input) { return Number(input.value) > 0; })
+          .map(function(input) {
+            return {
+              envaseId: input.getAttribute('data-id'),
+              nombre: input.getAttribute('data-nombre'),
+              valor: Number(input.getAttribute('data-valor')),
+              cantidad: Number(input.value)
+            };
+          })
       };
 
       google.script.run
@@ -17298,6 +17502,7 @@ function renderEstadisticas(result) {
             return;
           }
           form.reset();
+          resetValeCalculo();
           mostrarToast('Vale registrado correctamente', 'success');
           cargarValesFisicos();
         })
@@ -17652,6 +17857,61 @@ function renderEstadisticas(result) {
           mostrarToast('Error: ' + (error && error.message ? error.message : 'Error de comunicación'), 'error');
         })
         .vaciosDiariosGuardar(sesionId, detalles, esCierre, PinLock.obtenerTokenLogistico());
+    }
+
+    function cargarHistorialVacios() {
+      var tbody = document.getElementById('tbodyHistorialVacios');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Cargando historial...</td></tr>';
+      if (!tbody._historialVaciosHandler) {
+        tbody._historialVaciosHandler = function(event) {
+          var boton = event.target.closest('[data-detalle-vacios]');
+          if (!boton) return;
+          var detalle = document.getElementById('detalle-vacios-' + boton.getAttribute('data-detalle-vacios'));
+          if (!detalle) return;
+          var visible = detalle.style.display !== 'none';
+          detalle.style.display = visible ? 'none' : 'table-row';
+          boton.textContent = visible ? 'Ver detalle' : 'Ocultar';
+        };
+        tbody.addEventListener('click', tbody._historialVaciosHandler);
+      }
+
+      google.script.run
+        .withSuccessHandler(function(resultado) {
+          if (_gestionarAccesoLogisticoVencido(resultado, 'vacios', function() { cargarHistorialVacios(); })) return;
+          if (!resultado || !resultado.success) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--sv-peligro);">' +
+              escapeHtml(resultado && resultado.error ? resultado.error : 'No se pudo cargar el historial') + '</td></tr>';
+            return;
+          }
+          var historial = Array.isArray(resultado.historial) ? resultado.historial : [];
+          if (!historial.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--sv-texto-muted);">No hay cierres registrados</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = historial.map(function(turno, index) {
+            var filasDetalle = (Array.isArray(turno.detalles) ? turno.detalles : []).map(function(detalle) {
+              return '<div style="display:flex;justify-content:space-between;gap:.5rem;padding:.2rem 0;">' +
+                '<span>' + escapeHtml(detalle.nombre || '') + ': ' + (Number(detalle.difCantidad) || 0) + ' u.</span>' +
+                '<span>' + formatearMonto(Number(detalle.difDinero) || 0) + '</span></div>';
+            }).join('');
+            return '<tr>' +
+              '<td style="font-weight:bold;">' + escapeHtml(turno.fecha || '') + '</td>' +
+              '<td style="font-weight:bold;color:' + (Number(turno.difTotalDinero) < 0 ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';">' +
+                formatearMonto(Number(turno.difTotalDinero) || 0) + '</td>' +
+              '<td style="font-size:.8rem;">' + escapeHtml(turno.usuario || '') + '</td>' +
+              '<td><button type="button" class="btn btn-sm btn-outline" data-detalle-vacios="' + index + '">Ver detalle</button></td>' +
+              '</tr><tr id="detalle-vacios-' + index + '" style="display:none;"><td colspan="4"><div style="padding:.5rem;background:var(--sv-superficie-elevada);">' +
+                (filasDetalle || '<span style="color:var(--sv-texto-muted);">Sin detalle.</span>') +
+              '</div></td></tr>';
+          }).join('');
+        })
+        .withFailureHandler(function(error) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--sv-peligro);">' +
+            escapeHtml(error && error.message ? error.message : 'Error de comunicación') + '</td></tr>';
+        })
+        .vaciosDiariosHistorial(PinLock.obtenerTokenLogistico());
     }
 
   </script>
