@@ -787,11 +787,18 @@ function buscarCliente(termino) {
 }
 
 /**
- * Obtiene el historial completo de un cliente
+ * Obtiene el historial de un cliente, por tramos.
+ *
+ * Sin opciones usa el limite configurado en Configuracion
+ * (VISOR_MOVS_DEFAULT, 20 por defecto). Antes devolvia SIEMPRE todos los
+ * movimientos y el navegador descartaba el resto: con un cliente de miles de
+ * filas se transferia todo para mostrar 30.
+ *
  * @param {string} nombre - Nombre del cliente
- * @returns {Object} {cliente, movimientos}
+ * @param {Object} [opciones] - {limite, offset}. limite 0 = todos
+ * @returns {Object} {cliente, movimientos, total, offset, limite, hayMas, ultimoPago, ultimoFiado}
  */
-function obtenerHistorialCliente(nombre) {
+function obtenerHistorialCliente(nombre, opciones) {
   try {
     const cliente = ClientesRepository.buscarPorNombre(nombre);
     if (!cliente) {
@@ -801,12 +808,29 @@ function obtenerHistorialCliente(nombre) {
       };
     }
 
-    const movimientos = MovimientosRepository.obtenerPorCliente(nombre);
+    opciones = opciones || {};
+    const limiteConfigurado = CONFIG.getVisor().MOVS_DEFAULT;
+
+    let limite = (opciones.limite === undefined || opciones.limite === null || opciones.limite === '')
+      ? limiteConfigurado
+      : parseInt(opciones.limite, 10);
+    if (isNaN(limite) || limite < 0) limite = limiteConfigurado;
+
+    let offset = parseInt(opciones.offset, 10);
+    if (isNaN(offset) || offset < 0) offset = 0;
+
+    const pagina = MovimientosRepository.obtenerPorClientePaginado(nombre, limite, offset);
 
     return {
       success: true,
       cliente: serializarParaWeb(cliente),
-      movimientos: serializarParaWeb(movimientos)
+      movimientos: serializarParaWeb(pagina.movimientos),
+      total: pagina.total,
+      offset: pagina.offset,
+      limite: pagina.limite,
+      hayMas: pagina.hayMas,
+      ultimoPago: pagina.ultimoPago,
+      ultimoFiado: pagina.ultimoFiado
     };
   } catch (error) {
     Logger.log('Error en obtenerHistorialCliente: ' + error.message);
@@ -1446,6 +1470,9 @@ function obtenerConfiguracionCompleta() {
       // Paginación
       paginaTamano: parseInt(props.getProperty('PAGINATION_DEFAULT_SIZE') || CONFIG.PAGINATION.DEFAULT_PAGE_SIZE),
       paginaTamanoMax: parseInt(props.getProperty('PAGINATION_MAX_SIZE') || CONFIG.PAGINATION.MAX_PAGE_SIZE),
+
+      // Limites de visualizacion (0 = todos)
+      visorMovsDefault: CONFIG.getVisor().MOVS_DEFAULT,
       
       // IVA
       ivaPorcentaje: parseFloat(props.getProperty('IVA_PORCENTAJE') || '10.5'),
@@ -1554,7 +1581,16 @@ function guardarConfiguracionGeneral(config) {
       }
       props.setProperty('PAGINATION_MAX_SIZE', tamanoMax.toString());
     }
-    
+
+    // Limites de visualizacion: 0 = mostrar todos
+    if (config.visorMovsDefault !== undefined) {
+      const visorMovs = parseInt(config.visorMovsDefault);
+      if (isNaN(visorMovs) || visorMovs < 0 || visorMovs > 100000) {
+        throw new Error('Movimientos del Visor inválido (0 = todos, máximo 100000)');
+      }
+      props.setProperty('VISOR_MOVS_DEFAULT', visorMovs.toString());
+    }
+
     // IVA
     if (config.ivaPorcentaje !== undefined) {
       const iva = parseFloat(config.ivaPorcentaje);

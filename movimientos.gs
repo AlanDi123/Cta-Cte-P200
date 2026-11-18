@@ -280,6 +280,56 @@ const MovimientosRepository = {
   },
 
   /**
+   * Obtiene un tramo de los movimientos de un cliente, sin transferir el resto.
+   * Reutiliza obtenerPorCliente (que ya cachea en RequestCache y ordena por ID
+   * descendente), de modo que pedir varios tramos en la misma ejecucion no
+   * vuelve a leer la hoja.
+   *
+   * El resumen (ultimoPago / ultimoFiado) se calcula sobre la lista COMPLETA,
+   * no sobre el tramo devuelto: de lo contrario, un cliente cuyo ultimo pago
+   * sea mas viejo que el tramo visible mostraria "-" de forma incorrecta.
+   *
+   * @param {string} nombreCliente - Nombre del cliente
+   * @param {number} limite - Cantidad a devolver. 0 = todos
+   * @param {number} offset - Desde que posicion (0 = el mas reciente)
+   * @returns {Object} {movimientos, total, offset, limite, hayMas, ultimoPago, ultimoFiado}
+   */
+  obtenerPorClientePaginado: function(nombreCliente, limite, offset) {
+    const todos = this.obtenerPorCliente(nombreCliente);
+    const total = todos.length;
+
+    let desde = parseInt(offset, 10);
+    if (isNaN(desde) || desde < 0) desde = 0;
+
+    let cantidad = parseInt(limite, 10);
+    if (isNaN(cantidad) || cantidad < 0) cantidad = 0; // 0 = todos
+
+    const pagina = (cantidad === 0)
+      ? todos.slice(desde)
+      : todos.slice(desde, desde + cantidad);
+
+    // Resumen sobre la lista completa (viene ordenada del mas reciente al mas viejo)
+    let ultimoPago = null;
+    let ultimoFiado = null;
+    for (let i = 0; i < total; i++) {
+      const tipo = todos[i].tipo;
+      if (!ultimoPago && tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) ultimoPago = todos[i].fecha;
+      if (!ultimoFiado && tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) ultimoFiado = todos[i].fecha;
+      if (ultimoPago && ultimoFiado) break;
+    }
+
+    return {
+      movimientos: pagina,
+      total: total,
+      offset: desde,
+      limite: cantidad,
+      hayMas: (desde + pagina.length) < total,
+      ultimoPago: ultimoPago,
+      ultimoFiado: ultimoFiado
+    };
+  },
+
+  /**
    * Obtiene movimientos por rango de fechas
    * @param {Date|string} desde - Fecha inicio
    * @param {Date|string} hasta - Fecha fin

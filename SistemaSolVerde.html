@@ -2965,7 +2965,18 @@
 
           <div class="card">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
-              <div class="card-title" style="margin:0;">Últimos 30 movimientos de <span id="visorClienteNombre"></span></div>
+              <div class="card-title" style="margin:0;">Movimientos de <span id="visorClienteNombre"></span></div>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <label class="form-label" for="visorLimite" style="margin:0;font-size:0.85rem;white-space:nowrap;">Mostrar</label>
+                <select class="form-input" id="visorLimite" style="width:auto;min-width:6.5rem;padding:0.4rem 0.6rem;" onchange="cambiarLimiteVisor(this.value)" aria-label="Cantidad de movimientos a mostrar">
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                  <option value="500">500</option>
+                  <option value="0">Todos</option>
+                </select>
+              </div>
             </div>
             <div class="table-container" style="margin-top:0.75rem;">
               <table class="table table-responsive-cards">
@@ -2980,6 +2991,10 @@
                 </thead>
                 <tbody id="visorHistorial"></tbody>
               </table>
+            </div>
+            <div id="visorPie" class="no-print" style="display:none;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-top:0.75rem;">
+              <span id="visorConteo" style="font-size:0.85rem;color:var(--sv-texto-secundario);"></span>
+              <button type="button" class="btn btn-outline btn-sm" id="btnVisorCargarMas" onclick="cargarMasMovimientosVisor()" style="display:none;">Cargar más</button>
             </div>
           </div>
         </div>
@@ -3930,6 +3945,15 @@
                 <div class="form-group">
                   <label class="form-label">Tamaño Máximo de Página</label>
                   <input type="number" class="form-input" id="inputPaginaTamanoMax" placeholder="100" min="1" max="500">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Movimientos en el Visor de Cliente</label>
+                  <input type="number" class="form-input" id="inputVisorMovsDefault" placeholder="20" min="0" max="100000">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Cuántos movimientos muestra el Visor al abrir un cliente. Escribí <strong>0</strong> para mostrar todos.
+                    Desde el propio Visor podés cambiarlo en cualquier momento sin tocar esto.
+                  </p>
                 </div>
               </div>
 
@@ -6485,6 +6509,15 @@
         buscarClienteAutocomplete(this.value, 'visorSugerencias', true);
       }, 200));
 
+      // Selector de cantidad del Visor: refleja lo elegido la vez anterior.
+      // Si no hay nada recordado, queda el valor de Configuracion, que llega
+      // con la primera respuesta del servidor.
+      const selectorVisor = document.getElementById('visorLimite');
+      const limiteRecordado = visorLimiteGuardado();
+      if (selectorVisor && limiteRecordado !== null) {
+        sincronizarSelectorVisor(limiteRecordado, false);
+      }
+
       // Autocomplete transferencia cliente - permite nombres libres
       const inputTransfCliente = document.getElementById('transfCliente');
       if (inputTransfCliente) {
@@ -8033,55 +8066,166 @@
     // ============================================================================
     // VISOR DE CLIENTE
     // ============================================================================
-    function cargarHistorialCliente(nombre) {
+    // Clave del limite elegido por el usuario en este navegador.
+    const VISOR_LIMITE_KEY = 'sv_visor_limite';
+
+    /** Limite guardado en este navegador, o null si no hay ninguno. */
+    function visorLimiteGuardado() {
+      try {
+        const crudo = localStorage.getItem(VISOR_LIMITE_KEY);
+        if (crudo === null || crudo === '') return null;
+        const valor = parseInt(crudo, 10);
+        return (isNaN(valor) || valor < 0) ? null : valor;
+      } catch (e) {
+        return null; // localStorage bloqueado: se usa el valor de Configuracion
+      }
+    }
+
+    /** Recuerda el limite elegido. Nunca interrumpe si el storage falla. */
+    function visorGuardarLimite(valor) {
+      try {
+        localStorage.setItem(VISOR_LIMITE_KEY, String(valor));
+      } catch (e) {}
+    }
+
+    /**
+     * Carga un tramo del historial del cliente.
+     * @param {string} nombre
+     * @param {Object} [opciones] - {limite, offset, append}
+     */
+    function cargarHistorialCliente(nombre, opciones) {
+      opciones = opciones || {};
+      const append = opciones.append === true;
+
+      // Si no se pide un limite explicito: el recordado en este navegador y,
+      // si no hay, el que decida Configuracion en el servidor.
+      let limite = opciones.limite;
+      if (limite === undefined || limite === null) {
+        limite = visorLimiteGuardado();
+      }
+
       mostrarLoading(true);
-      document.getElementById('visorResultado').style.display = 'none';
       const btnImpr = document.getElementById('btnImprimirVisor');
-      if (btnImpr) btnImpr.style.display = 'none';
+      if (!append) {
+        document.getElementById('visorResultado').style.display = 'none';
+        if (btnImpr) btnImpr.style.display = 'none';
+      }
 
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
-            const c = result.cliente;
-            // Guardar en Estado para que imprimirVisorCliente() lo use
-            Estado._visorClienteActual = { cliente: c, movimientos: result.movimientos };
-
-            document.getElementById('visorSaldo').textContent = formatearMonto(c.saldo);
-            document.getElementById('visorMovs').textContent = c.totalMovs || result.movimientos.length;
-            document.getElementById('visorClienteNombre').textContent = escapeHtml(c.nombre);
-
-            // Calcular último pago y último fiado desde el historial
-            const movs = result.movimientos || [];
-            const ultimoPago  = movs.find(function(m) { return m.tipo === 'HABER'; });
-            const ultimoFiado = movs.find(function(m) { return m.tipo === 'DEBE'; });
-            document.getElementById('visorUltimoPago').textContent  = ultimoPago  ? formatearFecha(ultimoPago.fecha)  : '-';
-            document.getElementById('visorUltimoFiado').textContent = ultimoFiado ? formatearFecha(ultimoFiado.fecha) : '-';
-
-            // Solo los últimos 30 movimientos (vienen ordenados desc por ID)
-            const ultimosMovs = movs.slice(0, 30);
-            document.getElementById('visorHistorial').innerHTML = ultimosMovs.map(function(m) {
-              const esDebe = m.tipo === 'DEBE';
-              return '<tr>' +
-                '<td data-label="Fecha">' + formatearFecha(m.fecha) + '</td>' +
-                '<td data-label="Tipo"><span class="tag tag-' + m.tipo.toLowerCase() + '">' + (esDebe ? 'FIADO' : 'PAGO') + '</span></td>' +
-                '<td data-label="Monto" style="color:' + (esDebe ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';font-weight:bold;">' + formatearMonto(m.monto) + '</td>' +
-                '<td data-label="Saldo">' + formatearMonto(m.saldoPost) + '</td>' +
-                '<td data-label="Obs">' + (escapeHtml(m.obs) || '-') + '</td>' +
-              '</tr>';
-            }).join('');
-
-            document.getElementById('visorResultado').style.display = 'block';
-            if (btnImpr) btnImpr.style.display = '';
-          } else {
-            mostrarToast(result.error, 'error');
+          if (!result || !result.success) {
+            mostrarToast((result && result.error) || 'No se pudo cargar el historial', 'error');
+            return;
           }
+          renderVisorCliente(nombre, result, append);
+          document.getElementById('visorResultado').style.display = 'block';
+          if (btnImpr) btnImpr.style.display = '';
         })
         .withFailureHandler(function(error) {
           mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
         })
-        .obtenerHistorialCliente(nombre);
+        .obtenerHistorialCliente(nombre, {
+          limite: (limite === undefined || limite === null) ? null : limite,
+          offset: opciones.offset || 0
+        });
+    }
+
+    /** Pinta el Visor. Con append=true suma el tramo nuevo al ya mostrado. */
+    function renderVisorCliente(nombre, result, append) {
+      const c = result.cliente;
+      const tramo = result.movimientos || [];
+      let estado = Estado._visorClienteActual;
+
+      if (append && estado && estado.nombre === nombre) {
+        estado.movimientos = estado.movimientos.concat(tramo);
+      } else {
+        estado = { nombre: nombre, movimientos: tramo };
+      }
+      estado.cliente = c;
+      estado.total   = (result.total === undefined || result.total === null) ? estado.movimientos.length : result.total;
+      estado.limite  = result.limite;
+      estado.hayMas  = result.hayMas === true;
+      Estado._visorClienteActual = estado;
+
+      const movs = estado.movimientos;
+
+      document.getElementById('visorSaldo').textContent = formatearMonto(c.saldo);
+      document.getElementById('visorMovs').textContent  = estado.total;
+      document.getElementById('visorClienteNombre').textContent = c.nombre;
+
+      // El ultimo pago y el ultimo fiado los calcula el servidor sobre el
+      // historial COMPLETO: si se calcularan sobre el tramo visible, un cliente
+      // cuyo ultimo pago fuera mas viejo que el tramo mostraria "-".
+      document.getElementById('visorUltimoPago').textContent  = result.ultimoPago  ? formatearFecha(result.ultimoPago)  : '-';
+      document.getElementById('visorUltimoFiado').textContent = result.ultimoFiado ? formatearFecha(result.ultimoFiado) : '-';
+
+      document.getElementById('visorHistorial').innerHTML = movs.map(function(m) {
+        const esDebe = m.tipo === 'DEBE';
+        return '<tr>' +
+          '<td data-label="Fecha">' + formatearFecha(m.fecha) + '</td>' +
+          '<td data-label="Tipo"><span class="tag tag-' + String(m.tipo || '').toLowerCase() + '">' + (esDebe ? 'FIADO' : 'PAGO') + '</span></td>' +
+          '<td data-label="Monto" style="color:' + (esDebe ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';font-weight:bold;">' + formatearMonto(m.monto) + '</td>' +
+          '<td data-label="Saldo">' + formatearMonto(m.saldoPost) + '</td>' +
+          '<td data-label="Obs">' + (escapeHtml(m.obs) || '-') + '</td>' +
+        '</tr>';
+      }).join('');
+
+      sincronizarSelectorVisor(result.limite, append);
+
+      const pie    = document.getElementById('visorPie');
+      const conteo = document.getElementById('visorConteo');
+      const btnMas = document.getElementById('btnVisorCargarMas');
+      if (conteo) {
+        conteo.textContent = (movs.length >= estado.total)
+          ? ('Mostrando los ' + estado.total.toLocaleString('es-AR') + ' movimientos')
+          : ('Mostrando ' + movs.length.toLocaleString('es-AR') + ' de ' + estado.total.toLocaleString('es-AR') + ' movimientos');
+      }
+      if (btnMas) btnMas.style.display = estado.hayMas ? '' : 'none';
+      if (pie) pie.style.display = movs.length > 0 ? 'flex' : 'none';
+    }
+
+    /**
+     * Deja el selector mostrando el limite que realmente se aplico.
+     * Si Configuracion define un valor que no esta entre las opciones
+     * (por ejemplo 35), lo agrega para no mentirle al usuario.
+     */
+    function sincronizarSelectorVisor(limite, append) {
+      if (append || limite === undefined || limite === null) return;
+      const selector = document.getElementById('visorLimite');
+      if (!selector) return;
+      const valor = String(limite);
+      const existe = Array.prototype.some.call(selector.options, function(o) { return o.value === valor; });
+      if (!existe) {
+        const opcion = document.createElement('option');
+        opcion.value = valor;
+        opcion.textContent = valor === '0' ? 'Todos' : valor;
+        selector.appendChild(opcion);
+      }
+      selector.value = valor;
+    }
+
+    /** El usuario cambio la cantidad a mostrar: se recarga desde el principio. */
+    function cambiarLimiteVisor(valor) {
+      let limite = parseInt(valor, 10);
+      if (isNaN(limite) || limite < 0) limite = 0;
+      visorGuardarLimite(limite);
+      const actual = Estado._visorClienteActual;
+      if (actual && actual.nombre) {
+        cargarHistorialCliente(actual.nombre, { limite: limite, offset: 0 });
+      }
+    }
+
+    /** Trae el tramo siguiente y lo agrega debajo, sin recargar lo ya visible. */
+    function cargarMasMovimientosVisor() {
+      const actual = Estado._visorClienteActual;
+      if (!actual || !actual.nombre || !actual.hayMas) return;
+      cargarHistorialCliente(actual.nombre, {
+        limite: actual.limite,
+        offset: actual.movimientos.length,
+        append: true
+      });
     }
 
     // ============================================================================
@@ -8226,7 +8370,10 @@
         return;
       }
       const c    = datos.cliente;
-      const movs = (datos.movimientos || []).slice(0, 30);
+      // Se imprime exactamente el tramo que el usuario eligio ver, no un
+      // recorte fijo a 30 filas hecho a sus espaldas.
+      const movs = datos.movimientos || [];
+      const totalMovs = (datos.total === undefined || datos.total === null) ? movs.length : datos.total;
       const hoy  = formatearFecha(obtenerFechaLocal());
 
       const ultimoPago  = movs.find(function(m) { return m.tipo === 'HABER'; });
@@ -8283,7 +8430,11 @@
               '</tr>' +
             '</table>' +
           '</div>' +
-          '<div style="font-size:9.5pt;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:4px;">Últimos 30 movimientos</div>' +
+          '<div style="font-size:9.5pt;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:4px;">' +
+            (movs.length >= totalMovs
+              ? ('Movimientos (' + totalMovs + ')')
+              : ('Últimos ' + movs.length + ' movimientos <span style="font-weight:normal;font-size:8pt;color:#666;">de ' + totalMovs + ' en total</span>')) +
+          '</div>' +
           '<table style="width:100%;border-collapse:collapse;">' +
             '<thead>' +
               '<tr style="background:#2E7D32;color:#fff;">' +
@@ -13799,6 +13950,9 @@ function renderEstadisticas(result) {
             // Paginación
             document.getElementById('inputPaginaTamano').value = config.paginaTamano || '';
             document.getElementById('inputPaginaTamanoMax').value = config.paginaTamanoMax || '';
+            // Ojo: 0 es un valor valido ("mostrar todos"), asi que no sirve "|| ''"
+            document.getElementById('inputVisorMovsDefault').value =
+              (config.visorMovsDefault === undefined || config.visorMovsDefault === null) ? '' : config.visorMovsDefault;
             
             // IVA
             document.getElementById('inputIvaPorcentaje').value = config.ivaPorcentaje || '';
@@ -13882,6 +14036,20 @@ function renderEstadisticas(result) {
     /**
      * Guarda la configuración general del sistema
      */
+    /**
+     * Lee el campo "Movimientos en el Visor" respetando el 0.
+     * Con el patron habitual (parseInt(...) || 20) un 0 escrito a proposito
+     * —que significa "mostrar todos"— se convertiria silenciosamente en 20.
+     * @returns {number} Cantidad valida, o 20 si el campo esta vacio o es basura
+     */
+    function _visorMovsDefaultDesdeInput() {
+      const campo = document.getElementById('inputVisorMovsDefault');
+      if (!campo) return 20;
+      const valor = parseInt(campo.value, 10);
+      if (isNaN(valor) || valor < 0 || valor > 100000) return 20;
+      return valor;
+    }
+
     function guardarConfiguracionGeneral() {
       const config = {
         nombreSistema: document.getElementById('inputNombreSistema').value.trim(),
@@ -13891,6 +14059,7 @@ function renderEstadisticas(result) {
         saldoInicial: parseFloat(document.getElementById('inputSaldoInicial').value) || 0,
         paginaTamano: parseInt(document.getElementById('inputPaginaTamano').value) || 50,
         paginaTamanoMax: parseInt(document.getElementById('inputPaginaTamanoMax').value) || 100,
+        visorMovsDefault: _visorMovsDefaultDesdeInput(),
         ivaPorcentaje: parseFloat(document.getElementById('inputIvaPorcentaje').value) || 10.5,
         ivaAlicuotaId: parseInt(document.getElementById('inputIvaAlicuotaId').value) || 4,
         claudeModel: document.getElementById('inputClaudeModel').value.trim(),

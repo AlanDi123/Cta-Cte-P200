@@ -194,6 +194,16 @@ var CONFIG = {
     MAX_PAGE_SIZE: 100
   },
 
+  // Limites de visualizacion (editables desde Configuracion)
+  // 0 = sin limite (mostrar todos)
+  VISOR: {
+    MOVS_DEFAULT: 20,                            // Movimientos que muestra el Visor de Cliente al abrir
+    MOVS_OPCIONES: [20, 50, 100, 200, 500, 0],   // Opciones del selector del Visor (0 = Todos)
+    MOVS_TABLA: 25,                              // Filas por pagina en el listado de Movimientos
+    CLIENTES_TABLA: 50,                          // Filas por pagina en Gestion de Clientes
+    AUTOCOMPLETE: 8                              // Sugerencias mostradas en los autocompletados
+  },
+
   // Valores por defecto
   DEFAULTS: {
     LIMITE_CREDITO: 100000,
@@ -301,6 +311,28 @@ var CONFIG = {
     return {
       DEFAULT_PAGE_SIZE: parseInt(this.get('PAGINATION_DEFAULT_SIZE', this.PAGINATION.DEFAULT_PAGE_SIZE)),
       MAX_PAGE_SIZE: parseInt(this.get('PAGINATION_MAX_SIZE', this.PAGINATION.MAX_PAGE_SIZE))
+    };
+  },
+
+  /**
+   * Obtiene los limites de visualizacion configurables.
+   * Cualquier valor invalido cae al valor por defecto, nunca a NaN.
+   * MOVS_DEFAULT = 0 significa "mostrar todos".
+   * @returns {Object} Limites normalizados
+   */
+  getVisor: function() {
+    const self = this;
+    function entero(clave, porDefecto, minimo, maximo) {
+      const valor = parseInt(self.get(clave, porDefecto), 10);
+      if (isNaN(valor) || valor < minimo || valor > maximo) return porDefecto;
+      return valor;
+    }
+    return {
+      MOVS_DEFAULT:   entero('VISOR_MOVS_DEFAULT',   this.VISOR.MOVS_DEFAULT,   0, 100000),
+      MOVS_TABLA:     entero('VISOR_MOVS_TABLA',     this.VISOR.MOVS_TABLA,     1, 1000),
+      CLIENTES_TABLA: entero('VISOR_CLIENTES_TABLA', this.VISOR.CLIENTES_TABLA, 1, 1000),
+      AUTOCOMPLETE:   entero('VISOR_AUTOCOMPLETE',   this.VISOR.AUTOCOMPLETE,   1, 50),
+      MOVS_OPCIONES:  this.VISOR.MOVS_OPCIONES
     };
   },
 
