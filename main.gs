@@ -751,7 +751,6 @@ function obtenerDatosArranqueDashboard() {
       movimientos: serializarParaWeb(movimientos),
       estadoCaja: serializarParaWeb(estadoCaja),
       configuracion: obtenerConfiguracion(),
-      apiKeyClaude: { presente: ClaudeService.tieneApiKey() },
       totalClientes: clientes.length,
       timestamp: new Date().toISOString()
     };
@@ -1215,7 +1214,7 @@ function recalcularTodosSaldos() {
 }
 
 // ============================================================================
-// API PUBLICA - VISUAL REASONING (CLAUDE AI)
+// API PUBLICA - LECTURA DE IMAGENES (OCR GRATUITO)
 // ============================================================================
 
 /**
@@ -1223,35 +1222,14 @@ function recalcularTodosSaldos() {
  * @returns {Object} {presente: boolean}
  */
 function verificarApiKey() {
+  // Conservada por compatibilidad con el frontend. El sistema ya NO usa
+  // ninguna clave de IA: el OCR es gratuito y no necesita credenciales, asi
+  // que siempre esta "presente".
   return {
-    presente: ClaudeService.tieneApiKey()
+    presente: true,
+    motor: 'ocr-gratuito',
+    mensaje: 'OCR gratuito activo: no requiere clave.'
   };
-}
-
-/**
- * Guarda la API Key de Claude
- * @param {string} apiKey - API Key
- * @returns {Object} Resultado
- */
-function guardarApiKey(apiKey) {
-  try {
-    if (!apiKey || apiKey.trim().length < 10) {
-      throw new Error('API Key invalida');
-    }
-
-    ClaudeService.setApiKey(apiKey.trim());
-
-    return {
-      success: true,
-      mensaje: 'API Key guardada correctamente'
-    };
-  } catch (error) {
-    Logger.log('Error en guardarApiKey: ' + error.message);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
 }
 
 /**
@@ -1298,41 +1276,57 @@ function guardarImagenTemporal(imageBase64) {
 }
 
 /**
- * Analiza una imagen con Claude AI
- * @param {string} token - Token de la imagen
- * @param {string} fecha - Fecha del dia
- * @returns {Object} Movimientos extraidos
+ * Lee una imagen de libro contable con OCR gratuito.
+ *
+ * Antes dependía de la API de Claude, con su clave y su costo por imagen.
+ * Ahora usa el OCR de Drive (el mismo motor de Google Docs, sin costo ni
+ * clave) y corrige lo leído contra el padrón real de clientes, que es lo que
+ * más precisión aporta. El navegador puede además cruzar su propio motor y
+ * mandar el resultado por ocrCorregirMovimientos.
+ *
+ * @param {string} token - Token de la imagen en caché
+ * @param {string} fecha - Fecha del día
+ * @returns {Object} Movimientos detectados, validados y con sugerencias
  */
 function analizarImagen(token, fecha) {
   try {
-    // Recuperar imagen del cache
     const imageBase64 = ImageCache.recuperar(token);
     if (!imageBase64) {
-      throw new Error('Imagen no encontrada o expirada. Sube la imagen nuevamente.');
+      throw new Error('Imagen no encontrada o expirada. Subí la imagen nuevamente.');
     }
 
-    // Analizar con Claude
-    const resultado = ClaudeService.analizarImagen(imageBase64, fecha);
+    const cfg = CONFIG.getOcr();
+    const lectura = OcrService.leerConDrive(imageBase64, cfg.IDIOMA);
+    if (!lectura.success) {
+      return { success: false, error: lectura.error };
+    }
 
-    // Validar movimientos contra clientes existentes
-    if (resultado.movimientos && resultado.movimientos.length > 0) {
-      const validacion = ClaudeService.validarMovimientos(resultado.movimientos);
+    const fechaUso = fecha || obtenerFechaHoy();
+    const interpretado = OcrService.interpretarLibro(lectura.texto, fechaUso);
+    const corregido = OcrService.corregirContraPadron(interpretado.movimientos);
 
-      return {
-        success: true,
-        movimientosValidos: validacion.validos,
-        movimientosConSugerencias: validacion.conSugerencias,
-        totalExtraidos: resultado.movimientos.length,
-        observaciones: resultado.observaciones || ''
-      };
+    let observaciones = '';
+    if (interpretado.movimientos.length === 0) {
+      observaciones = 'No se detectó ningún movimiento. Probá con una foto más nítida, ' +
+                      'bien derecha y con buena luz, o cargalos a mano.';
+    } else {
+      const dudosos = corregido.conSugerencias.length;
+      if (dudosos > 0) {
+        observaciones = dudosos + ' de ' + interpretado.movimientos.length +
+                        ' nombres no coinciden exactamente con el padrón: revisalos antes de guardar.';
+      }
     }
 
     return {
       success: true,
-      movimientosValidos: [],
-      movimientosConSugerencias: [],
-      totalExtraidos: 0,
-      observaciones: resultado.observaciones || 'No se detectaron movimientos'
+      movimientosValidos: serializarParaWeb(corregido.validos),
+      movimientosConSugerencias: serializarParaWeb(corregido.conSugerencias),
+      totalExtraidos: interpretado.movimientos.length,
+      lineasIgnoradas: interpretado.lineasIgnoradas,
+      textoCrudo: lectura.texto,
+      motor: 'drive',
+      ms: lectura.ms,
+      observaciones: observaciones
     };
 
   } catch (error) {
@@ -1471,13 +1465,27 @@ function obtenerContadoresCajaConfig() {
  * @returns {Object} Configuracion
  */
 function obtenerConfiguracion() {
+  const ocr = CONFIG.getOcr();
   return {
     denominaciones: DENOMINACIONES,
     tiposMovimiento: CONFIG.TIPOS_MOVIMIENTO,
     colores: CONFIG.COLORES,
     sistema: CONFIG.SISTEMA,
     print: CONFIG.getPrint(),
-    contadoresCaja: obtenerContadoresCajaConfig()
+    contadoresCaja: obtenerContadoresCajaConfig(),
+    visor: CONFIG.getVisor(),
+    // El navegador necesita estos valores para preparar la imagen antes de
+    // reconocerla: sin ellos usaría sus propios valores por defecto y los
+    // ajustes de Configuración no tendrían efecto en el motor del navegador.
+    ocr: {
+      idioma:          ocr.IDIOMA,
+      confianzaMinima: ocr.CONFIANZA_MINIMA,
+      binarizacion:    ocr.BINARIZACION,
+      anchoMaximo:     ocr.ANCHO_MAXIMO,
+      autoRotar:       ocr.AUTO_ROTAR,
+      motorServidor:   ocr.MOTOR_SERVIDOR,
+      motorNavegador:  ocr.MOTOR_NAVEGADOR
+    }
   };
 }
 
@@ -1610,16 +1618,20 @@ function obtenerConfiguracionCompleta() {
 
       // Limites de visualizacion (0 = todos)
       visorMovsDefault: CONFIG.getVisor().MOVS_DEFAULT,
+
+      // OCR gratuito
+      ocrIdioma:           CONFIG.getOcr().IDIOMA,
+      ocrConfianzaMinima:  CONFIG.getOcr().CONFIANZA_MINIMA,
+      ocrBinarizacion:     CONFIG.getOcr().BINARIZACION,
+      ocrAnchoMaximo:      CONFIG.getOcr().ANCHO_MAXIMO,
+      ocrMotorServidor:    CONFIG.getOcr().MOTOR_SERVIDOR,
+      ocrMotorNavegador:   CONFIG.getOcr().MOTOR_NAVEGADOR,
+      ocrAutoRotar:        CONFIG.getOcr().AUTO_ROTAR,
       
       // IVA
       ivaPorcentaje: parseFloat(props.getProperty('IVA_PORCENTAJE') || '10.5'),
       ivaMultiplicador: parseFloat(props.getProperty('IVA_MULTIPLICADOR') || '0.105'),
       ivaAlicuotaId: parseInt(props.getProperty('IVA_ALICUOTA_ID') || '4'),
-      
-      // Claude AI
-      claudeModel: props.getProperty('CLAUDE_MODEL') || CONFIG.CLAUDE.MODEL,
-      claudeMaxTokens: parseInt(props.getProperty('CLAUDE_MAX_TOKENS') || CONFIG.CLAUDE.MAX_TOKENS),
-      claudeApiKey: props.getProperty('CLAUDE_API_KEY') ? '***CONFIGURED***' : '',
       
       // Búsqueda Fuzzy
       fuzzyMinScore: parseInt(props.getProperty('FUZZY_MIN_SCORE') || CONFIG.FUZZY.MIN_SCORE),
@@ -1742,23 +1754,49 @@ function guardarConfiguracionGeneral(config) {
       props.setProperty('IVA_ALICUOTA_ID', config.ivaAlicuotaId.toString());
     }
     
-    // Claude AI
-    if (config.claudeModel !== undefined) {
-      props.setProperty('CLAUDE_MODEL', config.claudeModel.trim());
-    }
-    
-    if (config.claudeMaxTokens !== undefined) {
-      const tokens = parseInt(config.claudeMaxTokens);
-      if (isNaN(tokens) || tokens < 100 || tokens > 100000) {
-        throw new Error('Máximo de tokens debe estar entre 100 y 100000');
+    // OCR gratuito (reemplaza a la configuración de Claude AI, que ya no existe)
+    if (config.ocrIdioma !== undefined) {
+      const idioma = String(config.ocrIdioma).trim().toLowerCase();
+      if (!/^[a-z]{2,3}(\+[a-z]{2,3})*$/.test(idioma)) {
+        throw new Error('Idioma de OCR inválido. Usá códigos como "es" o "es+en".');
       }
-      props.setProperty('CLAUDE_MAX_TOKENS', tokens.toString());
+      props.setProperty('OCR_IDIOMA', idioma);
     }
-    
-    if (config.claudeApiKey !== undefined && config.claudeApiKey !== '***CONFIGURED***') {
-      props.setProperty('CLAUDE_API_KEY', config.claudeApiKey.trim());
+
+    if (config.ocrConfianzaMinima !== undefined) {
+      const conf = parseInt(config.ocrConfianzaMinima);
+      if (isNaN(conf) || conf < 0 || conf > 100) {
+        throw new Error('La confianza mínima del OCR debe estar entre 0 y 100');
+      }
+      props.setProperty('OCR_CONFIANZA_MINIMA', conf.toString());
     }
-    
+
+    if (config.ocrBinarizacion !== undefined) {
+      const bin = parseInt(config.ocrBinarizacion);
+      if (isNaN(bin) || bin < 0 || bin > 50) {
+        throw new Error('La binarización del OCR debe estar entre 0 y 50');
+      }
+      props.setProperty('OCR_BINARIZACION', bin.toString());
+    }
+
+    if (config.ocrAnchoMaximo !== undefined) {
+      const ancho = parseInt(config.ocrAnchoMaximo);
+      if (isNaN(ancho) || ancho < 600 || ancho > 5000) {
+        throw new Error('El ancho máximo del OCR debe estar entre 600 y 5000 píxeles');
+      }
+      props.setProperty('OCR_ANCHO_MAXIMO', ancho.toString());
+    }
+
+    if (config.ocrMotorServidor !== undefined) {
+      props.setProperty('OCR_MOTOR_SERVIDOR', config.ocrMotorServidor ? 'true' : 'false');
+    }
+    if (config.ocrMotorNavegador !== undefined) {
+      props.setProperty('OCR_MOTOR_NAVEGADOR', config.ocrMotorNavegador ? 'true' : 'false');
+    }
+    if (config.ocrAutoRotar !== undefined) {
+      props.setProperty('OCR_AUTO_ROTAR', config.ocrAutoRotar ? 'true' : 'false');
+    }
+
     // Búsqueda Fuzzy
     if (config.fuzzyMinScore !== undefined) {
       props.setProperty('FUZZY_MIN_SCORE', config.fuzzyMinScore.toString());
@@ -1958,7 +1996,9 @@ function restaurarConfiguracionPorDefecto() {
       'EMISOR_DOMICILIO', 'EMISOR_IIBB', 'EMISOR_FECHA_INICIO', 'EMISOR_CONDICION_IVA',
       'AFIP_ACCESS_TOKEN', 'AFIP_PUNTO_VENTA', 'AFIP_CUIT',
       'AFIP_CERT', 'AFIP_KEY',
-      'CLAUDE_API_KEY'
+      // El token de la API REST es una credencial: perderlo cortaría cualquier
+      // integración externa en el momento de restablecer la configuración.
+      'API_TOKEN'
     ];
     
     const allProperties = props.getProperties();
@@ -2049,17 +2089,20 @@ function verificarIntegridadSistema() {
     chequeos.push({ nombre: 'SALDOS_COHERENTES', estado: 'ERROR', detalle: e.message });
   }
 
-  // ── Chequeo 3: API key de Claude configurada ─────────────────────────────
+  // ── Chequeo 3: servicio de Drive disponible para el OCR gratuito ─────────
+  // Reemplaza al chequeo de la API key de Claude: el sistema ya no usa
+  // ninguna clave de IA. Lo que el OCR necesita es el servicio de Drive.
   try {
-    const props = PropertiesService.getScriptProperties();
-    const apiKey = props.getProperty('CLAUDE_API_KEY') || props.getProperty('claude_api_key');
+    const driveOk = (typeof Drive !== 'undefined' && Drive.Files && !!Drive.Files.create);
     chequeos.push({
-      nombre:  'CLAUDE_API_KEY',
-      estado:  apiKey ? 'OK' : 'ADVERTENCIA',
-      detalle: apiKey ? 'API key configurada (***' + apiKey.slice(-4) + ')' : 'API key de Claude no configurada'
+      nombre:  'OCR_DRIVE',
+      estado:  driveOk ? 'OK' : 'ADVERTENCIA',
+      detalle: driveOk
+        ? 'Servicio avanzado de Drive disponible: el OCR gratuito puede funcionar'
+        : 'Servicio avanzado de Drive NO habilitado. Activalo en Servicios → Drive API v3'
     });
   } catch (e) {
-    chequeos.push({ nombre: 'CLAUDE_API_KEY', estado: 'ERROR', detalle: e.message });
+    chequeos.push({ nombre: 'OCR_DRIVE', estado: 'ERROR', detalle: e.message });
   }
 
   const hayErrores = chequeos.some(c => c.estado === 'ERROR');

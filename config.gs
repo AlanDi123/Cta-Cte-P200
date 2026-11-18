@@ -210,12 +210,15 @@ var CONFIG = {
     SALDO_INICIAL: 0
   },
 
-  // Configuracion de Claude AI
-  CLAUDE: {
-    API_URL: 'https://api.anthropic.com/v1/messages',
-    MODEL: 'claude-sonnet-4-20250514',
-    MAX_TOKENS: 4096,
-    VERSION: '2023-06-01'
+  // Configuracion del OCR gratuito (sin IA ni API de pago)
+  OCR: {
+    IDIOMA: 'es',             // Idioma del reconocimiento
+    MOTOR_SERVIDOR: true,     // OCR de Drive (gratis, usa el motor de Google)
+    MOTOR_NAVEGADOR: true,    // Tesseract.js (gratis, aporta posicion de palabras)
+    CONFIANZA_MINIMA: 60,     // Debajo de este valor la celda se marca para revision
+    BINARIZACION: 20,         // Agresividad del umbral adaptativo (0-50)
+    ANCHO_MAXIMO: 2000,       // Redimensionado previo, en pixeles
+    AUTO_ROTAR: true          // Corregir inclinacion antes de reconocer
   },
 
   // Colores del sistema (para referencia en el frontend)
@@ -279,14 +282,29 @@ var CONFIG = {
   },
 
   /**
-   * Obtiene la configuración de Claude
+   * Obtiene la configuración del OCR gratuito.
+   * Todo valor inválido cae al valor por defecto, nunca a NaN.
+   * @returns {Object} Configuración normalizada del OCR
    */
-  getClaude: function() {
+  getOcr: function() {
+    const self = this;
+    function entero(clave, porDefecto, minimo, maximo) {
+      const valor = parseInt(self.get(clave, porDefecto), 10);
+      if (isNaN(valor) || valor < minimo || valor > maximo) return porDefecto;
+      return valor;
+    }
+    function booleano(clave, porDefecto) {
+      return self.get(clave, porDefecto.toString()) !== 'false';
+    }
+    const idioma = String(this.get('OCR_IDIOMA', this.OCR.IDIOMA)).trim();
     return {
-      API_URL: this.CLAUDE.API_URL,
-      MODEL: this.get('CLAUDE_MODEL', this.CLAUDE.MODEL),
-      MAX_TOKENS: parseInt(this.get('CLAUDE_MAX_TOKENS', this.CLAUDE.MAX_TOKENS)),
-      VERSION: this.CLAUDE.VERSION
+      IDIOMA:           /^[a-z]{2,3}(\+[a-z]{2,3})*$/.test(idioma) ? idioma : this.OCR.IDIOMA,
+      MOTOR_SERVIDOR:   booleano('OCR_MOTOR_SERVIDOR',  this.OCR.MOTOR_SERVIDOR),
+      MOTOR_NAVEGADOR:  booleano('OCR_MOTOR_NAVEGADOR', this.OCR.MOTOR_NAVEGADOR),
+      CONFIANZA_MINIMA: entero('OCR_CONFIANZA_MINIMA', this.OCR.CONFIANZA_MINIMA, 0, 100),
+      BINARIZACION:     entero('OCR_BINARIZACION',     this.OCR.BINARIZACION, 0, 50),
+      ANCHO_MAXIMO:     entero('OCR_ANCHO_MAXIMO',     this.OCR.ANCHO_MAXIMO, 600, 5000),
+      AUTO_ROTAR:       booleano('OCR_AUTO_ROTAR',     this.OCR.AUTO_ROTAR)
     };
   },
 
