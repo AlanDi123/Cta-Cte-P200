@@ -4041,6 +4041,133 @@
               </div>
 
               <div class="card">
+                <div class="card-title">💵 Formato de montos y fechas</div>
+
+                <div class="form-group">
+                  <label class="form-label">Símbolo de moneda</label>
+                  <input type="text" class="form-input" id="inputFormatoMoneda" placeholder="$" maxlength="5" style="max-width:120px;">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Formato de fecha</label>
+                  <select class="form-input" id="inputFormatoFecha">
+                    <option value="DD/MM/AAAA">DD/MM/AAAA — 18/11/2026</option>
+                    <option value="DD-MM-AAAA">DD-MM-AAAA — 18-11-2026</option>
+                    <option value="AAAA-MM-DD">AAAA-MM-DD — 2026-11-18</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Decimales en los montos</label>
+                  <select class="form-input" id="inputFormatoDecimales">
+                    <option value="0">Sin decimales — $15.000</option>
+                    <option value="2">Dos decimales — $15.000,50</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">🖥️ Interfaz</div>
+
+                <div class="form-group">
+                  <label class="form-label">Duración de los avisos (ms)</label>
+                  <input type="number" class="form-input" id="inputUiDuracionAviso" placeholder="3000" min="500" max="30000" step="500">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Cuánto queda en pantalla cada mensaje. Subilo si te desaparecen antes de leerlos
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Filas por página en las tablas</label>
+                  <input type="number" class="form-input" id="inputUiFilasPorPagina" placeholder="25" min="5" max="500">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Tamaño de la tipografía (%)</label>
+                  <input type="number" class="form-input" id="inputUiTamanioFuente" placeholder="100" min="70" max="150" step="5">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Sube o baja el tamaño de todo el sistema. Útil en pantallas chicas o para leer más cómodo
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Tema al abrir el sistema</label>
+                  <select class="form-input" id="inputUiTemaInicial">
+                    <option value="light">Claro</option>
+                    <option value="dark">Oscuro</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">📈 Reglas del negocio</div>
+
+                <div class="form-group">
+                  <label class="form-label">Alertar cuando el saldo supere</label>
+                  <input type="number" class="form-input" id="inputNegocioAlertaSaldo" placeholder="0" min="0" step="1000">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Escribí <strong>0</strong> para usar el límite de crédito de cada cliente en lugar de un valor único
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Días sin movimientos para considerar inactivo</label>
+                  <input type="number" class="form-input" id="inputNegocioDiasInactivo" placeholder="60" min="1" max="3650">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Frecuencia de respaldo (días)</label>
+                  <input type="number" class="form-input" id="inputNegocioDiasBackup" placeholder="1" min="1" max="365">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Conservar respaldos (días)</label>
+                  <input type="number" class="form-input" id="inputNegocioRetencionBackup" placeholder="30" min="1" max="3650">
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">💴 Denominaciones de billetes</div>
+                <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 0.75rem;">
+                  Los billetes que aparecen en el Arqueo de Caja. Antes estaban fijos en el código:
+                  cada vez que cambiaban los billetes en circulación había que modificar el sistema.
+                </p>
+                <div id="configDenominaciones"></div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="agregarDenominacion()" style="margin-top:0.5rem;">+ Agregar billete</button>
+              </div>
+
+              <div class="card">
+                <div class="card-title">🏠 Inquilinos (Alquileres)</div>
+                <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 0.75rem;">
+                  Quitar un inquilino solo lo saca de las listas: <strong>su historial de movimientos
+                  se conserva intacto</strong>.
+                </p>
+                <div id="configInquilinos"></div>
+                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem;">
+                  <input type="text" class="form-input" id="inputNuevoInquilino" placeholder="Nombre" style="flex:2;min-width:9rem;">
+                  <input type="number" class="form-input" id="inputNuevoInquilinoMonto" placeholder="Monto semanal" min="0" style="flex:1;min-width:8rem;">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="agregarInquilinoUI()">+ Agregar</button>
+                </div>
+                <p id="estadoInquilinos" style="font-size:0.8rem;margin-top:0.5rem;"></p>
+              </div>
+
+              <div class="card">
+                <div class="card-title">📦 Respaldo de la configuración</div>
+                <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 0.75rem;">
+                  Guardá todos estos ajustes en un archivo, o restauralos en otro sistema.
+                  <strong>No incluye credenciales</strong> —tokens, claves, certificados ni PIN—,
+                  así que el archivo se puede guardar sin riesgo.
+                </p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                  <button type="button" class="btn btn-outline" onclick="exportarConfiguracionUI()" style="flex:1;min-width:10rem;">⬇️ Exportar</button>
+                  <button type="button" class="btn btn-outline" onclick="document.getElementById('inputImportarConfig').click()" style="flex:1;min-width:10rem;">⬆️ Importar</button>
+                </div>
+                <input type="file" id="inputImportarConfig" accept=".json,application/json" style="display:none;" onchange="importarConfiguracionUI(this)">
+                <p id="estadoRespaldoConfig" style="font-size:0.8rem;margin-top:0.5rem;"></p>
+              </div>
+
+
+              <div class="card">
                 <div class="card-title">👥 Contadores de Caja (Arqueo de Efectivo)</div>
                 <p style="font-size: 0.75rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;">
                   Activá, desactivá o renombrá quién cuenta efectivo en el Arqueo. El contador "General" siempre permanece activo con ese nombre.
@@ -6024,8 +6151,34 @@
     }
 
     function formatearMonto(monto) {
-      return '$' + (monto || 0).toLocaleString('es-AR');
+      const n = Number(monto) || 0;
+      const dec = SvFormato.decimales;
+      return SvFormato.moneda + n.toLocaleString('es-AR', {
+        minimumFractionDigits: dec,
+        maximumFractionDigits: dec
+      });
     }
+
+    /**
+     * Ajustes de presentacion vigentes.
+     *
+     * Antes el simbolo de moneda, el formato de fecha, la duracion de los
+     * avisos y las filas por pagina estaban fijos en el codigo. Ahora salen de
+     * Configuracion; estos son los valores con los que arranca hasta que
+     * llega la configuracion del servidor.
+     *
+     * Se declara aqui arriba, junto a los formateadores que lo usan, para que
+     * no exista ninguna posibilidad de leerlo antes de inicializarse.
+     */
+    const SvFormato = {
+      moneda: '$',
+      fecha: 'DD/MM/AAAA',
+      decimales: 0,
+      duracionAviso: 3000,
+      filasPorPagina: 25,
+      alertaSaldo: 0,
+      diasInactivo: 60
+    };
 
     function formatearNumero(numero) {
       return (numero || 0).toLocaleString('es-AR');
@@ -6044,13 +6197,22 @@
       if (!fecha) return '-';
       if (typeof fecha === 'string') {
         const iso = fecha.match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (iso) return iso[3] + '/' + iso[2] + '/' + iso[1];
+        if (iso) return _armarFecha(iso[3], iso[2], iso[1]);
       }
       const d = (fecha instanceof Date) ? fecha : new Date(fecha);
       if (isNaN(d.getTime())) return '-';
       const dia = String(d.getDate()).padStart(2, '0');
       const mes = String(d.getMonth() + 1).padStart(2, '0');
-      return dia + '/' + mes + '/' + d.getFullYear();
+      return _armarFecha(dia, mes, String(d.getFullYear()));
+    }
+
+    /** Ordena dia, mes y anio segun el formato elegido en Configuracion. */
+    function _armarFecha(dia, mes, anio) {
+      switch (SvFormato.fecha) {
+        case 'AAAA-MM-DD': return anio + '-' + mes + '-' + dia;
+        case 'DD-MM-AAAA': return dia + '-' + mes + '-' + anio;
+        default:           return dia + '/' + mes + '/' + anio;
+      }
     }
 
     // Funciones de fecha - definidas aquí arriba para garantizar disponibilidad global
@@ -6499,6 +6661,7 @@
             indexarClientes(Estado.clientes);
             if (data.configuracion) {
               Estado.configuracion = data.configuracion;
+              aplicarAjustesDeConfiguracion(data.configuracion);
               renderDenominaciones();
             }
             if (data.estadoCaja !== undefined) {
@@ -6605,6 +6768,7 @@
       google.script.run
         .withSuccessHandler(function(config) {
           Estado.configuracion = config;
+          aplicarAjustesDeConfiguracion(config);
           renderDenominaciones();
         })
         .withFailureHandler(function(error) {
@@ -7315,7 +7479,9 @@
           'linear-gradient(to right, #1565C0, #42A5F5)';
         Toastify({
           text: tipo === 'error' ? errorAmigable(mensaje) : mensaje,
-          duration: tipo === 'error' ? 9000 : 2500,
+          // Duración configurable. Los errores duran el triple: son los que
+          // hay que alcanzar a leer, y antes se iban igual que un aviso común.
+          duration: tipo === 'error' ? SvFormato.duracionAviso * 3 : SvFormato.duracionAviso,
           close: tipo === 'error',
           gravity: 'top',
           position: 'right',
@@ -7834,7 +8000,7 @@
       try {
         if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
           jQuery('#tablaMovimientos').DataTable({
-            pageLength: 25,
+            pageLength: SvFormato.filasPorPagina,
             order: [[0, 'desc']],
             scrollX: true,
             autoWidth: false,
@@ -11465,7 +11631,7 @@ function renderEstadisticas(result) {
       try {
         if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
           jQuery('#tablaGestionClientes').DataTable({
-            pageLength: 50,
+            pageLength: SvFormato.filasPorPagina,
             order: [[0, 'asc']],
             scrollX: true,
             autoWidth: false,
@@ -11516,7 +11682,7 @@ function renderEstadisticas(result) {
       try {
         if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable && clientesFiltrados.length > 0) {
           jQuery('#tablaGestionClientes').DataTable({
-            pageLength: 50,
+            pageLength: SvFormato.filasPorPagina,
             order: [[0, 'asc']],
             scrollX: true,
             autoWidth: false,
@@ -11747,8 +11913,13 @@ function renderEstadisticas(result) {
     // CONFIGURACION
     // ============================================================================
     function cargarConfiguracionInicial() {
-      const tema = lsLeer('sv_tema', 'light');
-      setTema(tema);
+      // La preferencia de ESTE navegador manda sobre el tema inicial de
+      // Configuración: si el usuario cambió el tema a mano, no se le pisa.
+      // El tema de Configuración es para la primera vez en cada dispositivo.
+      const temaGuardado = lsLeer('sv_tema', null);
+      const temaConfig = (Estado.configuracion && Estado.configuracion.ui)
+        ? Estado.configuracion.ui.TEMA_INICIAL : null;
+      setTema(temaGuardado || temaConfig || 'light');
 
       const animaciones = lsLeer('sv_animaciones', 'true') !== 'false';
       document.getElementById('toggleAnimaciones').checked = animaciones;
@@ -15009,6 +15180,32 @@ function renderEstadisticas(result) {
             // Ojo: 0 es un valor valido ("mostrar todos"), asi que no sirve "|| ''"
             document.getElementById('inputVisorMovsDefault').value =
               (config.visorMovsDefault === undefined || config.visorMovsDefault === null) ? '' : config.visorMovsDefault;
+
+            // Formato de montos y fechas
+            document.getElementById('inputFormatoMoneda').value = config.formatoMoneda || '$';
+            document.getElementById('inputFormatoFecha').value = config.formatoFecha || 'DD/MM/AAAA';
+            document.getElementById('inputFormatoDecimales').value =
+              (config.formatoDecimales === undefined || config.formatoDecimales === null) ? '0' : String(config.formatoDecimales);
+
+            // Interfaz
+            document.getElementById('inputUiDuracionAviso').value = config.uiDuracionAviso || '';
+            document.getElementById('inputUiFilasPorPagina').value = config.uiFilasPorPagina || '';
+            document.getElementById('inputUiTamanioFuente').value = config.uiTamanioFuente || '';
+            document.getElementById('inputUiTemaInicial').value = config.uiTemaInicial || 'light';
+
+            // Reglas del negocio: ojo, 0 es valido en el umbral de alerta
+            document.getElementById('inputNegocioAlertaSaldo').value =
+              (config.negocioAlertaSaldo === undefined || config.negocioAlertaSaldo === null) ? '' : config.negocioAlertaSaldo;
+            document.getElementById('inputNegocioDiasInactivo').value = config.negocioDiasInactivo || '';
+            document.getElementById('inputNegocioDiasBackup').value = config.negocioDiasBackup || '';
+            document.getElementById('inputNegocioRetencionBackup').value = config.negocioRetencionBackup || '';
+
+            // Denominaciones de billetes e inquilinos
+            _denominacionesConfig = (config.denominaciones || []).map(function(d) {
+              return { valor: Number(d.valor) || 0, nombre: String(d.nombre || '') };
+            });
+            renderDenominacionesConfig();
+            cargarInquilinosConfig();
             
             // IVA
             document.getElementById('inputIvaPorcentaje').value = config.ivaPorcentaje || '';
@@ -15225,6 +15422,259 @@ function renderEstadisticas(result) {
         .reintentarGuardadoCaeSinGuardar(fila);
     }
 
+    // ============================================================================
+    // PERSONALIZACION: FORMATO, INTERFAZ, NEGOCIO, DENOMINACIONES, INQUILINOS
+    // ============================================================================
+
+    // Estado local de las listas editables
+    var _denominacionesConfig = [];
+    var _inquilinosConfig = [];
+
+    /**
+     * Aplica los ajustes de formato e interfaz que llegan del servidor.
+     *
+     * Antes el simbolo de moneda, el formato de fecha, la duracion de los
+     * avisos y el tamanio de la tipografia estaban fijos en el codigo. Ahora
+     * se leen de Configuracion y se aplican en caliente.
+     */
+    function aplicarAjustesDeConfiguracion(cfg) {
+      if (!cfg) return;
+
+      if (cfg.formato) {
+        SvFormato.moneda    = cfg.formato.MONEDA_SIMBOLO || '$';
+        SvFormato.fecha     = cfg.formato.FORMATO_FECHA || 'DD/MM/AAAA';
+        SvFormato.decimales = (typeof cfg.formato.DECIMALES === 'number') ? cfg.formato.DECIMALES : 0;
+      }
+      if (cfg.ui) {
+        SvFormato.duracionAviso  = cfg.ui.DURACION_AVISO || 3000;
+        SvFormato.filasPorPagina = cfg.ui.FILAS_POR_PAGINA || 25;
+        if (cfg.ui.TAMANIO_FUENTE && cfg.ui.TAMANIO_FUENTE !== 100) {
+          // Escala toda la tipografia: el resto del CSS usa rem
+          document.documentElement.style.fontSize = (16 * cfg.ui.TAMANIO_FUENTE / 100) + 'px';
+        }
+      }
+      if (cfg.negocio) {
+        SvFormato.alertaSaldo  = cfg.negocio.ALERTA_SALDO || 0;
+        SvFormato.diasInactivo = cfg.negocio.DIAS_INACTIVO || 60;
+      }
+    }
+
+    // ── Denominaciones de billetes ──────────────────────────────────────────
+
+    function renderDenominacionesConfig() {
+      const cont = document.getElementById('configDenominaciones');
+      if (!cont) return;
+      if (_denominacionesConfig.length === 0) {
+        cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-texto-muted);">Sin billetes configurados.</p>';
+        return;
+      }
+      cont.innerHTML = _denominacionesConfig.map(function(d, i) {
+        return '<div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.35rem;">' +
+          '<input type="number" class="form-input" value="' + d.valor + '" min="1" step="1" ' +
+            'onchange="cambiarDenominacion(' + i + ', \'valor\', this.value)" ' +
+            'style="flex:1;min-width:6rem;" aria-label="Valor del billete">' +
+          '<input type="text" class="form-input" value="' + escapeHtml(d.nombre) + '" ' +
+            'onchange="cambiarDenominacion(' + i + ', \'nombre\', this.value)" ' +
+            'style="flex:2;min-width:8rem;" aria-label="Nombre del billete">' +
+          '<button type="button" class="btn btn-outline btn-sm" onclick="quitarDenominacion(' + i + ')" ' +
+            'style="color:var(--sv-peligro);" aria-label="Quitar">&#10007;</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    function cambiarDenominacion(i, campo, valor) {
+      if (!_denominacionesConfig[i]) return;
+      if (campo === 'valor') {
+        _denominacionesConfig[i].valor = Math.max(1, Math.round(Number(valor) || 0));
+        // El nombre se regenera salvo que el usuario lo haya escrito a mano
+        if (/^Billete \$/.test(_denominacionesConfig[i].nombre)) {
+          _denominacionesConfig[i].nombre = 'Billete $' + _denominacionesConfig[i].valor;
+        }
+        renderDenominacionesConfig();
+      } else {
+        _denominacionesConfig[i].nombre = String(valor || '').substring(0, 60);
+      }
+    }
+
+    function agregarDenominacion() {
+      _denominacionesConfig.push({ valor: 1000, nombre: 'Billete $1000' });
+      renderDenominacionesConfig();
+    }
+
+    function quitarDenominacion(i) {
+      if (_denominacionesConfig.length <= 1) {
+        mostrarToast('Tiene que quedar al menos un billete', 'warning');
+        return;
+      }
+      _denominacionesConfig.splice(i, 1);
+      renderDenominacionesConfig();
+    }
+
+    // ── Inquilinos ──────────────────────────────────────────────────────────
+
+    function cargarInquilinosConfig() {
+      const cont = document.getElementById('configInquilinos');
+      if (!cont) return;
+      cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-texto-muted);">Cargando...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          _inquilinosConfig = (res && res.inquilinos) || [];
+          renderInquilinosConfig();
+        })
+        .withFailureHandler(function(error) {
+          cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-peligro);">No se pudieron cargar: ' +
+            escapeHtml((error && error.message) || String(error)) + '</p>';
+        })
+        .obtenerInquilinosConfig();
+    }
+
+    function renderInquilinosConfig() {
+      const cont = document.getElementById('configInquilinos');
+      if (!cont) return;
+      if (_inquilinosConfig.length === 0) {
+        cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-texto-muted);">Todavía no hay inquilinos.</p>';
+        return;
+      }
+      cont.innerHTML = _inquilinosConfig.map(function(inq) {
+        return '<div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.35rem;font-size:0.85rem;">' +
+          '<span style="flex:2;">' + escapeHtml(inq.nombre) + '</span>' +
+          '<span style="flex:1;color:var(--sv-texto-secundario);">' + formatearMonto(inq.montoSemanal) + '/sem</span>' +
+          '<button type="button" class="btn btn-outline btn-sm" ' +
+            'onclick="quitarInquilinoUI(\'' + escaparJsEnAtributo(inq.nombre) + '\')" ' +
+            'style="color:var(--sv-peligro);" aria-label="Quitar">&#10007;</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    function agregarInquilinoUI() {
+      const nombre = document.getElementById('inputNuevoInquilino').value.trim();
+      const monto = parseFloat(document.getElementById('inputNuevoInquilinoMonto').value) || 0;
+      const estado = document.getElementById('estadoInquilinos');
+      if (!nombre) {
+        mostrarToast('Escribí el nombre del inquilino', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.success) {
+            document.getElementById('inputNuevoInquilino').value = '';
+            document.getElementById('inputNuevoInquilinoMonto').value = '';
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-exito);">' + escapeHtml(res.mensaje) + '</span>';
+            cargarInquilinosConfig();
+          } else {
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">' +
+              escapeHtml((res && res.error) || 'No se pudo agregar') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' +
+            escapeHtml((error && error.message) || String(error)) + '</span>';
+        })
+        .agregarInquilino({ nombre: nombre, montoSemanal: monto });
+    }
+
+    function quitarInquilinoUI(nombre) {
+      if (!confirm('Quitar a "' + nombre + '" de la lista de inquilinos.\n\n' +
+                   'Su historial de movimientos se conserva: solo deja de aparecer en las listas.\n\n¿Continuar?')) return;
+      const estado = document.getElementById('estadoInquilinos');
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (estado) {
+            estado.innerHTML = '<span style="color:' + ((res && res.success) ? 'var(--sv-exito)' : 'var(--sv-peligro)') + ';">' +
+              escapeHtml((res && (res.mensaje || res.error)) || '') + '</span>';
+          }
+          cargarInquilinosConfig();
+        })
+        .withFailureHandler(function(error) {
+          if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' +
+            escapeHtml((error && error.message) || String(error)) + '</span>';
+        })
+        .quitarInquilino(nombre);
+    }
+
+    // ── Respaldo de la configuracion ────────────────────────────────────────
+
+    function exportarConfiguracionUI() {
+      const estado = document.getElementById('estadoRespaldoConfig');
+      if (estado) estado.textContent = 'Preparando el archivo...';
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">' +
+              escapeHtml((res && res.error) || 'No se pudo exportar') + '</span>';
+            return;
+          }
+          try {
+            const blob = new Blob([res.json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'configuracion-sol-y-verde-' + new Date().toISOString().slice(0, 10) + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-exito);">✓ ' + res.claves +
+              ' ajustes exportados (sin credenciales)</span>';
+          } catch (e) {
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">No se pudo descargar: ' +
+              escapeHtml(e.message) + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' +
+            escapeHtml((error && error.message) || String(error)) + '</span>';
+        })
+        .exportarConfiguracion();
+    }
+
+    function importarConfiguracionUI(input) {
+      const archivo = input && input.files && input.files[0];
+      if (!archivo) return;
+      const estado = document.getElementById('estadoRespaldoConfig');
+
+      if (!confirm('Importar la configuración sobrescribe los ajustes actuales.\n\n' +
+                   'Las credenciales (tokens, claves, certificados y PIN) NO se tocan.\n\n¿Continuar?')) {
+        input.value = '';
+        return;
+      }
+
+      const lector = new FileReader();
+      lector.onerror = function() {
+        if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">No se pudo leer el archivo</span>';
+        input.value = '';
+      };
+      lector.onload = function(ev) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            input.value = '';
+            if (!res || !res.success) {
+              if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">' +
+                escapeHtml((res && res.error) || 'No se pudo importar') + '</span>';
+              return;
+            }
+            let msg = '✓ ' + res.aplicadas + ' ajustes aplicados';
+            if (res.ignoradas && res.ignoradas.length) {
+              msg += ' · ' + res.ignoradas.length + ' ignorados por seguridad o formato';
+            }
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-exito);">' + escapeHtml(msg) + '</span>';
+            mostrarToast('Configuración importada. Recargando...', 'success');
+            setTimeout(function() { cargarConfiguracionGeneral(); }, 1200);
+          })
+          .withFailureHandler(function(error) {
+            input.value = '';
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' +
+              escapeHtml((error && error.message) || String(error)) + '</span>';
+          })
+          .importarConfiguracion(String(ev.target.result || ''));
+      };
+      lector.readAsText(archivo);
+    }
+
     /**
      * Lee el campo "Movimientos en el Visor" respetando el 0.
      * Con el patron habitual (parseInt(...) || 20) un 0 escrito a proposito
@@ -15249,6 +15699,27 @@ function renderEstadisticas(result) {
         paginaTamano: parseInt(document.getElementById('inputPaginaTamano').value) || 50,
         paginaTamanoMax: parseInt(document.getElementById('inputPaginaTamanoMax').value) || 100,
         visorMovsDefault: _visorMovsDefaultDesdeInput(),
+
+        // Formato
+        formatoMoneda: document.getElementById('inputFormatoMoneda').value.trim() || '$',
+        formatoFecha: document.getElementById('inputFormatoFecha').value,
+        formatoDecimales: parseInt(document.getElementById('inputFormatoDecimales').value, 10) || 0,
+
+        // Interfaz
+        uiDuracionAviso: _enteroDeInput('inputUiDuracionAviso', 3000, 500, 30000),
+        uiFilasPorPagina: _enteroDeInput('inputUiFilasPorPagina', 25, 5, 500),
+        uiTamanioFuente: _enteroDeInput('inputUiTamanioFuente', 100, 70, 150),
+        uiTemaInicial: document.getElementById('inputUiTemaInicial').value,
+
+        // Negocio. El umbral admite 0 ("usar el limite de cada cliente"), asi
+        // que se lee con minimo 0 y no con el patron "|| valor"
+        negocioAlertaSaldo: _enteroDeInput('inputNegocioAlertaSaldo', 0, 0, 100000000),
+        negocioDiasInactivo: _enteroDeInput('inputNegocioDiasInactivo', 60, 1, 3650),
+        negocioDiasBackup: _enteroDeInput('inputNegocioDiasBackup', 1, 1, 365),
+        negocioRetencionBackup: _enteroDeInput('inputNegocioRetencionBackup', 30, 1, 3650),
+
+        // Denominaciones de billetes del arqueo
+        denominaciones: _denominacionesConfig,
         ivaPorcentaje: parseFloat(document.getElementById('inputIvaPorcentaje').value) || 10.5,
         ivaAlicuotaId: parseInt(document.getElementById('inputIvaAlicuotaId').value) || 4,
         ocrIdioma: document.getElementById('inputOcrIdioma').value.trim() || 'es',

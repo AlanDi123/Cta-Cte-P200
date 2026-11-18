@@ -126,6 +126,245 @@ function _respuestaNoAutorizada(motivo) {
   ).setMimeType(ContentService.MimeType.JSON);
 }
 
+// ============================================================================
+// GESTION DE INQUILINOS (ALQUILERES)
+// ============================================================================
+
+/**
+ * Agrega un inquilino a la hoja ALQUILERES_CONFIG.
+ *
+ * Antes la lista vivia en un array fijo del codigo (CONFIG.INQUILINOS), asi
+ * que sumar o quitar un inquilino obligaba a editar el archivo y volver a
+ * desplegar. CONFIG.getInquilinos() ya leia de la hoja; faltaba poder
+ * editarla desde la interfaz.
+ *
+ * @param {Object} datos - {nombre, montoSemanal}
+ * @returns {{success: boolean, mensaje?: string, error?: string}}
+ */
+function agregarInquilino(datos) {
+  const lock = LockService.getScriptLock();
+  let lockAdquirido = false;
+  try {
+    const nombre = normalizarString((datos && datos.nombre) || '');
+    if (!nombre || nombre.length < 2) {
+      return { success: false, error: 'El nombre del inquilino es obligatorio.' };
+    }
+    const monto = Number((datos && datos.montoSemanal) || 0);
+    if (!isFinite(monto) || monto < 0) {
+      return { success: false, error: 'El monto semanal debe ser un número mayor o igual a cero.' };
+    }
+
+    lock.waitLock(30000);
+    lockAdquirido = true;
+
+    const ss = getSpreadsheet();
+    let hoja = ss.getSheetByName(CONFIG.HOJAS.ALQUILERES_CONFIG);
+    if (!hoja) {
+      hoja = ss.insertSheet(CONFIG.HOJAS.ALQUILERES_CONFIG);
+      hoja.appendRow(['INQUILINO', 'MONTO_SEMANAL', 'AJUSTE_OBRA', 'AJUSTE_MERCADERIA',
+                      'SALDO', 'ULTIMO_PAGO', 'OBS']);
+      hoja.getRange(1, 1, 1, 7).setFontWeight('bold');
+      hoja.setFrozenRows(1);
+    }
+
+    // Duplicados: se compara normalizado, igual que al registrar un pago
+    const ultima = hoja.getLastRow();
+    if (ultima > 1) {
+      const existentes = hoja.getRange(2, 1, ultima - 1, 1).getValues();
+      for (let i = 0; i < existentes.length; i++) {
+        if (normalizarString(existentes[i][0]) === nombre) {
+          return { success: false, error: 'Ya existe un inquilino con ese nombre.' };
+        }
+      }
+    }
+
+    hoja.appendRow([nombre, monto, 0, 0, 0, '', '']);
+    Logger.log('[ALQUILERES] Inquilino agregado: ' + nombre);
+    return { success: true, mensaje: 'Inquilino "' + nombre + '" agregado.' };
+
+  } catch (error) {
+    Logger.log('Error en agregarInquilino: ' + error.message);
+    return { success: false, error: error.message };
+  } finally {
+    if (lockAdquirido) lock.releaseLock();
+  }
+}
+
+/**
+ * Quita un inquilino de la hoja de configuracion.
+ *
+ * NO borra su historial de movimientos: solo deja de ofrecerlo en las listas.
+ * Borrar los movimientos seria destruir el registro contable.
+ *
+ * @param {string} nombre - Nombre del inquilino
+ * @returns {{success: boolean, mensaje?: string, error?: string}}
+ */
+function quitarInquilino(nombre) {
+  const lock = LockService.getScriptLock();
+  let lockAdquirido = false;
+  try {
+    const buscado = normalizarString(nombre || '');
+    if (!buscado) return { success: false, error: 'Falta el nombre del inquilino.' };
+
+    lock.waitLock(30000);
+    lockAdquirido = true;
+
+    const ss = getSpreadsheet();
+    const hoja = ss.getSheetByName(CONFIG.HOJAS.ALQUILERES_CONFIG);
+    if (!hoja || hoja.getLastRow() <= 1) {
+      return { success: false, error: 'No hay inquilinos configurados.' };
+    }
+
+    const filas = hoja.getRange(2, 1, hoja.getLastRow() - 1, 1).getValues();
+    for (let i = 0; i < filas.length; i++) {
+      if (normalizarString(filas[i][0]) === buscado) {
+        hoja.deleteRow(i + 2);
+        Logger.log('[ALQUILERES] Inquilino quitado de la configuración: ' + buscado);
+        return {
+          success: true,
+          mensaje: 'Inquilino quitado. Su historial de movimientos se conserva intacto.'
+        };
+      }
+    }
+    return { success: false, error: 'No se encontró ese inquilino.' };
+
+  } catch (error) {
+    Logger.log('Error en quitarInquilino: ' + error.message);
+    return { success: false, error: error.message };
+  } finally {
+    if (lockAdquirido) lock.releaseLock();
+  }
+}
+
+/**
+ * Lista los inquilinos configurados, con su monto semanal.
+ * @returns {{success: boolean, inquilinos: Array<Object>}}
+ */
+function obtenerInquilinosConfig() {
+  try {
+    const ss = getSpreadsheet();
+    const hoja = ss.getSheetByName(CONFIG.HOJAS.ALQUILERES_CONFIG);
+    if (!hoja || hoja.getLastRow() <= 1) return { success: true, inquilinos: [] };
+
+    const C = CONFIG.COLS_ALQ_CONFIG;
+    const datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, 7).getValues();
+    const inquilinos = datos
+      .filter(function(f) { return String(f[C.INQUILINO] || '').trim(); })
+      .map(function(f) {
+        return {
+          nombre: String(f[C.INQUILINO]).trim(),
+          montoSemanal: Number(f[C.MONTO_SEMANAL]) || 0,
+          saldo: Number(f[C.SALDO]) || 0
+        };
+      });
+    return { success: true, inquilinos: inquilinos };
+  } catch (error) {
+    Logger.log('Error en obtenerInquilinosConfig: ' + error.message);
+    return { success: false, inquilinos: [], error: error.message };
+  }
+}
+
+// ============================================================================
+// EXPORTAR E IMPORTAR LA CONFIGURACION
+// ============================================================================
+
+/**
+ * Exporta la configuracion del sistema como JSON.
+ *
+ * Deja FUERA todo lo que sea credencial —tokens, claves, certificados, PIN—
+ * para que el archivo se pueda guardar o compartir sin filtrar nada.
+ *
+ * @returns {{success: boolean, json?: string, claves?: number, error?: string}}
+ */
+function exportarConfiguracion() {
+  try {
+    const props = PropertiesService.getScriptProperties().getProperties();
+
+    // Nada de esto sale del sistema, por mas que se pida un respaldo completo
+    const SECRETOS = ['API_TOKEN', 'AFIP_ACCESS_TOKEN', 'AFIP_CERT', 'AFIP_KEY',
+                      'PIN_MODULOS_EXTRA', 'CLAUDE_API_KEY', 'SPREADSHEET_ID'];
+    const esSecreto = function(clave) {
+      if (SECRETOS.indexOf(clave) > -1) return true;
+      return /TOKEN|KEY|SECRET|PASS|PIN|CLAVE|CERT/i.test(clave);
+    };
+
+    const limpias = {};
+    let n = 0;
+    Object.keys(props).forEach(function(clave) {
+      if (esSecreto(clave)) return;
+      limpias[clave] = props[clave];
+      n++;
+    });
+
+    return {
+      success: true,
+      json: JSON.stringify({
+        sistema: CONFIG.SISTEMA.NOMBRE,
+        version: CONFIG.SISTEMA.VERSION,
+        exportado: new Date().toISOString(),
+        nota: 'No incluye credenciales (tokens, claves, certificados ni PIN).',
+        configuracion: limpias
+      }, null, 2),
+      claves: n
+    };
+  } catch (error) {
+    Logger.log('Error en exportarConfiguracion: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Importa una configuracion exportada antes.
+ *
+ * Ignora cualquier clave que parezca una credencial, incluso si viene en el
+ * archivo: un JSON de origen desconocido no debe poder plantar un token ni
+ * cambiar el PIN. Tampoco toca SPREADSHEET_ID, que apunta a los datos.
+ *
+ * @param {string} json - Contenido del archivo exportado
+ * @returns {{success: boolean, aplicadas?: number, ignoradas?: Array, error?: string}}
+ */
+function importarConfiguracion(json) {
+  try {
+    let paquete;
+    try {
+      paquete = JSON.parse(String(json || ''));
+    } catch (e) {
+      return { success: false, error: 'El archivo no es un JSON válido.' };
+    }
+
+    const entrada = (paquete && paquete.configuracion) ? paquete.configuracion : paquete;
+    if (!entrada || typeof entrada !== 'object') {
+      return { success: false, error: 'El archivo no tiene una configuración reconocible.' };
+    }
+
+    const props = PropertiesService.getScriptProperties();
+    const ignoradas = [];
+    let aplicadas = 0;
+
+    Object.keys(entrada).forEach(function(clave) {
+      if (/TOKEN|KEY|SECRET|PASS|PIN|CLAVE|CERT|SPREADSHEET_ID/i.test(clave)) {
+        ignoradas.push(clave);
+        return;
+      }
+      const valor = entrada[clave];
+      if (valor === null || valor === undefined || typeof valor === 'object') {
+        ignoradas.push(clave);
+        return;
+      }
+      props.setProperty(clave, String(valor));
+      aplicadas++;
+    });
+
+    Logger.log('[CONFIG] Configuración importada: ' + aplicadas + ' claves aplicadas, ' +
+               ignoradas.length + ' ignoradas por seguridad o formato.');
+    return { success: true, aplicadas: aplicadas, ignoradas: ignoradas };
+
+  } catch (error) {
+    Logger.log('Error en importarConfiguracion: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 /**
  * Informa si la API tiene token configurado, SIN devolver su valor.
  * @returns {{success: boolean, configurado: boolean, longitud: number}}
@@ -1467,7 +1706,12 @@ function obtenerContadoresCajaConfig() {
 function obtenerConfiguracion() {
   const ocr = CONFIG.getOcr();
   return {
-    denominaciones: DENOMINACIONES,
+    // Denominaciones editables desde Configuración, con las de fábrica como
+    // respaldo. Antes se enviaba el objeto fijo del código.
+    denominaciones: { BILLETES: CONFIG.getDenominaciones(), MONEDAS: DENOMINACIONES.MONEDAS },
+    formato: CONFIG.getFormato(),
+    ui: CONFIG.getUI(),
+    negocio: CONFIG.getNegocio(),
     tiposMovimiento: CONFIG.TIPOS_MOVIMIENTO,
     colores: CONFIG.COLORES,
     sistema: CONFIG.SISTEMA,
@@ -1619,6 +1863,26 @@ function obtenerConfiguracionCompleta() {
       // Limites de visualizacion (0 = todos)
       visorMovsDefault: CONFIG.getVisor().MOVS_DEFAULT,
 
+      // Formato de montos y fechas
+      formatoMoneda:    CONFIG.getFormato().MONEDA_SIMBOLO,
+      formatoFecha:     CONFIG.getFormato().FORMATO_FECHA,
+      formatoDecimales: CONFIG.getFormato().DECIMALES,
+
+      // Interfaz
+      uiDuracionAviso:  CONFIG.getUI().DURACION_AVISO,
+      uiFilasPorPagina: CONFIG.getUI().FILAS_POR_PAGINA,
+      uiTamanioFuente:  CONFIG.getUI().TAMANIO_FUENTE,
+      uiTemaInicial:    CONFIG.getUI().TEMA_INICIAL,
+
+      // Reglas del negocio
+      negocioAlertaSaldo:     CONFIG.getNegocio().ALERTA_SALDO,
+      negocioDiasInactivo:    CONFIG.getNegocio().DIAS_INACTIVO,
+      negocioDiasBackup:      CONFIG.getNegocio().DIAS_BACKUP,
+      negocioRetencionBackup: CONFIG.getNegocio().RETENCION_BACKUP,
+
+      // Denominaciones de billetes para el arqueo
+      denominaciones: CONFIG.getDenominaciones(),
+
       // OCR gratuito
       ocrIdioma:           CONFIG.getOcr().IDIOMA,
       ocrConfianzaMinima:  CONFIG.getOcr().CONFIANZA_MINIMA,
@@ -1754,6 +2018,123 @@ function guardarConfiguracionGeneral(config) {
       props.setProperty('IVA_ALICUOTA_ID', config.ivaAlicuotaId.toString());
     }
     
+    // ── Formato de montos y fechas ──────────────────────────────────────────
+    if (config.formatoMoneda !== undefined) {
+      const simbolo = String(config.formatoMoneda).trim();
+      if (!simbolo || simbolo.length > 5) {
+        throw new Error('El símbolo de moneda debe tener entre 1 y 5 caracteres');
+      }
+      props.setProperty('FORMATO_MONEDA', simbolo);
+    }
+
+    if (config.formatoFecha !== undefined) {
+      const fmt = String(config.formatoFecha).trim().toUpperCase();
+      if (['DD/MM/AAAA', 'AAAA-MM-DD', 'DD-MM-AAAA'].indexOf(fmt) === -1) {
+        throw new Error('Formato de fecha inválido');
+      }
+      props.setProperty('FORMATO_FECHA', fmt);
+    }
+
+    if (config.formatoDecimales !== undefined) {
+      const dec = parseInt(config.formatoDecimales);
+      if (isNaN(dec) || dec < 0 || dec > 2) {
+        throw new Error('Los decimales deben ser 0, 1 o 2');
+      }
+      props.setProperty('FORMATO_DECIMALES', dec.toString());
+    }
+
+    // ── Interfaz ────────────────────────────────────────────────────────────
+    if (config.uiDuracionAviso !== undefined) {
+      const ms = parseInt(config.uiDuracionAviso);
+      if (isNaN(ms) || ms < 500 || ms > 30000) {
+        throw new Error('La duración de los avisos debe estar entre 500 y 30000 ms');
+      }
+      props.setProperty('UI_DURACION_AVISO', ms.toString());
+    }
+
+    if (config.uiFilasPorPagina !== undefined) {
+      const filas = parseInt(config.uiFilasPorPagina);
+      if (isNaN(filas) || filas < 5 || filas > 500) {
+        throw new Error('Las filas por página deben estar entre 5 y 500');
+      }
+      props.setProperty('UI_FILAS_POR_PAGINA', filas.toString());
+    }
+
+    if (config.uiTamanioFuente !== undefined) {
+      const fuente = parseInt(config.uiTamanioFuente);
+      if (isNaN(fuente) || fuente < 70 || fuente > 150) {
+        throw new Error('El tamaño de fuente debe estar entre 70% y 150%');
+      }
+      props.setProperty('UI_TAMANIO_FUENTE', fuente.toString());
+    }
+
+    if (config.uiTemaInicial !== undefined) {
+      const tema = String(config.uiTemaInicial).trim().toLowerCase();
+      if (tema !== 'light' && tema !== 'dark') {
+        throw new Error('El tema inicial debe ser claro u oscuro');
+      }
+      props.setProperty('UI_TEMA_INICIAL', tema);
+    }
+
+    // ── Reglas del negocio ──────────────────────────────────────────────────
+    if (config.negocioAlertaSaldo !== undefined) {
+      const alerta = parseInt(config.negocioAlertaSaldo);
+      if (isNaN(alerta) || alerta < 0) {
+        throw new Error('El umbral de alerta de saldo no puede ser negativo (0 = usar el límite de cada cliente)');
+      }
+      props.setProperty('NEGOCIO_ALERTA_SALDO', alerta.toString());
+    }
+
+    if (config.negocioDiasInactivo !== undefined) {
+      const dias = parseInt(config.negocioDiasInactivo);
+      if (isNaN(dias) || dias < 1 || dias > 3650) {
+        throw new Error('Los días de inactividad deben estar entre 1 y 3650');
+      }
+      props.setProperty('NEGOCIO_DIAS_INACTIVO', dias.toString());
+    }
+
+    if (config.negocioDiasBackup !== undefined) {
+      const dias = parseInt(config.negocioDiasBackup);
+      if (isNaN(dias) || dias < 1 || dias > 365) {
+        throw new Error('La frecuencia de respaldo debe estar entre 1 y 365 días');
+      }
+      props.setProperty('NEGOCIO_DIAS_BACKUP', dias.toString());
+    }
+
+    if (config.negocioRetencionBackup !== undefined) {
+      const dias = parseInt(config.negocioRetencionBackup);
+      if (isNaN(dias) || dias < 1 || dias > 3650) {
+        throw new Error('La retención de respaldos debe estar entre 1 y 3650 días');
+      }
+      props.setProperty('NEGOCIO_RETENCION_BACKUP', dias.toString());
+    }
+
+    // ── Denominaciones de billetes del arqueo ───────────────────────────────
+    if (config.denominaciones !== undefined) {
+      if (!Array.isArray(config.denominaciones) || config.denominaciones.length === 0) {
+        throw new Error('Tiene que haber al menos una denominación de billete');
+      }
+      if (config.denominaciones.length > 30) {
+        throw new Error('Demasiadas denominaciones (máximo 30)');
+      }
+      const vistos = {};
+      const limpias = config.denominaciones.map(function(d) {
+        const valor = Math.round(Number(d && d.valor));
+        if (!isFinite(valor) || valor <= 0 || valor > 10000000) {
+          throw new Error('Cada billete necesita un valor entre 1 y 10.000.000');
+        }
+        if (vistos[valor]) {
+          throw new Error('Hay dos billetes con el mismo valor: ' + valor);
+        }
+        vistos[valor] = true;
+        return {
+          valor: valor,
+          nombre: String((d && d.nombre) || ('Billete $' + valor)).trim().substring(0, 60)
+        };
+      });
+      props.setProperty('DENOMINACIONES_BILLETES', JSON.stringify(limpias));
+    }
+
     // OCR gratuito (reemplaza a la configuración de Claude AI, que ya no existe)
     if (config.ocrIdioma !== undefined) {
       const idioma = String(config.ocrIdioma).trim().toLowerCase();

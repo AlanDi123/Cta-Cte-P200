@@ -237,11 +237,15 @@ El alta escribe `tipoFactura` como `'A'` o `'B'`, pero el filtro comparaba contr
 
 > **Consecuencia:** cualquier diferencia de acentos o espacios hace que ese cliente aparezca con **saldo 0** en la vista histórica.
 
-### 7.8 ⏸ SIN TOCAR — El PIN de logística está escrito en el repositorio · `config.gs`
+### 7.8 ✅ CORREGIDO — El PIN de logística estaba escrito en el repositorio · `config.gs`
 
-`PIN_ACCESO: '4646'`.
+El PIN de los módulos protegidos estaba como literal en `CONFIG.MODULOS_EXTRA.PIN_ACCESO`.
 
-> **Consecuencia:** el PIN es **público en GitHub**. Pasa a Configuración en la Etapa 4; mientras tanto, conviene saberlo.
+> **Qué pasaba:** el PIN era **público en GitHub**. Cualquiera que viera el código lo conocía.
+
+**Corrección.** El literal se eliminó del código. El PIN vive únicamente en la propiedad de script `PIN_MODULOS_EXTRA`, que ya se configuraba desde Configuración → Parámetros de Logística pero tenía ese valor del repositorio como respaldo silencioso. Ahora, **sin PIN configurado no hay respaldo**: el acceso se deniega con un mensaje que indica dónde definirlo.
+
+> **Importante:** el valor viejo **sigue en el historial de Git**, y eso no se puede deshacer reescribiendo el repositorio sin romper las ramas existentes. Si ese PIN se usaba de verdad, **cámbielo por otro** en Configuración: es la única forma de invalidarlo. Pasa a Configuración en la Etapa 4; mientras tanto, conviene saberlo.
 
 ---
 
