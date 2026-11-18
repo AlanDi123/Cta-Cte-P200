@@ -1513,16 +1513,23 @@ function obtenerSaldosConMovimientosDia(fecha) {
     var movimientosDia = MovimientosRepository.obtenerPorRango(fechaFiltro, fechaFin);
 
     // Agrupar movimientos del día por cliente
+    // Los dos indices de esta funcion se arman con claves NORMALIZADAS, y se
+    // consultan igual. Antes se indexaba por el nombre crudo de MOVIMIENTOS y
+    // se buscaba por el de CLIENTES: una diferencia de acento o de espacios
+    // entre las dos hojas dejaba al cliente con saldo 0 y sin movimientos del
+    // dia, aunque los tuviera.
     var movsPorCliente = {};
     for (var i = 0; i < movimientosDia.length; i++) {
       var mov = movimientosDia[i];
-      if (!movsPorCliente[mov.cliente]) {
-        movsPorCliente[mov.cliente] = { pagos: 0, fiados: 0 };
+      var claveMov = normalizarString(mov.cliente);
+      if (!claveMov) continue;
+      if (!movsPorCliente[claveMov]) {
+        movsPorCliente[claveMov] = { pagos: 0, fiados: 0 };
       }
       if (mov.tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) {
-        movsPorCliente[mov.cliente].pagos  += mov.monto;
+        movsPorCliente[claveMov].pagos  += mov.monto;
       } else {
-        movsPorCliente[mov.cliente].fiados += mov.monto;
+        movsPorCliente[claveMov].fiados += mov.monto;
       }
     }
 
@@ -1532,7 +1539,7 @@ function obtenerSaldosConMovimientosDia(fecha) {
 
     if (esHoy) {
       for (var j = 0; j < clientes.length; j++) {
-        saldosPorNombre[clientes[j].nombre] = clientes[j].saldo || 0;
+        saldosPorNombre[normalizarString(clientes[j].nombre)] = clientes[j].saldo || 0;
       }
     } else {
       saldosPorNombre = MovimientosRepository.calcularSaldosHistoricos(fechaFin);
@@ -1546,8 +1553,9 @@ function obtenerSaldosConMovimientosDia(fecha) {
 
     for (var k = 0; k < clientes.length; k++) {
       var c = clientes[k];
-      var saldo = saldosPorNombre[c.nombre] || 0;
-      var mDia  = movsPorCliente[c.nombre]  || { pagos: 0, fiados: 0 };
+      var claveC = normalizarString(c.nombre);
+      var saldo = saldosPorNombre[claveC] || 0;
+      var mDia  = movsPorCliente[claveC]  || { pagos: 0, fiados: 0 };
 
       // Sumar en totales independientemente del saldo actual
       totalFiadosDia += mDia.fiados;
@@ -1561,10 +1569,11 @@ function obtenerSaldosConMovimientosDia(fecha) {
 
     for (var l = 0; l < clientes.length; l++) {
       var cli = clientes[l];
-      var sal = saldosPorNombre[cli.nombre] || 0;
+      var claveCli = normalizarString(cli.nombre);
+      var sal = saldosPorNombre[claveCli] || 0;
       if (sal === 0) continue; // ocultar, pero ya sumamos en totales arriba
 
-      var mDiaCli = movsPorCliente[cli.nombre] || { pagos: 0, fiados: 0 };
+      var mDiaCli = movsPorCliente[claveCli] || { pagos: 0, fiados: 0 };
       resultado.push({
         nombre:    cli.nombre,
         saldo:     sal,

@@ -15225,13 +15225,6 @@ function renderEstadisticas(result) {
             document.getElementById('inputNegocioDiasInactivo').value = config.negocioDiasInactivo || '';
             document.getElementById('inputNegocioDiasBackup').value = config.negocioDiasBackup || '';
             document.getElementById('inputNegocioRetencionBackup').value = config.negocioRetencionBackup || '';
-
-            // Denominaciones de billetes e inquilinos
-            _denominacionesConfig = (config.denominaciones || []).map(function(d) {
-              return { valor: Number(d.valor) || 0, nombre: String(d.nombre || '') };
-            });
-            renderDenominacionesConfig();
-            cargarInquilinosConfig();
             
             // IVA
             document.getElementById('inputIvaPorcentaje').value = config.ivaPorcentaje || '';
@@ -15308,6 +15301,29 @@ function renderEstadisticas(result) {
               var cont = document.getElementById('ayudaTutorialesContenido');
               if (cont) cont.innerHTML = config.ayudaTutoriales;
             }
+
+            // ── Al FINAL y entre try/catch, a proposito ────────────────────
+            //
+            // Estas dos piezas dependen de datos o funciones agregados
+            // despues, asi que son las mas expuestas a un backend viejo.
+            // Estaban en el MEDIO del handler y una de ellas lanzo un
+            // TypeError que aborto en silencio todo lo que venia detras:
+            // IVA, OCR, busqueda difusa, impresion y logistica.
+            //
+            // Puestas al final, lo peor que puede pasar es que falten ellas.
+            try {
+              _denominacionesConfig = (config.denominaciones || []).map(function(d) {
+                return { valor: Number(d.valor) || 0, nombre: String(d.nombre || '') };
+              });
+              renderDenominacionesConfig();
+            } catch (e) {
+              console.warn('[Configuración] No se pudieron mostrar las denominaciones: ' + e.message);
+            }
+            try {
+              cargarInquilinosConfig();
+            } catch (e) {
+              console.warn('[Configuración] No se pudieron cargar los inquilinos: ' + e.message);
+            }
           } else {
             mostrarToast('Error al cargar configuración: ' + result.error, 'error');
           }
@@ -15330,19 +15346,16 @@ function renderEstadisticas(result) {
     function cargarEstadoTokenApi() {
       const el = document.getElementById('estadoTokenApi');
       if (!el) return;
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (res && res.configurado) {
-            el.innerHTML = '<span style="color:var(--sv-exito);">✓ Token configurado</span> ' +
-              '<span style="color:var(--sv-texto-muted);">(' + res.longitud + ' caracteres)</span>';
-          } else {
-            el.innerHTML = '<span style="color:var(--sv-peligro);">✗ Sin token: las acciones protegidas de la API están cerradas</span>';
-          }
-        })
-        .withFailureHandler(function(error) {
-          el.textContent = 'No se pudo consultar el estado: ' + ((error && error.message) || error);
-        })
-        .obtenerEstadoTokenApi();
+      svBackend('obtenerEstadoTokenApi', [], function(res) {
+        if (res && res.configurado) {
+          el.innerHTML = '<span style="color:var(--sv-exito);">✓ Token configurado</span> ' +
+            '<span style="color:var(--sv-texto-muted);">(' + res.longitud + ' caracteres)</span>';
+        } else {
+          el.innerHTML = '<span style="color:var(--sv-peligro);">✗ Sin token: las acciones protegidas de la API están cerradas</span>';
+        }
+      }, function(msg) {
+        el.innerHTML = '<span style="color:var(--sv-peligro);">' + escapeHtml(msg) + '</span>';
+      });
     }
 
     function generarTokenApiConfig() {
@@ -15398,8 +15411,7 @@ function renderEstadisticas(result) {
     function cargarEstadoHtmlRemoto() {
       const el = document.getElementById('estadoHtmlRemoto');
       if (!el) return;
-      google.script.run
-        .withSuccessHandler(function(res) {
+      svBackend('obtenerEstadoHtmlRemoto', [], function(res) {
           if (!res || !res.success) {
             el.textContent = 'No se pudo consultar el estado.';
             return;
@@ -15415,11 +15427,9 @@ function renderEstadisticas(result) {
           } else {
             el.innerHTML = '<span style="color:var(--sv-texto-muted);">Desactivado: se usa el archivo del proyecto</span>';
           }
-        })
-        .withFailureHandler(function(error) {
-          el.textContent = 'Error al consultar: ' + ((error && error.message) || error);
-        })
-        .obtenerEstadoHtmlRemoto();
+      }, function(msg) {
+        el.innerHTML = '<span style="color:var(--sv-peligro);">' + escapeHtml(msg) + '</span>';
+      });
     }
 
     function configurarHtmlRemotoUI(activar) {
@@ -15500,6 +15510,72 @@ function renderEstadisticas(result) {
           mostrarToast('Error: ' + ((error && error.message) || error), 'error');
         })
         .reintentarGuardadoCaeSinGuardar(fila);
+    }
+
+    // ============================================================================
+    // LLAMADA SEGURA AL BACKEND
+    //
+    // google.script.run arma su proxy con los nombres de funcion que EXISTEN en
+    // el proyecto de Apps Script desplegado. Si la interfaz es mas nueva que el
+    // backend —normal mientras se despliega, y permanente si se usa la carga en
+    // caliente del HTML sin actualizar los .gs—, la propiedad simplemente no
+    // existe, y llamarla lanza un TypeError NO ATRAPADO.
+    //
+    // Eso no es teorico: paso. Una llamada a obtenerInquilinosConfig en medio
+    // del handler de Configuracion aborto todo lo que venia despues —IVA, OCR,
+    // busqueda difusa, impresion y logistica— sin que nada lo avisara.
+    //
+    // Con esto, una funcion ausente da un mensaje claro que dice exactamente
+    // que falta, y el resto del sistema sigue funcionando.
+    // ============================================================================
+
+    /**
+     * Invoca una funcion del backend comprobando primero que exista.
+     * @param {string} nombre - Nombre de la funcion del backend
+     * @param {Array} [args] - Argumentos
+     * @param {Function} [alOk] - Recibe el resultado
+     * @param {Function} [alError] - Recibe un mensaje de texto. Por defecto, un aviso
+     * @returns {boolean} false si no se pudo ni intentar la llamada
+     */
+    function svBackend(nombre, args, alOk, alError) {
+      const avisar = alError || function(msg) { mostrarToast(msg, 'error'); };
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        avisar('No hay conexión con el servidor.');
+        return false;
+      }
+
+      let corredor;
+      try {
+        corredor = google.script.run
+          .withSuccessHandler(function(res) {
+            // El handler del llamador no debe poder romper nada mas
+            try { if (alOk) alOk(res); }
+            catch (e) { console.error('[svBackend] handler de "' + nombre + '": ' + e.message); }
+          })
+          .withFailureHandler(function(err) {
+            avisar((err && err.message) || String(err));
+          });
+      } catch (e) {
+        avisar('No se pudo preparar la llamada a "' + nombre + '": ' + e.message);
+        return false;
+      }
+
+      if (typeof corredor[nombre] !== 'function') {
+        const msg = 'El backend desplegado no tiene "' + nombre + '". Falta subir los ' +
+                    'archivos .gs a Apps Script: la interfaz está más nueva que el servidor.';
+        console.warn('[svBackend] ' + msg);
+        avisar(msg);
+        return false;
+      }
+
+      try {
+        corredor[nombre].apply(corredor, args || []);
+        return true;
+      } catch (e) {
+        avisar('Falló la llamada a "' + nombre + '": ' + e.message);
+        return false;
+      }
     }
 
     // ============================================================================
@@ -15597,16 +15673,14 @@ function renderEstadisticas(result) {
       if (!cont) return;
       cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-texto-muted);">Cargando...</p>';
 
-      google.script.run
-        .withSuccessHandler(function(res) {
-          _inquilinosConfig = (res && res.inquilinos) || [];
-          renderInquilinosConfig();
-        })
-        .withFailureHandler(function(error) {
-          cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-peligro);">No se pudieron cargar: ' +
-            escapeHtml((error && error.message) || String(error)) + '</p>';
-        })
-        .obtenerInquilinosConfig();
+      svBackend('obtenerInquilinosConfig', [], function(res) {
+        _inquilinosConfig = (res && res.inquilinos) || [];
+        renderInquilinosConfig();
+      }, function(msg) {
+        // El error se muestra EN la tarjeta, no como aviso suelto: asi se ve
+        // junto a lo que no funciono, y no interrumpe el resto del panel
+        cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-peligro);">' + escapeHtml(msg) + '</p>';
+      });
     }
 
     function renderInquilinosConfig() {

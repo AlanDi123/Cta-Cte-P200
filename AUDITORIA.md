@@ -4,8 +4,8 @@ Revisión completa de las 29.619 líneas del sistema: 11.700 en 17 archivos `.gs
 
 Cada hallazgo fue **verificado leyendo el código**, no inferido. Donde un informe preliminar exageró, se dice.
 
-- **Corregidos:** 22 fallos, todos con prueba o verificación directa.
-- **Documentados sin tocar:** 4, porque afectan dinero, stock o fisco y esperan su decisión (ver sección 7).
+- **Corregidos:** 26 fallos, todos con prueba o verificación directa.
+- **Documentados sin tocar:** ninguno. Los ocho puntos sensibles de la sección 7 quedaron resueltos.
 - **Código muerto eliminado:** 17 funciones.
 - **Conservado a propósito:** 9 funciones sin referencias que NO conviene borrar.
 
@@ -173,7 +173,7 @@ Codifica reglas fiscales reales de AFIP (Factura A exige CUIT y condición RI o 
 
 ## 7. Puntos sensibles
 
-Afectan dinero, stock o fisco. Los cuatro que el usuario autorizó ya están corregidos; los otros cuatro siguen sin tocar y esperan su decisión.
+Afectan dinero, stock o fisco. **Los ocho están corregidos**: los cuatro primeros en la primera ronda, los cuatro restantes en la segunda.
 
 ### 7.1 ✅ CORREGIDO — CAE emitido en ARCA que el sistema reportaba como éxito aunque no guardara nada · `facturacionElectronica.gs`
 
@@ -197,11 +197,17 @@ Si ARCA **otorgaba el CAE** pero fallaba el guardado local, el `catch` lo captur
 
 **Corrección.** Identificación por prioridades y sin adivinar: **1)** código exacto, **2)** nombre exacto, **3)** coincidencia parcial **solo si es única**. Si varios productos coinciden parcialmente es ambiguo, **no se toca nada** y se informa listando los candidatos para que se use el código exacto. Y si el stock no alcanza, **no se descuenta**: dejarlo en negativo convertía un dato de inventario en un número sin sentido.
 
-### 7.3 ⏸ SIN TOCAR — ID de factura truncado a 8 caracteres · `facturacionElectronica.gs`
+### 7.3 ✅ CORREGIDO — ID de factura truncado a 8 caracteres · `facturacionElectronica.gs`
 
-`Utilities.getUuid().substring(0,8)` como clave, y el historial **deduplica por ese ID**.
+`Utilities.getUuid().substring(0,8)` como clave, y el historial **deduplicaba por ese ID**.
 
-> **Consecuencia:** una colisión (≈1% con 10.000 comprobantes) hace que una factura real **desaparezca del historial** y que una nota de crédito apunte a la factura equivocada.
+> **Qué pasaba:** una colisión (≈1% con 10.000 comprobantes) hacía que una factura real **desapareciera del historial** —se la tomaba por copia de otra— y que una nota de crédito pudiera apuntar al comprobante equivocado.
+
+**Corrección.** El historial ahora deduplica por la **clave fiscal**: el trío *(tipo, punto de venta, número)*. AFIP garantiza numeración secuencial sin repetición por cada combinación de tipo y punto de venta, así que esa clave **no puede colisionar** — y es la correcta para detectar la misma factura presente en las dos hojas, que era lo que se buscaba. Para filas viejas o incompletas sin el trío se cae al ID, exactamente el comportamiento anterior: nada empeora.
+
+Los comprobantes nuevos además se guardan con el **UUID completo**, sin truncar. Las filas ya guardadas conservan su ID corto y siguen funcionando, porque la deduplicación ya no depende de ese campo.
+
+> El ID corto de `auditoria.gs` se revisó y **no se tocó**: solo agrupa sesiones en el log y no se usa como clave.
 
 ### 7.4 ✅ CORREGIDO — La rama «Consumidor Final» del resumen mensual nunca se ejecutaba · `facturacion.gs`
 
@@ -211,11 +217,21 @@ El alta escribe `tipoFactura` como `'A'` o `'B'`, pero el filtro comparaba contr
 
 **Corrección.** El filtro compara contra `'B'`, y acepta también el valor antiguo `'CONSUMIDOR FINAL'` por si alguna fila histórica lo tiene. Además, nada desaparece en silencio: las transferencias que no entran en ninguna categoría —columna vacía o valor inesperado— se cuentan aparte y se informan en el mensaje y en el log, con sus IDs.
 
-### 7.5 ⏸ SIN TOCAR — Stock sin transacción ni reversión · `facturacion.gs`
+### 7.5 ✅ CORREGIDO — Stock sin transacción ni reversión · `facturacion.gs`
 
-`validarStock` lee y `descontarStock` vuelve a leer y escribe, sin candado entre ambas; y `procesarFacturaConStock` descuenta ítem por ítem sin reversión.
+`validarStock` leía y `descontarStock` volvía a leer y escribía, sin candado entre ambas; y `procesarFacturaConStock` descontaba ítem por ítem sin reversión.
 
-> **Consecuencia:** dos facturas simultáneas del último producto pasan ambas la validación. Y si el tercer ítem falla, los dos primeros ya quedaron descontados y la transferencia **no** se marca como facturada.
+> **Qué pasaba:** dos facturas simultáneas del último producto pasaban **ambas** la validación y el stock terminaba en negativo. Y si el tercer ítem fallaba, los dos primeros **ya quedaban descontados** y la transferencia no se marcaba como facturada: stock restado de una factura que nunca se emitió.
+
+**Corrección, en tres partes:**
+
+1. **Nuevo `descontarStockLote(items)`** — una sola operación. Lee la hoja **una vez**, agrega las cantidades por producto (el mismo ID puede venir repetido, y validar cada aparición por separado dejaba pasar la suma), valida **todo** en memoria, y **recién entonces** escribe. Si algo falla no se escribe nada: la hoja queda exactamente como estaba.
+2. **Nuevo `restaurarStock(aplicados)`** — devuelve el stock a sus valores previos.
+3. **`procesarFacturaConStock` toma candado** sobre toda la operación y, si el marcado de la transferencia falla después del descuento, **revierte**. Si la reversión misma no se completa, lo informa con `requiereAtencion: 'STOCK_SIN_REVERTIR'` y dice cuántos productos hay que revisar a mano, en lugar de callarlo.
+
+Beneficio extra: una factura de N productos pasa de **N lecturas** de la hoja completa a **una**.
+
+El contrato de `descontarStock` para un solo producto se conservó **exactamente** —lanza si no alcanza, devuelve `false` si el producto no existe—, porque su único llamador es la emisión ARCA después de obtener el CAE, y cambiarle el flujo no fue pedido.
 
 ### 7.6 ✅ CORREGIDO — La API REST no tenía autenticación · `main.gs`
 
@@ -231,11 +247,15 @@ El alta escribe `tipoFactura` como `'A'` o `'B'`, pero el filtro comparaba contr
 >
 > Si tiene un sistema externo —un POS, un script— que consume esta API, hay que hacer dos cosas **antes** de desplegar: generar el token en Configuración y cargarlo en ese sistema. Se envía en el campo `token` del cuerpo JSON en POST, o como parámetro `&token=` en la URL en GET. Si no hay nada externo consumiendo la API, no hay nada que hacer.
 
-### 7.7 ⏸ SIN TOCAR — Saldos indexados sin normalizar · `movimientos.gs` + `main.gs`
+### 7.7 ✅ CORREGIDO — Saldos indexados sin normalizar · `movimientos.gs` + `main.gs`
 
-`calcularSaldosHistoricos` indexa por el nombre crudo de la hoja, mientras `obtenerSaldosConMovimientosDia` busca por el nombre de la hoja CLIENTES.
+`calcularSaldosHistoricos` indexaba por el nombre **crudo** de la hoja MOVIMIENTOS, mientras `obtenerSaldosConMovimientosDia` buscaba por el nombre de la hoja CLIENTES.
 
-> **Consecuencia:** cualquier diferencia de acentos o espacios hace que ese cliente aparezca con **saldo 0** en la vista histórica.
+> **Qué pasaba:** cualquier diferencia de acentos o de espacios entre las dos hojas hacía que la búsqueda no encontrara nada y el cliente apareciera con **saldo 0** en la vista histórica, aunque tuviera deuda. Y con el mismo cliente escrito de las dos formas, su saldo quedaba **partido en dos** entradas distintas.
+
+**Corrección.** Los **dos** índices de esa función —el de saldos y el de movimientos del día, que tenía el mismo defecto y no figuraba en el informe preliminar— se arman con claves normalizadas, y las **cuatro** búsquedas que los consultan normalizan igual.
+
+Medido sobre un caso concreto: con `MARTÍNEZ` acentuado en MOVIMIENTOS y `MARTINEZ` sin acento en CLIENTES, un fiado de $15.000 y un pago de $5.000 daban **−$5.000** al buscar sin normalizar, cuando el saldo verdadero es **$10.000**.
 
 ### 7.8 ✅ CORREGIDO — El PIN de logística estaba escrito en el repositorio · `config.gs`
 
@@ -248,6 +268,28 @@ El PIN de los módulos protegidos estaba como literal en `CONFIG.MODULOS_EXTRA.P
 > **Importante:** el valor viejo **sigue en el historial de Git**, y eso no se puede deshacer reescribiendo el repositorio sin romper las ramas existentes. Si ese PIN se usaba de verdad, **cámbielo por otro** en Configuración: es la única forma de invalidarlo. Pasa a Configuración en la Etapa 4; mientras tanto, conviene saberlo.
 
 ---
+
+## 7-bis. Un fallo encontrado en producción, no en la auditoría
+
+Al desplegar aparecieron en consola estas líneas:
+
+```
+Uncaught TypeError: google.script.run...obtenerInquilinosConfig is not a function
+    at cargarInquilinosConfig (...:9461:10)
+```
+
+**La causa no es un error del código**, es un **desfase de versiones**: la interfaz desplegada era la nueva, pero los archivos `.gs` del proyecto de Apps Script seguían siendo los viejos. `google.script.run` arma su lista de funciones con las que **existen en el proyecto desplegado**; `obtenerInquilinosConfig` es nueva, no estaba, y la propiedad quedó indefinida.
+
+Lo grave no fue el error en sí sino su efecto: **ese `TypeError` no estaba atrapado y abortó todo lo que venía después** en el mismo manejador. IVA, OCR, búsqueda difusa, impresión y logística **quedaron sin cargar, en silencio**. Eso fue un defecto de diseño mío: puse una llamada al servidor en el medio de un bloque que rellena el formulario de forma sincrónica.
+
+**Corregido en dos frentes:**
+
+1. **Nuevo `svBackend(nombre, args, alOk, alError)`** — comprueba que la función exista **antes** de llamarla. Si falta, da un mensaje que la nombra y dice que hay que subir los `.gs`, y **devuelve el control** en lugar de lanzar. También contiene las excepciones del propio manejador de éxito, para que un error ahí no escale.
+2. **Las cargas que dependen del servidor se movieron al final** del manejador y van entre `try/catch`. Lo peor que puede pasar ahora es que falten ellas.
+
+Las tres llamadas que corren solas al abrir Configuración —inquilinos, estado del token y estado de la actualización en caliente— pasaron a `svBackend`, y muestran el error **dentro de su propia tarjeta** en lugar de como un aviso suelto.
+
+> **Para que no vuelva a pasar:** la interfaz y los `.gs` tienen que subirse juntos. Es exactamente lo que resuelve el despliegue automático de `DEPLOY.md`, y es la razón por la que la Capa 1 —la interfaz en caliente desde GitHub— **no debe usarse sola** sin la Capa 2.
 
 ## 8. Cómo se verificó
 

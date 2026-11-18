@@ -495,7 +495,11 @@ function emitirFacturaElectronica(datosFactura) {
 
     // ── Guardado local del comprobante, con reintento ───────────────────────
     var filaFactura = {
-      id:            Utilities.getUuid().substring(0, 8).toUpperCase(),
+      // UUID completo, sin truncar. El recorte a 8 caracteres daba ~1% de
+      // colision con 10.000 comprobantes. Las filas ya guardadas conservan su
+      // id corto y siguen funcionando, porque el historial ya no deduplica
+      // por este campo sino por la clave fiscal (tipo-puntoVenta-numero).
+      id:            Utilities.getUuid().toUpperCase(),
       fecha:         formatearFechaLocal(new Date()),
       cbteTipo:      datos.cbteTipo,
       cbteTipoNombre: _nombreTipoComprobante(datos.cbteTipo),
@@ -714,11 +718,35 @@ function obtenerHistorialFacturas() {
       }
     });
 
-    // Deduplicar por ID (si una factura existe en ambas hojas, queda la primera)
-    var vistosIds = {};
+    // ═══════════════════════════════════════════════════════════════════════
+    // Deduplicar por la CLAVE FISCAL, no por el ID interno.
+    //
+    // Antes se deduplicaba por f.id, que era un UUID TRUNCADO a 8 caracteres.
+    // Con 10.000 comprobantes la probabilidad de que dos compartan esos 8
+    // caracteres ronda el 1%, y cuando pasaba el efecto era grave: una
+    // factura REAL desaparecia del historial porque se la tomaba por una
+    // copia de otra, y una nota de credito podia terminar apuntando al
+    // comprobante equivocado.
+    //
+    // Un comprobante AFIP ya tiene clave unica por definicion: el trio
+    // (tipo, punto de venta, numero). AFIP garantiza numeracion secuencial
+    // sin repeticion por cada combinacion de tipo y punto de venta, asi que
+    // esa clave no puede colisionar. Es la correcta para detectar la misma
+    // factura presente en las dos hojas, que es lo que se buscaba.
+    //
+    // Para filas viejas o incompletas que no tengan el trio, se cae al id,
+    // que es exactamente el comportamiento anterior: nada empeora.
+    // ═══════════════════════════════════════════════════════════════════════
+    var vistos = {};
     var facturas = todasLasFacturas.filter(function(f) {
-      if (vistosIds[f.id]) return false;
-      vistosIds[f.id] = true;
+      var clave;
+      if (f.cbteTipo > 0 && f.ptoVta > 0 && f.cbteNro > 0) {
+        clave = 'F:' + f.cbteTipo + '-' + f.ptoVta + '-' + f.cbteNro;
+      } else {
+        clave = 'I:' + f.id;   // respaldo para filas sin numeracion completa
+      }
+      if (vistos[clave]) return false;
+      vistos[clave] = true;
       return true;
     });
 
