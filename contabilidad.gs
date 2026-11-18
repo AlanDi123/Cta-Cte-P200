@@ -90,17 +90,33 @@ const CajaDiariaRepository = {
     };
   },
 
+  // Clave de caché por ejecución. obtenerActiva, obtenerPorFecha y
+  // obtenerPorId derivan todas de obtenerTodas, y cada una hacía su propio
+  // getDataRange() de la hoja completa: abrirCajaDiaria llegaba a leerla TRES
+  // veces seguidas, con el candado tomado. Con caché de ejecución se lee una.
+  _CACHE_KEY: 'caja_diaria_todas',
+
   /**
    * Obtiene todas las cajas registradas.
    * @returns {Array<Object>}
    */
   obtenerTodas: function() {
+    const cacheado = RequestCache.get(this._CACHE_KEY);
+    if (cacheado !== undefined && Array.isArray(cacheado)) return cacheado;
+
     const hoja = this.getHoja();
     const datos = hoja.getDataRange().getValues();
-    if (datos.length <= 1) return [];
-    return datos.slice(1)
-      .map(fila => this._filaAObjeto(fila))
-      .filter(c => c.id);
+    const resultado = (datos.length <= 1)
+      ? []
+      : datos.slice(1).map(fila => this._filaAObjeto(fila)).filter(c => c.id);
+
+    RequestCache.set(this._CACHE_KEY, resultado);
+    return resultado;
+  },
+
+  /** Descarta la caché de obtenerTodas. Obligatorio tras cada escritura. */
+  _invalidarCache: function() {
+    RequestCache.invalidar(this._CACHE_KEY);
   },
 
   /**
@@ -155,6 +171,7 @@ const CajaDiariaRepository = {
     fila[C.TIMESTAMP_CIERRE]  = '';
 
     hoja.appendRow(fila);
+    this._invalidarCache();
 
     return {
       id,
@@ -196,6 +213,7 @@ const CajaDiariaRepository = {
 
         // M-02: Una única escritura para todos los campos cambiados
         hoja.getRange(filaHoja, 1, 1, numColumnas).setValues([filaActualizada]);
+        this._invalidarCache();
         return true;
       }
     }
@@ -278,23 +296,39 @@ const CajaMovManualRepository = {
    * @returns {Object} Movimiento creado
    */
   agregar: function(cajaId, mov) {
-    const hoja = this.getHoja();
-    const C = CONFIG.COLS_CAJA_MOV;
-    const id = this.generarId();
-    const usuario = Session.getActiveUser().getEmail();
-    const ahora = new Date();
+    // Generar el ID y escribir la fila tienen que ser una sola operación
+    // atómica. Sin candado, dos gastos cargados a la vez obtenían el MISMO id
+    // (ambos leían el mismo máximo antes de que el otro escribiera), y a partir
+    // de ahí eliminar(id) borraba la primera coincidencia: el movimiento
+    // equivocado.
+    const lock = LockService.getScriptLock();
+    let lockAdquirido = false;
 
-    const fila = Array(7).fill('');
-    fila[C.ID]          = id;
-    fila[C.CAJA_ID]     = cajaId;
-    fila[C.TIPO]        = mov.tipo;
-    fila[C.DESCRIPCION] = mov.descripcion || '';
-    fila[C.MONTO]       = mov.monto;
-    fila[C.USUARIO]     = usuario;
-    fila[C.TIMESTAMP]   = ahora;
+    try {
+      lock.waitLock(30000);
+      lockAdquirido = true;
 
-    hoja.appendRow(fila);
-    return { id, cajaId, ...mov, usuario, timestamp: ahora.toISOString() };
+      const hoja = this.getHoja();
+      const C = CONFIG.COLS_CAJA_MOV;
+      const id = this.generarId();
+      const usuario = Session.getActiveUser().getEmail();
+      const ahora = new Date();
+
+      const fila = Array(7).fill('');
+      fila[C.ID]          = id;
+      fila[C.CAJA_ID]     = cajaId;
+      fila[C.TIPO]        = mov.tipo;
+      fila[C.DESCRIPCION] = mov.descripcion || '';
+      fila[C.MONTO]       = mov.monto;
+      fila[C.USUARIO]     = usuario;
+      fila[C.TIMESTAMP]   = ahora;
+
+      hoja.appendRow(fila);
+      return { id, cajaId, ...mov, usuario, timestamp: ahora.toISOString() };
+
+    } finally {
+      if (lockAdquirido) lock.releaseLock();
+    }
   },
 
   /**
@@ -439,14 +473,18 @@ const CajaDiariaService = {
  * @returns {{ success: boolean, caja?: Object, cajaInicialBloqueada?: boolean, error?: string }}
  */
 function abrirCajaDiaria(datos) {
+  // El candado se declara FUERA del try para que el finally pueda liberarlo.
+  // Antes se declaraba dentro y no se liberaba en ninguna salida por error.
+  const lock = LockService.getScriptLock();
+  let lockAdquirido = false;
+
   try {
-    const lock = LockService.getScriptLock();
     lock.waitLock(30000);
+    lockAdquirido = true;
 
     // Verificar que no existe caja abierta
     const cajaActiva = CajaDiariaRepository.obtenerActiva();
     if (cajaActiva) {
-      lock.releaseLock();
       return {
         success: false,
         error: 'Ya hay una caja abierta para el ' +
@@ -457,7 +495,6 @@ function abrirCajaDiaria(datos) {
 
     // Verificar que no existe caja para esa fecha
     if (CajaDiariaRepository.obtenerPorFecha(datos.fecha)) {
-      lock.releaseLock();
       return {
         success: false,
         error: 'Ya existe una caja registrada para esa fecha. Puede reabrirla si lo necesita.'
@@ -479,8 +516,6 @@ function abrirCajaDiaria(datos) {
       cajaInicial: cajaInicialEfectiva
     });
 
-    lock.releaseLock();
-
     return {
       success: true,
       caja: nueva,
@@ -491,6 +526,8 @@ function abrirCajaDiaria(datos) {
   } catch (error) {
     Logger.log('Error en abrirCajaDiaria: ' + error.message);
     return { success: false, error: error.message };
+  } finally {
+    if (lockAdquirido) lock.releaseLock();
   }
 }
 
@@ -505,17 +542,19 @@ function abrirCajaDiaria(datos) {
  * @returns {{ success: boolean, resumen?: Object, requiereRazon?: boolean, error?: string }}
  */
 function cerrarCajaDiaria(id, datos) {
+  // Declarado fuera del try para que el finally pueda liberarlo
+  const lock = LockService.getScriptLock();
+  let lockAdquirido = false;
+
   try {
-    const lock = LockService.getScriptLock();
     lock.waitLock(30000);
+    lockAdquirido = true;
 
     const caja = CajaDiariaRepository.obtenerPorId(id);
     if (!caja) {
-      lock.releaseLock();
       return { success: false, error: 'Caja no encontrada.' };
     }
     if (caja.estado !== CONFIG.ESTADOS_CAJA.ABIERTA) {
-      lock.releaseLock();
       return { success: false, error: 'La caja ya está cerrada.' };
     }
 
@@ -530,7 +569,6 @@ function cerrarCajaDiaria(id, datos) {
 
     // Exigir razonDiferencia si hay desfasaje
     if (resumen.hayDiferencia && !datos.razonDiferencia) {
-      lock.releaseLock();
       return {
         success: false,
         requiereRazon: true,
@@ -561,12 +599,13 @@ function cerrarCajaDiaria(id, datos) {
       montoImpacto: datos.cajaFinal || 0
     });
 
-    lock.releaseLock();
     return { success: true, resumen, mensaje: 'Caja cerrada correctamente.' };
 
   } catch (error) {
     Logger.log('Error en cerrarCajaDiaria: ' + error.message);
     return { success: false, error: error.message };
+  } finally {
+    if (lockAdquirido) lock.releaseLock();
   }
 }
 
@@ -587,23 +626,22 @@ function reabrirCajaDiaria(id, razon) {
   }
 
   const lock = LockService.getScriptLock();
+  let lockAdquirido = false;
   try {
     lock.waitLock(15000);
+    lockAdquirido = true;
 
     const caja = CajaDiariaRepository.obtenerPorId(id);
     if (!caja) {
-      lock.releaseLock();
       return { success: false, error: 'Caja no encontrada.' };
     }
     if (caja.estado !== CONFIG.ESTADOS_CAJA.CERRADA) {
-      lock.releaseLock();
       return { success: false, error: 'La caja ya está abierta.' };
     }
 
     // Verificación de caja activa DENTRO del lock para evitar race condition
     const cajaActiva = CajaDiariaRepository.obtenerActiva();
     if (cajaActiva && cajaActiva.id !== id) {
-      lock.releaseLock();
       return {
         success: false,
         error: 'Existe otra caja abierta (fecha: ' + cajaActiva.fecha + '). Ciérrela primero.'
@@ -618,14 +656,14 @@ function reabrirCajaDiaria(id, razon) {
       [C.TIMESTAMP_CIERRE]: ''
     });
 
-    lock.releaseLock();
     Logger.log('[CONTABILIDAD] Caja #' + id + ' reabierta. Razón: ' + razon.trim());
     return { success: true, mensaje: 'Caja reabierta correctamente.' };
 
   } catch (error) {
-    lock.releaseLock();
     Logger.log('Error en reabrirCajaDiaria: ' + error.message);
     return { success: false, error: error.message };
+  } finally {
+    if (lockAdquirido) lock.releaseLock();
   }
 }
 

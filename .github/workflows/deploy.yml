@@ -1,0 +1,145 @@
+name: Desplegar a Apps Script
+
+# Cada push a main despliega el sistema a Google Apps Script.
+#
+# La clave es reutilizar el MISMO deploymentId con `clasp deploy -i`: asi la
+# URL /exec del Web App no cambia nunca y nadie tiene que actualizar su
+# acceso directo. Sin ese -i, clasp crearia un despliegue nuevo con otra URL
+# en cada push.
+#
+# Requiere tres secretos en Settings > Secrets and variables > Actions.
+# El procedimiento completo esta en DEPLOY.md.
+
+on:
+  push:
+    branches: [main]
+  # Permite lanzarlo a mano desde la pestania Actions
+  workflow_dispatch:
+
+# Un despliegue a la vez: dos corriendo en paralelo pueden pisarse
+concurrency:
+  group: deploy-apps-script
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Traer el codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Comprobaciones ANTES de desplegar.
+      #
+      # Si algo no compila, no se despliega. Es un sistema contable en
+      # produccion: es mucho peor subir codigo roto que no subir nada.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Verificar la sintaxis de los archivos .gs
+        run: |
+          set -e
+          mkdir -p /tmp/sintaxis
+          fallos=0
+          for archivo in *.gs; do
+            cp "$archivo" "/tmp/sintaxis/${archivo%.gs}.js"
+            if node --check "/tmp/sintaxis/${archivo%.gs}.js" 2>/tmp/sintaxis/error.txt; then
+              echo "OK    $archivo"
+            else
+              echo "FALLA $archivo"
+              cat /tmp/sintaxis/error.txt
+              fallos=1
+            fi
+          done
+          if [ "$fallos" -ne 0 ]; then
+            echo "::error::Hay archivos .gs que no compilan. No se despliega."
+            exit 1
+          fi
+
+      - name: Verificar el JavaScript embebido en el HTML
+        run: |
+          cat > /tmp/verificar-html.js <<'FIN'
+          const fs = require('fs'), vm = require('vm');
+          const html = fs.readFileSync('SistemaSolVerde.html', 'utf8');
+          const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+          let m, n = 0, fallos = 0;
+          while ((m = re.exec(html)) !== null) {
+            if (/\bsrc\s*=/.test(m[1] || '')) continue;
+            n++;
+            const linea = html.slice(0, m.index).split('\n').length;
+            try {
+              new vm.Script(m[2], { filename: `inline@L${linea}` });
+              console.log(`OK    bloque ${n} (linea ${linea}, ${m[2].split('\n').length} lineas)`);
+            } catch (e) {
+              fallos++;
+              console.log(`FALLA bloque ${n} (linea ${linea}): ${e.message}`);
+            }
+          }
+          if (fallos) { console.log('::error::El JavaScript del HTML no compila. No se despliega.'); process.exit(1); }
+          console.log(`Los ${n} bloques inline compilan`);
+          FIN
+          node /tmp/verificar-html.js
+
+      - name: Comprobar que no se filtraron credenciales
+        run: |
+          # Red de contencion: nada que parezca una clave deberia llegar al
+          # repositorio. Si aparece, se corta el despliegue para revisarlo.
+          if grep -rnE "sk-ant-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}" --include="*.gs" --include="*.html" . ; then
+            echo "::error::Parece haber una credencial en el codigo. Revisar antes de desplegar."
+            exit 1
+          fi
+          echo "Sin credenciales a la vista"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Despliegue
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Instalar clasp
+        run: npm install -g @google/clasp@2.4.2
+
+      - name: Escribir las credenciales de clasp
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo "::error::Falta el secreto CLASPRC_JSON. Ver DEPLOY.md."
+            exit 1
+          fi
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          chmod 600 ~/.clasprc.json
+
+      - name: Apuntar al proyecto de Apps Script
+        env:
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+        run: |
+          if [ -z "$SCRIPT_ID" ]; then
+            echo "::error::Falta el secreto SCRIPT_ID. Ver DEPLOY.md."
+            exit 1
+          fi
+          # rootDir en "." porque los .gs y el .html estan en la raiz del repo
+          printf '{"scriptId":"%s","rootDir":"."}' "$SCRIPT_ID" > .clasp.json
+
+      - name: Subir el codigo
+        run: clasp push --force
+
+      - name: Actualizar el despliegue existente
+        env:
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+        run: |
+          DESCRIPCION="main@${GITHUB_SHA::7}"
+          if [ -n "$DEPLOYMENT_ID" ]; then
+            # Mismo deploymentId: la URL /exec no cambia
+            clasp deploy -i "$DEPLOYMENT_ID" -d "$DESCRIPCION"
+            echo "Despliegue $DEPLOYMENT_ID actualizado a $DESCRIPCION"
+          else
+            echo "::warning::Sin DEPLOYMENT_ID: el codigo se subio pero NO se publico."
+            echo "::warning::La URL /exec sigue sirviendo la version anterior. Ver DEPLOY.md."
+          fi
+
+      - name: Quitar las credenciales
+        if: always()
+        run: rm -f ~/.clasprc.json .clasp.json

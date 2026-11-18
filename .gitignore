@@ -1,0 +1,16 @@
+# Credenciales de clasp. NUNCA deben versionarse: .clasprc.json contiene un
+# token que da acceso a los proyectos de Apps Script de la cuenta.
+.clasprc.json
+.clasp.json
+
+# Dependencias y artefactos locales
+node_modules/
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Archivos temporales de edición
+*~
+*.swp
+*.bak
+*.orig

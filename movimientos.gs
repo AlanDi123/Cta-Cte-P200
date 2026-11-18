@@ -27,28 +27,35 @@ const MovimientosRepository = {
   },
 
   /**
-   * Genera un nuevo ID autoincremental
+   * Genera un nuevo ID autoincremental.
+   *
+   * NO toma el candado: debe invocarse DENTRO de la seccion critica del
+   * llamador, que es quien lo tiene.
+   *
+   * Antes lo tomaba y lo liberaba por su cuenta. Como LockService.getScriptLock()
+   * devuelve SIEMPRE el mismo candado de script, ese releaseLock() liberaba el
+   * candado que ya tenia registrar(): desde ahi la escritura de la fila y la
+   * actualizacion del saldo corrian sin proteccion, y dos movimientos
+   * simultaneos podian tomar el mismo ID y pisarse el saldo mutuamente.
+   *
+   * Lee solo la columna de ID en lugar de la hoja entera (8 columnas).
+   *
    * @returns {number} Nuevo ID
    */
   generarNuevoID: function() {
-    const lock = LockService.getScriptLock();
-    try {
-      lock.waitLock(30000);
-      const hoja = this.getHoja();
-      const datos = hoja.getDataRange().getValues();
-      let maxId = 0;
-      for (let i = 1; i < datos.length; i++) {
-        const id = datos[i][CONFIG.COLS_MOVS.ID];
-        if (typeof id === 'number' && id > maxId) {
-          maxId = id;
-        }
+    const hoja = this.getHoja();
+    const lastRow = hoja.getLastRow();
+    if (lastRow <= 1) return 1;
+
+    const ids = hoja.getRange(2, CONFIG.COLS_MOVS.ID + 1, lastRow - 1, 1).getValues();
+    let maxId = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i][0];
+      if (typeof id === 'number' && id > maxId) {
+        maxId = id;
       }
-      lock.releaseLock();
-      return maxId + 1;
-    } catch (e) {
-      lock.releaseLock();
-      throw e;
     }
+    return maxId + 1;
   },
 
   /**
@@ -60,9 +67,11 @@ const MovimientosRepository = {
    */
   registrar: function(movimientoData) {
     const lock = LockService.getScriptLock();
+    let lockAdquirido = false;
 
     try {
       lock.waitLock(30000);
+      lockAdquirido = true;
 
       // Validar datos
       const validacion = validarMovimiento(movimientoData);
@@ -107,10 +116,28 @@ const MovimientosRepository = {
         usuario
       ];
 
-      // M-05: Usar conRetry para operaciones críticas
-      conRetry(() => hoja.appendRow(nuevaFila), { contexto: 'MOV.registrar.appendRow', maxIntentos: 3 });
-      conRetry(() => ClientesRepository.actualizarSaldoYContadores(clienteNorm, nuevoSaldo, fecha),
+      // M-05: reintento seguro ante fallos transitorios de Sheets.
+      //
+      // Se escribe en una fila calculada con setValues en lugar de appendRow.
+      // Motivo: conRetry sobre appendRow podia DUPLICAR el movimiento — si la
+      // fila se escribia pero la respuesta expiraba con un error considerado
+      // reintentable ('timeout', 'service spreadsheets failed'), el reintento
+      // insertaba una segunda fila y el fiado quedaba contado dos veces.
+      // Escribir en una fila fija es idempotente: reintentar solo reescribe
+      // los mismos valores en el mismo lugar. La fila se calcula una sola vez,
+      // fuera del reintento, y es estable porque tenemos el candado tomado.
+      const filaDestino = hoja.getLastRow() + 1;
+      conRetry(() => hoja.getRange(filaDestino, 1, 1, nuevaFila.length).setValues([nuevaFila]),
+        { contexto: 'MOV.registrar.escribirFila', maxIntentos: 3 });
+
+      // Igual criterio: se pasa el total ABSOLUTO en lugar de dejar que el
+      // repositorio incremente. Con un incremento, un reintento sumaba 2.
+      const totalMovsNuevo = (Number(cliente.totalMovs) || 0) + 1;
+      conRetry(() => ClientesRepository.actualizarSaldoYContadores(clienteNorm, nuevoSaldo, fecha, totalMovsNuevo),
         { contexto: 'MOV.registrar.actualizarCliente', maxIntentos: 3 });
+
+      // El historial cacheado de este cliente quedo obsoleto
+      RequestCache.invalidar('movimientos_cliente_' + clienteNorm);
 
       // M-06: Auditoría — fire and forget (no bloquea)
       AuditLogger.registrar({
@@ -123,8 +150,6 @@ const MovimientosRepository = {
         montoImpacto: movimientoData.monto
       });
 
-      lock.releaseLock();
-
       return {
         id: nuevoID,
         fecha: formatearFechaLocal(fecha),
@@ -136,9 +161,13 @@ const MovimientosRepository = {
         usuario: usuario
       };
 
-    } catch (error) {
-      lock.releaseLock();
-      throw error;
+    } finally {
+      // Solo se libera si de verdad se tomo. Antes se llamaba a releaseLock()
+      // dentro del catch: si waitLock habia expirado, el candado nunca se
+      // habia tomado y releaseLock() lanzaba SU PROPIA excepcion, que
+      // reemplazaba el error real ("no se pudo tomar el candado") por uno
+      // generico e incomprensible.
+      if (lockAdquirido) lock.releaseLock();
     }
   },
 
@@ -280,6 +309,56 @@ const MovimientosRepository = {
   },
 
   /**
+   * Obtiene un tramo de los movimientos de un cliente, sin transferir el resto.
+   * Reutiliza obtenerPorCliente (que ya cachea en RequestCache y ordena por ID
+   * descendente), de modo que pedir varios tramos en la misma ejecucion no
+   * vuelve a leer la hoja.
+   *
+   * El resumen (ultimoPago / ultimoFiado) se calcula sobre la lista COMPLETA,
+   * no sobre el tramo devuelto: de lo contrario, un cliente cuyo ultimo pago
+   * sea mas viejo que el tramo visible mostraria "-" de forma incorrecta.
+   *
+   * @param {string} nombreCliente - Nombre del cliente
+   * @param {number} limite - Cantidad a devolver. 0 = todos
+   * @param {number} offset - Desde que posicion (0 = el mas reciente)
+   * @returns {Object} {movimientos, total, offset, limite, hayMas, ultimoPago, ultimoFiado}
+   */
+  obtenerPorClientePaginado: function(nombreCliente, limite, offset) {
+    const todos = this.obtenerPorCliente(nombreCliente);
+    const total = todos.length;
+
+    let desde = parseInt(offset, 10);
+    if (isNaN(desde) || desde < 0) desde = 0;
+
+    let cantidad = parseInt(limite, 10);
+    if (isNaN(cantidad) || cantidad < 0) cantidad = 0; // 0 = todos
+
+    const pagina = (cantidad === 0)
+      ? todos.slice(desde)
+      : todos.slice(desde, desde + cantidad);
+
+    // Resumen sobre la lista completa (viene ordenada del mas reciente al mas viejo)
+    let ultimoPago = null;
+    let ultimoFiado = null;
+    for (let i = 0; i < total; i++) {
+      const tipo = todos[i].tipo;
+      if (!ultimoPago && tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) ultimoPago = todos[i].fecha;
+      if (!ultimoFiado && tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) ultimoFiado = todos[i].fecha;
+      if (ultimoPago && ultimoFiado) break;
+    }
+
+    return {
+      movimientos: pagina,
+      total: total,
+      offset: desde,
+      limite: cantidad,
+      hayMas: (desde + pagina.length) < total,
+      ultimoPago: ultimoPago,
+      ultimoFiado: ultimoFiado
+    };
+  },
+
+  /**
    * Obtiene movimientos por rango de fechas
    * @param {Date|string} desde - Fecha inicio
    * @param {Date|string} hasta - Fecha fin
@@ -373,8 +452,10 @@ const MovimientosRepository = {
    */
   editar: function(id, datos) {
     const lock = LockService.getScriptLock();
+    let lockAdquirido = false;
     try {
       lock.waitLock(30000);
+      lockAdquirido = true;
 
       const mov = this.buscarPorId(id);
       if (!mov) {
@@ -415,13 +496,18 @@ const MovimientosRepository = {
         hoja.getRange(fila, CONFIG.COLS_MOVS.OBS + 1).setValue(datos.obs);
       }
 
-      lock.releaseLock();
+      // El historial cacheado de este cliente ya no refleja la hoja.
+      // Sin esto, buscarPorId y obtenerPorCliente podian devolver el monto
+      // viejo dentro de la misma ejecucion.
+      RequestCache.invalidar('movimientos_cliente_' + normalizarString(mov.cliente));
+
       return this.buscarPorId(id);
 
     } catch (error) {
-      lock.releaseLock();
       Logger.log('[MOVIMIENTOS] Error en editar #' + id + ': ' + error.message);
       throw error;
+    } finally {
+      if (lockAdquirido) lock.releaseLock();
     }
   },
 
@@ -431,8 +517,10 @@ const MovimientosRepository = {
    */
   eliminar: function(id) {
     const lock = LockService.getScriptLock();
+    let lockAdquirido = false;
     try {
       lock.waitLock(30000);
+      lockAdquirido = true;
 
       const mov = this.buscarPorId(id);
       if (!mov) {
@@ -464,8 +552,12 @@ const MovimientosRepository = {
         const movRestantes = this.obtenerPorCliente(mov.cliente);
         const filtrados = movRestantes.filter(m => m.id !== id);
         if (filtrados.length > 0) {
-          // obtenerPorCliente retorna ordenado cronológicamente, tomar el último
-          const ultimoMov = filtrados[filtrados.length - 1];
+          // obtenerPorCliente ordena por ID DESCENDENTE (del mas reciente al
+          // mas viejo), asi que el mas reciente es el primero.
+          // Antes se tomaba filtrados[length-1] creyendo el orden cronologico
+          // inverso: tras borrar un movimiento, ULTIMO_MOV del cliente quedaba
+          // con la fecha MAS VIEJA de su historial.
+          const ultimoMov = filtrados[0];
           hojaClientes.getRange(cliente.fila, CONFIG.COLS_CLIENTES.ULTIMO_MOV + 1).setValue(
             ultimoMov.fecha ? parsearFechaLocal(ultimoMov.fecha) : ''
           );
@@ -491,12 +583,14 @@ const MovimientosRepository = {
       const hoja = this.getHoja();
       hoja.deleteRow(mov.fila);
 
-      lock.releaseLock();
+      // El historial cacheado de este cliente ya no refleja la hoja
+      RequestCache.invalidar('movimientos_cliente_' + normalizarString(mov.cliente));
 
     } catch (error) {
-      lock.releaseLock();
       Logger.log('[MOVIMIENTOS] Error en eliminar #' + id + ': ' + error.message);
       throw error;
+    } finally {
+      if (lockAdquirido) lock.releaseLock();
     }
   },
 

@@ -417,66 +417,6 @@ const CajaRepository = {
 };
 
 /**
- * Genera datos para la Hoja de Ruta del dia
- * Solo incluye proveedores y gastos del arqueo de caja (no cobranzas/fiados)
- * @param {string} fecha - Fecha en formato YYYY-MM-DD
- * @returns {Object} Datos de la hoja de ruta
- */
-function generarHojaRuta(fecha) {
-  const fechaObj = fecha ? parsearFechaLocal(fecha) : new Date();
-  fechaObj.setHours(0, 0, 0, 0);
-
-  // Buscar sesion de caja del dia
-  const historial = CajaRepository.obtenerHistorial(100);
-  const sesionDelDia = historial.find(s => {
-    const fechaSesion = parsearFechaLocal(s.fecha);
-    fechaSesion.setHours(0, 0, 0, 0);
-    return fechaSesion.getTime() === fechaObj.getTime();
-  });
-
-  // Arrays para proveedores y gastos
-  let proveedores = [];
-  let gastos = [];
-  let totalProveedores = 0;
-  let totalGastos = 0;
-
-  if (sesionDelDia) {
-    const sesionCompleta = CajaRepository.obtenerSesion(sesionDelDia.sesionId);
-
-    if (sesionCompleta && sesionCompleta.registros) {
-      // Extraer proveedores
-      sesionCompleta.registros.forEach(item => {
-        if (item.tipo === CONFIG.TIPOS_CAJA.PROVEEDOR && item.monto !== 0) {
-          proveedores.push({
-            nombre: item.descripcion || 'Proveedor',
-            monto: Math.abs(item.monto)
-          });
-          totalProveedores += Math.abs(item.monto);
-        }
-        // Extraer gastos
-        if (item.tipo === CONFIG.TIPOS_CAJA.GASTO_EXTRA && item.monto !== 0) {
-          gastos.push({
-            descripcion: item.descripcion || 'Gasto',
-            monto: Math.abs(item.monto)
-          });
-          totalGastos += Math.abs(item.monto);
-        }
-      });
-    }
-  }
-
-  return {
-    fecha: formatearFechaLocal(fechaObj),
-    fechaFormateada: formatearFecha(fechaObj),
-    proveedores: proveedores,
-    gastos: gastos,
-    totalProveedores: totalProveedores,
-    totalGastos: totalGastos,
-    totalSalidas: totalProveedores + totalGastos
-  };
-}
-
-/**
  * Genera el resumen de arqueo para impresion
  * @param {string} sesionId - ID de la sesion (opcional, ultima si no se especifica)
  * @returns {Object} Datos del arqueo para imprimir

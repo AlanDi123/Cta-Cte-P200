@@ -11,13 +11,10 @@
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cleave.js/1.6.0/cleave.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     /* ============================================================================
        VARIABLES CSS - TEMA CLARO/OSCURO
@@ -2697,7 +2694,7 @@
         </div>
         <div class="menu-item" data-module="visual-reasoning">
           <span class="menu-icon">📷</span>
-          <span>Visual Reasoning</span>
+          <span>Leer Imagen</span>
         </div>
       </div>
 
@@ -2853,7 +2850,7 @@
             <span class="no-print" style="display:inline-flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
               <button type="button" class="btn btn-outline btn-sm no-print" onclick="exportarTablaMovimientosCSV()" title="Descargar CSV">Exportar CSV</button>
               <button type="button" class="btn btn-outline btn-sm no-print" onclick="abrirVistaImpresion('contenedor-tabla-dashboard', 'Reporte de Caja / Movimientos')" title="Imprimir">
-                <i class="fa-solid fa-print"></i> Imprimir Reporte
+                &#128424;&#65039; Imprimir Reporte
               </button>
             </span>
           </div>
@@ -2878,12 +2875,13 @@
 
       <!-- MODULO: VISUAL REASONING -->
       <div class="module-view" id="module-visual-reasoning">
-        <h2 style="margin-bottom: 1rem;">Visual Reasoning</h2>
+        <h2 style="margin-bottom: 1rem;">Leer Imagen del Libro</h2>
 
         <div class="card">
-          <div class="card-title">Analizar Imagen del Libro</div>
+          <div class="card-title">Leer imagen del libro</div>
           <p style="color: var(--sv-texto-secundario); margin-bottom: 1rem; font-size: 0.875rem;">
-            Sube una foto del libro de cobranzas y el sistema detectara automaticamente los movimientos.
+            Subí una foto del libro y el sistema detecta los movimientos con <strong>OCR gratuito</strong>,
+            sin ninguna IA ni clave. Después corrige los nombres contra tu padrón de clientes.
           </p>
 
           <div class="form-group">
@@ -2894,37 +2892,82 @@
           <div class="upload-zone" id="uploadZone">
             <input type="file" id="vrFileInput" accept="image/*" capture="environment">
             <div class="upload-icon">📷</div>
-            <div>Toca para subir o tomar foto</div>
-            <div style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.5rem;">JPG, PNG hasta 10MB</div>
+            <div>Tocá para subir o tomar foto</div>
+            <div style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.5rem;">JPG o PNG, hasta 10 MB</div>
           </div>
 
           <div id="vrPreview" style="display: none; margin-top: 1rem;">
-            <img id="vrPreviewImg" style="max-width: 100%; border-radius: var(--sv-radius);">
-            <button class="btn btn-primary" onclick="analizarImagenVR()" style="width: 100%; margin-top: 1rem;">
-              🔍 Analizar con IA
+            <div class="grid grid-2" style="gap:0.75rem;">
+              <div>
+                <div style="font-size:0.75rem;color:var(--sv-texto-muted);margin-bottom:0.25rem;">Foto original</div>
+                <img id="vrPreviewImg" style="max-width: 100%; border-radius: var(--sv-radius);">
+              </div>
+              <div>
+                <div style="font-size:0.75rem;color:var(--sv-texto-muted);margin-bottom:0.25rem;">
+                  Imagen preparada para el OCR
+                </div>
+                <img id="vrPreviewProcesada" style="max-width: 100%; border-radius: var(--sv-radius);">
+              </div>
+            </div>
+            <p id="vrInfoPreproceso" style="font-size:0.75rem;color:var(--sv-texto-muted);margin-top:0.5rem;"></p>
+            <button class="btn btn-primary" onclick="analizarImagenVR()" style="width: 100%; margin-top: 0.75rem;">
+              🔍 Leer la imagen
+            </button>
+            <button class="btn btn-outline" onclick="abrirBancoPruebasOcr()" style="width: 100%; margin-top: 0.5rem; font-size:0.85rem;">
+              🧪 Banco de pruebas: comparar los dos motores
             </button>
           </div>
+          <p id="vrProgreso" style="font-size:0.85rem;color:var(--sv-texto-secundario);margin-top:0.5rem;"></p>
         </div>
 
         <div class="card" id="vrResultados" style="display: none;">
-          <div class="card-title">Movimientos Detectados</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+            <div class="card-title" style="margin:0;">Movimientos detectados</div>
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+              <button class="btn btn-outline btn-sm" onclick="agregarFilaVR()">+ Agregar fila</button>
+              <button class="btn btn-outline btn-sm" onclick="toggleRecortesVR()" id="btnRecortesVR">Ver recortes</button>
+            </div>
+          </div>
+
+          <p style="font-size:0.78rem;color:var(--sv-texto-muted);margin:0.5rem 0 0.75rem 0;">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--sv-exito);"></span> coincide con el padrón ·
+            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--sv-advertencia);"></span> hay que elegir o revisar ·
+            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--sv-peligro);"></span> sin coincidencia.
+            Podés escribir el nombre libremente y cambiar el tipo. Con <kbd>Tab</kbd> pasás de campo en campo.
+          </p>
+
           <div class="table-container">
-            <table class="table table-responsive-cards">
+            <table class="table table-responsive-cards" id="tablaVR">
               <thead>
                 <tr>
+                  <th style="width:2.5rem;"></th>
                   <th>Cliente</th>
-                  <th>Tipo</th>
-                  <th>Monto</th>
-                  <th>Estado</th>
-                  <th></th>
+                  <th style="width:9rem;">Tipo</th>
+                  <th style="width:9rem;">Monto</th>
+                  <th style="width:4rem;"></th>
                 </tr>
               </thead>
               <tbody id="vrMovimientos"></tbody>
             </table>
           </div>
-          <button class="btn btn-primary" onclick="guardarMovimientosVR()" style="width: 100%; margin-top: 1rem;">
-            💾 Guardar Movimientos Validos
+
+          <div id="vrResumenVR" style="font-size:0.85rem;color:var(--sv-texto-secundario);margin-top:0.75rem;"></div>
+          <button class="btn btn-primary" onclick="guardarMovimientosVR()" style="width: 100%; margin-top: 0.75rem;">
+            💾 Guardar los movimientos marcados
           </button>
+        </div>
+
+        <!-- Banco de pruebas del OCR -->
+        <div class="card" id="vrBancoPruebas" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+            <div class="card-title" style="margin:0;">🧪 Banco de pruebas del OCR</div>
+            <button class="btn btn-outline btn-sm" onclick="cerrarBancoPruebasOcr()">Cerrar</button>
+          </div>
+          <p style="font-size:0.8rem;color:var(--sv-texto-secundario);margin:0.5rem 0 0.75rem 0;">
+            Muestra lado a lado lo que leyó cada motor y el resultado combinado, para que
+            ajustes los umbrales en Configuración con <strong>tus</strong> libros. No guarda nada.
+          </p>
+          <div id="vrBancoContenido"></div>
         </div>
       </div>
 
@@ -2965,7 +3008,18 @@
 
           <div class="card">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
-              <div class="card-title" style="margin:0;">Últimos 30 movimientos de <span id="visorClienteNombre"></span></div>
+              <div class="card-title" style="margin:0;">Movimientos de <span id="visorClienteNombre"></span></div>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <label class="form-label" for="visorLimite" style="margin:0;font-size:0.85rem;white-space:nowrap;">Mostrar</label>
+                <select class="form-input" id="visorLimite" style="width:auto;min-width:6.5rem;padding:0.4rem 0.6rem;" onchange="cambiarLimiteVisor(this.value)" aria-label="Cantidad de movimientos a mostrar">
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                  <option value="500">500</option>
+                  <option value="0">Todos</option>
+                </select>
+              </div>
             </div>
             <div class="table-container" style="margin-top:0.75rem;">
               <table class="table table-responsive-cards">
@@ -2980,6 +3034,10 @@
                 </thead>
                 <tbody id="visorHistorial"></tbody>
               </table>
+            </div>
+            <div id="visorPie" class="no-print" style="display:none;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-top:0.75rem;">
+              <span id="visorConteo" style="font-size:0.85rem;color:var(--sv-texto-secundario);"></span>
+              <button type="button" class="btn btn-outline btn-sm" id="btnVisorCargarMas" onclick="cargarMasMovimientosVisor()" style="display:none;">Cargar más</button>
             </div>
           </div>
         </div>
@@ -3341,7 +3399,7 @@
             <input type="text" class="form-input" id="filtroClientes" placeholder="Filtrar por nombre..." style="flex: 1; min-width: 0;" oninput="filtrarClientesDebounce()">
             <button class="btn btn-primary" onclick="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
             <button type="button" class="btn btn-outline no-print" onclick="abrirVistaImpresion('contenedor-tabla-clientes', 'Estado de Cuenta - Clientes')" title="Imprimir">
-              <i class="fa-solid fa-print"></i> Imprimir Saldos
+              &#128424;&#65039; Imprimir Saldos
             </button>
           </div>
 
@@ -3666,17 +3724,82 @@
         <div class="grid grid-2" data-config-section="claves-tokens">
           <div>
             <div class="card">
-              <div class="card-title">🔑 API Key de Claude</div>
-              <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
-                Necesaria para Visual Reasoning.
-                <a href="https://console.anthropic.com" target="_blank" rel="noopener" style="color: var(--sv-primario);">Obtener API Key</a>
+              <div class="card-title">🔍 Lectura de imágenes (OCR gratuito)</div>
+              <p style="margin-bottom: 0.75rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                El sistema ya <strong>no usa ninguna IA ni clave de API</strong> para leer imágenes.
+                Usa dos motores gratuitos: el OCR de Drive en el servidor —el mismo de Google Docs—
+                y un segundo motor en el navegador que además aporta la posición de cada palabra,
+                lo que permite separar las columnas del libro por geometría.
               </p>
+              <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Lo que más precisión aporta no es el OCR sino su padrón: aunque se lea
+                <code>G0NZALES</code>, el sistema sabe que el cliente es <code>GONZÁLEZ JUAN</code>.
+              </p>
+              <p id="estadoApiKey" style="margin-bottom: 0.75rem; font-size: 0.875rem;"></p>
+              <p id="estadoConexionIA" style="margin-bottom: 0.75rem; font-size: 0.875rem;"></p>
+              <button class="btn btn-primary" onclick="probarConexionIA()" style="width: 100%;">Comprobar que el OCR funciona</button>
+            </div>
 
-              <div class="form-group">
-                <input type="password" class="form-input" id="inputApiKey" placeholder="sk-ant-...">
+            <div class="card">
+              <div class="card-title">🔐 Token de la API REST</div>
+              <p style="margin-bottom: 0.75rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Protege las acciones de la API que mueven dinero o exponen datos:
+                <code>addMovements</code>, <code>addTransfers</code>, <code>saveBackup</code>,
+                <code>getClients</code>, <code>exportData</code> y <code>getLatestBackup</code>.
+                Sin token configurado, esas acciones quedan <strong>cerradas</strong>.
+              </p>
+              <p style="margin-bottom: 1rem; padding: 0.6rem 0.8rem; border-radius: 6px; background: rgba(251,192,45,0.15); font-size: 0.8rem;">
+                ⚠️ Si tenés un sistema externo que consume esta API, al generar el token
+                <strong>tenés que actualizarlo allí</strong>: enviá el token en el campo
+                <code>token</code> del cuerpo JSON (POST) o como parámetro <code>&amp;token=</code> en la URL (GET).
+                Hasta entonces, ese sistema recibirá un error de autorización.
+              </p>
+              <p id="estadoTokenApi" style="margin-bottom: 0.75rem; font-size: 0.875rem;"></p>
+              <div id="tokenApiGenerado" style="display:none; margin-bottom: 0.75rem;">
+                <label class="form-label" style="font-size: 0.8rem;">Token nuevo — copialo ahora, no se vuelve a mostrar</label>
+                <input type="text" class="form-input" id="inputTokenApiGenerado" readonly
+                       style="font-family: monospace; font-size: 0.8rem;" onclick="this.select();">
               </div>
-              <button class="btn btn-primary" onclick="guardarApiKeyConfig()" style="width: 100%;">Guardar API Key</button>
-              <p id="estadoApiKey" style="margin-top: 0.5rem; font-size: 0.875rem;"></p>
+              <div class="btn-group" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="generarTokenApiConfig()" style="flex:1; min-width:10rem;">Generar token</button>
+                <button class="btn btn-outline" onclick="revocarTokenApiConfig()" style="flex:1; min-width:10rem; color: var(--sv-peligro);">Revocar</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🔄 Actualización automática de la interfaz</div>
+              <p style="margin-bottom: 0.75rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Con esto activado, la interfaz se toma directamente de la rama <code>main</code>
+                en GitHub en cada carga, <strong>sin desplegar nada</strong>. Son 13.700 líneas:
+                la mayor parte del sistema y todo lo que usted ve.
+              </p>
+              <p style="margin-bottom: 0.75rem; padding: 0.6rem 0.8rem; border-radius: 6px; background: rgba(0,172,193,0.12); font-size: 0.8rem;">
+                ℹ️ GitHub sirve los archivos detrás de una red de distribución con unos
+                <strong>5 minutos</strong> de caché propia, así que el cambio aparece dentro de
+                ese margen y no en el instante exacto del push.
+                <br><br>
+                Si la descarga falla, se usa la copia en caché; si tampoco hay, el archivo del
+                proyecto. <strong>El sistema no puede quedar caído por una falla de red.</strong>
+                <br><br>
+                El <em>backend</em> (los archivos <code>.gs</code>) no se actualiza así: para eso
+                está el despliegue automático con GitHub Actions, descrito en <code>DEPLOY.md</code>.
+              </p>
+              <p id="estadoHtmlRemoto" style="margin-bottom: 0.75rem; font-size: 0.875rem;"></p>
+              <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="configurarHtmlRemotoUI(true)" style="flex:1;min-width:9rem;">Activar</button>
+                <button class="btn btn-outline" onclick="configurarHtmlRemotoUI(false)" style="flex:1;min-width:9rem;">Desactivar</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">⚠️ Comprobantes autorizados sin guardar</div>
+              <p style="margin-bottom: 0.75rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Comprobantes que ARCA <strong>autorizó</strong> pero que no se pudieron guardar
+                en el sistema. Existen ante el fisco, así que <strong>no hay que volver a emitirlos</strong>:
+                hay que completar el registro local.
+              </p>
+              <div id="listaCaesSinGuardar"></div>
+              <button class="btn btn-outline" onclick="cargarCaesSinGuardar()" style="width: 100%; margin-top: 0.5rem;">Revisar</button>
             </div>
 
             <div class="card">
@@ -3931,7 +4054,143 @@
                   <label class="form-label">Tamaño Máximo de Página</label>
                   <input type="number" class="form-input" id="inputPaginaTamanoMax" placeholder="100" min="1" max="500">
                 </div>
+
+                <div class="form-group">
+                  <label class="form-label">Movimientos en el Visor de Cliente</label>
+                  <input type="number" class="form-input" id="inputVisorMovsDefault" placeholder="20" min="0" max="100000">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Cuántos movimientos muestra el Visor al abrir un cliente. Escribí <strong>0</strong> para mostrar todos.
+                    Desde el propio Visor podés cambiarlo en cualquier momento sin tocar esto.
+                  </p>
+                </div>
               </div>
+
+              <div class="card">
+                <div class="card-title">💵 Formato de montos y fechas</div>
+
+                <div class="form-group">
+                  <label class="form-label">Símbolo de moneda</label>
+                  <input type="text" class="form-input" id="inputFormatoMoneda" placeholder="$" maxlength="5" style="max-width:120px;">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Formato de fecha</label>
+                  <select class="form-input" id="inputFormatoFecha">
+                    <option value="DD/MM/AAAA">DD/MM/AAAA — 18/11/2026</option>
+                    <option value="DD-MM-AAAA">DD-MM-AAAA — 18-11-2026</option>
+                    <option value="AAAA-MM-DD">AAAA-MM-DD — 2026-11-18</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Decimales en los montos</label>
+                  <select class="form-input" id="inputFormatoDecimales">
+                    <option value="0">Sin decimales — $15.000</option>
+                    <option value="2">Dos decimales — $15.000,50</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">🖥️ Interfaz</div>
+
+                <div class="form-group">
+                  <label class="form-label">Duración de los avisos (ms)</label>
+                  <input type="number" class="form-input" id="inputUiDuracionAviso" placeholder="3000" min="500" max="30000" step="500">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Cuánto queda en pantalla cada mensaje. Subilo si te desaparecen antes de leerlos
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Filas por página en las tablas</label>
+                  <input type="number" class="form-input" id="inputUiFilasPorPagina" placeholder="25" min="5" max="500">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Tamaño de la tipografía (%)</label>
+                  <input type="number" class="form-input" id="inputUiTamanioFuente" placeholder="100" min="70" max="150" step="5">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Sube o baja el tamaño de todo el sistema. Útil en pantallas chicas o para leer más cómodo
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Tema al abrir el sistema</label>
+                  <select class="form-input" id="inputUiTemaInicial">
+                    <option value="light">Claro</option>
+                    <option value="dark">Oscuro</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">📈 Reglas del negocio</div>
+
+                <div class="form-group">
+                  <label class="form-label">Alertar cuando el saldo supere</label>
+                  <input type="number" class="form-input" id="inputNegocioAlertaSaldo" placeholder="0" min="0" step="1000">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Escribí <strong>0</strong> para usar el límite de crédito de cada cliente en lugar de un valor único
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Días sin movimientos para considerar inactivo</label>
+                  <input type="number" class="form-input" id="inputNegocioDiasInactivo" placeholder="60" min="1" max="3650">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Frecuencia de respaldo (días)</label>
+                  <input type="number" class="form-input" id="inputNegocioDiasBackup" placeholder="1" min="1" max="365">
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Conservar respaldos (días)</label>
+                  <input type="number" class="form-input" id="inputNegocioRetencionBackup" placeholder="30" min="1" max="3650">
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title">💴 Denominaciones de billetes</div>
+                <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 0.75rem;">
+                  Los billetes que aparecen en el Arqueo de Caja. Antes estaban fijos en el código:
+                  cada vez que cambiaban los billetes en circulación había que modificar el sistema.
+                </p>
+                <div id="configDenominaciones"></div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="agregarDenominacion()" style="margin-top:0.5rem;">+ Agregar billete</button>
+              </div>
+
+              <div class="card">
+                <div class="card-title">🏠 Inquilinos (Alquileres)</div>
+                <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 0.75rem;">
+                  Quitar un inquilino solo lo saca de las listas: <strong>su historial de movimientos
+                  se conserva intacto</strong>.
+                </p>
+                <div id="configInquilinos"></div>
+                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem;">
+                  <input type="text" class="form-input" id="inputNuevoInquilino" placeholder="Nombre" style="flex:2;min-width:9rem;">
+                  <input type="number" class="form-input" id="inputNuevoInquilinoMonto" placeholder="Monto semanal" min="0" style="flex:1;min-width:8rem;">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="agregarInquilinoUI()">+ Agregar</button>
+                </div>
+                <p id="estadoInquilinos" style="font-size:0.8rem;margin-top:0.5rem;"></p>
+              </div>
+
+              <div class="card">
+                <div class="card-title">📦 Respaldo de la configuración</div>
+                <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 0.75rem;">
+                  Guardá todos estos ajustes en un archivo, o restauralos en otro sistema.
+                  <strong>No incluye credenciales</strong> —tokens, claves, certificados ni PIN—,
+                  así que el archivo se puede guardar sin riesgo.
+                </p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                  <button type="button" class="btn btn-outline" onclick="exportarConfiguracionUI()" style="flex:1;min-width:10rem;">⬇️ Exportar</button>
+                  <button type="button" class="btn btn-outline" onclick="document.getElementById('inputImportarConfig').click()" style="flex:1;min-width:10rem;">⬆️ Importar</button>
+                </div>
+                <input type="file" id="inputImportarConfig" accept=".json,application/json" style="display:none;" onchange="importarConfiguracionUI(this)">
+                <p id="estadoRespaldoConfig" style="font-size:0.8rem;margin-top:0.5rem;"></p>
+              </div>
+
 
               <div class="card">
                 <div class="card-title">👥 Contadores de Caja (Arqueo de Efectivo)</div>
@@ -3964,22 +4223,65 @@
               </div>
 
               <div class="card">
-                <div class="card-title">🤖 Configuración de Claude AI (Avanzado)</div>
+                <div class="card-title">🖼️ OCR de imágenes (Avanzado)</div>
+                <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-bottom: 0.75rem;">
+                  Ajustá estos valores con el <strong>banco de pruebas</strong> del módulo de
+                  lectura de imágenes, que muestra lado a lado lo que leyó cada motor.
+                </p>
 
                 <div class="form-group">
-                  <label class="form-label">Modelo de Claude</label>
-                  <input type="text" class="form-input" id="inputClaudeModel" placeholder="claude-sonnet-4-20250514">
+                  <label class="form-label">Idioma del reconocimiento</label>
+                  <input type="text" class="form-input" id="inputOcrIdioma" placeholder="es">
                   <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
-                    Modelo usado para Visual Reasoning (OCR)
+                    Código de idioma: <code>es</code>, o <code>es+en</code> para libros mezclados
                   </p>
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">Máximo de Tokens</label>
-                  <input type="number" class="form-input" id="inputClaudeMaxTokens" placeholder="4096" min="100" max="100000">
+                  <label class="form-label">Confianza mínima (%)</label>
+                  <input type="number" class="form-input" id="inputOcrConfianza" placeholder="60" min="0" max="100">
                   <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
-                    Máximo de tokens en respuestas (100-100000)
+                    Por debajo de este valor la celda se marca para revisión. Subilo si pasan
+                    lecturas malas; bajalo si marca demasiadas que estaban bien
                   </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Binarización (0-50)</label>
+                  <input type="number" class="form-input" id="inputOcrBinarizacion" placeholder="20" min="0" max="50">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Cuánto se fuerza el blanco y negro antes de leer. Subilo con fotos oscuras
+                    o con sombra; bajalo si se come los trazos finos
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Ancho máximo de imagen (px)</label>
+                  <input type="number" class="form-input" id="inputOcrAnchoMaximo" placeholder="2000" min="600" max="5000">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Se reduce antes de procesar: más chico carga más rápido, más grande lee mejor
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                    <input type="checkbox" id="inputOcrMotorServidor" checked>
+                    <span class="form-label" style="margin:0;">Motor del servidor (OCR de Drive)</span>
+                  </label>
+                </div>
+
+                <div class="form-group">
+                  <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                    <input type="checkbox" id="inputOcrMotorNavegador" checked>
+                    <span class="form-label" style="margin:0;">Motor del navegador (aporta posición de palabras)</span>
+                  </label>
+                </div>
+
+                <div class="form-group">
+                  <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                    <input type="checkbox" id="inputOcrAutoRotar" checked>
+                    <span class="form-label" style="margin:0;">Corregir inclinación automáticamente</span>
+                  </label>
                 </div>
               </div>
 
@@ -4432,9 +4734,9 @@
         <div class="card" style="margin-top: 1rem;">
           <div class="card-title">⚙️ Configuracion de API</div>
           <div style="padding: 1rem; background: var(--sv-superficie-elevada); border-radius: var(--sv-radius);">
-            <p style="margin: 0;">La API Key de Claude se configura en la seccion <strong>Configuracion</strong> del sistema.</p>
+            <p style="margin: 0;">El OCR es <strong>gratuito</strong> y no necesita ninguna clave.</p>
             <p style="margin: 0.5rem 0 0 0; color: var(--sv-texto-muted);">
-              El escaneo de comprobantes usa la misma API Key que Visual Reasoning.
+              El escaneo de comprobantes usa el mismo OCR gratuito que la lectura de libros.
             </p>
           </div>
           <button class="btn btn-outline" style="margin-top: 0.5rem;" onclick="probarConexionIA()">Probar Conexion</button>
@@ -5675,7 +5977,7 @@
                 <tr><td>ERR-002</td><td>Cliente no encontrado</td><td>Verificá el nombre exacto del cliente o buscalo en Gestión de Clientes.</td></tr>
                 <tr><td>ERR-003</td><td>Monto inválido</td><td>Ingresá un número positivo sin caracteres especiales.</td></tr>
                 <tr><td>ERR-004</td><td>CUIT inválido o no encontrado en ARCA</td><td>Verificá el CUIT o consultá directamente en la web de ARCA.</td></tr>
-                <tr><td>ERR-005</td><td>API Key de Claude no configurada</td><td>Configurá la API Key en Configuración &rsaquo; API Key de Claude.</td></tr>
+                <tr><td>ERR-005</td><td>El OCR no pudo leer la imagen</td><td>Probá con una foto más nítida y derecha, o comprobá el OCR en Configuración &rsaquo; Lectura de imágenes.</td></tr>
                 <tr><td>ERR-006</td><td>Access Token de ARCA no configurado</td><td>Configurá el token en Configuración &rsaquo; Facturación ARCA.</td></tr>
                 <tr><td>ERR-007</td><td>Error al emitir comprobante en ARCA</td><td>Revisá los datos del emisor y el token. Consultá el estado de ARCA.</td></tr>
                 <tr><td>ERR-008</td><td>Saldo excedido</td><td>El cliente superó su límite de crédito. Podés modificarlo en Gestión de Clientes.</td></tr>
@@ -5772,73 +6074,29 @@
       }
     }
 
-    function buscarClienteUltraRapido(nombreBuscado) {
-      if (!nombreBuscado) return null;
-      return mapaClientesGlobal.get(String(nombreBuscado).toUpperCase().trim()) || null;
-    }
 
-    function llamarBackend(funcionAejecutar) {
-      var parametros = Array.prototype.slice.call(arguments, 1);
-      return new Promise(function(resolve, reject) {
-        google.script.run
-          .withSuccessHandler(function(respuesta) {
-            if (respuesta && respuesta.status === 'success') {
-              resolve(respuesta.payload);
-            } else if (respuesta && respuesta.status === 'error') {
-              if (typeof Swal !== 'undefined') {
-                Swal.fire('Error del sistema', respuesta.message || 'Error', 'error');
-              }
-              reject(respuesta.message);
-            } else {
-              resolve(respuesta);
-            }
-          })
-          .withFailureHandler(function(errorRed) {
-            if (typeof Swal !== 'undefined') {
-              Swal.fire('Error de conexión', errorRed.message, 'error');
-            }
-            reject(errorRed);
-          })[funcionAejecutar].apply(null, parametros);
-      });
-    }
-
-    function comprimirImagenParaIA(archivo, callback) {
-      if (!archivo || !callback) return;
-      var lector = new FileReader();
-      lector.onload = function(evento) {
-        var imagen = new Image();
-        imagen.onload = function() {
-          var canvas = document.createElement('canvas');
-          var ctx = canvas.getContext('2d');
-          var anchoMaximo = 1200;
-          var ancho = imagen.width;
-          var alto = imagen.height;
-          if (ancho > anchoMaximo) {
-            alto = Math.round((anchoMaximo / ancho) * alto);
-            ancho = anchoMaximo;
-          }
-          canvas.width = ancho;
-          canvas.height = alto;
-          ctx.drawImage(imagen, 0, 0, ancho, alto);
-          callback(canvas.toDataURL('image/jpeg', 0.7));
-        };
-        imagen.src = evento.target.result;
-      };
-      lector.readAsDataURL(archivo);
-    }
 
     function initSVInfra() {
       window.onerror = function(mensaje, fuente, linea, columna, error) {
         try {
           if (typeof google !== 'undefined' && google.script && google.script.run) {
-            google.script.run.registrarErrorCritico({
-              mensaje: mensaje,
-              linea: linea,
-              columna: columna,
-              archivo: fuente,
-              stack: error && error.stack ? String(error.stack).substring(0, 500) : '',
-              ua: navigator.userAgent
-            });
+            // Con manejadores: el reporte de errores criticos es justo la
+            // pieza que no deberia fallar en silencio. Si el envio falla, al
+            // menos queda registrado en la consola del navegador.
+            google.script.run
+              .withSuccessHandler(function() {})
+              .withFailureHandler(function(e) {
+                console.warn('[initSVInfra] No se pudo reportar el error critico: ' +
+                  ((e && e.message) || e));
+              })
+              .registrarErrorCritico({
+                mensaje: mensaje,
+                linea: linea,
+                columna: columna,
+                archivo: fuente,
+                stack: error && error.stack ? String(error.stack).substring(0, 500) : '',
+                ua: navigator.userAgent
+              });
           }
         } catch (e) { /* silencioso */ }
         return false;
@@ -5861,34 +6119,125 @@
     // ============================================================================
     // UTILIDADES
     // ============================================================================
+    /**
+     * Escapa un valor para insertarlo en HTML, incluidos los ATRIBUTOS.
+     *
+     * Antes usaba el truco de textContent -> innerHTML, que solo convierte
+     * & < > y deja las comillas intactas. Como su resultado se interpola en
+     * decenas de atributos (data-nombre="...", value="...", title="..."), una
+     * comilla doble dentro de un nombre de cliente o una descripcion cerraba
+     * el atributo antes de tiempo e inyectaba HTML.
+     *
+     * En contenido de texto no cambia nada: el navegador muestra &quot; como "
+     * y &#39; como '. Para un literal de cadena JS dentro de un atributo
+     * (onclick="fn('VALOR')") esto NO alcanza: usar escaparJsEnAtributo.
+     *
+     * @param {*} text
+     * @returns {string} Texto seguro en HTML y en atributos
+     */
     function escapeHtml(text) {
       if (text === null || text === undefined) return '';
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Escapa un valor que se inserta como literal de cadena JS DENTRO de un
+     * atributo HTML. Caso tipico: onclick="editarCliente('NOMBRE')".
+     *
+     * Hay dos capas de interpretacion encadenadas: el navegador decodifica
+     * primero las entidades del atributo y despues el motor JS lee la cadena.
+     * Por eso NO sirve escapar la comilla como &#39;: al decodificarse vuelve
+     * a ser ' y parte el literal igual. Hay que escaparla para JS (\') y
+     * ademas proteger el delimitador del atributo (") y el ampersand.
+     *
+     * Sin esto, un apellido con apostrofo —D'ANGELO, D'ELIA, O'CONNOR, muy
+     * frecuentes en Argentina— rompia el handler: los botones de Editar y
+     * Eliminar de ese cliente dejaban de responder. Con una cadena preparada
+     * tambien permitia ejecutar codigo arbitrario.
+     *
+     * @param {*} valor
+     * @returns {string} Valor seguro como literal JS dentro de un atributo
+     */
+    function escaparJsEnAtributo(valor) {
+      if (valor === null || valor === undefined) return '';
+      return String(valor)
+        .replace(/\\/g, '\\\\')      // barras invertidas, primero
+        .replace(/'/g, "\\'")        // comilla simple: escape de JS
+        .replace(/&/g, '&amp;')      // entidad HTML
+        .replace(/"/g, '&quot;')     // cerraria el atributo
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/[\r\n\u2028\u2029]/g, ' '); // un salto de linea parte el literal JS
     }
 
     function formatearMonto(monto) {
-      return '$' + (monto || 0).toLocaleString('es-AR');
+      const n = Number(monto) || 0;
+      const dec = SvFormato.decimales;
+      return SvFormato.moneda + n.toLocaleString('es-AR', {
+        minimumFractionDigits: dec,
+        maximumFractionDigits: dec
+      });
     }
+
+    /**
+     * Ajustes de presentacion vigentes.
+     *
+     * Antes el simbolo de moneda, el formato de fecha, la duracion de los
+     * avisos y las filas por pagina estaban fijos en el codigo. Ahora salen de
+     * Configuracion; estos son los valores con los que arranca hasta que
+     * llega la configuracion del servidor.
+     *
+     * Se declara aqui arriba, junto a los formateadores que lo usan, para que
+     * no exista ninguna posibilidad de leerlo antes de inicializarse.
+     */
+    const SvFormato = {
+      moneda: '$',
+      fecha: 'DD/MM/AAAA',
+      decimales: 0,
+      duracionAviso: 3000,
+      filasPorPagina: 25,
+      alertaSaldo: 0,
+      diasInactivo: 60
+    };
 
     function formatearNumero(numero) {
       return (numero || 0).toLocaleString('es-AR');
     }
 
+    /**
+     * Formatea una fecha como DD/MM/AAAA.
+     *
+     * Ya no usa dayjs: era una libreria entera descargada por CDN para esta
+     * unica llamada, y el camino nativo que tenia de respaldo cubre los mismos
+     * casos. La rama ISO va PRIMERO a proposito: new Date('2026-11-18')
+     * interpreta la cadena como UTC y en Argentina (UTC-3) mostraria el dia
+     * anterior.
+     */
     function formatearFecha(fecha) {
       if (!fecha) return '-';
-      if (typeof dayjs !== 'undefined') {
-        var dj = dayjs(fecha);
-        if (dj.isValid()) return dj.format('DD/MM/YYYY');
+      if (typeof fecha === 'string') {
+        const iso = fecha.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (iso) return _armarFecha(iso[3], iso[2], iso[1]);
       }
-      if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const parts = fecha.split('-');
-        return parts[2] + '/' + parts[1] + '/' + parts[0];
-      }
-      const d = new Date(fecha);
+      const d = (fecha instanceof Date) ? fecha : new Date(fecha);
       if (isNaN(d.getTime())) return '-';
-      return d.toLocaleDateString('es-AR');
+      const dia = String(d.getDate()).padStart(2, '0');
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      return _armarFecha(dia, mes, String(d.getFullYear()));
+    }
+
+    /** Ordena dia, mes y anio segun el formato elegido en Configuracion. */
+    function _armarFecha(dia, mes, anio) {
+      switch (SvFormato.fecha) {
+        case 'AAAA-MM-DD': return anio + '-' + mes + '-' + dia;
+        case 'DD-MM-AAAA': return dia + '-' + mes + '-' + anio;
+        default:           return dia + '/' + mes + '/' + anio;
+      }
     }
 
     // Funciones de fecha - definidas aquí arriba para garantizar disponibilidad global
@@ -5924,13 +6273,105 @@
     }
 
     // Fire-and-forget: llama a una función GAS en background sin bloquear la UI
-    function _gasFireAndForget(fnName) {
-      var args = Array.prototype.slice.call(arguments, 1);
-      var runner = google.script.run
-        .withSuccessHandler(function() {})
-        .withFailureHandler(function(e) { console.warn('[BG] ' + fnName + ' falló:', e.message); });
-      runner[fnName].apply(runner, args);
+
+    // ============================================================================
+    // ALMACENAMIENTO LOCAL SEGURO
+    //
+    // localStorage no siempre esta disponible: en el iframe de Apps Script sin
+    // cookies de terceros, en ventana privada o con la cuota llena, tanto leer
+    // como escribir LANZAN. Y JSON.parse revienta si el valor quedo corrupto.
+    //
+    // Importa de verdad: Estado.proveedoresHistorial se inicializaba con un
+    // JSON.parse(localStorage.getItem(...)) suelto, dentro del literal del
+    // objeto y en el nivel superior del script. Si eso lanzaba, la evaluacion
+    // del script entero se detenia y el sistema quedaba EN BLANCO, sin aviso
+    // ni error visible para el usuario.
+    //
+    // Todas las claves llevan el prefijo sv_ para poder barrerlas de una vez
+    // y para no chocar con otras aplicaciones en el mismo origen
+    // (*.googleusercontent.com es compartido).
+    // ============================================================================
+
+    /** Lee una clave como texto. Devuelve porDefecto si no se puede. */
+    function lsLeer(clave, porDefecto) {
+      try {
+        const valor = localStorage.getItem(clave);
+        return (valor === null) ? (porDefecto === undefined ? null : porDefecto) : valor;
+      } catch (e) {
+        return porDefecto === undefined ? null : porDefecto;
+      }
     }
+
+    /** Lee una clave como JSON. Devuelve porDefecto si falta o esta corrupta. */
+    function lsLeerJson(clave, porDefecto) {
+      try {
+        const crudo = localStorage.getItem(clave);
+        if (!crudo) return porDefecto;
+        const valor = JSON.parse(crudo);
+        return (valor === null || valor === undefined) ? porDefecto : valor;
+      } catch (e) {
+        console.warn('[localStorage] "' + clave + '" ilegible, se usa el valor por defecto.');
+        return porDefecto;
+      }
+    }
+
+    /** Guarda texto. Devuelve true si se pudo; nunca lanza. */
+    function lsGuardar(clave, valor) {
+      try {
+        localStorage.setItem(clave, String(valor));
+        return true;
+      } catch (e) {
+        console.warn('[localStorage] No se pudo guardar "' + clave + '": ' + e.message);
+        return false;
+      }
+    }
+
+    /** Guarda JSON. Devuelve true si se pudo; nunca lanza. */
+    function lsGuardarJson(clave, valor) {
+      try {
+        localStorage.setItem(clave, JSON.stringify(valor));
+        return true;
+      } catch (e) {
+        console.warn('[localStorage] No se pudo guardar "' + clave + '": ' + e.message);
+        return false;
+      }
+    }
+
+    /** Borra una clave. Nunca lanza. */
+    function lsBorrar(clave) {
+      try { localStorage.removeItem(clave); } catch (e) {}
+    }
+
+    /**
+     * Mueve las claves viejas sin prefijo a sus nombres nuevos con sv_.
+     * Se ejecuta una vez por navegador y preserva lo que el usuario ya tenia
+     * guardado: su tema, sus historiales de proveedores y de descripciones.
+     * Sin esto, el renombrado les habria borrado las preferencias.
+     */
+    function lsMigrarClavesAntiguas() {
+      const mapa = {
+        'proveedoresHistorial':     'sv_proveedores_historial',
+        'remitoItemsHistorial':     'sv_remito_items_historial',
+        'hojaRutaLiqDescHistorial': 'sv_hoja_ruta_liq_desc',
+        'tema':                     'sv_tema',
+        'animaciones':              'sv_animaciones'
+      };
+      try {
+        Object.keys(mapa).forEach(function(viejo) {
+          const nuevo = mapa[viejo];
+          // Solo si no hay valor nuevo todavia: nunca se pisa lo ya migrado
+          if (localStorage.getItem(nuevo) !== null) return;
+          const valor = localStorage.getItem(viejo);
+          if (valor === null) return;
+          localStorage.setItem(nuevo, valor);
+          localStorage.removeItem(viejo);
+        });
+      } catch (e) {
+        // Storage bloqueado: no hay nada que migrar y nada que romper
+      }
+    }
+
+    lsMigrarClavesAntiguas();
 
     // ============================================================================
     // ESTADO GLOBAL
@@ -5945,7 +6386,9 @@
       vrMovimientos: [],
       configuracion: null,
       arqueo: {},
-      proveedoresHistorial: JSON.parse(localStorage.getItem('proveedoresHistorial') || '[]'),
+      // Lectura tolerante: si la clave esta corrupta o el storage bloqueado,
+      // se arranca con lista vacia en lugar de dejar la aplicacion en blanco
+      proveedoresHistorial: lsLeerJson('sv_proveedores_historial', []),
       sesionesCache: {}
     };
 
@@ -6146,7 +6589,7 @@
       // antes de mostrar nada, para evitar el flash de módulos que deben estar ocultos
       (function() {
         try {
-          const _cfgLocal = localStorage.getItem('sv_config_visual');
+          const _cfgLocal = lsLeer('sv_config_visual');
           if (_cfgLocal) {
             const _cfg = JSON.parse(_cfgLocal);
             aplicarConfiguracionVisual(_cfg);
@@ -6190,8 +6633,8 @@
       // Si hay cache válido y no se fuerza recarga, mostrar datos cacheados primero
       if (!forzarRecarga) {
         try {
-          const cached = localStorage.getItem(cacheKey);
-          const cacheTime = parseInt(localStorage.getItem(cacheTimeKey) || '0');
+          const cached = lsLeer(cacheKey);
+          const cacheTime = parseInt(lsLeer(cacheTimeKey, '0'), 10) || 0;
           const ahora = Date.now();
 
           if (cached && (ahora - cacheTime) < cacheMaxAge) {
@@ -6243,31 +6686,28 @@
             indexarClientes(Estado.clientes);
             if (data.configuracion) {
               Estado.configuracion = data.configuracion;
+              aplicarAjustesDeConfiguracion(data.configuracion);
               renderDenominaciones();
             }
             if (data.estadoCaja !== undefined) {
               Estado.estadoCajaDiaria = data.estadoCaja;
             }
-            if (data.apiKeyClaude) {
-              var el = document.getElementById('estadoApiKey');
-              if (el) {
-                el.textContent = data.apiKeyClaude.presente ? '✓ API Key configurada' : '✗ API Key no configurada';
-                el.style.color = data.apiKeyClaude.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
-              }
+            // Ya no hay clave de IA que reportar: el OCR es gratuito y no
+            // necesita credenciales.
+            var elOcr = document.getElementById('estadoApiKey');
+            if (elOcr) {
+              elOcr.innerHTML = '<span style="color:var(--sv-exito);">✓ OCR gratuito activo, sin clave ni costo por imagen</span>';
             }
 
             CacheModulos.movimientos = { cargado: true, datos: Estado.movimientos };
 
             console.log('✅ Clientes:', Estado.clientes.length, 'Movimientos:', Estado.movimientos.length);
 
-            try {
-              localStorage.setItem('sv_datos_cache', JSON.stringify({
-                clientes: Estado.clientes,
-                movimientos: Estado.movimientos
-              }));
-              localStorage.setItem('sv_datos_cache_time', Date.now().toString());
-            } catch (e) {
-              console.warn('Error guardando cache:', e);
+            if (lsGuardarJson('sv_datos_cache', {
+                  clientes: Estado.clientes,
+                  movimientos: Estado.movimientos
+                })) {
+              lsGuardar('sv_datos_cache_time', Date.now().toString());
             }
 
             renderMovimientos();
@@ -6308,13 +6748,12 @@
             Estado.clientes = data.clientes || [];
             Estado.movimientos = data.movimientos || [];
             indexarClientes(Estado.clientes);
-            try {
-              localStorage.setItem('sv_datos_cache', JSON.stringify({
-                clientes: Estado.clientes,
-                movimientos: Estado.movimientos
-              }));
-              localStorage.setItem('sv_datos_cache_time', Date.now().toString());
-            } catch (e) {}
+            if (lsGuardarJson('sv_datos_cache', {
+                  clientes: Estado.clientes,
+                  movimientos: Estado.movimientos
+                })) {
+              lsGuardar('sv_datos_cache_time', Date.now().toString());
+            }
             renderMovimientos();
             renderClientesGestion();
             actualizarDatosSistema();
@@ -6354,7 +6793,12 @@
       google.script.run
         .withSuccessHandler(function(config) {
           Estado.configuracion = config;
+          aplicarAjustesDeConfiguracion(config);
           renderDenominaciones();
+        })
+        .withFailureHandler(function(error) {
+          console.warn('[cargarConfiguracionInicial] obtenerConfiguracion falló: ' +
+            ((error && error.message) || error));
         })
         .obtenerConfiguracion();
 
@@ -6366,76 +6810,27 @@
             el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
           }
         })
+        .withFailureHandler(function(error) {
+          var el = document.getElementById('estadoApiKey');
+          if (el) {
+            el.textContent = '⚠️ No se pudo verificar';
+            el.style.color = 'var(--sv-advertencia)';
+          }
+          console.warn('[cargarConfiguracionInicial] verificarApiKey falló: ' +
+            ((error && error.message) || error));
+        })
         .verificarApiKey();
+
+      // Estado del token de la API REST (nunca devuelve su valor)
+      if (typeof cargarEstadoTokenApi === 'function') cargarEstadoTokenApi();
+      if (typeof cargarEstadoHtmlRemoto === 'function') cargarEstadoHtmlRemoto();
     }
 
     // ============================================================================
     // CAMBIO 2 — SKELETON LOADING + PRECARGA EN PARALELO
     // ============================================================================
 
-    /**
-     * Muestra placeholders animados en el Dashboard mientras cargan los datos reales.
-     * Reemplaza el contenido del dashboard con un skeleton que se ve profesional.
-     */
-    function _svMostrarSkeletonDashboard() {
-      var tbody = document.getElementById('tbodyMovimientos');
-      if (!tbody) return;
 
-      tbody.innerHTML = '<tr><td colspan="7" style="padding:2rem;text-align:center;">' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.75rem;margin-bottom:1.5rem;">' +
-          [1,2,3,4].map(function() {
-            return '<div style="height:90px;background:var(--sv-superficie);border:1px solid var(--sv-borde);border-radius:8px;padding:0.75rem;">' +
-              '<div style="height:28px;width:60%;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:8px;animation:svSkeleton 1.4s infinite;"></div>' +
-              '<div style="height:14px;width:80%;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;animation:svSkeleton 1.4s infinite;"></div>' +
-            '</div>';
-          }).join('') +
-        '</div>' +
-        '<div style="background:var(--sv-superficie);border:1px solid var(--sv-borde);border-radius:8px;padding:1rem;">' +
-          '<div style="height:20px;width:30%;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:1rem;animation:svSkeleton 1.4s infinite;"></div>' +
-          [1,2,3,4,5].map(function() {
-            return '<div style="height:36px;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:6px;animation:svSkeleton 1.4s infinite;"></div>';
-          }).join('') +
-        '</div>' +
-      '</td></tr>';
-
-      // Agregar CSS de animación skeleton si no existe
-      if (!document.getElementById('sv-skeleton-css')) {
-        var st = document.createElement('style');
-        st.id = 'sv-skeleton-css';
-        st.textContent =
-          '@keyframes svSkeleton{0%{background-position:200% 0}100%{background-position:-200% 0}}' +
-          '@keyframes svSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}' +
-          '.sv-btn-loading{position:relative;pointer-events:none;opacity:0.85;}' +
-          '.sv-btn-loading::after{content:"";position:absolute;right:10px;top:50%;transform:translateY(-50%);' +
-          'width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;' +
-          'border-radius:50%;animation:svSpin 0.7s linear infinite;}' +
-          '.sv-input-activo{outline:2px solid var(--sv-primario)!important;outline-offset:1px;transition:outline 0.15s;}';
-        document.head.appendChild(st);
-      }
-    }
-
-    /**
-     * Dispara la carga de todos los módulos principales en background.
-     * Cada uno se auto-renderiza cuando sus datos llegan.
-     * NO bloquea la UI en ningún momento.
-     */
-    function _svPrecargarModulos() {
-      // Cargar el dashboard/movimientos como primera prioridad
-      if (typeof cargarDashboard === 'function')       cargarDashboard(true);
-      else if (typeof cargarMovimientos === 'function') cargarMovimientos(true);
-
-      // Los demás módulos se pre-cargan en segundo plano para que estén
-      // listos cuando el usuario navegue a ellos (sin tiempo de espera)
-      setTimeout(function() {
-        if (typeof cargarClientes === 'function')      cargarClientes();
-      }, 500);
-      setTimeout(function() {
-        if (typeof cargarHistorialFacturas === 'function') cargarHistorialFacturas();
-      }, 1000);
-      setTimeout(function() {
-        if (typeof cargarTransferencias === 'function')  cargarTransferencias();
-      }, 1500);
-    }
 
     function setupEventos() {
       // Menu toggle
@@ -6484,6 +6879,15 @@
       inputVisor.addEventListener('input', debounce(function() {
         buscarClienteAutocomplete(this.value, 'visorSugerencias', true);
       }, 200));
+
+      // Selector de cantidad del Visor: refleja lo elegido la vez anterior.
+      // Si no hay nada recordado, queda el valor de Configuracion, que llega
+      // con la primera respuesta del servidor.
+      const selectorVisor = document.getElementById('visorLimite');
+      const limiteRecordado = visorLimiteGuardado();
+      if (selectorVisor && limiteRecordado !== null) {
+        sincronizarSelectorVisor(limiteRecordado, false);
+      }
 
       // Autocomplete transferencia cliente - permite nombres libres
       const inputTransfCliente = document.getElementById('transfCliente');
@@ -6749,12 +7153,6 @@
         .obtenerBorradorCaja('local');
     }
 
-    function descartarBorradorCaja() {
-      google.script.run
-        .withSuccessHandler(function() { mostrarToast('Borrador descartado', 'info'); })
-        .withFailureHandler(function(e) { console.warn('Eliminar borrador falló:', e.message); })
-        .eliminarBorradorCaja('local');
-    }
 
     // BUG F FIX: limpia TODOS los campos del arqueo y el borrador en la nube
     function limpiarArqueoCompleto() {
@@ -6778,7 +7176,7 @@
     // ============================================================================
 
     const MODULOS_CONFIGURABLES = [
-      { key: 'visual-reasoning', label: 'Visual Reasoning' },
+      { key: 'visual-reasoning', label: 'Leer Imagen' },
       { key: 'estadisticas', label: 'Estadísticas' },
       { key: 'impresion-saldos', label: 'Imprimir Saldos' },
       { key: 'hoja-ruta', label: 'Hoja de Ruta' },
@@ -6822,7 +7220,7 @@
       const config = { colores, modulosOcultos };
       aplicarConfiguracionVisual(config);
       // Guardar en localStorage para restauración sincrónica al recargar
-      localStorage.setItem('sv_config_visual', JSON.stringify(config));
+      lsGuardarJson('sv_config_visual', config);
       // Feedback inmediato al usuario (no esperar a GAS)
       mostrarToast('Configuración visual guardada', 'success');
       // Guardar en la nube en background (fire-and-forget)
@@ -6857,7 +7255,7 @@
             aplicarConfiguracionVisual(res.config);
             renderToggleModulos(res.config.modulosOcultos || []);
             // BUG A FIX: mantener localStorage sincronizado con la nube
-            localStorage.setItem('sv_config_visual', JSON.stringify(res.config));
+            lsGuardarJson('sv_config_visual', res.config);
             if (res.config.colores) {
               const cp = document.getElementById('colorPrimario');
               const cs = document.getElementById('colorSecundario');
@@ -6867,6 +7265,12 @@
               if (ca && res.config.colores['--sv-acento']) ca.value = res.config.colores['--sv-acento'];
             }
           }
+        })
+        .withFailureHandler(function(error) {
+          // Sin conexion se conserva la configuracion visual que ya haya en
+          // este navegador; no se deja la interfaz a medio aplicar.
+          console.warn('[cargarYAplicarConfigVisual] falló: ' +
+            ((error && error.message) || error));
         })
         .obtenerConfiguracionVisual();
     }
@@ -7068,7 +7472,7 @@
       { pattern: /cliente no encontrado|no existe el cliente/i,   code: 'ERR-002', msg: 'Cliente no encontrado. Verificá el nombre exacto.' },
       { pattern: /monto inválido|monto debe|número inválido/i,    code: 'ERR-003', msg: 'Monto inválido. Ingresá un número positivo.' },
       { pattern: /cuit.*no encontrado|cuit.*inválido|cuit.*error/i, code: 'ERR-004', msg: 'CUIT inválido o no encontrado en ARCA.' },
-      { pattern: /api key.*no config|claude.*no config/i,         code: 'ERR-005', msg: 'API Key de Claude no configurada. Configurala en Configuración.' },
+      { pattern: /no se pudo leer la imagen|ocr|drive no est/i,     code: 'ERR-005', msg: 'El OCR no pudo leer la imagen. Probá con una foto más nítida o comprobá el OCR en Configuración.' },
       { pattern: /access token.*no config|afip.*token/i,          code: 'ERR-006', msg: 'Access Token de ARCA no configurado. Configuralo en Configuración.' },
       { pattern: /error al emitir|afip.*error|arca.*error/i,      code: 'ERR-007', msg: 'Error al emitir comprobante en ARCA. Revisá los datos y el token.' },
       { pattern: /excedido.*límite|límite.*crédito|saldo excedido/i, code: 'ERR-008', msg: 'Límite de crédito excedido. Modificalo en Gestión de Clientes.' },
@@ -7101,7 +7505,9 @@
           'linear-gradient(to right, #1565C0, #42A5F5)';
         Toastify({
           text: tipo === 'error' ? errorAmigable(mensaje) : mensaje,
-          duration: tipo === 'error' ? 9000 : 2500,
+          // Duración configurable. Los errores duran el triple: son los que
+          // hay que alcanzar a leer, y antes se iban igual que un aviso común.
+          duration: tipo === 'error' ? SvFormato.duracionAviso * 3 : SvFormato.duracionAviso,
           close: tipo === 'error',
           gravity: 'top',
           position: 'right',
@@ -7145,107 +7551,6 @@
     // Aplica a todos los módulos con formularios de entrada de datos.
     // ============================================================================
 
-    /**
-     * Activa navegación por teclado en un contenedor de formulario.
-     *
-     * Comportamiento:
-     *   Tab / Enter en campo → avanza al siguiente
-     *   Enter en último campo → dispara el botón de acción principal
-     *   Escape → cierra/cancela (botón cancelar o modal)
-     *   Ctrl+Enter en textarea → dispara acción principal
-     *   Números con punto/coma → auto-corrección formato ARS en campos de monto
-     *
-     * @param {string} contenedorId    — ID del div/modal contenedor
-     * @param {string} btnAccionId     — ID del botón de acción principal (Guardar/Agregar)
-     * @param {string} [btnCancelarId] — ID del botón cancelar (para Escape)
-     * @param {Object} [opciones]      — { focusPrimerCampo: bool, camposMonto: string[] }
-     */
-    function svNavTeclado(contenedorId, btnAccionId, btnCancelarId, opciones) {
-      var cont = document.getElementById(contenedorId);
-      if (!cont) return;
-      opciones = opciones || {};
-
-      // Remover listener anterior si existe (para re-aperturas del modal)
-      var keyFn = cont._svKeyFn;
-      if (keyFn) cont.removeEventListener('keydown', keyFn);
-
-      keyFn = function(e) {
-        var target = e.target;
-        var tag    = target.tagName;
-        if (['INPUT','SELECT','TEXTAREA'].indexOf(tag) === -1) return;
-
-        // ── Escape: cancelar ────────────────────────────────────────────────
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          var btnCan = document.getElementById(btnCancelarId);
-          if (btnCan) { btnCan.click(); return; }
-          // Intentar cerrar modal genérico
-          var modal = cont.closest ? cont.closest('.modal') : null;
-          if (modal) modal.classList.remove('active');
-          return;
-        }
-
-        // ── Enter / Ctrl+Enter ───────────────────────────────────────────────
-        if (e.key === 'Enter') {
-          // En textarea: solo Ctrl+Enter dispara la acción
-          if (tag === 'TEXTAREA' && !e.ctrlKey) return;
-          e.preventDefault();
-
-          var campos = Array.from(cont.querySelectorAll(
-            'input:not([disabled]):not([readonly]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),' +
-            'select:not([disabled]),' +
-            'textarea:not([disabled])'
-          )).filter(function(el) {
-            var style = window.getComputedStyle(el);
-            return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 0;
-          });
-
-          var idx = campos.indexOf(target);
-
-          if (idx >= 0 && idx < campos.length - 1) {
-            // Avanzar al siguiente campo
-            var siguiente = campos[idx + 1];
-            siguiente.focus();
-            if (siguiente.tagName === 'INPUT' && siguiente.type !== 'date') {
-              siguiente.select();
-            }
-          } else {
-            // Último campo → disparar acción principal
-            var btnAcc = document.getElementById(btnAccionId);
-            if (btnAcc && !btnAcc.disabled) {
-              btnAcc.click();
-            }
-          }
-          return;
-        }
-      };
-
-      cont._svKeyFn = keyFn;
-      cont.addEventListener('keydown', keyFn);
-
-      // ── Highlight visual de campos activos ─────────────────────────────────
-      cont.querySelectorAll('input, select, textarea').forEach(function(el) {
-        if (!el._svFocusInit) {
-          el._svFocusInit = true;
-          el.addEventListener('focus', function() { el.classList.add('sv-input-activo'); });
-          el.addEventListener('blur',  function() { el.classList.remove('sv-input-activo'); });
-        }
-      });
-
-      // ── Foco automático en el primer campo ─────────────────────────────────
-      if (opciones.focusPrimerCampo !== false) {
-        setTimeout(function() {
-          var primer = cont.querySelector(
-            'input:not([disabled]):not([readonly]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),' +
-            'select:not([disabled])'
-          );
-          if (primer) {
-            primer.focus();
-            if (primer.tagName === 'INPUT' && primer.type !== 'date') primer.select();
-          }
-        }, 120);
-      }
-    }
 
     /**
      * Envuelve una llamada a google.script.run con:
@@ -7305,46 +7610,6 @@
         [config.gasFn](datos);
     }
 
-    /**
-     * Envuelve una carga de datos (lectura) con skeleton y estado visual.
-     *
-     * @param {Object} config
-     * @param {string}   config.contenedorId — ID del contenedor a "loadear"
-     * @param {string}   config.gasFn        — Función GAS que retorna los datos
-     * @param {Function} config.onDatos      — Callback(resultado) cuando llegan los datos
-     * @param {*}        [config.param]      — Parámetro opcional a pasar a la función GAS
-     * @param {string}   [config.msgError]   — Toast de error personalizado
-     */
-    function svCargar(config) {
-      var cont = document.getElementById(config.contenedorId);
-      if (cont) {
-        cont.style.opacity   = '0.5';
-        cont.style.pointerEvents = 'none';
-      }
-
-      var restaurar = function() {
-        if (cont) {
-          cont.style.opacity   = '1';
-          cont.style.pointerEvents = '';
-        }
-      };
-
-      var runner = google.script.run
-        .withSuccessHandler(function(resultado) {
-          restaurar();
-          config.onDatos(resultado);
-        })
-        .withFailureHandler(function(err) {
-          restaurar();
-          mostrarToast((config.msgError || 'Error al cargar datos') + ': ' + err.message, 'error');
-        });
-
-      if (config.param !== undefined) {
-        runner[config.gasFn](config.param);
-      } else {
-        runner[config.gasFn]();
-      }
-    }
 
     // ============================================================================
     // PIN LOCK — Protección de módulos protegidos
@@ -7584,7 +7849,7 @@
         if (window.configSistema) cargarConfiguracionLogisticaUI(window.configSistema);
         // Renderizar toggles con el estado guardado en localStorage (fix definitivo)
         var _cfgVis = {};
-        try { _cfgVis = JSON.parse(localStorage.getItem('sv_config_visual') || '{}'); } catch(e) {}
+        _cfgVis = lsLeerJson('sv_config_visual', {});
         renderToggleModulos(_cfgVis.modulosOcultos || []);
         // Inicializar tabs de configuración (restaura tab activa desde sessionStorage)
         setTimeout(inicializarConfigTabs, 0);
@@ -7761,7 +8026,7 @@
       try {
         if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
           jQuery('#tablaMovimientos').DataTable({
-            pageLength: 25,
+            pageLength: SvFormato.filasPorPagina,
             order: [[0, 'desc']],
             scrollX: true,
             autoWidth: false,
@@ -8033,55 +8298,166 @@
     // ============================================================================
     // VISOR DE CLIENTE
     // ============================================================================
-    function cargarHistorialCliente(nombre) {
+    // Clave del limite elegido por el usuario en este navegador.
+    const VISOR_LIMITE_KEY = 'sv_visor_limite';
+
+    /** Limite guardado en este navegador, o null si no hay ninguno. */
+    function visorLimiteGuardado() {
+      try {
+        const crudo = lsLeer(VISOR_LIMITE_KEY);
+        if (crudo === null || crudo === '') return null;
+        const valor = parseInt(crudo, 10);
+        return (isNaN(valor) || valor < 0) ? null : valor;
+      } catch (e) {
+        return null; // localStorage bloqueado: se usa el valor de Configuracion
+      }
+    }
+
+    /** Recuerda el limite elegido. Nunca interrumpe si el storage falla. */
+    function visorGuardarLimite(valor) {
+      try {
+        lsGuardar(VISOR_LIMITE_KEY, valor);
+      } catch (e) {}
+    }
+
+    /**
+     * Carga un tramo del historial del cliente.
+     * @param {string} nombre
+     * @param {Object} [opciones] - {limite, offset, append}
+     */
+    function cargarHistorialCliente(nombre, opciones) {
+      opciones = opciones || {};
+      const append = opciones.append === true;
+
+      // Si no se pide un limite explicito: el recordado en este navegador y,
+      // si no hay, el que decida Configuracion en el servidor.
+      let limite = opciones.limite;
+      if (limite === undefined || limite === null) {
+        limite = visorLimiteGuardado();
+      }
+
       mostrarLoading(true);
-      document.getElementById('visorResultado').style.display = 'none';
       const btnImpr = document.getElementById('btnImprimirVisor');
-      if (btnImpr) btnImpr.style.display = 'none';
+      if (!append) {
+        document.getElementById('visorResultado').style.display = 'none';
+        if (btnImpr) btnImpr.style.display = 'none';
+      }
 
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
-            const c = result.cliente;
-            // Guardar en Estado para que imprimirVisorCliente() lo use
-            Estado._visorClienteActual = { cliente: c, movimientos: result.movimientos };
-
-            document.getElementById('visorSaldo').textContent = formatearMonto(c.saldo);
-            document.getElementById('visorMovs').textContent = c.totalMovs || result.movimientos.length;
-            document.getElementById('visorClienteNombre').textContent = escapeHtml(c.nombre);
-
-            // Calcular último pago y último fiado desde el historial
-            const movs = result.movimientos || [];
-            const ultimoPago  = movs.find(function(m) { return m.tipo === 'HABER'; });
-            const ultimoFiado = movs.find(function(m) { return m.tipo === 'DEBE'; });
-            document.getElementById('visorUltimoPago').textContent  = ultimoPago  ? formatearFecha(ultimoPago.fecha)  : '-';
-            document.getElementById('visorUltimoFiado').textContent = ultimoFiado ? formatearFecha(ultimoFiado.fecha) : '-';
-
-            // Solo los últimos 30 movimientos (vienen ordenados desc por ID)
-            const ultimosMovs = movs.slice(0, 30);
-            document.getElementById('visorHistorial').innerHTML = ultimosMovs.map(function(m) {
-              const esDebe = m.tipo === 'DEBE';
-              return '<tr>' +
-                '<td data-label="Fecha">' + formatearFecha(m.fecha) + '</td>' +
-                '<td data-label="Tipo"><span class="tag tag-' + m.tipo.toLowerCase() + '">' + (esDebe ? 'FIADO' : 'PAGO') + '</span></td>' +
-                '<td data-label="Monto" style="color:' + (esDebe ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';font-weight:bold;">' + formatearMonto(m.monto) + '</td>' +
-                '<td data-label="Saldo">' + formatearMonto(m.saldoPost) + '</td>' +
-                '<td data-label="Obs">' + (escapeHtml(m.obs) || '-') + '</td>' +
-              '</tr>';
-            }).join('');
-
-            document.getElementById('visorResultado').style.display = 'block';
-            if (btnImpr) btnImpr.style.display = '';
-          } else {
-            mostrarToast(result.error, 'error');
+          if (!result || !result.success) {
+            mostrarToast((result && result.error) || 'No se pudo cargar el historial', 'error');
+            return;
           }
+          renderVisorCliente(nombre, result, append);
+          document.getElementById('visorResultado').style.display = 'block';
+          if (btnImpr) btnImpr.style.display = '';
         })
         .withFailureHandler(function(error) {
           mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
         })
-        .obtenerHistorialCliente(nombre);
+        .obtenerHistorialCliente(nombre, {
+          limite: (limite === undefined || limite === null) ? null : limite,
+          offset: opciones.offset || 0
+        });
+    }
+
+    /** Pinta el Visor. Con append=true suma el tramo nuevo al ya mostrado. */
+    function renderVisorCliente(nombre, result, append) {
+      const c = result.cliente;
+      const tramo = result.movimientos || [];
+      let estado = Estado._visorClienteActual;
+
+      if (append && estado && estado.nombre === nombre) {
+        estado.movimientos = estado.movimientos.concat(tramo);
+      } else {
+        estado = { nombre: nombre, movimientos: tramo };
+      }
+      estado.cliente = c;
+      estado.total   = (result.total === undefined || result.total === null) ? estado.movimientos.length : result.total;
+      estado.limite  = result.limite;
+      estado.hayMas  = result.hayMas === true;
+      Estado._visorClienteActual = estado;
+
+      const movs = estado.movimientos;
+
+      document.getElementById('visorSaldo').textContent = formatearMonto(c.saldo);
+      document.getElementById('visorMovs').textContent  = estado.total;
+      document.getElementById('visorClienteNombre').textContent = c.nombre;
+
+      // El ultimo pago y el ultimo fiado los calcula el servidor sobre el
+      // historial COMPLETO: si se calcularan sobre el tramo visible, un cliente
+      // cuyo ultimo pago fuera mas viejo que el tramo mostraria "-".
+      document.getElementById('visorUltimoPago').textContent  = result.ultimoPago  ? formatearFecha(result.ultimoPago)  : '-';
+      document.getElementById('visorUltimoFiado').textContent = result.ultimoFiado ? formatearFecha(result.ultimoFiado) : '-';
+
+      document.getElementById('visorHistorial').innerHTML = movs.map(function(m) {
+        const esDebe = m.tipo === 'DEBE';
+        return '<tr>' +
+          '<td data-label="Fecha">' + formatearFecha(m.fecha) + '</td>' +
+          '<td data-label="Tipo"><span class="tag tag-' + String(m.tipo || '').toLowerCase() + '">' + (esDebe ? 'FIADO' : 'PAGO') + '</span></td>' +
+          '<td data-label="Monto" style="color:' + (esDebe ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';font-weight:bold;">' + formatearMonto(m.monto) + '</td>' +
+          '<td data-label="Saldo">' + formatearMonto(m.saldoPost) + '</td>' +
+          '<td data-label="Obs">' + (escapeHtml(m.obs) || '-') + '</td>' +
+        '</tr>';
+      }).join('');
+
+      sincronizarSelectorVisor(result.limite, append);
+
+      const pie    = document.getElementById('visorPie');
+      const conteo = document.getElementById('visorConteo');
+      const btnMas = document.getElementById('btnVisorCargarMas');
+      if (conteo) {
+        conteo.textContent = (movs.length >= estado.total)
+          ? ('Mostrando los ' + estado.total.toLocaleString('es-AR') + ' movimientos')
+          : ('Mostrando ' + movs.length.toLocaleString('es-AR') + ' de ' + estado.total.toLocaleString('es-AR') + ' movimientos');
+      }
+      if (btnMas) btnMas.style.display = estado.hayMas ? '' : 'none';
+      if (pie) pie.style.display = movs.length > 0 ? 'flex' : 'none';
+    }
+
+    /**
+     * Deja el selector mostrando el limite que realmente se aplico.
+     * Si Configuracion define un valor que no esta entre las opciones
+     * (por ejemplo 35), lo agrega para no mentirle al usuario.
+     */
+    function sincronizarSelectorVisor(limite, append) {
+      if (append || limite === undefined || limite === null) return;
+      const selector = document.getElementById('visorLimite');
+      if (!selector) return;
+      const valor = String(limite);
+      const existe = Array.prototype.some.call(selector.options, function(o) { return o.value === valor; });
+      if (!existe) {
+        const opcion = document.createElement('option');
+        opcion.value = valor;
+        opcion.textContent = valor === '0' ? 'Todos' : valor;
+        selector.appendChild(opcion);
+      }
+      selector.value = valor;
+    }
+
+    /** El usuario cambio la cantidad a mostrar: se recarga desde el principio. */
+    function cambiarLimiteVisor(valor) {
+      let limite = parseInt(valor, 10);
+      if (isNaN(limite) || limite < 0) limite = 0;
+      visorGuardarLimite(limite);
+      const actual = Estado._visorClienteActual;
+      if (actual && actual.nombre) {
+        cargarHistorialCliente(actual.nombre, { limite: limite, offset: 0 });
+      }
+    }
+
+    /** Trae el tramo siguiente y lo agrega debajo, sin recargar lo ya visible. */
+    function cargarMasMovimientosVisor() {
+      const actual = Estado._visorClienteActual;
+      if (!actual || !actual.nombre || !actual.hayMas) return;
+      cargarHistorialCliente(actual.nombre, {
+        limite: actual.limite,
+        offset: actual.movimientos.length,
+        append: true
+      });
     }
 
     // ============================================================================
@@ -8226,7 +8602,10 @@
         return;
       }
       const c    = datos.cliente;
-      const movs = (datos.movimientos || []).slice(0, 30);
+      // Se imprime exactamente el tramo que el usuario eligio ver, no un
+      // recorte fijo a 30 filas hecho a sus espaldas.
+      const movs = datos.movimientos || [];
+      const totalMovs = (datos.total === undefined || datos.total === null) ? movs.length : datos.total;
       const hoy  = formatearFecha(obtenerFechaLocal());
 
       const ultimoPago  = movs.find(function(m) { return m.tipo === 'HABER'; });
@@ -8283,7 +8662,11 @@
               '</tr>' +
             '</table>' +
           '</div>' +
-          '<div style="font-size:9.5pt;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:4px;">Últimos 30 movimientos</div>' +
+          '<div style="font-size:9.5pt;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:4px;">' +
+            (movs.length >= totalMovs
+              ? ('Movimientos (' + totalMovs + ')')
+              : ('Últimos ' + movs.length + ' movimientos <span style="font-weight:normal;font-size:8pt;color:#666;">de ' + totalMovs + ' en total</span>')) +
+          '</div>' +
           '<table style="width:100%;border-collapse:collapse;">' +
             '<thead>' +
               '<tr style="background:#2E7D32;color:#fff;">' +
@@ -8399,147 +8782,1113 @@ function renderEstadisticas(result) {
     }
 
     // ============================================================================
-    // VISUAL REASONING
+    // LECTURA DE IMAGENES CON OCR GRATUITO
+    //
+    // Sin IA y sin claves. Dos motores independientes:
+    //
+    //  A) OCR de Drive, en el servidor. Es el motor de Google Docs, gratuito.
+    //     Devuelve texto, pero no dice DONDE estaba cada palabra.
+    //
+    //  B) Tesseract.js, en el navegador. Tambien gratuito, se carga por CDN
+    //     solo cuando hace falta y guarda su modelo en el navegador. Ademas
+    //     del texto entrega la POSICION de cada palabra, que es lo que
+    //     permite separar las dos columnas del libro por geometria en lugar
+    //     de adivinar por el orden de lectura.
+    //
+    // Antes de reconocer, la imagen se prepara en un canvas: escala de
+    // grises, autocontraste, correccion de inclinacion y binarizacion
+    // adaptativa. Eso sube el acierto y, al mismo tiempo, baja el peso del
+    // archivo, con lo que la lectura arranca antes.
+    //
+    // Y lo que mas precision aporta no es ningun motor: es el padron. Aunque
+    // se lea "G0NZALES", el sistema sabe que el cliente es "GONZALEZ JUAN".
     // ============================================================================
+
+    const TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+
+    const SvOcr = {
+      _tesseractCargando: null,
+      _palabrasPadron: null,
+
+      /** Configuracion del OCR, con valores por defecto si no llego la del servidor. */
+      cfg: function() {
+        const c = (Estado.configuracion && Estado.configuracion.ocr) || {};
+        return {
+          idioma:        c.idioma || 'spa',
+          confianza:     (typeof c.confianzaMinima === 'number') ? c.confianzaMinima : 60,
+          binarizacion:  (typeof c.binarizacion === 'number') ? c.binarizacion : 20,
+          anchoMaximo:   (typeof c.anchoMaximo === 'number') ? c.anchoMaximo : 2000,
+          autoRotar:     c.autoRotar !== false,
+          motorServidor: c.motorServidor !== false,
+          motorNavegador: c.motorNavegador !== false
+        };
+      },
+
+      // ──────────────────────────────────────────────────────────────────────
+      // PREPARACION DE LA IMAGEN
+      // ──────────────────────────────────────────────────────────────────────
+
+      /**
+       * Deja la imagen en las mejores condiciones posibles para el OCR.
+       * @param {File|Blob} archivo
+       * @returns {Promise<{dataUrl: string, ancho: number, alto: number, inclinacion: number, pesoKB: number}>}
+       */
+      preparar: function(archivo) {
+        const cfg = this.cfg();
+        const self = this;
+
+        return new Promise(function(resolver, rechazar) {
+          const lector = new FileReader();
+          lector.onerror = function() { rechazar(new Error('No se pudo leer el archivo.')); };
+          lector.onload = function(ev) {
+            const img = new Image();
+            img.onerror = function() { rechazar(new Error('El archivo no es una imagen válida.')); };
+            img.onload = function() {
+              try {
+                // 1. Redimensionar: mas chico carga antes, y por encima de
+                //    cierto tamanio el OCR no mejora
+                let ancho = img.width, alto = img.height;
+                if (ancho > cfg.anchoMaximo) {
+                  alto = Math.round(alto * (cfg.anchoMaximo / ancho));
+                  ancho = cfg.anchoMaximo;
+                }
+
+                let lienzo = document.createElement('canvas');
+                lienzo.width = ancho; lienzo.height = alto;
+                let ctx = lienzo.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0, ancho, alto);
+
+                // 2. Escala de grises con pesos de luminancia
+                let datos = ctx.getImageData(0, 0, ancho, alto);
+                const px = datos.data;
+                const gris = new Uint8ClampedArray(ancho * alto);
+                for (let i = 0, g = 0; i < px.length; i += 4, g++) {
+                  gris[g] = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) | 0;
+                }
+
+                // 3. Mediana 3x3: saca el ruido de grano antes de cualquier
+                //    otra cosa. Importa el ORDEN: si se estira el contraste
+                //    con el ruido puesto, los pixeles sueltos extremos se
+                //    toman como el rango real y el estirado sale mal. Y el
+                //    estimador de inclinacion tambien se confunde con grano.
+                const limpio = self._medianaFiltro(gris, ancho, alto);
+
+                // 4. Autocontraste por PERCENTILES, no por minimo y maximo
+                //    absolutos: un solo pixel extremo arruinaba el estirado
+                self._autocontrastePercentiles(limpio);
+
+                // 5. Binarizacion adaptativa: umbral por zona, no global. Es
+                //    lo que salva las fotos con sombra de un lado
+                let binario = self._binarizarAdaptativo(limpio, ancho, alto, cfg.binarizacion);
+
+                // 6. Quitar motas sueltas del binario con filtro de mayoria
+                binario = self._limpiarMotas(binario, ancho, alto);
+
+                // 7. Inclinacion estimada sobre el BINARIO, no sobre el gris:
+                //    el binario ya no tiene grano, y ahi el perfil de
+                //    proyeccion es fiable. Medido al reves, el ruido hacia que
+                //    eligiera angulos equivocados
+                let inclinacion = 0;
+                if (cfg.autoRotar) {
+                  inclinacion = self._estimarInclinacion(binario, ancho, alto);
+                }
+
+                for (let i = 0, g = 0; i < px.length; i += 4, g++) {
+                  px[i] = px[i + 1] = px[i + 2] = binario[g];
+                  px[i + 3] = 255;
+                }
+                ctx.putImageData(datos, 0, 0);
+
+                // 6. Rotar si hacia falta, sobre la imagen ya binarizada
+                if (Math.abs(inclinacion) > 0.3) {
+                  const rotado = document.createElement('canvas');
+                  rotado.width = ancho; rotado.height = alto;
+                  const rctx = rotado.getContext('2d');
+                  rctx.fillStyle = '#ffffff';
+                  rctx.fillRect(0, 0, ancho, alto);
+                  rctx.translate(ancho / 2, alto / 2);
+                  rctx.rotate(-inclinacion * Math.PI / 180);
+                  rctx.drawImage(lienzo, -ancho / 2, -alto / 2);
+                  lienzo = rotado;
+                }
+
+                const dataUrl = lienzo.toDataURL('image/png');
+                resolver({
+                  dataUrl: dataUrl,
+                  ancho: ancho,
+                  alto: alto,
+                  inclinacion: Math.round(inclinacion * 10) / 10,
+                  pesoKB: Math.round(dataUrl.length * 0.75 / 1024)
+                });
+              } catch (e) {
+                rechazar(e);
+              }
+            };
+            img.src = ev.target.result;
+          };
+          lector.readAsDataURL(archivo);
+        });
+      },
+
+      /**
+       * Mediana 3x3. Saca el ruido de grano sin desdibujar los bordes, que es
+       * exactamente lo que un desenfoque gaussiano si haria.
+       * @returns {Uint8ClampedArray} Copia filtrada
+       */
+      _medianaFiltro: function(gris, ancho, alto) {
+        const salida = new Uint8ClampedArray(gris.length);
+        const v = new Uint8Array(9);
+        for (let y = 0; y < alto; y++) {
+          for (let x = 0; x < ancho; x++) {
+            // En el borde no hay vecindario completo: se deja el valor tal cual
+            if (x === 0 || y === 0 || x === ancho - 1 || y === alto - 1) {
+              salida[y * ancho + x] = gris[y * ancho + x];
+              continue;
+            }
+            let n = 0;
+            for (let dy = -1; dy <= 1; dy++) {
+              const fila = (y + dy) * ancho + x;
+              v[n++] = gris[fila - 1];
+              v[n++] = gris[fila];
+              v[n++] = gris[fila + 1];
+            }
+            // Ordenamiento por insercion: con 9 elementos es lo mas rapido
+            for (let i = 1; i < 9; i++) {
+              const t = v[i];
+              let j = i - 1;
+              while (j >= 0 && v[j] > t) { v[j + 1] = v[j]; j--; }
+              v[j + 1] = t;
+            }
+            salida[y * ancho + x] = v[4];
+          }
+        }
+        return salida;
+      },
+
+      /**
+       * Estira el contraste usando los percentiles 2 y 98 en lugar del minimo
+       * y el maximo absolutos. Con min/max, un unico pixel quemado o un unico
+       * pixel negro definia todo el rango y el estirado no servia de nada.
+       * Modifica el array recibido.
+       */
+      _autocontrastePercentiles: function(gris) {
+        const histograma = new Uint32Array(256);
+        for (let i = 0; i < gris.length; i++) histograma[gris[i]]++;
+
+        const corte = Math.max(1, Math.floor(gris.length * 0.02));
+        let acumulado = 0, bajo = 0, alto = 255;
+        for (let v = 0; v < 256; v++) {
+          acumulado += histograma[v];
+          if (acumulado >= corte) { bajo = v; break; }
+        }
+        acumulado = 0;
+        for (let v = 255; v >= 0; v--) {
+          acumulado += histograma[v];
+          if (acumulado >= corte) { alto = v; break; }
+        }
+
+        const rango = Math.max(1, alto - bajo);
+        for (let i = 0; i < gris.length; i++) {
+          const v = ((gris[i] - bajo) * 255 / rango) | 0;
+          gris[i] = v < 0 ? 0 : (v > 255 ? 255 : v);
+        }
+      },
+
+      /**
+       * Filtro de mayoria 3x3 sobre la imagen binaria: un pixel aislado de
+       * tinta rodeado de papel es ruido, y al reves tambien. Limpia el
+       * salpicado que deja la binarizacion en fotos con grano, que es lo que
+       * mas descoloca al reconocedor.
+       * @returns {Uint8ClampedArray} Copia filtrada
+       */
+      _limpiarMotas: function(binario, ancho, alto) {
+        const salida = new Uint8ClampedArray(binario.length);
+        for (let y = 0; y < alto; y++) {
+          for (let x = 0; x < ancho; x++) {
+            const idx = y * ancho + x;
+            if (x === 0 || y === 0 || x === ancho - 1 || y === alto - 1) {
+              salida[idx] = binario[idx];
+              continue;
+            }
+            let tinta = 0;
+            for (let dy = -1; dy <= 1; dy++) {
+              const fila = (y + dy) * ancho + x;
+              if (binario[fila - 1] === 0) tinta++;
+              if (binario[fila]     === 0) tinta++;
+              if (binario[fila + 1] === 0) tinta++;
+            }
+            // 5 de 9 o mas: tinta. Si no: papel
+            salida[idx] = (tinta >= 5) ? 0 : 255;
+          }
+        }
+        return salida;
+      },
+
+      /**
+       * Estima la inclinacion del texto probando angulos y midiendo cual da
+       * el perfil horizontal mas marcado: cuando las lineas estan derechas,
+       * las filas de texto concentran mucha tinta y las de separacion casi
+       * nada, asi que la varianza del perfil es maxima.
+       * @returns {number} Grados, positivo en sentido horario
+       */
+      _estimarInclinacion: function(gris, ancho, alto) {
+        const paso = Math.max(1, Math.floor(alto / 400)); // submuestreo: alcanza y es rapido
+        let mejorAngulo = 0, mejorVarianza = -1;
+
+        for (let a = -4; a <= 4; a += 0.5) {
+          const rad = a * Math.PI / 180;
+          const tan = Math.tan(rad);
+          const perfil = new Float64Array(alto);
+
+          for (let y = 0; y < alto; y += paso) {
+            let suma = 0;
+            for (let x = 0; x < ancho; x += 2) {
+              const yd = y + ((x - ancho / 2) * tan) | 0;
+              if (yd >= 0 && yd < alto) {
+                suma += 255 - gris[yd * ancho + x]; // tinta = oscuro
+              }
+            }
+            perfil[y] = suma;
+          }
+
+          let media = 0, n = 0;
+          for (let y = 0; y < alto; y += paso) { media += perfil[y]; n++; }
+          media /= Math.max(1, n);
+          let varianza = 0;
+          for (let y = 0; y < alto; y += paso) {
+            const d = perfil[y] - media;
+            varianza += d * d;
+          }
+          if (varianza > mejorVarianza) { mejorVarianza = varianza; mejorAngulo = a; }
+        }
+        return mejorAngulo;
+      },
+
+      /**
+       * Binarizacion adaptativa con imagen integral: para cada pixel compara
+       * contra la media de su vecindario, no contra un umbral global.
+       * @returns {Uint8ClampedArray} 0 o 255 por pixel
+       */
+      _binarizarAdaptativo: function(gris, ancho, alto, agresividad) {
+        const salida = new Uint8ClampedArray(ancho * alto);
+        const ventana = Math.max(7, (Math.min(ancho, alto) / 40) | 0) | 1; // impar
+        const radio = ventana >> 1;
+        const k = Math.max(0, Math.min(50, agresividad)) / 100; // 0 a 0.5
+
+        // Imagen integral: permite la media de cualquier rectangulo en O(1)
+        const integral = new Float64Array((ancho + 1) * (alto + 1));
+        for (let y = 0; y < alto; y++) {
+          let fila = 0;
+          for (let x = 0; x < ancho; x++) {
+            fila += gris[y * ancho + x];
+            integral[(y + 1) * (ancho + 1) + (x + 1)] = integral[y * (ancho + 1) + (x + 1)] + fila;
+          }
+        }
+
+        for (let y = 0; y < alto; y++) {
+          const y0 = Math.max(0, y - radio), y1 = Math.min(alto - 1, y + radio);
+          for (let x = 0; x < ancho; x++) {
+            const x0 = Math.max(0, x - radio), x1 = Math.min(ancho - 1, x + radio);
+            const area = (y1 - y0 + 1) * (x1 - x0 + 1);
+            const suma = integral[(y1 + 1) * (ancho + 1) + (x1 + 1)]
+                       - integral[y0 * (ancho + 1) + (x1 + 1)]
+                       - integral[(y1 + 1) * (ancho + 1) + x0]
+                       + integral[y0 * (ancho + 1) + x0];
+            const media = suma / area;
+            // Umbral algo por debajo de la media local: deja pasar el trazo
+            // claro sin convertir el papel en ruido
+            salida[y * ancho + x] = (gris[y * ancho + x] < media * (1 - k)) ? 0 : 255;
+          }
+        }
+        return salida;
+      },
+
+      // ──────────────────────────────────────────────────────────────────────
+      // MOTOR DEL NAVEGADOR
+      // ──────────────────────────────────────────────────────────────────────
+
+      /** Carga Tesseract.js por CDN una sola vez, cuando de verdad se necesita. */
+      cargarTesseract: function() {
+        if (typeof Tesseract !== 'undefined') return Promise.resolve(true);
+        if (this._tesseractCargando) return this._tesseractCargando;
+
+        this._tesseractCargando = new Promise(function(resolver, rechazar) {
+          const tag = document.createElement('script');
+          tag.src = TESSERACT_CDN;
+          tag.async = true;
+          tag.onload = function() { resolver(true); };
+          tag.onerror = function() {
+            rechazar(new Error('No se pudo cargar el motor del navegador. ' +
+              'Revisá la conexión; el motor del servidor sigue disponible.'));
+          };
+          document.head.appendChild(tag);
+        });
+        return this._tesseractCargando;
+      },
+
+      /** Trae del servidor los nombres del padrón para sembrar el diccionario. */
+      palabrasPadron: function() {
+        const self = this;
+        if (this._palabrasPadron) return Promise.resolve(this._palabrasPadron);
+
+        // Si el padrón ya está en memoria, no hace falta ir al servidor
+        if (Estado.clientes && Estado.clientes.length > 0) {
+          const set = {};
+          Estado.clientes.forEach(function(c) {
+            const nombre = String(c.nombre || '').trim();
+            if (!nombre) return;
+            set[nombre] = true;
+            nombre.split(/\s+/).forEach(function(parte) {
+              if (parte.length >= 3) set[parte] = true;
+            });
+          });
+          this._palabrasPadron = Object.keys(set);
+          return Promise.resolve(this._palabrasPadron);
+        }
+
+        return new Promise(function(resolver) {
+          google.script.run
+            .withSuccessHandler(function(res) {
+              self._palabrasPadron = (res && res.palabras) || [];
+              resolver(self._palabrasPadron);
+            })
+            .withFailureHandler(function() { resolver([]); })
+            .ocrObtenerPalabrasDelPadron();
+        });
+      },
+
+      /**
+       * Reconoce con el motor del navegador y devuelve texto y palabras con
+       * su posicion.
+       * @returns {Promise<{texto: string, palabras: Array, confianzaMedia: number}>}
+       */
+      reconocerEnNavegador: function(dataUrl, alProgresar) {
+        const cfg = this.cfg();
+        const self = this;
+
+        return this.cargarTesseract().then(function() {
+          return self.palabrasPadron();
+        }).then(function(palabras) {
+          // El idioma de Tesseract usa codigos de 3 letras
+          const idioma = (cfg.idioma === 'es' || cfg.idioma === 'spa') ? 'spa'
+                       : cfg.idioma.replace(/\bes\b/g, 'spa').replace(/\ben\b/g, 'eng');
+
+          return Tesseract.recognize(dataUrl, idioma, {
+            logger: function(m) {
+              if (alProgresar && m && m.status === 'recognizing text') {
+                alProgresar(Math.round((m.progress || 0) * 100));
+              }
+            }
+          });
+        }).then(function(res) {
+          const data = (res && res.data) || {};
+          const palabras = self._extraerPalabras(data);
+          let suma = 0;
+          palabras.forEach(function(p) { suma += p.confianza; });
+          return {
+            texto: data.text || '',
+            palabras: palabras,
+            confianzaMedia: palabras.length ? Math.round(suma / palabras.length) : 0
+          };
+        });
+      },
+
+      /**
+       * Saca la lista plana de palabras con posicion, tolerando las distintas
+       * formas en que las versiones de Tesseract.js devuelven la estructura.
+       */
+      _extraerPalabras: function(data) {
+        const salida = [];
+        function agregar(w) {
+          if (!w || !w.text || !String(w.text).trim()) return;
+          const bb = w.bbox || {};
+          salida.push({
+            texto: String(w.text).trim(),
+            confianza: (typeof w.confidence === 'number') ? Math.round(w.confidence) : 0,
+            x0: bb.x0 || 0, y0: bb.y0 || 0, x1: bb.x1 || 0, y1: bb.y1 || 0
+          });
+        }
+
+        if (Array.isArray(data.words) && data.words.length) {
+          data.words.forEach(agregar);
+          return salida;
+        }
+        // En v5 las palabras viven dentro de blocks → paragraphs → lines
+        const bloques = data.blocks || [];
+        for (let b = 0; b < bloques.length; b++) {
+          const parrafos = bloques[b].paragraphs || [];
+          for (let p = 0; p < parrafos.length; p++) {
+            const lineas = parrafos[p].lines || [];
+            for (let l = 0; l < lineas.length; l++) {
+              (lineas[l].words || []).forEach(agregar);
+            }
+          }
+        }
+        return salida;
+      },
+
+      // ──────────────────────────────────────────────────────────────────────
+      // GEOMETRIA: FILAS Y COLUMNAS
+      // ──────────────────────────────────────────────────────────────────────
+
+      /**
+       * Convierte palabras con posicion en movimientos.
+       *
+       * Esta es la ventaja real del motor del navegador sobre el del
+       * servidor: con las coordenadas se sabe de QUE COLUMNA viene cada
+       * anotacion. En el libro, COBRANZAS es la columna izquierda (son PAGOS,
+       * tipo HABER) y FIADO la derecha (tipo DEBE). Sin posiciones hay que
+       * adivinar por el orden de lectura, que el OCR no garantiza.
+       *
+       * @param {Array} palabras - Palabras con bbox
+       * @param {number} anchoImagen
+       * @param {string} fecha
+       * @returns {Array<Object>} Movimientos con tipo, monto y confianza
+       */
+      armarMovimientos: function(palabras, anchoImagen, fecha) {
+        if (!palabras || palabras.length === 0) return [];
+
+        // 1. Agrupar en filas por la coordenada vertical del centro
+        const alturas = palabras.map(function(p) { return Math.max(1, p.y1 - p.y0); }).sort(function(a, b) { return a - b; });
+        const alturaTipica = alturas[Math.floor(alturas.length / 2)] || 10;
+        const tolerancia = alturaTipica * 0.7;
+
+        const ordenadas = palabras.slice().sort(function(a, b) {
+          return ((a.y0 + a.y1) / 2) - ((b.y0 + b.y1) / 2);
+        });
+
+        const filas = [];
+        let actual = [];
+        let centroFila = null;
+        for (let i = 0; i < ordenadas.length; i++) {
+          const centro = (ordenadas[i].y0 + ordenadas[i].y1) / 2;
+          if (centroFila === null || Math.abs(centro - centroFila) <= tolerancia) {
+            actual.push(ordenadas[i]);
+            centroFila = (centroFila === null) ? centro : (centroFila + centro) / 2;
+          } else {
+            filas.push(actual);
+            actual = [ordenadas[i]];
+            centroFila = centro;
+          }
+        }
+        if (actual.length) filas.push(actual);
+
+        // 2. Por fila: ordenar por x y partir en bloques nombre + monto
+        const mitad = anchoImagen / 2;
+        const movimientos = [];
+
+        for (let f = 0; f < filas.length; f++) {
+          const fila = filas[f].slice().sort(function(a, b) { return a.x0 - b.x0; });
+          const textoFila = fila.map(function(p) { return p.texto; }).join(' ');
+          if (SvOcr._esFilaDescartable(textoFila)) continue;
+
+          let nombreTokens = [];
+          let confianzas = [];
+          let entradasEnFila = 0;
+
+          for (let i = 0; i < fila.length; i++) {
+            const tok = fila[i];
+            const monto = SvOcr._montoDeToken(tok.texto);
+
+            if (monto > 0 && nombreTokens.length > 0) {
+              const nombre = nombreTokens.join(' ').replace(/\s{2,}/g, ' ').trim();
+              const soloLetras = nombre.replace(/[^A-Za-zÁÉÍÓÚÜÑ]/g, '');
+              if (soloLetras.length >= 2) {
+                // El tipo sale de la POSICION del monto, no del orden de lectura
+                const centroX = (tok.x0 + tok.x1) / 2;
+                const esDerecha = centroX > mitad;
+                let conf = 0;
+                confianzas.concat([tok.confianza]).forEach(function(c) { conf += c; });
+                conf = Math.round(conf / (confianzas.length + 1));
+
+                movimientos.push({
+                  cliente: nombre.toUpperCase(),
+                  clienteOriginal: nombre.toUpperCase(),
+                  monto: monto,
+                  tipo: esDerecha ? 'DEBE' : 'HABER',
+                  confianzaTipo: 'alta',       // viene de la geometria
+                  confianzaOcr: conf,
+                  fecha: fecha,
+                  obs: esDerecha ? 'Fiado' : 'Cobranza',
+                  motor: 'navegador',
+                  recorte: { x0: fila[0].x0, y0: Math.min.apply(null, fila.map(function(p){return p.y0;})),
+                             x1: tok.x1,      y1: Math.max.apply(null, fila.map(function(p){return p.y1;})) }
+                });
+                entradasEnFila++;
+              }
+              nombreTokens = [];
+              confianzas = [];
+            } else if (monto > 0) {
+              // Monto sin nombre delante: probablemente un total o un arrastre
+              nombreTokens = [];
+              confianzas = [];
+            } else {
+              nombreTokens.push(tok.texto);
+              confianzas.push(tok.confianza);
+            }
+          }
+        }
+
+        return movimientos;
+      },
+
+      /** True si la fila es encabezado, total o similar. */
+      _esFilaDescartable: function(texto) {
+        const norm = String(texto || '').toUpperCase()
+          .replace(/[ÁÀÂ]/g,'A').replace(/[ÉÈÊ]/g,'E').replace(/[ÍÌÎ]/g,'I')
+          .replace(/[ÓÒÔ]/g,'O').replace(/[ÚÙÛ]/g,'U').replace(/Ñ/g,'N').trim();
+        const malas = ['TOTAL', 'SUBTOTAL', 'SUMA', 'SALDO', 'COBRANZA', 'COBRANZAS',
+                       'FIADO', 'FIADOS', 'FECHA', 'CLIENTE', 'ARRASTRE', 'TRANSPORTE'];
+        for (let i = 0; i < malas.length; i++) {
+          if (norm === malas[i] || norm.indexOf(malas[i] + ' ') === 0) return true;
+        }
+        return false;
+      },
+
+      /** Convierte un token en monto, con el formato argentino. 0 si no lo es. */
+      _montoDeToken: function(texto) {
+        const t = String(texto || '').replace(/[$\s]/g, '');
+        if (!/^\d[\d.,]*$/.test(t)) return 0;
+
+        let limpio = t;
+        const coma = t.indexOf(',') > -1, punto = t.indexOf('.') > -1;
+        if (coma && punto)      limpio = t.replace(/\./g, '').replace(',', '.');
+        else if (coma)          limpio = t.replace(',', '.');
+        else if (punto) {
+          const partes = t.split('.');
+          if (!(partes.length === 2 && partes[1].length <= 2)) limpio = t.replace(/\./g, '');
+        }
+        const n = parseFloat(limpio);
+        // Un monto de menos de 3 cifras casi siempre es ruido o un numero de fila
+        return (isNaN(n) || n < 100) ? 0 : Math.round(n * 100) / 100;
+      },
+
+      /**
+       * Cruza lo que leyeron los dos motores.
+       *
+       * Si los dos coinciden en nombre y monto, la confianza sube. Si solo lo
+       * vio uno, queda marcado para revision. Nunca se descarta nada en
+       * silencio: es mejor una fila de mas para borrar que una de menos que
+       * nadie note.
+       */
+      fusionar: function(delNavegador, delServidor) {
+        const clave = function(m) {
+          return String(m.cliente || '').replace(/\s+/g, '') + '|' + m.monto;
+        };
+        const indice = {};
+        const salida = [];
+
+        (delNavegador || []).forEach(function(m) {
+          indice[clave(m)] = m;
+          salida.push(Object.assign({}, m, { motores: ['navegador'] }));
+        });
+
+        (delServidor || []).forEach(function(m) {
+          const k = clave(m);
+          if (indice[k]) {
+            // Coincidencia entre los dos motores: maxima confianza
+            for (let i = 0; i < salida.length; i++) {
+              if (clave(salida[i]) === k) {
+                salida[i].motores = ['navegador', 'servidor'];
+                salida[i].confianzaOcr = Math.max(salida[i].confianzaOcr || 0, 90);
+                break;
+              }
+            }
+          } else {
+            salida.push(Object.assign({}, m, { motores: ['servidor'] }));
+          }
+        });
+
+        return salida;
+      }
+    };
+
+    // ============================================================================
+    // FLUJO DEL MODULO
+    // ============================================================================
+
     function manejarArchivoVR(file) {
       if (!file.type.startsWith('image/')) {
-        mostrarToast('Solo se permiten imagenes', 'error');
+        mostrarToast('Solo se permiten imágenes', 'error');
         return;
       }
-
       if (file.size > 10 * 1024 * 1024) {
-        mostrarToast('La imagen es muy grande (max 10MB)', 'error');
+        mostrarToast('La imagen es muy grande (máximo 10 MB)', 'error');
         return;
       }
 
-      document.getElementById('vrPreview').style.display = 'block';
+      const preview = document.getElementById('vrPreview');
+      const infoEl = document.getElementById('vrInfoPreproceso');
+      preview.style.display = 'block';
       document.getElementById('vrResultados').style.display = 'none';
-      mostrarLoading(true);
+      document.getElementById('vrBancoPruebas').style.display = 'none';
+      if (infoEl) infoEl.textContent = 'Preparando la imagen...';
 
-      comprimirImagenParaIA(file, function(dataUrl) {
-        document.getElementById('vrPreviewImg').src = dataUrl;
-        google.script.run
-          .withSuccessHandler(function(result) {
-            mostrarLoading(false);
-            if (result.success) {
-              Estado.vrImagenToken = result.token;
-              mostrarToast('Imagen cargada. Toca Analizar para continuar.', 'success');
-            } else {
-              mostrarToast('Error: ' + result.error, 'error');
-            }
-          })
-          .withFailureHandler(function(error) {
-            mostrarLoading(false);
-            mostrarToast('Error: ' + error.message, 'error');
-          })
-          .guardarImagenTemporal(dataUrl);
+      // Vista previa de la foto original, sin esperar el preprocesado
+      try {
+        document.getElementById('vrPreviewImg').src = URL.createObjectURL(file);
+      } catch (e) {}
+
+      SvOcr.preparar(file).then(function(prep) {
+        Estado.vrImagenPreparada = prep;
+        document.getElementById('vrPreviewProcesada').src = prep.dataUrl;
+        if (infoEl) {
+          infoEl.textContent = prep.ancho + '×' + prep.alto + ' px · ' + prep.pesoKB + ' KB' +
+            (Math.abs(prep.inclinacion) > 0.3 ? ' · inclinación corregida: ' + prep.inclinacion + '°' : '') +
+            ' · lista para leer';
+        }
+
+        // Dejar la imagen preparada en el servidor para el motor de Drive
+        return new Promise(function(resolver) {
+          google.script.run
+            .withSuccessHandler(function(result) {
+              if (result && result.success) {
+                Estado.vrImagenToken = result.token;
+              } else {
+                Estado.vrImagenToken = null;
+                mostrarToast('El motor del servidor no estará disponible: ' +
+                  ((result && result.error) || 'error al subir la imagen'), 'warning');
+              }
+              resolver();
+            })
+            .withFailureHandler(function(error) {
+              Estado.vrImagenToken = null;
+              mostrarToast('El motor del servidor no estará disponible: ' +
+                ((error && error.message) || error), 'warning');
+              resolver();
+            })
+            .guardarImagenTemporal(prep.dataUrl);
+        });
+      }).then(function() {
+        mostrarToast('Imagen lista. Tocá "Leer la imagen".', 'success');
+      }).catch(function(e) {
+        if (infoEl) infoEl.textContent = '';
+        mostrarToast('No se pudo preparar la imagen: ' + ((e && e.message) || e), 'error');
       });
     }
 
+    /** Lee la imagen con los motores habilitados y arma la tabla editable. */
     function analizarImagenVR() {
-      if (!Estado.vrImagenToken) {
-        mostrarToast('Subi una imagen primero', 'error');
+      const prep = Estado.vrImagenPreparada;
+      if (!prep) {
+        mostrarToast('Subí una imagen primero', 'error');
         return;
       }
 
-      const fecha = document.getElementById('vrFecha').value;
+      const cfg = SvOcr.cfg();
+      const fecha = document.getElementById('vrFecha').value || obtenerFechaLocal();
+      const progreso = document.getElementById('vrProgreso');
+      const poner = function(txt) { if (progreso) progreso.textContent = txt; };
+
       mostrarLoading(true);
+      poner('Leyendo...');
 
-      google.script.run
-        .withSuccessHandler(function(result) {
+      // Los dos motores corren en paralelo: ninguno espera al otro
+      const tareaNavegador = (cfg.motorNavegador)
+        ? SvOcr.reconocerEnNavegador(prep.dataUrl, function(pct) {
+            poner('Motor del navegador: ' + pct + '%');
+          }).then(function(r) {
+            return { ok: true, movimientos: SvOcr.armarMovimientos(r.palabras, prep.ancho, fecha), crudo: r };
+          }).catch(function(e) {
+            return { ok: false, error: (e && e.message) || String(e), movimientos: [] };
+          })
+        : Promise.resolve({ ok: false, error: 'Motor del navegador desactivado', movimientos: [] });
+
+      const tareaServidor = (cfg.motorServidor && Estado.vrImagenToken)
+        ? new Promise(function(resolver) {
+            google.script.run
+              .withSuccessHandler(function(res) {
+                if (res && res.success) {
+                  const todos = (res.movimientosValidos || []).concat(res.movimientosConSugerencias || []);
+                  resolver({ ok: true, movimientos: todos, textoCrudo: res.textoCrudo, ms: res.ms });
+                } else {
+                  resolver({ ok: false, error: (res && res.error) || 'Error del motor del servidor', movimientos: [] });
+                }
+              })
+              .withFailureHandler(function(error) {
+                resolver({ ok: false, error: (error && error.message) || String(error), movimientos: [] });
+              })
+              .analizarImagen(Estado.vrImagenToken, fecha);
+          })
+        : Promise.resolve({ ok: false, error: 'Motor del servidor no disponible', movimientos: [] });
+
+      Promise.all([tareaNavegador, tareaServidor]).then(function(r) {
+        const nav = r[0], srv = r[1];
+        Estado.vrDiagnostico = { navegador: nav, servidor: srv, preparada: prep };
+
+        if (!nav.ok && !srv.ok) {
           mostrarLoading(false);
-          if (result.success) {
-            Estado.vrMovimientos = [
-              ...result.movimientosValidos.map(m => ({ ...m, valido: true })),
-              ...result.movimientosConSugerencias.map(m => ({ ...m, valido: false }))
-            ];
+          poner('');
+          mostrarToast('Ningún motor pudo leer la imagen. ' + (nav.error || srv.error || ''), 'error');
+          return;
+        }
 
-            renderMovimientosVR();
-            document.getElementById('vrResultados').style.display = 'block';
+        const fusionados = SvOcr.fusionar(nav.movimientos, srv.movimientos);
 
-            if (result.observaciones) {
-              mostrarToast(result.observaciones, 'warning');
+        if (fusionados.length === 0) {
+          mostrarLoading(false);
+          poner('');
+          mostrarToast('No se detectó ningún movimiento. Probá con una foto más nítida y derecha, ' +
+                       'o agregá las filas a mano.', 'warning');
+          Estado.vrMovimientos = [];
+          document.getElementById('vrResultados').style.display = 'block';
+          renderMovimientosVR();
+          return;
+        }
+
+        // Corregir los nombres contra el padrón, que es lo que más acierto da
+        poner('Comparando ' + fusionados.length + ' nombres con tu padrón...');
+        google.script.run
+          .withSuccessHandler(function(res) {
+            mostrarLoading(false);
+            poner('');
+            if (!res || !res.success) {
+              mostrarToast((res && res.error) || 'No se pudo comparar con el padrón', 'error');
+              return;
             }
-          } else {
-            mostrarToast(result.error, 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .analizarImagen(Estado.vrImagenToken, fecha);
+            Estado.vrMovimientos = (res.movimientosValidos || []).map(function(m) {
+              return Object.assign({}, m, { valido: true });
+            }).concat((res.movimientosConSugerencias || []).map(function(m) {
+              return Object.assign({}, m, { valido: false });
+            }));
+
+            document.getElementById('vrResultados').style.display = 'block';
+            renderMovimientosVR();
+
+            const motores = [];
+            if (nav.ok) motores.push('navegador');
+            if (srv.ok) motores.push('servidor');
+            mostrarToast(Estado.vrMovimientos.length + ' movimientos detectados (' +
+                         motores.join(' + ') + ')', 'success');
+          })
+          .withFailureHandler(function(error) {
+            mostrarLoading(false);
+            poner('');
+            mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+          })
+          .ocrCorregirMovimientos(fusionados.map(function(m) {
+            return { cliente: m.cliente, clienteOriginal: m.clienteOriginal, monto: m.monto,
+                     tipo: m.tipo, confianzaTipo: m.confianzaTipo, confianzaOcr: m.confianzaOcr,
+                     obs: m.obs, motor: (m.motores || []).join('+') };
+          }), fecha);
+      });
+    }
+
+    /** Color del semáforo de confianza de una fila. */
+    function _colorConfianzaVR(m) {
+      if (m.valido && (m.confianzaOcr === undefined || m.confianzaOcr >= SvOcr.cfg().confianza)) return 'var(--sv-exito)';
+      if (m.esNuevo && !(m.sugerencias && m.sugerencias.length)) return 'var(--sv-peligro)';
+      return 'var(--sv-advertencia)';
     }
 
     function renderMovimientosVR() {
       const tbody = document.getElementById('vrMovimientos');
+      if (!tbody) return;
+
+      if (!Estado.vrMovimientos || Estado.vrMovimientos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Sin movimientos. ' +
+          'Podés agregarlos a mano con "+ Agregar fila".</td></tr>';
+        _actualizarResumenVR();
+        return;
+      }
+
+      const mostrarRecortes = Estado.vrMostrarRecortes === true;
+      const prep = Estado.vrImagenPreparada;
 
       tbody.innerHTML = Estado.vrMovimientos.map(function(m, i) {
-        var clienteCell = m.valido ? escapeHtml(m.cliente) :
-          '<select class="form-input" onchange="seleccionarClienteVR(' + i + ', this.value)" style="padding: 0.5rem;">' +
-            '<option value="">' + escapeHtml(m.clienteOriginal) + ' (no encontrado)</option>' +
-            (m.sugerencias || []).map(function(s) {
-              return '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>';
-            }).join('') +
-          '</select>';
-        var estadoCell = m.valido ? '&#10003;' : (m.sugerencias && m.sugerencias.length ? '&#9888;&#65039;' : '&#10007;');
-        return '<tr>' +
-          '<td data-label="Cliente">' + clienteCell + '</td>' +
-          '<td data-label="Tipo"><span class="tag tag-' + m.tipo.toLowerCase() + '">' + (m.tipo === 'DEBE' ? 'FIADO' : 'PAGO') + '</span></td>' +
-          '<td data-label="Monto"><input type="number" class="form-input" value="' + m.monto + '" onchange="actualizarMontoVR(' + i + ', this.value)" style="max-width:100%;min-width:0;width:8rem;padding:0.5rem;" inputmode="numeric"></td>' +
-          '<td data-label="Estado">' + estadoCell + '</td>' +
-          '<td data-label=""><button type="button" class="btn btn-outline btn-sm" onclick="eliminarMovVR(' + i + ')">&#10007;</button></td>' +
+        const color = _colorConfianzaVR(m);
+        const listaId = 'vrClientes';
+
+        // Recorte de la zona original de esa fila, para ver el trazo exacto
+        let recorte = '';
+        if (mostrarRecortes && m.recorte && prep) {
+          const r = m.recorte;
+          const alto = Math.max(1, r.y1 - r.y0);
+          const ancho = Math.max(1, r.x1 - r.x0);
+          const escala = Math.min(3, 48 / alto);
+          recorte =
+            '<div style="overflow:hidden;width:' + Math.round(ancho * escala) + 'px;height:' +
+              Math.round(alto * escala) + 'px;border:1px solid var(--sv-borde);border-radius:4px;">' +
+              '<img src="' + escapeHtml(prep.dataUrl) + '" style="margin-left:' +
+                (-r.x0 * escala) + 'px;margin-top:' + (-r.y0 * escala) + 'px;width:' +
+                (prep.ancho * escala) + 'px;image-rendering:pixelated;">' +
+            '</div>';
+        }
+
+        const confTexto = (m.confianzaOcr !== undefined && m.confianzaOcr !== null)
+          ? '<span style="font-size:0.7rem;color:var(--sv-texto-muted);">' + m.confianzaOcr + '%</span>' : '';
+
+        return '<tr style="border-left:4px solid ' + color + ';">' +
+          '<td data-label="">' +
+            '<input type="checkbox" ' + (m.valido ? 'checked' : '') +
+              ' onchange="marcarFilaVR(' + i + ', this.checked)" aria-label="Incluir esta fila">' +
+          '</td>' +
+          '<td data-label="Cliente">' +
+            '<input type="text" class="form-input" list="' + listaId + '" value="' +
+              escapeHtml(m.cliente || m.clienteOriginal || '') + '" ' +
+              'onchange="cambiarClienteVR(' + i + ', this.value)" ' +
+              'placeholder="Escribí el nombre" style="padding:0.45rem;">' +
+            (m.clienteOriginal && m.clienteOriginal !== m.cliente
+              ? '<div style="font-size:0.7rem;color:var(--sv-texto-muted);margin-top:0.15rem;">leído: ' +
+                escapeHtml(m.clienteOriginal) + '</div>' : '') +
+            (m.sugerencias && m.sugerencias.length
+              ? '<div style="margin-top:0.25rem;display:flex;gap:0.25rem;flex-wrap:wrap;">' +
+                m.sugerencias.slice(0, 3).map(function(sg) {
+                  return '<button type="button" class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:0.15rem 0.4rem;" ' +
+                    'onclick="cambiarClienteVR(' + i + ', \'' + escaparJsEnAtributo(sg) + '\')">' +
+                    escapeHtml(sg) + '</button>';
+                }).join('') + '</div>' : '') +
+            (recorte ? '<div style="margin-top:0.35rem;">' + recorte + '</div>' : '') +
+          '</td>' +
+          '<td data-label="Tipo">' +
+            '<select class="form-input" onchange="cambiarTipoVR(' + i + ', this.value)" style="padding:0.45rem;">' +
+              '<option value="DEBE"' + (m.tipo === 'DEBE' ? ' selected' : '') + '>FIADO</option>' +
+              '<option value="HABER"' + (m.tipo === 'HABER' ? ' selected' : '') + '>PAGO</option>' +
+            '</select>' +
+            (m.confianzaTipo === 'baja'
+              ? '<div style="font-size:0.68rem;color:var(--sv-advertencia);margin-top:0.15rem;">revisá la columna</div>' : '') +
+          '</td>' +
+          '<td data-label="Monto">' +
+            '<input type="number" class="form-input" value="' + (m.monto || 0) + '" step="0.01" min="0" ' +
+              'onchange="actualizarMontoVR(' + i + ', this.value)" inputmode="decimal" style="padding:0.45rem;">' +
+            (confTexto ? '<div style="margin-top:0.15rem;">' + confTexto + '</div>' : '') +
+          '</td>' +
+          '<td data-label="">' +
+            '<button type="button" class="btn btn-outline btn-sm" onclick="eliminarMovVR(' + i + ')" ' +
+              'style="color:var(--sv-peligro);" aria-label="Quitar fila">&#10007;</button>' +
+          '</td>' +
         '</tr>';
       }).join('');
+
+      _asegurarListaClientesVR();
+      _actualizarResumenVR();
       svApplyDataLabelsFromHeaders(document.getElementById('module-visual-reasoning'));
       svInitTableScrollHints();
     }
 
-    function seleccionarClienteVR(index, cliente) {
-      if (cliente) {
-        Estado.vrMovimientos[index].cliente = cliente;
-        Estado.vrMovimientos[index].valido = true;
-        renderMovimientosVR();
+    /** Lista de autocompletado con el padrón, para escribir nombres libremente. */
+    function _asegurarListaClientesVR() {
+      let lista = document.getElementById('vrClientes');
+      if (!lista) {
+        lista = document.createElement('datalist');
+        lista.id = 'vrClientes';
+        document.body.appendChild(lista);
       }
+      if (lista.dataset.cargado === String((Estado.clientes || []).length)) return;
+      lista.innerHTML = (Estado.clientes || []).map(function(c) {
+        return '<option value="' + escapeHtml(c.nombre) + '">';
+      }).join('');
+      lista.dataset.cargado = String((Estado.clientes || []).length);
     }
 
-    function actualizarMontoVR(index, monto) {
-      Estado.vrMovimientos[index].monto = parseFloat(monto) || 0;
+    function _actualizarResumenVR() {
+      const cont = document.getElementById('vrResumenVR');
+      if (!cont) return;
+      const movs = Estado.vrMovimientos || [];
+      const marcados = movs.filter(function(m) { return m.valido && m.monto > 0; });
+      let fiado = 0, pagos = 0;
+      marcados.forEach(function(m) {
+        if (m.tipo === 'DEBE') fiado += Number(m.monto) || 0;
+        else pagos += Number(m.monto) || 0;
+      });
+      cont.innerHTML = '<strong>' + marcados.length + '</strong> de ' + movs.length +
+        ' marcados para guardar · Fiado ' + formatearMonto(fiado) + ' · Pagos ' + formatearMonto(pagos);
     }
 
-    function eliminarMovVR(index) {
-      Estado.vrMovimientos.splice(index, 1);
+    function marcarFilaVR(i, marcado) {
+      if (!Estado.vrMovimientos[i]) return;
+      Estado.vrMovimientos[i].valido = marcado === true;
+      _actualizarResumenVR();
+    }
+
+    /** Cambia el cliente. Acepta texto libre, no solo las sugerencias. */
+    function cambiarClienteVR(i, nombre) {
+      const m = Estado.vrMovimientos[i];
+      if (!m) return;
+      const limpio = String(nombre || '').trim().toUpperCase();
+      m.cliente = limpio;
+      // Se marca sola si el nombre existe en el padrón
+      const existe = (Estado.clientes || []).some(function(c) {
+        return String(c.nombre).toUpperCase() === limpio;
+      });
+      m.valido = existe && m.monto > 0;
+      m.esNuevo = !existe;
+      renderMovimientosVR();
+    }
+
+    function cambiarTipoVR(i, tipo) {
+      const m = Estado.vrMovimientos[i];
+      if (!m) return;
+      m.tipo = (tipo === 'HABER') ? 'HABER' : 'DEBE';
+      m.obs = (m.tipo === 'HABER') ? 'Cobranza' : 'Fiado';
+      m.confianzaTipo = 'manual';
+      renderMovimientosVR();
+    }
+
+    function actualizarMontoVR(i, monto) {
+      const m = Estado.vrMovimientos[i];
+      if (!m) return;
+      m.monto = parseFloat(monto) || 0;
+      _actualizarResumenVR();
+    }
+
+    function eliminarMovVR(i) {
+      Estado.vrMovimientos.splice(i, 1);
+      renderMovimientosVR();
+    }
+
+    /** Agrega una fila vacía: para lo que el OCR no vio. */
+    function agregarFilaVR() {
+      if (!Estado.vrMovimientos) Estado.vrMovimientos = [];
+      Estado.vrMovimientos.push({
+        cliente: '', clienteOriginal: '', monto: 0, tipo: 'DEBE',
+        obs: 'Fiado', valido: false, esNuevo: true, confianzaTipo: 'manual',
+        fecha: document.getElementById('vrFecha').value || obtenerFechaLocal()
+      });
+      document.getElementById('vrResultados').style.display = 'block';
+      renderMovimientosVR();
+    }
+
+    function toggleRecortesVR() {
+      Estado.vrMostrarRecortes = !Estado.vrMostrarRecortes;
+      const btn = document.getElementById('btnRecortesVR');
+      if (btn) btn.textContent = Estado.vrMostrarRecortes ? 'Ocultar recortes' : 'Ver recortes';
       renderMovimientosVR();
     }
 
     function guardarMovimientosVR() {
-      const validos = Estado.vrMovimientos.filter(m => m.valido && m.monto > 0);
+      const marcados = (Estado.vrMovimientos || []).filter(function(m) {
+        return m.valido && m.monto > 0 && String(m.cliente || '').trim();
+      });
 
-      if (validos.length === 0) {
-        mostrarToast('No hay movimientos validos para guardar', 'warning');
+      if (marcados.length === 0) {
+        mostrarToast('No hay ninguna fila marcada con cliente y monto', 'warning');
         return;
       }
 
-      mostrarLoading(true);
+      const nuevos = marcados.filter(function(m) { return m.esNuevo; });
+      if (nuevos.length > 0) {
+        if (!confirm(nuevos.length + ' cliente(s) no están en tu padrón:\n\n' +
+                     nuevos.map(function(m) { return '· ' + m.cliente; }).join('\n') +
+                     '\n\nSe van a dar de alta. ¿Continuar?')) return;
+      }
 
+      mostrarLoading(true);
       google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
-            mostrarToast(result.mensaje, 'success');
+          if (result && result.success) {
+            mostrarToast(result.mensaje || 'Movimientos guardados', 'success');
             document.getElementById('vrPreview').style.display = 'none';
             document.getElementById('vrResultados').style.display = 'none';
+            document.getElementById('vrBancoPruebas').style.display = 'none';
             Estado.vrMovimientos = [];
-            cargarDatosIniciales();
+            Estado.vrImagenPreparada = null;
+            Estado.vrImagenToken = null;
+            cargarDatosIniciales(true);
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'No se pudieron guardar', 'error');
           }
         })
         .withFailureHandler(function(error) {
           mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
         })
-        .guardarMovimientosLote(validos);
+        .guardarMovimientosLote(marcados);
+    }
+
+    // ============================================================================
+    // BANCO DE PRUEBAS DEL OCR
+    // ============================================================================
+
+    function cerrarBancoPruebasOcr() {
+      document.getElementById('vrBancoPruebas').style.display = 'none';
+    }
+
+    /**
+     * Corre los dos motores y muestra el resultado de cada uno lado a lado.
+     * Es la herramienta para calibrar los umbrales con libros reales.
+     */
+    function abrirBancoPruebasOcr() {
+      const prep = Estado.vrImagenPreparada;
+      if (!prep) {
+        mostrarToast('Subí una imagen primero', 'error');
+        return;
+      }
+
+      const panel = document.getElementById('vrBancoPruebas');
+      const cont = document.getElementById('vrBancoContenido');
+      panel.style.display = 'block';
+      panel.scrollIntoView({ behavior: 'smooth' });
+      cont.innerHTML = '<p style="font-size:0.85rem;color:var(--sv-texto-muted);">Procesando con los dos motores...</p>';
+
+      const fecha = document.getElementById('vrFecha').value || obtenerFechaLocal();
+
+      const tareaNav = SvOcr.reconocerEnNavegador(prep.dataUrl).then(function(r) {
+        return { ok: true, texto: r.texto, confianza: r.confianzaMedia, palabras: r.palabras.length,
+                 movimientos: SvOcr.armarMovimientos(r.palabras, prep.ancho, fecha) };
+      }).catch(function(e) {
+        return { ok: false, error: (e && e.message) || String(e) };
+      });
+
+      const tareaSrv = Estado.vrImagenToken
+        ? new Promise(function(resolver) {
+            google.script.run
+              .withSuccessHandler(function(res) { resolver(res || { success: false, error: 'Sin respuesta' }); })
+              .withFailureHandler(function(err) { resolver({ success: false, error: (err && err.message) || String(err) }); })
+              .ocrDiagnosticar(Estado.vrImagenToken, fecha);
+          })
+        : Promise.resolve({ success: false, error: 'La imagen no se pudo subir al servidor' });
+
+      Promise.all([tareaNav, tareaSrv]).then(function(r) {
+        const nav = r[0], srv = r[1];
+
+        const bloqueMotor = function(titulo, ok, error, filas, texto, extra) {
+          return '<div style="border:1px solid var(--sv-borde);border-radius:8px;padding:0.75rem;">' +
+            '<div style="font-weight:bold;margin-bottom:0.4rem;">' + titulo + '</div>' +
+            (ok
+              ? (extra ? '<div style="font-size:0.75rem;color:var(--sv-texto-muted);margin-bottom:0.4rem;">' + extra + '</div>' : '') +
+                '<div style="font-size:0.8rem;margin-bottom:0.4rem;"><strong>' + filas + '</strong> movimientos detectados</div>' +
+                '<details><summary style="cursor:pointer;font-size:0.78rem;">Ver texto crudo</summary>' +
+                '<pre style="white-space:pre-wrap;font-size:0.7rem;max-height:14rem;overflow:auto;' +
+                  'background:var(--sv-superficie-elevada);padding:0.5rem;border-radius:4px;margin-top:0.35rem;">' +
+                  escapeHtml(texto || '(vacío)') + '</pre></details>'
+              : '<div style="font-size:0.8rem;color:var(--sv-peligro);">' + escapeHtml(error || 'falló') + '</div>') +
+          '</div>';
+        };
+
+        let html = '<div class="grid grid-2" style="gap:0.75rem;">' +
+          bloqueMotor('🖥️ Motor del navegador (Tesseract)', nav.ok, nav.error,
+                      nav.ok ? nav.movimientos.length : 0, nav.texto,
+                      nav.ok ? ('confianza media ' + nav.confianza + '% · ' + nav.palabras + ' palabras con posición') : '') +
+          bloqueMotor('☁️ Motor del servidor (OCR de Drive)', srv.success, srv.error,
+                      srv.success ? (srv.movimientos || []).length : 0, srv.textoCrudo,
+                      srv.success ? (srv.ms + ' ms · ' + srv.lineasTotales + ' líneas') : '') +
+        '</div>';
+
+        if (srv.success && srv.resumen) {
+          html += '<div style="margin-top:0.75rem;padding:0.6rem;border-radius:6px;background:var(--sv-superficie-elevada);font-size:0.82rem;">' +
+            '<strong>Contra tu padrón:</strong> ' + srv.resumen.reconocidosEnPadron + ' reconocidos · ' +
+            srv.resumen.conSugerencias + ' con sugerencias · ' + srv.resumen.sinCoincidencia + ' sin coincidencia' +
+          '</div>';
+        }
+
+        if (nav.ok && srv.success) {
+          const fus = SvOcr.fusionar(nav.movimientos, srv.movimientos || []);
+          const coinciden = fus.filter(function(m) { return (m.motores || []).length === 2; }).length;
+          html += '<div style="margin-top:0.5rem;padding:0.6rem;border-radius:6px;background:var(--sv-superficie-elevada);font-size:0.82rem;">' +
+            '<strong>Cruce de los dos motores:</strong> ' + fus.length + ' filas en total, ' +
+            coinciden + ' en las que ambos coinciden (son las más confiables)' +
+          '</div>';
+        }
+
+        html += '<p style="font-size:0.75rem;color:var(--sv-texto-muted);margin-top:0.75rem;">' +
+          'Si el texto crudo sale mal: subí la <em>binarización</em> con fotos oscuras o con sombra, ' +
+          'bajala si se comen los trazos finos, y aumentá el <em>ancho máximo</em> si las cifras ' +
+          'salen cortadas. Todo en Configuración → OCR de imágenes.</p>';
+
+        cont.innerHTML = html;
+      });
     }
 
     // ============================================================================
@@ -8710,7 +10059,7 @@ function renderEstadisticas(result) {
       Estado.proveedoresHistorial = Estado.proveedoresHistorial.filter(p => p.toLowerCase() !== nombre.toLowerCase());
       Estado.proveedoresHistorial.unshift(nombre.trim());
       Estado.proveedoresHistorial = Estado.proveedoresHistorial.slice(0, 20);
-      localStorage.setItem('proveedoresHistorial', JSON.stringify(Estado.proveedoresHistorial));
+      lsGuardarJson('sv_proveedores_historial', Estado.proveedoresHistorial);
     }
 
     function confirmarEliminarItem(btn) {
@@ -8825,7 +10174,7 @@ function renderEstadisticas(result) {
 
     // ── Historial de Items del Remito (localStorage) ──────────────────────────
     function _obtenerItemsHistorial() {
-      try { return JSON.parse(localStorage.getItem('remitoItemsHistorial') || '[]'); }
+      try { return lsLeerJson('sv_remito_items_historial', []); }
       catch (e) { return []; }
     }
     function _guardarItemHistorial(desc) {
@@ -8834,7 +10183,7 @@ function renderEstadisticas(result) {
       let lista = _obtenerItemsHistorial().filter(function(d) { return d.toLowerCase() !== desc.toLowerCase(); });
       lista.unshift(desc);
       lista = lista.slice(0, 50);
-      try { localStorage.setItem('remitoItemsHistorial', JSON.stringify(lista)); } catch (e) {}
+      lsGuardarJson('sv_remito_items_historial', lista);
     }
     function _buscarItemHistorial(input, filaIdx, forzarTodos) {
       const fila = input.closest('tr');
@@ -9877,12 +11226,12 @@ function renderEstadisticas(result) {
       try {
         var d = String(desc || '').trim();
         if (!d) return;
-        var arr = JSON.parse(localStorage.getItem('hojaRutaLiqDescHistorial') || '[]');
+        var arr = lsLeerJson('sv_hoja_ruta_liq_desc', []);
         if (!Array.isArray(arr)) arr = [];
         arr = arr.filter(function(x) { return String(x).toLowerCase() !== d.toLowerCase(); });
         arr.unshift(d);
         arr = arr.slice(0, 20);
-        localStorage.setItem('hojaRutaLiqDescHistorial', JSON.stringify(arr));
+        lsGuardarJson('sv_hoja_ruta_liq_desc', arr);
       } catch (e) {}
     }
 
@@ -9898,7 +11247,7 @@ function renderEstadisticas(result) {
       }
       liquidacionesPendientes.forEach(function(l) { add(l.descripcion); });
       try {
-        var h = JSON.parse(localStorage.getItem('hojaRutaLiqDescHistorial') || '[]');
+        var h = lsLeerJson('sv_hoja_ruta_liq_desc', []);
         if (Array.isArray(h)) h.forEach(add);
       } catch (e) {}
       return out;
@@ -10083,7 +11432,7 @@ function renderEstadisticas(result) {
           '<td data-label="Proveedores" style="color: var(--sv-peligro);">-' + formatearMonto(s.totales.proveedores) + '</td>' +
           '<td data-label="Gastos" style="color: var(--sv-peligro);">-' + formatearMonto(s.totales.gastos) + '</td>' +
           '<td data-label="Neto" style="font-weight: bold;">' + formatearMonto(s.totales.neto) + '</td>' +
-          '<td data-label=""><button class="btn btn-outline btn-sm" onclick="verDetalleSesion(\'' + escapeHtml(s.sesionId) + '\')">Ver</button></td>' +
+          '<td data-label=""><button class="btn btn-outline btn-sm" onclick="verDetalleSesion(\'' + escaparJsEnAtributo(s.sesionId) + '\')">Ver</button></td>' +
         '</tr>';
       }).join('');
     }
@@ -10168,7 +11517,7 @@ function renderEstadisticas(result) {
       // Boton para cargar sesion al formulario
       html +=
         '<div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--sv-borde);">' +
-          '<button class="btn btn-primary" style="width: 100%;" onclick="cargarSesionAlFormulario(\'' + escapeHtml(sesionId) + '\')">' +
+          '<button class="btn btn-primary" style="width: 100%;" onclick="cargarSesionAlFormulario(\'' + escaparJsEnAtributo(sesionId) + '\')">' +
             '&#128229; Cargar al Formulario de Arqueo' +
           '</button>' +
         '</div>';
@@ -10298,8 +11647,8 @@ function renderEstadisticas(result) {
           '<td data-label="Movs">' + c.totalMovs + '</td>' +
           '<td data-label="Acciones">' +
             '<div class="btn-group">' +
-              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escapeHtml(c.nombre) + '\')">&#9999;&#65039;</button>' +
-              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escapeHtml(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escaparJsEnAtributo(c.nombre) + '\')">&#9999;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escaparJsEnAtributo(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
             '</div>' +
           '</td>' +
         '</tr>';
@@ -10308,7 +11657,7 @@ function renderEstadisticas(result) {
       try {
         if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
           jQuery('#tablaGestionClientes').DataTable({
-            pageLength: 50,
+            pageLength: SvFormato.filasPorPagina,
             order: [[0, 'asc']],
             scrollX: true,
             autoWidth: false,
@@ -10349,8 +11698,8 @@ function renderEstadisticas(result) {
           '<td data-label="Movs">' + c.totalMovs + '</td>' +
           '<td data-label="Acciones">' +
             '<div class="btn-group">' +
-              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escapeHtml(c.nombre) + '\')">&#9999;&#65039;</button>' +
-              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escapeHtml(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escaparJsEnAtributo(c.nombre) + '\')">&#9999;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escaparJsEnAtributo(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
             '</div>' +
           '</td>' +
         '</tr>';
@@ -10359,7 +11708,7 @@ function renderEstadisticas(result) {
       try {
         if (typeof jQuery !== 'undefined' && jQuery.fn.DataTable && clientesFiltrados.length > 0) {
           jQuery('#tablaGestionClientes').DataTable({
-            pageLength: 50,
+            pageLength: SvFormato.filasPorPagina,
             order: [[0, 'asc']],
             scrollX: true,
             autoWidth: false,
@@ -10590,10 +11939,15 @@ function renderEstadisticas(result) {
     // CONFIGURACION
     // ============================================================================
     function cargarConfiguracionInicial() {
-      const tema = localStorage.getItem('tema') || 'light';
-      setTema(tema);
+      // La preferencia de ESTE navegador manda sobre el tema inicial de
+      // Configuración: si el usuario cambió el tema a mano, no se le pisa.
+      // El tema de Configuración es para la primera vez en cada dispositivo.
+      const temaGuardado = lsLeer('sv_tema', null);
+      const temaConfig = (Estado.configuracion && Estado.configuracion.ui)
+        ? Estado.configuracion.ui.TEMA_INICIAL : null;
+      setTema(temaGuardado || temaConfig || 'light');
 
-      const animaciones = localStorage.getItem('animaciones') !== 'false';
+      const animaciones = lsLeer('sv_animaciones', 'true') !== 'false';
       document.getElementById('toggleAnimaciones').checked = animaciones;
       toggleAnimaciones(animaciones);
       
@@ -10604,7 +11958,7 @@ function renderEstadisticas(result) {
     function setTema(tema) {
       document.documentElement.setAttribute('data-theme', tema === 'dark' ? 'dark' : '');
       document.getElementById('themeToggle').textContent = tema === 'dark' ? '☀️' : '🌙';
-      localStorage.setItem('tema', tema);
+      lsGuardar('sv_tema', tema);
 
       const btnClaro = document.getElementById('btnTemaClaro');
       const btnOscuro = document.getElementById('btnTemaOscuro');
@@ -10615,7 +11969,7 @@ function renderEstadisticas(result) {
     }
 
     function toggleAnimaciones(habilitado) {
-      localStorage.setItem('animaciones', habilitado ? 'true' : 'false');
+      lsGuardar('sv_animaciones', habilitado ? 'true' : 'false');
       let style = document.getElementById('no-animations-style');
 
       if (!habilitado) {
@@ -10862,31 +12216,17 @@ function renderEstadisticas(result) {
       return win;
     }
 
-    function guardarApiKeyConfig() {
-      const apiKey = document.getElementById('inputApiKey').value.trim();
-      if (!apiKey) {
-        mostrarToast('Ingresa una API Key', 'error');
-        return;
-      }
-
-      mostrarLoading(true);
-      google.script.run
-        .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          if (result.success) {
-            mostrarToast('API Key guardada', 'success');
-            document.getElementById('estadoApiKey').textContent = '✓ API Key configurada';
-            document.getElementById('estadoApiKey').style.color = 'var(--sv-exito)';
-            document.getElementById('inputApiKey').value = '';
-          } else {
-            mostrarToast(result.error, 'error');
-          }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .guardarApiKey(apiKey);
+    /**
+     * Lee un entero de un campo numérico de Configuración, acotado.
+     * Devuelve el valor por defecto si está vacío o fuera de rango, en lugar
+     * de mandar NaN al servidor.
+     */
+    function _enteroDeInput(id, porDefecto, minimo, maximo) {
+      const campo = document.getElementById(id);
+      if (!campo) return porDefecto;
+      const valor = parseInt(campo.value, 10);
+      if (isNaN(valor) || valor < minimo || valor > maximo) return porDefecto;
+      return valor;
     }
 
     function recalcularTodosSaldos() {
@@ -10945,12 +12285,27 @@ function renderEstadisticas(result) {
         .obtenerTodosClientesParaExportar();
     }
 
+    // Claves que el sistema guarda en este navegador. Todas con prefijo sv_
+    // para poder barrerlas de una vez y no chocar con otras aplicaciones del
+    // mismo origen. SV_CLAVES_PRESERVAR son preferencias del usuario: no se
+    // borran al limpiar la cache, porque no son datos cacheados.
+    const SV_CLAVES_CACHE = [
+      'sv_datos_cache',
+      'sv_datos_cache_time',
+      'sv_proveedores_historial',
+      'sv_remito_items_historial',
+      'sv_hoja_ruta_liq_desc'
+    ];
+    const SV_CLAVES_PRESERVAR = ['sv_tema', 'sv_animaciones', 'sv_config_visual', 'sv_visor_limite'];
+
     function limpiarCacheLocal() {
       if (!confirm('¿Limpiar cache local y recargar datos?')) return;
-      localStorage.removeItem('proveedoresHistorial');
-      localStorage.removeItem('sv_datos_cache');
-      localStorage.removeItem('sv_datos_cache_time');
+      // Antes borraba 3 de las 8 claves y no reseteaba el estado en memoria,
+      // que volvia a escribirse en el siguiente guardado: la cache no quedaba
+      // limpia de verdad.
+      SV_CLAVES_CACHE.forEach(lsBorrar);
       Estado.proveedoresHistorial = [];
+      Estado.sesionesCache = {};
       mostrarToast('Cache limpiada. Recargando datos...', 'success');
       cargarDatosIniciales(true); // Forzar recarga desde servidor
     }
@@ -11656,26 +13011,33 @@ function renderEstadisticas(result) {
       }
 
       mostrarLoading(true);
-      const accion = editandoId ?
-        google.script.run.actualizarProducto(parseInt(editandoId), datos) :
-        google.script.run.agregarProducto(datos);
 
-      google.script.run
+      // Aqui habia una llamada suelta a actualizarProducto/agregarProducto,
+      // asignada a una constante que nadie usaba, ANTES de la llamada con
+      // manejadores. Es decir: el guardado se ejecutaba DOS VECES. En el alta
+      // eso significaba que cada producto nuevo se creaba DUPLICADO en la
+      // hoja, y el resultado de la primera llamada se descartaba en silencio.
+      const peticion = google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cerrarModal('modalProducto');
             cargarDatosFacturacion();
             mostrarToast('Producto guardado', 'success');
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'No se pudo guardar el producto', 'error');
           }
         })
         .withFailureHandler(function(error) {
           mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        [editandoId ? 'actualizarProducto' : 'agregarProducto'](editandoId ? parseInt(editandoId) : datos, editandoId ? datos : undefined);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        });
+
+      if (editandoId) {
+        peticion.actualizarProducto(parseInt(editandoId, 10), datos);
+      } else {
+        peticion.agregarProducto(datos);
+      }
     }
 
     // Eliminar producto
@@ -12007,11 +13369,16 @@ function renderEstadisticas(result) {
       }
     });
 
-    // Procesar imagen con IA
+    // Lee una captura de comprobantes con el mismo OCR gratuito.
+    //
+    // Antes comprimía la imagen y la mandaba a la API de Claude. Ahora pasa
+    // por el mismo preprocesado que el libro —escala de grises, contraste,
+    // binarización adaptativa— y la lee el OCR de Drive. Este caso le resulta
+    // bastante más favorable: es texto de pantalla, no manuscrito.
     function procesarImagenIA() {
       const input = document.getElementById('inputImagenComprobante');
       if (!input.files || !input.files[0]) {
-        mostrarToast('Selecciona una imagen primero', 'error');
+        mostrarToast('Seleccioná una imagen primero', 'error');
         return;
       }
 
@@ -12020,8 +13387,8 @@ function renderEstadisticas(result) {
       mostrarLoading(true);
       document.getElementById('btnProcesarIA').disabled = true;
 
-      comprimirImagenParaIA(file, function(dataUrl) {
-        const base64 = dataUrl.split(',')[1];
+      SvOcr.preparar(file).then(function(prep) {
+        const base64 = prep.dataUrl;
 
         google.script.run
           .withSuccessHandler(function(result) {
@@ -12033,9 +13400,12 @@ function renderEstadisticas(result) {
               document.getElementById('fechaDocumentoIA').textContent = result.fecha || '-';
               renderResultadosIA();
               document.getElementById('resultadosIA').style.display = 'block';
-              mostrarToast('Imagen procesada: ' + result.items.length + ' transferencias detectadas', 'success');
+              const fuera = (result.items || []).filter(function(i) { return !i.enPadron; }).length;
+              mostrarToast(result.items.length + ' transferencias detectadas' +
+                (fuera > 0 ? ' · ' + fuera + ' nombre(s) no están en tu padrón: revisalos' : ''),
+                fuera > 0 ? 'warning' : 'success');
             } else {
-              mostrarToast('Error IA: ' + result.error, 'error');
+              mostrarToast('No se pudo leer: ' + result.error, 'error');
             }
           })
           .withFailureHandler(function(error) {
@@ -12044,6 +13414,10 @@ function renderEstadisticas(result) {
             mostrarToast('Error: ' + error.message, 'error');
           })
           .procesarImagenComprobante(base64);
+      }).catch(function(e) {
+        mostrarLoading(false);
+        document.getElementById('btnProcesarIA').disabled = false;
+        mostrarToast('No se pudo preparar la imagen: ' + ((e && e.message) || e), 'error');
       });
     }
 
@@ -12051,10 +13425,21 @@ function renderEstadisticas(result) {
     function renderResultadosIA() {
       const tbody = document.getElementById('tbodyResultadosIA');
       if (!tbody) return;
+      _asegurarListaClientesVR(); // la lista de nombres del padron para el autocompletado
 
       tbody.innerHTML = EstadoFacturacion.resultadosIA.map(function(item, idx) {
-        return '<tr>' +
-          '<td><input type="text" class="form-input" value="' + escapeHtml(item.nombre) + '" onchange="EstadoFacturacion.resultadosIA[' + idx + '].nombre = this.value"></td>' +
+        // Franja de color según si el nombre existe en el padrón: el OCR libre
+        // acierta mucho en capturas de pantalla, pero el usuario tiene que
+        // poder ver de un vistazo qué revisar.
+        var borde = (item.enPadron === false) ? 'var(--sv-advertencia)'
+                  : (item.enPadron === true) ? 'var(--sv-exito)' : 'transparent';
+        return '<tr style="border-left:4px solid ' + borde + ';">' +
+          '<td><input type="text" class="form-input" list="vrClientes" value="' + escapeHtml(item.nombre) + '" onchange="EstadoFacturacion.resultadosIA[' + idx + '].nombre = this.value">' +
+            (item.nombreLeido && item.nombreLeido !== item.nombre
+              ? '<div style="font-size:0.7rem;color:var(--sv-texto-muted);margin-top:0.15rem;">leído: ' + escapeHtml(item.nombreLeido) + '</div>' : '') +
+            (item.sugerencias && item.sugerencias.length
+              ? '<div style="font-size:0.7rem;color:var(--sv-texto-muted);margin-top:0.15rem;">¿' + escapeHtml(item.sugerencias.slice(0,2).join(' / ')) + '?</div>' : '') +
+          '</td>' +
           '<td><input type="number" class="form-input" value="' + item.monto + '" step="0.01" onchange="EstadoFacturacion.resultadosIA[' + idx + '].monto = parseFloat(this.value)"></td>' +
           '<td><input type="text" class="form-input" value="' + escapeHtml(item.banco || '') + '" onchange="EstadoFacturacion.resultadosIA[' + idx + '].banco = this.value"></td>' +
           '<td><button class="btn btn-outline btn-sm" onclick="eliminarResultadoIA(' + idx + ')" style="color: var(--sv-peligro);">&#10005;</button></td>' +
@@ -12175,11 +13560,29 @@ function renderEstadisticas(result) {
       // Poner fecha
       document.getElementById('arcaPreviewFecha').textContent = new Date().toLocaleDateString('es-AR');
 
-      // Setup autocomplete para cliente ARCA
+      // Setup autocomplete para cliente ARCA.
+      //
+      // Fuga corregida: se hacia removeEventListener del handler "pelado" pero
+      // se registraba debounce(handler), que es OTRA funcion. El remove nunca
+      // encontraba nada que quitar, y como esta funcion corre cada vez que se
+      // entra al modulo y en cada "Nuevo Comprobante", los listeners se
+      // ACUMULABAN: con cinco visitas, cada tecla disparaba cinco busquedas
+      // de cliente contra el backend.
+      //
+      // Ahora se guarda la referencia al handler debounced y se quita esa
+      // misma referencia antes de registrarla de nuevo.
       var inputArcaCliente = document.getElementById('arcaCliente');
-      inputArcaCliente.removeEventListener('input', arcaClienteInputHandler);
-      inputArcaCliente.addEventListener('input', debounce(arcaClienteInputHandler, 200));
+      if (inputArcaCliente) {
+        if (_arcaClienteInputDebounced) {
+          inputArcaCliente.removeEventListener('input', _arcaClienteInputDebounced);
+        }
+        _arcaClienteInputDebounced = debounce(arcaClienteInputHandler, 200);
+        inputArcaCliente.addEventListener('input', _arcaClienteInputDebounced);
+      }
     }
+
+    // Referencia al handler realmente registrado, para poder retirarlo
+    var _arcaClienteInputDebounced = null;
 
     function arcaClienteInputHandler() {
       buscarClienteAutocompleteArca(document.getElementById('arcaCliente').value);
@@ -12203,7 +13606,7 @@ function renderEstadisticas(result) {
 
       contenedor.innerHTML = resultados.map(function(c) {
         var condTag = c.cuit ? '<span style="color:var(--sv-primario);font-size:0.7rem;"> [RI]</span>' : '<span style="color:var(--sv-texto-muted);font-size:0.7rem;"> [CF]</span>';
-        return '<div class="suggestion-item" onclick="seleccionarClienteArca(\'' + escapeHtml(c.nombre).replace(/'/g, "\\'") + '\')">' +
+        return '<div class="suggestion-item" onclick="seleccionarClienteArca(\'' + escaparJsEnAtributo(c.nombre) + '\')">' +
           escapeHtml(c.nombre) + condTag + '</div>';
       }).join('');
       contenedor.style.display = 'block';
@@ -12491,9 +13894,19 @@ function renderEstadisticas(result) {
             document.getElementById('btnEmitirArca').disabled = false;
 
             if (result.success) {
-              mostrarToast(result.mensaje || 'Comprobante emitido', 'success');
-              if (result.advertencia) {
-                mostrarToast(result.advertencia, 'warning');
+              // El CAE existe en ARCA, pero puede no haberse guardado en el
+              // sistema. Ese caso NO puede mostrarse como un exito verde: se
+              // destaca en rojo, porque hay que registrarlo a mano y sobre
+              // todo NO volver a emitirlo.
+              var sinGuardar = result.requiereAtencion === 'CAE_SIN_GUARDAR';
+
+              if (sinGuardar) {
+                mostrarToast('ATENCIÓN: el comprobante se autorizó en ARCA pero NO se guardó en el sistema. No lo emitas de nuevo.', 'error');
+              } else {
+                mostrarToast(result.mensaje || 'Comprobante emitido', 'success');
+                if (result.advertencia) {
+                  mostrarToast(result.advertencia, 'warning');
+                }
               }
               sincronizarProductosTrasFacturaExito();
 
@@ -12502,7 +13915,13 @@ function renderEstadisticas(result) {
               var cont = document.getElementById('arcaResultadoContenido');
               var pdfOk = result.pdfUrl && /^https:\/\//i.test(String(result.pdfUrl));
               var bloque =
-                '<div class="alert" style="background:var(--sv-exito);color:white;padding:1rem;border-radius:8px;">' +
+                '<div class="alert" style="background:' + (sinGuardar ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';color:white;padding:1rem;border-radius:8px;">' +
+                (sinGuardar
+                  ? '<p style="font-weight:bold;font-size:1.05rem;margin-bottom:0.5rem;">⚠️ AUTORIZADO EN ARCA — NO GUARDADO EN EL SISTEMA</p>' +
+                    '<p style="font-size:0.9rem;line-height:1.4;margin-bottom:0.5rem;">Anotá estos datos: quedaron registrados en la hoja <strong>CAE_SIN_GUARDAR</strong> ' +
+                    'y podés completarlos desde Configuración → Comprobantes autorizados sin guardar. ' +
+                    '<strong>No vuelvas a emitir este comprobante</strong>, se duplicaría ante ARCA.</p>'
+                  : '') +
                 '<p style="font-size:0.95rem;line-height:1.4;">' + escapeHtml(String(result.mensaje || '')) + '</p>' +
                 '<p><strong>CAE:</strong> ' + escapeHtml(String(result.cae != null ? result.cae : '')) + '</p>' +
                 '<p><strong>Numero:</strong> ' + escapeHtml(String(result.ptoVta).padStart(5, '0') + '-' + String(result.cbteNro).padStart(8, '0')) + '</p>' +
@@ -13338,21 +14757,6 @@ function renderEstadisticas(result) {
       }
     }
 
-    function _hfFilasVacias(n) {
-      var html = '';
-      for (var i = 0; i < n; i++) {
-        html += '<tr>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;height:20px;">&nbsp;</td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-        '</tr>';
-      }
-      return html;
-    }
 
     function escHtml(str) {
       return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -13708,7 +15112,7 @@ function renderEstadisticas(result) {
         });
     }
 
-    // Probar conexión con Claude (usa la API Key del sistema general)
+    // Comprueba que el OCR gratuito funciona de punta a punta
     function probarConexionIA() {
       mostrarLoading(true);
       google.script.run
@@ -13725,7 +15129,7 @@ function renderEstadisticas(result) {
           mostrarLoading(false);
           document.getElementById('estadoConexionIA').innerHTML = '<span style="color: var(--sv-peligro);">✕ Error: ' + error.message + '</span>';
         })
-        .probarConexionClaude();
+        .probarOcrGratuito();
     }
 
     // ============================================================================
@@ -13799,14 +15203,50 @@ function renderEstadisticas(result) {
             // Paginación
             document.getElementById('inputPaginaTamano').value = config.paginaTamano || '';
             document.getElementById('inputPaginaTamanoMax').value = config.paginaTamanoMax || '';
+            // Ojo: 0 es un valor valido ("mostrar todos"), asi que no sirve "|| ''"
+            document.getElementById('inputVisorMovsDefault').value =
+              (config.visorMovsDefault === undefined || config.visorMovsDefault === null) ? '' : config.visorMovsDefault;
+
+            // Formato de montos y fechas
+            document.getElementById('inputFormatoMoneda').value = config.formatoMoneda || '$';
+            document.getElementById('inputFormatoFecha').value = config.formatoFecha || 'DD/MM/AAAA';
+            document.getElementById('inputFormatoDecimales').value =
+              (config.formatoDecimales === undefined || config.formatoDecimales === null) ? '0' : String(config.formatoDecimales);
+
+            // Interfaz
+            document.getElementById('inputUiDuracionAviso').value = config.uiDuracionAviso || '';
+            document.getElementById('inputUiFilasPorPagina').value = config.uiFilasPorPagina || '';
+            document.getElementById('inputUiTamanioFuente').value = config.uiTamanioFuente || '';
+            document.getElementById('inputUiTemaInicial').value = config.uiTemaInicial || 'light';
+
+            // Reglas del negocio: ojo, 0 es valido en el umbral de alerta
+            document.getElementById('inputNegocioAlertaSaldo').value =
+              (config.negocioAlertaSaldo === undefined || config.negocioAlertaSaldo === null) ? '' : config.negocioAlertaSaldo;
+            document.getElementById('inputNegocioDiasInactivo').value = config.negocioDiasInactivo || '';
+            document.getElementById('inputNegocioDiasBackup').value = config.negocioDiasBackup || '';
+            document.getElementById('inputNegocioRetencionBackup').value = config.negocioRetencionBackup || '';
+
+            // Denominaciones de billetes e inquilinos
+            _denominacionesConfig = (config.denominaciones || []).map(function(d) {
+              return { valor: Number(d.valor) || 0, nombre: String(d.nombre || '') };
+            });
+            renderDenominacionesConfig();
+            cargarInquilinosConfig();
             
             // IVA
             document.getElementById('inputIvaPorcentaje').value = config.ivaPorcentaje || '';
             document.getElementById('inputIvaAlicuotaId').value = config.ivaAlicuotaId || '';
             
-            // Claude
-            document.getElementById('inputClaudeModel').value = config.claudeModel || '';
-            document.getElementById('inputClaudeMaxTokens').value = config.claudeMaxTokens || '';
+            // OCR gratuito
+            document.getElementById('inputOcrIdioma').value = config.ocrIdioma || 'es';
+            document.getElementById('inputOcrConfianza').value =
+              (config.ocrConfianzaMinima === undefined || config.ocrConfianzaMinima === null) ? '' : config.ocrConfianzaMinima;
+            document.getElementById('inputOcrBinarizacion').value =
+              (config.ocrBinarizacion === undefined || config.ocrBinarizacion === null) ? '' : config.ocrBinarizacion;
+            document.getElementById('inputOcrAnchoMaximo').value = config.ocrAnchoMaximo || '';
+            document.getElementById('inputOcrMotorServidor').checked  = config.ocrMotorServidor !== false;
+            document.getElementById('inputOcrMotorNavegador').checked = config.ocrMotorNavegador !== false;
+            document.getElementById('inputOcrAutoRotar').checked      = config.ocrAutoRotar !== false;
             
             // Fuzzy
             document.getElementById('inputFuzzyMinScore').value = config.fuzzyMinScore || '';
@@ -13882,6 +15322,453 @@ function renderEstadisticas(result) {
     /**
      * Guarda la configuración general del sistema
      */
+    // ============================================================================
+    // TOKEN DE LA API REST
+    // ============================================================================
+
+    /** Refresca el texto de estado del token sin mostrar nunca su valor. */
+    function cargarEstadoTokenApi() {
+      const el = document.getElementById('estadoTokenApi');
+      if (!el) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.configurado) {
+            el.innerHTML = '<span style="color:var(--sv-exito);">✓ Token configurado</span> ' +
+              '<span style="color:var(--sv-texto-muted);">(' + res.longitud + ' caracteres)</span>';
+          } else {
+            el.innerHTML = '<span style="color:var(--sv-peligro);">✗ Sin token: las acciones protegidas de la API están cerradas</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          el.textContent = 'No se pudo consultar el estado: ' + ((error && error.message) || error);
+        })
+        .obtenerEstadoTokenApi();
+    }
+
+    function generarTokenApiConfig() {
+      if (!confirm('Generar un token nuevo invalida el anterior.\n\n' +
+                   'Si tenés un sistema externo que consume la API, dejará de funcionar ' +
+                   'hasta que le cargues el token nuevo.\n\n¿Continuar?')) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          mostrarLoading(false);
+          if (res && res.success) {
+            const cont = document.getElementById('tokenApiGenerado');
+            const campo = document.getElementById('inputTokenApiGenerado');
+            if (campo) campo.value = res.token;
+            if (cont) cont.style.display = 'block';
+            cargarEstadoTokenApi();
+            mostrarToast('Token generado. Copialo ahora: no se vuelve a mostrar.', 'success');
+          } else {
+            mostrarToast((res && res.error) || 'No se pudo generar el token', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        })
+        .generarTokenApi();
+    }
+
+    function revocarTokenApiConfig() {
+      if (!confirm('Revocar el token cierra por completo las acciones protegidas de la API.\n\n¿Continuar?')) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          mostrarLoading(false);
+          const cont = document.getElementById('tokenApiGenerado');
+          if (cont) cont.style.display = 'none';
+          cargarEstadoTokenApi();
+          mostrarToast((res && res.mensaje) || 'Token revocado', (res && res.success) ? 'success' : 'error');
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        })
+        .revocarTokenApi();
+    }
+
+    // ============================================================================
+    // ACTUALIZACION EN CALIENTE DE LA INTERFAZ
+    // ============================================================================
+
+    function cargarEstadoHtmlRemoto() {
+      const el = document.getElementById('estadoHtmlRemoto');
+      if (!el) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            el.textContent = 'No se pudo consultar el estado.';
+            return;
+          }
+          if (res.activo) {
+            let txt = '<span style="color:var(--sv-exito);">✓ Activado</span> · ' +
+              escapeHtml(res.repo) + ' (' + escapeHtml(res.rama) + ')';
+            if (res.enCache) {
+              txt += '<br><span style="color:var(--sv-texto-muted);font-size:0.8rem;">última descarga: ' +
+                Math.round(res.bytes / 1024) + ' KB, ' + formatearFecha(res.ultimaDescarga) + '</span>';
+            }
+            el.innerHTML = txt;
+          } else {
+            el.innerHTML = '<span style="color:var(--sv-texto-muted);">Desactivado: se usa el archivo del proyecto</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          el.textContent = 'Error al consultar: ' + ((error && error.message) || error);
+        })
+        .obtenerEstadoHtmlRemoto();
+    }
+
+    function configurarHtmlRemotoUI(activar) {
+      if (activar && !confirm('Activar la actualización automática de la interfaz.\n\n' +
+          'Desde ahora el sistema tomará la interfaz de la rama main en GitHub. ' +
+          'Antes de activarlo se hace una descarga de prueba: si falla, no queda activado.\n\n¿Continuar?')) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          mostrarLoading(false);
+          cargarEstadoHtmlRemoto();
+          mostrarToast((res && (res.mensaje || res.error)) || 'Sin respuesta',
+                       (res && res.success) ? 'success' : 'error');
+          if (res && res.success && activar) {
+            mostrarToast('Recargá la página para ver la interfaz traída de GitHub.', 'info');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        })
+        .configurarHtmlRemoto(activar === true);
+    }
+
+    // ============================================================================
+    // COMPROBANTES AUTORIZADOS EN ARCA QUE NO SE GUARDARON
+    // ============================================================================
+
+    function cargarCaesSinGuardar() {
+      const cont = document.getElementById('listaCaesSinGuardar');
+      if (!cont) return;
+      cont.innerHTML = '<p style="font-size:0.85rem;color:var(--sv-texto-muted);">Consultando...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            cont.innerHTML = '<p style="font-size:0.85rem;color:var(--sv-peligro);">' +
+              escapeHtml((res && res.error) || 'No se pudo consultar') + '</p>';
+            return;
+          }
+          const lista = res.pendientes || [];
+          if (lista.length === 0) {
+            cont.innerHTML = '<p style="font-size:0.85rem;color:var(--sv-exito);">✓ No hay comprobantes pendientes de registrar.</p>';
+            return;
+          }
+          cont.innerHTML = lista.map(function(p) {
+            return '<div style="border:1px solid var(--sv-peligro);border-radius:6px;padding:0.6rem;margin-bottom:0.5rem;font-size:0.82rem;">' +
+              '<div><strong>' + escapeHtml(p.cbteTipo) + ' ' + p.ptoVta + '-' + p.cbteNro + '</strong> · ' +
+                escapeHtml(p.cliente) + '</div>' +
+              '<div style="color:var(--sv-texto-secundario);">CAE ' + escapeHtml(p.cae) +
+                ' · Total ' + formatearMonto(p.total) + '</div>' +
+              '<div style="color:var(--sv-texto-muted);font-size:0.75rem;margin-top:0.2rem;">' +
+                escapeHtml(p.motivo) + '</div>' +
+              '<button class="btn btn-outline btn-sm" style="margin-top:0.4rem;" ' +
+                'onclick="reintentarGuardadoCae(' + p.fila + ')">Registrar en el sistema</button>' +
+            '</div>';
+          }).join('');
+        })
+        .withFailureHandler(function(error) {
+          cont.innerHTML = '<p style="font-size:0.85rem;color:var(--sv-peligro);">Error: ' +
+            escapeHtml((error && error.message) || String(error)) + '</p>';
+        })
+        .obtenerCaesSinGuardar();
+    }
+
+    function reintentarGuardadoCae(fila) {
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          mostrarLoading(false);
+          mostrarToast((res && (res.mensaje || res.error)) || 'Sin respuesta',
+                       (res && res.success) ? 'success' : 'error');
+          cargarCaesSinGuardar();
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        })
+        .reintentarGuardadoCaeSinGuardar(fila);
+    }
+
+    // ============================================================================
+    // PERSONALIZACION: FORMATO, INTERFAZ, NEGOCIO, DENOMINACIONES, INQUILINOS
+    // ============================================================================
+
+    // Estado local de las listas editables
+    var _denominacionesConfig = [];
+    var _inquilinosConfig = [];
+
+    /**
+     * Aplica los ajustes de formato e interfaz que llegan del servidor.
+     *
+     * Antes el simbolo de moneda, el formato de fecha, la duracion de los
+     * avisos y el tamanio de la tipografia estaban fijos en el codigo. Ahora
+     * se leen de Configuracion y se aplican en caliente.
+     */
+    function aplicarAjustesDeConfiguracion(cfg) {
+      if (!cfg) return;
+
+      if (cfg.formato) {
+        SvFormato.moneda    = cfg.formato.MONEDA_SIMBOLO || '$';
+        SvFormato.fecha     = cfg.formato.FORMATO_FECHA || 'DD/MM/AAAA';
+        SvFormato.decimales = (typeof cfg.formato.DECIMALES === 'number') ? cfg.formato.DECIMALES : 0;
+      }
+      if (cfg.ui) {
+        SvFormato.duracionAviso  = cfg.ui.DURACION_AVISO || 3000;
+        SvFormato.filasPorPagina = cfg.ui.FILAS_POR_PAGINA || 25;
+        if (cfg.ui.TAMANIO_FUENTE && cfg.ui.TAMANIO_FUENTE !== 100) {
+          // Escala toda la tipografia: el resto del CSS usa rem
+          document.documentElement.style.fontSize = (16 * cfg.ui.TAMANIO_FUENTE / 100) + 'px';
+        }
+      }
+      if (cfg.negocio) {
+        SvFormato.alertaSaldo  = cfg.negocio.ALERTA_SALDO || 0;
+        SvFormato.diasInactivo = cfg.negocio.DIAS_INACTIVO || 60;
+      }
+    }
+
+    // ── Denominaciones de billetes ──────────────────────────────────────────
+
+    function renderDenominacionesConfig() {
+      const cont = document.getElementById('configDenominaciones');
+      if (!cont) return;
+      if (_denominacionesConfig.length === 0) {
+        cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-texto-muted);">Sin billetes configurados.</p>';
+        return;
+      }
+      cont.innerHTML = _denominacionesConfig.map(function(d, i) {
+        return '<div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.35rem;">' +
+          '<input type="number" class="form-input" value="' + d.valor + '" min="1" step="1" ' +
+            'onchange="cambiarDenominacion(' + i + ', \'valor\', this.value)" ' +
+            'style="flex:1;min-width:6rem;" aria-label="Valor del billete">' +
+          '<input type="text" class="form-input" value="' + escapeHtml(d.nombre) + '" ' +
+            'onchange="cambiarDenominacion(' + i + ', \'nombre\', this.value)" ' +
+            'style="flex:2;min-width:8rem;" aria-label="Nombre del billete">' +
+          '<button type="button" class="btn btn-outline btn-sm" onclick="quitarDenominacion(' + i + ')" ' +
+            'style="color:var(--sv-peligro);" aria-label="Quitar">&#10007;</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    function cambiarDenominacion(i, campo, valor) {
+      if (!_denominacionesConfig[i]) return;
+      if (campo === 'valor') {
+        _denominacionesConfig[i].valor = Math.max(1, Math.round(Number(valor) || 0));
+        // El nombre se regenera salvo que el usuario lo haya escrito a mano
+        if (/^Billete \$/.test(_denominacionesConfig[i].nombre)) {
+          _denominacionesConfig[i].nombre = 'Billete $' + _denominacionesConfig[i].valor;
+        }
+        renderDenominacionesConfig();
+      } else {
+        _denominacionesConfig[i].nombre = String(valor || '').substring(0, 60);
+      }
+    }
+
+    function agregarDenominacion() {
+      _denominacionesConfig.push({ valor: 1000, nombre: 'Billete $1000' });
+      renderDenominacionesConfig();
+    }
+
+    function quitarDenominacion(i) {
+      if (_denominacionesConfig.length <= 1) {
+        mostrarToast('Tiene que quedar al menos un billete', 'warning');
+        return;
+      }
+      _denominacionesConfig.splice(i, 1);
+      renderDenominacionesConfig();
+    }
+
+    // ── Inquilinos ──────────────────────────────────────────────────────────
+
+    function cargarInquilinosConfig() {
+      const cont = document.getElementById('configInquilinos');
+      if (!cont) return;
+      cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-texto-muted);">Cargando...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          _inquilinosConfig = (res && res.inquilinos) || [];
+          renderInquilinosConfig();
+        })
+        .withFailureHandler(function(error) {
+          cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-peligro);">No se pudieron cargar: ' +
+            escapeHtml((error && error.message) || String(error)) + '</p>';
+        })
+        .obtenerInquilinosConfig();
+    }
+
+    function renderInquilinosConfig() {
+      const cont = document.getElementById('configInquilinos');
+      if (!cont) return;
+      if (_inquilinosConfig.length === 0) {
+        cont.innerHTML = '<p style="font-size:0.8rem;color:var(--sv-texto-muted);">Todavía no hay inquilinos.</p>';
+        return;
+      }
+      cont.innerHTML = _inquilinosConfig.map(function(inq) {
+        return '<div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.35rem;font-size:0.85rem;">' +
+          '<span style="flex:2;">' + escapeHtml(inq.nombre) + '</span>' +
+          '<span style="flex:1;color:var(--sv-texto-secundario);">' + formatearMonto(inq.montoSemanal) + '/sem</span>' +
+          '<button type="button" class="btn btn-outline btn-sm" ' +
+            'onclick="quitarInquilinoUI(\'' + escaparJsEnAtributo(inq.nombre) + '\')" ' +
+            'style="color:var(--sv-peligro);" aria-label="Quitar">&#10007;</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    function agregarInquilinoUI() {
+      const nombre = document.getElementById('inputNuevoInquilino').value.trim();
+      const monto = parseFloat(document.getElementById('inputNuevoInquilinoMonto').value) || 0;
+      const estado = document.getElementById('estadoInquilinos');
+      if (!nombre) {
+        mostrarToast('Escribí el nombre del inquilino', 'error');
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.success) {
+            document.getElementById('inputNuevoInquilino').value = '';
+            document.getElementById('inputNuevoInquilinoMonto').value = '';
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-exito);">' + escapeHtml(res.mensaje) + '</span>';
+            cargarInquilinosConfig();
+          } else {
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">' +
+              escapeHtml((res && res.error) || 'No se pudo agregar') + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' +
+            escapeHtml((error && error.message) || String(error)) + '</span>';
+        })
+        .agregarInquilino({ nombre: nombre, montoSemanal: monto });
+    }
+
+    function quitarInquilinoUI(nombre) {
+      if (!confirm('Quitar a "' + nombre + '" de la lista de inquilinos.\n\n' +
+                   'Su historial de movimientos se conserva: solo deja de aparecer en las listas.\n\n¿Continuar?')) return;
+      const estado = document.getElementById('estadoInquilinos');
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (estado) {
+            estado.innerHTML = '<span style="color:' + ((res && res.success) ? 'var(--sv-exito)' : 'var(--sv-peligro)') + ';">' +
+              escapeHtml((res && (res.mensaje || res.error)) || '') + '</span>';
+          }
+          cargarInquilinosConfig();
+        })
+        .withFailureHandler(function(error) {
+          if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' +
+            escapeHtml((error && error.message) || String(error)) + '</span>';
+        })
+        .quitarInquilino(nombre);
+    }
+
+    // ── Respaldo de la configuracion ────────────────────────────────────────
+
+    function exportarConfiguracionUI() {
+      const estado = document.getElementById('estadoRespaldoConfig');
+      if (estado) estado.textContent = 'Preparando el archivo...';
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">' +
+              escapeHtml((res && res.error) || 'No se pudo exportar') + '</span>';
+            return;
+          }
+          try {
+            const blob = new Blob([res.json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'configuracion-sol-y-verde-' + new Date().toISOString().slice(0, 10) + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-exito);">✓ ' + res.claves +
+              ' ajustes exportados (sin credenciales)</span>';
+          } catch (e) {
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">No se pudo descargar: ' +
+              escapeHtml(e.message) + '</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' +
+            escapeHtml((error && error.message) || String(error)) + '</span>';
+        })
+        .exportarConfiguracion();
+    }
+
+    function importarConfiguracionUI(input) {
+      const archivo = input && input.files && input.files[0];
+      if (!archivo) return;
+      const estado = document.getElementById('estadoRespaldoConfig');
+
+      if (!confirm('Importar la configuración sobrescribe los ajustes actuales.\n\n' +
+                   'Las credenciales (tokens, claves, certificados y PIN) NO se tocan.\n\n¿Continuar?')) {
+        input.value = '';
+        return;
+      }
+
+      const lector = new FileReader();
+      lector.onerror = function() {
+        if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">No se pudo leer el archivo</span>';
+        input.value = '';
+      };
+      lector.onload = function(ev) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            input.value = '';
+            if (!res || !res.success) {
+              if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">' +
+                escapeHtml((res && res.error) || 'No se pudo importar') + '</span>';
+              return;
+            }
+            let msg = '✓ ' + res.aplicadas + ' ajustes aplicados';
+            if (res.ignoradas && res.ignoradas.length) {
+              msg += ' · ' + res.ignoradas.length + ' ignorados por seguridad o formato';
+            }
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-exito);">' + escapeHtml(msg) + '</span>';
+            mostrarToast('Configuración importada. Recargando...', 'success');
+            setTimeout(function() { cargarConfiguracionGeneral(); }, 1200);
+          })
+          .withFailureHandler(function(error) {
+            input.value = '';
+            if (estado) estado.innerHTML = '<span style="color:var(--sv-peligro);">Error: ' +
+              escapeHtml((error && error.message) || String(error)) + '</span>';
+          })
+          .importarConfiguracion(String(ev.target.result || ''));
+      };
+      lector.readAsText(archivo);
+    }
+
+    /**
+     * Lee el campo "Movimientos en el Visor" respetando el 0.
+     * Con el patron habitual (parseInt(...) || 20) un 0 escrito a proposito
+     * —que significa "mostrar todos"— se convertiria silenciosamente en 20.
+     * @returns {number} Cantidad valida, o 20 si el campo esta vacio o es basura
+     */
+    function _visorMovsDefaultDesdeInput() {
+      const campo = document.getElementById('inputVisorMovsDefault');
+      if (!campo) return 20;
+      const valor = parseInt(campo.value, 10);
+      if (isNaN(valor) || valor < 0 || valor > 100000) return 20;
+      return valor;
+    }
+
     function guardarConfiguracionGeneral() {
       const config = {
         nombreSistema: document.getElementById('inputNombreSistema').value.trim(),
@@ -13891,10 +15778,37 @@ function renderEstadisticas(result) {
         saldoInicial: parseFloat(document.getElementById('inputSaldoInicial').value) || 0,
         paginaTamano: parseInt(document.getElementById('inputPaginaTamano').value) || 50,
         paginaTamanoMax: parseInt(document.getElementById('inputPaginaTamanoMax').value) || 100,
+        visorMovsDefault: _visorMovsDefaultDesdeInput(),
+
+        // Formato
+        formatoMoneda: document.getElementById('inputFormatoMoneda').value.trim() || '$',
+        formatoFecha: document.getElementById('inputFormatoFecha').value,
+        formatoDecimales: parseInt(document.getElementById('inputFormatoDecimales').value, 10) || 0,
+
+        // Interfaz
+        uiDuracionAviso: _enteroDeInput('inputUiDuracionAviso', 3000, 500, 30000),
+        uiFilasPorPagina: _enteroDeInput('inputUiFilasPorPagina', 25, 5, 500),
+        uiTamanioFuente: _enteroDeInput('inputUiTamanioFuente', 100, 70, 150),
+        uiTemaInicial: document.getElementById('inputUiTemaInicial').value,
+
+        // Negocio. El umbral admite 0 ("usar el limite de cada cliente"), asi
+        // que se lee con minimo 0 y no con el patron "|| valor"
+        negocioAlertaSaldo: _enteroDeInput('inputNegocioAlertaSaldo', 0, 0, 100000000),
+        negocioDiasInactivo: _enteroDeInput('inputNegocioDiasInactivo', 60, 1, 3650),
+        negocioDiasBackup: _enteroDeInput('inputNegocioDiasBackup', 1, 1, 365),
+        negocioRetencionBackup: _enteroDeInput('inputNegocioRetencionBackup', 30, 1, 3650),
+
+        // Denominaciones de billetes del arqueo
+        denominaciones: _denominacionesConfig,
         ivaPorcentaje: parseFloat(document.getElementById('inputIvaPorcentaje').value) || 10.5,
         ivaAlicuotaId: parseInt(document.getElementById('inputIvaAlicuotaId').value) || 4,
-        claudeModel: document.getElementById('inputClaudeModel').value.trim(),
-        claudeMaxTokens: parseInt(document.getElementById('inputClaudeMaxTokens').value) || 4096,
+        ocrIdioma: document.getElementById('inputOcrIdioma').value.trim() || 'es',
+        ocrConfianzaMinima: _enteroDeInput('inputOcrConfianza', 60, 0, 100),
+        ocrBinarizacion: _enteroDeInput('inputOcrBinarizacion', 20, 0, 50),
+        ocrAnchoMaximo: _enteroDeInput('inputOcrAnchoMaximo', 2000, 600, 5000),
+        ocrMotorServidor: document.getElementById('inputOcrMotorServidor').checked,
+        ocrMotorNavegador: document.getElementById('inputOcrMotorNavegador').checked,
+        ocrAutoRotar: document.getElementById('inputOcrAutoRotar').checked,
         fuzzyMinScore: parseInt(document.getElementById('inputFuzzyMinScore').value) || 65,
         fuzzyMaxSugerencias: parseInt(document.getElementById('inputFuzzyMaxSugerencias').value) || 5,
         fuzzyPesoExacto: parseInt(document.getElementById('inputFuzzyPesoExacto').value) || 100,
@@ -15138,22 +17052,6 @@ function renderEstadisticas(result) {
       });
     }
 
-    async function procesarFacturasEnLote(listaPayloads, onProgreso) {
-      var total = listaPayloads.length;
-      var ok = 0;
-      for (var i = 0; i < total; i++) {
-        if (onProgreso) onProgreso(i + 1, total);
-        try {
-          var r = await facturarIndividualAsync(listaPayloads[i]);
-          if (r && r.success) ok++;
-          else mostrarToast('Factura ' + (i + 1) + ': ' + (r && r.error ? r.error : 'Error'), 'error');
-        } catch (err) {
-          mostrarToast('Factura ' + (i + 1) + ': ' + err.message, 'error');
-        }
-      }
-      return { procesadas: ok, total: total };
-    }
-
     // Eliminar transferencia
     function eliminarTransferenciaUnif(id) {
       if (!confirm('¿Eliminar esta transferencia?\n\nEsta acción NO se puede deshacer.')) {
@@ -15293,9 +17191,9 @@ function renderEstadisticas(result) {
 
       var accionesHtml =
         '<div class="alq-inq-acciones">' +
-          '<button class="btn btn-primary btn-sm" onclick="abrirModalPagoAlquiler(\'' + escapeHtml(nombre) + '\')">&#128184; Registrar Pago</button>' +
-          '<button class="btn btn-outline btn-sm" onclick="abrirModalFacturaAlquiler(\'' + escapeHtml(nombre) + '\')">&#128196; Factura Transferencia</button>' +
-          '<button class="btn btn-outline btn-sm" onclick="abrirModalConfigAlquiler(\'' + escapeHtml(nombre) + '\')">&#9881;&#65039; Configurar</button>' +
+          '<button class="btn btn-primary btn-sm" onclick="abrirModalPagoAlquiler(\'' + escaparJsEnAtributo(nombre) + '\')">&#128184; Registrar Pago</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="abrirModalFacturaAlquiler(\'' + escaparJsEnAtributo(nombre) + '\')">&#128196; Factura Transferencia</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="abrirModalConfigAlquiler(\'' + escaparJsEnAtributo(nombre) + '\')">&#9881;&#65039; Configurar</button>' +
         '</div>';
 
       var subtabsHtml =
@@ -15534,7 +17432,7 @@ function renderEstadisticas(result) {
           '<button class="btn btn-outline btn-sm" id="btnToggleVista-' + inqId + '" onclick="alqToggleVista(\'' + inqId + '\')" style="margin-left:.25rem;">' +
             (vistaAnual ? '&#128197; Ver mes' : '&#128197; Ver a\u00f1o completo') +
           '</button>' +
-          '<button class="btn btn-outline btn-sm" onclick="abrirModalImprimirAlquiler(\'' + escapeHtml(inquilino) + '\')" style="margin-left:auto;">&#128424; Imprimir mes</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="abrirModalImprimirAlquiler(\'' + escaparJsEnAtributo(inquilino) + '\')" style="margin-left:auto;">&#128424; Imprimir mes</button>' +
         '</div>' +
         '<div class="calendario-leyenda">' +
           '<span class="leyenda-item pagado">Pagado</span>' +
@@ -15698,12 +17596,6 @@ function renderEstadisticas(result) {
       }
     }
 
-    /** Muestra todos los meses del año (legacy, mantenido por compatibilidad). */
-    function alqVerTodo(inqId) {
-      if (!_calendarioVistaAnual[inqId]) {
-        alqToggleVista(inqId); // activar vista anual
-      }
-    }
 
     // ── Modales de registro ──────────────────────────────────────────────────
 
@@ -17076,6 +18968,13 @@ function renderEstadisticas(result) {
             _movCajaDescCache = [];
           }
         })
+        .withFailureHandler(function(error) {
+          // El autocompletado es un extra: si falla, el campo sigue siendo
+          // de texto libre y el usuario puede escribir la descripcion.
+          _movCajaDescCache = [];
+          console.warn('[contabAbrirModalMovManual] obtenerDescripcionesMovManual falló: ' +
+            ((error && error.message) || error));
+        })
         .obtenerDescripcionesMovManual();
 
       abrirModal('modalMovCaja');
@@ -17592,8 +19491,14 @@ function renderEstadisticas(result) {
       }).join('');
     }
 
+    /**
+     * Conservada por compatibilidad con los 6 usos del modulo de envases.
+     * Ahora escapeHtml ya protege las comillas, asi que esto es un alias:
+     * los .replace() que tenia encadenados no encontrarian nada que cambiar,
+     * porque las comillas ya vienen convertidas en entidades.
+     */
     function escaparAtributoHTML(valor) {
-      return escapeHtml(valor).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      return escapeHtml(valor);
     }
 
     function actualizarEnvase(index, campo, valor) {

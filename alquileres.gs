@@ -108,9 +108,33 @@ const AlquileresRepository = {
   // =========================================================================
 
   registrarPago: function(datos) {
+    // Validacion de entrada. Esta funcion queda expuesta al frontend via
+    // google.script.run y antes escribia datos.monto tal cual en la hoja:
+    // un monto negativo, cero o no numerico se persistia sin protestar.
+    if (!datos || typeof datos !== 'object') {
+      throw new Error('Datos de pago ausentes.');
+    }
+    var montoNum = (typeof datos.monto === 'number') ? datos.monto : parsearMontoARG(datos.monto);
+    if (!esMontoValido(montoNum)) {
+      throw new Error('El monto del pago debe ser un número mayor a cero.');
+    }
+    var inquilinoNorm = normalizarString(datos.inquilino);
+    if (!inquilinoNorm) {
+      throw new Error('Debe indicar el inquilino.');
+    }
+    // Se normalizan AMBOS lados: getInquilinos() devuelve los nombres en
+    // mayúsculas pero CON acentos, mientras normalizarString los quita.
+    // Comparar sin normalizar rechazaría a cualquier inquilino acentuado.
+    var inquilinosValidos = CONFIG.getInquilinos().map(function(n) { return normalizarString(n); });
+    if (inquilinosValidos.indexOf(inquilinoNorm) === -1) {
+      throw new Error('Inquilino no registrado: ' + inquilinoNorm);
+    }
+
     var lock = LockService.getScriptLock();
+    var lockAdquirido = false;
     try {
       lock.waitLock(10000);
+      lockAdquirido = true;
 
       var hoja = this.getHoja();
       var id = this.generarNuevoID();
@@ -120,9 +144,9 @@ const AlquileresRepository = {
       var nuevaFila = [
         id,
         fecha,
-        normalizarString(datos.inquilino),
+        inquilinoNorm,
         datos.tipo || CONFIG.TIPOS_ALQUILER.PAGO_SEMANAL,
-        datos.monto,
+        montoNum,
         datos.semana || infoSemana.semana,
         datos.anio || infoSemana.anio,
         datos.mes || (fecha.getMonth() + 1),
@@ -141,14 +165,12 @@ const AlquileresRepository = {
         });
       }
 
-      lock.releaseLock();
-
       return {
         id: id,
         fecha: fecha.toISOString(),
-        inquilino: normalizarString(datos.inquilino),
+        inquilino: inquilinoNorm,
         tipo: datos.tipo || CONFIG.TIPOS_ALQUILER.PAGO_SEMANAL,
-        monto: datos.monto,
+        monto: montoNum,
         semana: datos.semana || infoSemana.semana,
         anio: datos.anio || infoSemana.anio,
         semanasCubiertas: datos.semanasCubiertas || '',
@@ -156,9 +178,12 @@ const AlquileresRepository = {
       };
 
     } catch (error) {
-      lock.releaseLock();
       Logger.log('[ALQUILERES] Error en registrarPago: ' + error.message);
       throw error;
+    } finally {
+      // Solo si de verdad se tomo: antes, un waitLock expirado hacia que
+      // releaseLock() lanzara su propia excepcion y tapara el error real.
+      if (lockAdquirido) lock.releaseLock();
     }
   },
 

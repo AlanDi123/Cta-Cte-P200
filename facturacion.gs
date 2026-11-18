@@ -37,12 +37,6 @@ var CONFIG_FACTURACION = {
    */
   getIVA: function() {
     return CONFIG.getIVA().MULTIPLICADOR;
-  },
-  CLAUDE: {
-    API_URL: 'https://api.anthropic.com/v1/messages',
-    MODEL: 'claude-sonnet-4-5',
-    MAX_TOKENS: 4000,
-    TEMPERATURE: 0.0
   }
 };
 
@@ -82,6 +76,12 @@ const TransferenciasRepository = {
 
   /**
    * Obtiene todas las transferencias
+   *
+   * Con límite, devuelve las MÁS RECIENTES. Antes leía desde la fila 2 —las
+   * más viejas— y recién después ordenaba descendente, así que obtenerPorMes,
+   * que llama con límite 500, dejaba de ver el mes en curso en cuanto la hoja
+   * pasaba las 500 filas: el resumen mensual devolvía cero transferencias.
+   *
    * @param {number} limite - Máximo de registros (0 = todos)
    */
   obtenerTodas: function(limite = 0) {
@@ -90,9 +90,12 @@ const TransferenciasRepository = {
 
     if (lastRow <= 1) return [];
 
+    const totalFilas = lastRow - 1;
     // 0 = sin límite (todos los registros)
-    const numRows = (limite > 0) ? Math.min(limite, lastRow - 1) : (lastRow - 1);
-    const datos = hoja.getRange(2, 1, numRows, 10).getValues();
+    const numRows  = (limite > 0) ? Math.min(limite, totalFilas) : totalFilas;
+    // Con límite se arranca desde el final de la hoja, no desde el principio
+    const startRow = (limite > 0) ? Math.max(2, lastRow - numRows + 1) : 2;
+    const datos = hoja.getRange(startRow, 1, numRows, 10).getValues();
 
     return datos.map(fila => ({
       id: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID],
@@ -659,7 +662,7 @@ function obtenerDatosFacturacion() {
       success: true,
       transferencias: serializarParaWeb(transferencias),
       productos: serializarParaWeb(productos),
-      apiKeyConfigured: ClaudeService.tieneApiKey()
+      ocrDisponible: true  // el OCR gratuito no necesita credenciales
     };
   } catch (error) {
     Logger.log('Error en obtenerDatosFacturacion: ' + error.message);
@@ -698,18 +701,6 @@ function actualizarTransferencia(id, datos) {
   try {
     TransferenciasRepository.actualizar(id, datos);
     return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Obtiene una transferencia por ID
- */
-function obtenerTransferencia(id) {
-  try {
-    const transferencia = TransferenciasRepository.buscarPorId(id);
-    return { success: true, transferencia: transferencia };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -812,110 +803,68 @@ function procesarFacturaConStock(transferenciaId, productosAsignados) {
 }
 
 // ============================================================================
-// PROCESAMIENTO DE IMAGENES CON CLAUDE
+// PROCESAMIENTO DE IMAGENES CON OCR GRATUITO
 // ============================================================================
 
 /**
- * Procesa imagen de comprobante bancario con Claude
- * Usa la misma API Key del sistema general (configurada en Configuración)
+ * Lee una captura de comprobantes bancarios con OCR GRATUITO.
+ *
+ * Antes mandaba la imagen a la API de Claude, con su clave y su costo por
+ * imagen. Ahora usa el OCR de Drive, que no cuesta nada y no necesita
+ * credenciales. Este caso le resulta favorable: son capturas de homebanking,
+ * texto renderizado en pantalla, nitido y alineado — muy distinto del libro
+ * manuscrito.
+ *
+ * Mantiene el contrato de antes, { success, fecha, items[] }, para que el
+ * frontend siga funcionando sin cambios.
+ *
+ * @param {string} base64Image - Imagen en base64
+ * @returns {{success: boolean, fecha?: string, items?: Array, error?: string}}
  */
 function procesarImagenComprobante(base64Image) {
-  const apiKey = ClaudeService.getApiKey();
-  if (!apiKey) {
-    return { success: false, error: 'API Key de Claude no configurada. Ve a Configuración del sistema para agregarla.' };
-  }
-
-  const systemPrompt = `Eres un experto forense en análisis de documentos bancarios argentinos.
-Tu tarea es extraer datos financieros con máxima precisión, ignorando cualquier ruido visual como sombras, borrones, tachaduras o textos irrelevantes.
-Prioriza siempre el texto manuscrito sobre el impreso cuando haya correcciones.
-Usa el contexto de las columnas para interpretar datos borrosos.
-IMPORTANTE: Protege la privacidad - NO incluyas números de cuenta, CBU, alias o datos sensibles.`;
-
-  const userPrompt = `Analiza esta imagen de un documento bancario argentino.
-
-**REGLAS:**
-- Tachaduras: Si un texto está tachado, IGNÓRALO.
-- Correcciones manuscritas: El texto manuscrito tiene prioridad sobre el impreso.
-- Formato argentino: Montos usan punto para miles y coma para decimales (1.500,00).
-- Fecha: Busca en encabezado. Formatos: '15/01/24', '15 Ene 2024'. Convierte a YYYY-MM-DD.
-
-**EXTRACCIÓN:**
-- Nombres: Normaliza a mayúsculas. Limpia prefijos como "Transf", "Pago a".
-- Montos: Solo números del importe de transferencia.
-- Bancos: Galicia, Santander, BBVA, Nación, Provincia, Macro, MP (MercadoPago), etc.
-
-**SEGURIDAD:**
-- NO incluyas números de cuenta, CBU, alias ni datos sensibles.
-- Solo extrae: fecha, nombre del titular, monto, banco origen.
-
-**SALIDA JSON:**
-{
-  "fecha_documento": "YYYY-MM-DD",
-  "items": [
-    { "nombre": "NOMBRE COMPLETO", "monto": 12500.50, "banco": "Galicia" }
-  ]
-}`;
-
-  const messages = [
-    {
-      role: "user",
-      content: [
-        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Image } },
-        { type: "text", text: userPrompt }
-      ]
-    }
-  ];
-
   try {
-    const payload = {
-      model: CONFIG_FACTURACION.CLAUDE.MODEL,
-      max_tokens: CONFIG_FACTURACION.CLAUDE.MAX_TOKENS,
-      temperature: CONFIG_FACTURACION.CLAUDE.TEMPERATURE,
-      system: systemPrompt,
-      messages: messages
-    };
-
-    const options = {
-      method: 'post',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
-      },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    };
-
-    const response = UrlFetchApp.fetch(CONFIG_FACTURACION.CLAUDE.API_URL, options);
-    const code = response.getResponseCode();
-    const text = response.getContentText();
-
-    if (code !== 200) {
-      let errorMsg = `Error ${code}`;
-      try {
-        errorMsg += `: ${JSON.parse(text).error.message}`;
-      } catch (e) {
-        errorMsg += `: ${text.substring(0, 100)}`;
-      }
-      return { success: false, error: errorMsg };
+    if (!base64Image) {
+      return { success: false, error: 'No se recibió ninguna imagen.' };
     }
 
-    const json = JSON.parse(text);
-    const responseText = json.content[0].text;
-
-    // Extraer JSON de la respuesta
-    const match = responseText.match(/\{[\s\S]*\}/);
-    if (!match) {
-      return { success: false, error: 'La respuesta de Claude no contiene JSON válido' };
+    const cfg = CONFIG.getOcr();
+    const lectura = OcrService.leerConDrive(base64Image, cfg.IDIOMA);
+    if (!lectura.success) {
+      return { success: false, error: lectura.error };
     }
 
-    const datos = JSON.parse(match[0]);
+    const extracto = OcrService.interpretarExtracto(lectura.texto);
+
+    // Casar cada nombre leído con el padrón: es lo que más precisión aporta
+    const items = extracto.items.map(function(item) {
+      const busqueda = ClientesRepository.buscarConSugerencias(normalizarString(item.nombre));
+      return {
+        nombre: busqueda.exacto ? busqueda.exacto.nombre : item.nombre,
+        nombreLeido: item.nombre,
+        monto: item.monto,
+        banco: item.banco,
+        enPadron: !!busqueda.exacto,
+        sugerencias: busqueda.exacto ? [] :
+          (busqueda.sugerencias || []).map(function(sg) { return sg.nombre; })
+      };
+    });
+
+    if (items.length === 0) {
+      return {
+        success: false,
+        error: 'No se detectó ninguna transferencia en la imagen. Probá con una ' +
+               'captura más nítida o cargalas a mano.',
+        textoCrudo: lectura.texto
+      };
+    }
 
     return {
       success: true,
-      fecha: datos.fecha_documento,
-      items: datos.items || [],
-      tokensUsados: json.usage ? json.usage.input_tokens + json.usage.output_tokens : 0
+      fecha: extracto.fecha,
+      items: items,
+      motor: 'ocr-drive',
+      ms: lectura.ms,
+      textoCrudo: lectura.texto
     };
 
   } catch (error) {
@@ -957,9 +906,27 @@ function generarResumenFacturacion(mes, anio) {
       return { success: false, error: 'No hay transferencias para el mes seleccionado' };
     }
 
-    // Separar por tipo
-    const facturasA = transferencias.filter(t => t.tipoFactura === 'A');
-    const consumidoresFinales = transferencias.filter(t => t.tipoFactura === 'CONSUMIDOR FINAL');
+    // Separar por tipo.
+    //
+    // El alta escribe tipoFactura como 'A' o 'B' (ver línea ~216), pero este
+    // filtro comparaba contra 'CONSUMIDOR FINAL', un valor que el sistema
+    // NUNCA escribe en esa columna: solo lo usa como nombre de cliente. Por
+    // eso la rama nunca se ejecutaba, TODAS las facturas B quedaban fuera del
+    // resumen y la hoja «Consumidores Finales» no se generaba jamás.
+    //
+    // Se acepta también el valor antiguo por si alguna fila histórica lo tiene.
+    const esA = function(t) { return String(t.tipoFactura || '').toUpperCase() === 'A'; };
+    const esB = function(t) {
+      const tipo = String(t.tipoFactura || '').toUpperCase();
+      return tipo === 'B' || tipo === 'CONSUMIDOR FINAL';
+    };
+
+    const facturasA = transferencias.filter(esA);
+    const consumidoresFinales = transferencias.filter(esB);
+
+    // Nada debe desaparecer en silencio: si alguna fila no entra en ninguna
+    // categoría (columna vacía o valor inesperado), se informa.
+    const sinClasificar = transferencias.filter(function(t) { return !esA(t) && !esB(t); });
 
     const nombreMes = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][mes - 1];
@@ -974,11 +941,19 @@ function generarResumenFacturacion(mes, anio) {
       crearHojaConsumidoresFinales(ss, `Consumidores Finales - ${nombreMes} ${anio}`, consumidoresFinales);
     }
 
+    let mensaje = `Resumen generado: ${facturasA.length} Facturas A, ${consumidoresFinales.length} Consumidores Finales`;
+    if (sinClasificar.length > 0) {
+      mensaje += ` · Atención: ${sinClasificar.length} transferencia(s) sin tipo de factura quedaron fuera del resumen`;
+      Logger.log('[FACT] Transferencias sin clasificar en el resumen de ' + nombreMes + ' ' + anio +
+        ': ' + sinClasificar.map(function(t) { return t.id; }).join(', '));
+    }
+
     return {
       success: true,
-      mensaje: `Resumen generado: ${facturasA.length} Facturas A, ${consumidoresFinales.length} Consumidores Finales`,
+      mensaje: mensaje,
       facturasA: facturasA.length,
-      consumidoresFinales: consumidoresFinales.length
+      consumidoresFinales: consumidoresFinales.length,
+      sinClasificar: sinClasificar.length
     };
 
   } catch (error) {
@@ -1121,41 +1096,42 @@ function seleccionarProductosParaMonto(montoObjetivo, productos) {
 }
 
 /**
- * Prueba conexión con Claude (usa la API Key del sistema general)
+ * Comprueba que el OCR gratuito funciona de punta a punta.
+ *
+ * Reemplaza a probarConexionClaude, que hacía un ping a la API de Anthropic.
+ * Ya no hay ninguna API externa ni clave que probar: lo que importa es que el
+ * servicio de Drive esté habilitado y que el reconocimiento devuelva texto.
+ * Para eso genera una imagen mínima con una palabra conocida y la lee.
+ *
+ * @returns {{success: boolean, mensaje?: string, error?: string}}
  */
-function probarConexionClaude() {
-  const apiKey = ClaudeService.getApiKey();
-  if (!apiKey) {
-    return { success: false, error: 'API Key no configurada. Ve a Configuración del sistema.' };
-  }
-
+function probarOcrGratuito() {
   try {
-    const payload = {
-      model: CONFIG_FACTURACION.CLAUDE.MODEL,
-      max_tokens: 10,
-      messages: [{ role: "user", content: "Ping" }]
-    };
-
-    const options = {
-      method: 'post',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
-      },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    };
-
-    const response = UrlFetchApp.fetch(CONFIG_FACTURACION.CLAUDE.API_URL, options);
-    const code = response.getResponseCode();
-
-    if (code === 200) {
-      return { success: true, mensaje: 'Conexión exitosa con Claude Sonnet 4.5' };
-    } else {
-      return { success: false, error: `Error ${code}: ${response.getContentText().substring(0, 100)}` };
+    if (typeof Drive === 'undefined' || !Drive.Files || !Drive.Files.create) {
+      return {
+        success: false,
+        error: 'El servicio avanzado de Drive no está habilitado. Activalo en el ' +
+               'editor de Apps Script: Servicios → Drive API v3.'
+      };
     }
+
+    // PNG mínimo (1x1) solo para comprobar el circuito: crear, exportar, borrar.
+    // No se espera texto de una imagen de un píxel; lo que se valida es que
+    // Drive acepte la conversión y devuelva el documento sin error.
+    const pngMinimo = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
+    const lectura = OcrService.leerConDrive('data:image/png;base64,' + pngMinimo, CONFIG.getOcr().IDIOMA);
+
+    if (!lectura.success) {
+      return { success: false, error: lectura.error };
+    }
+
+    return {
+      success: true,
+      mensaje: 'OCR gratuito operativo (OCR de Drive, ' + lectura.ms + ' ms). ' +
+               'No requiere ninguna clave ni tiene costo por imagen.'
+    };
   } catch (error) {
+    Logger.log('Error en probarOcrGratuito: ' + error.message);
     return { success: false, error: error.message };
   }
 }

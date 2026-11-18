@@ -175,16 +175,40 @@ const ClientesRepository = {
       throw new Error('Datos de cliente invalidos: ' + validacion.errors.join(', '));
     }
 
+    // El control de duplicados y el alta tienen que ser una sola operacion
+    // atomica. Sin candado, dos altas simultaneas del mismo cliente pasaban
+    // ambas la comprobacion y creaban DOS filas; a partir de ahi
+    // buscarPorNombre solo veia la primera y el saldo quedaba repartido.
+    const lock = LockService.getScriptLock();
+    let lockAdquirido = false;
+    try {
+      lock.waitLock(30000);
+      lockAdquirido = true;
+      return this._crearSinCandado(clienteData);
+    } finally {
+      if (lockAdquirido) lock.releaseLock();
+    }
+  },
+
+  /**
+   * Cuerpo del alta de cliente. Asume que el llamador tiene el candado.
+   * @param {Object} clienteData - Datos del cliente
+   * @returns {Object} Cliente creado
+   */
+  _crearSinCandado: function(clienteData) {
     const nombreNorm = normalizarString(clienteData.nombre);
 
-    // VALIDACIÓN CRÍTICA: Verificar duplicados usando búsqueda directa en la hoja
-    // (no confiar en caché que puede estar desactualizado)
+    // VALIDACIÓN CRÍTICA: Verificar duplicados leyendo solo la columna de
+    // nombres directamente de la hoja (no confiar en caché, que puede estar
+    // desactualizado). Antes leia las 13 columnas con getDataRange().
     const hoja = this.getHoja();
-    const datos = hoja.getDataRange().getValues();
-    for (let i = 1; i < datos.length; i++) {
-      const nombreFila = normalizarString(datos[i][CONFIG.COLS_CLIENTES.NOMBRE]);
-      if (nombreFila === nombreNorm) {
-        throw new Error('Ya existe un cliente con el nombre: ' + nombreNorm);
+    const lastRow = hoja.getLastRow();
+    if (lastRow > 1) {
+      const nombres = hoja.getRange(2, CONFIG.COLS_CLIENTES.NOMBRE + 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < nombres.length; i++) {
+        if (normalizarString(nombres[i][0]) === nombreNorm) {
+          throw new Error('Ya existe un cliente con el nombre: ' + nombreNorm);
+        }
       }
     }
 
@@ -343,8 +367,12 @@ const ClientesRepository = {
    * @param {string} nombre - Nombre del cliente
    * @param {number} nuevoSaldo - Nuevo saldo
    * @param {Date} fechaMovimiento - Fecha del movimiento
+   * @param {number} [totalMovsAbsoluto] - Total de movimientos a escribir.
+   *   Si se indica, se escribe ese valor ABSOLUTO en lugar de incrementar en 1.
+   *   Permite que el llamador reintente sin inflar el contador: con el
+   *   incremento, un reintento tras un fallo transitorio sumaba 2.
    */
-  actualizarSaldoYContadores: function(nombre, nuevoSaldo, fechaMovimiento) {
+  actualizarSaldoYContadores: function(nombre, nuevoSaldo, fechaMovimiento, totalMovsAbsoluto) {
     const cliente = this.buscarPorNombre(nombre);
     if (!cliente) {
       throw new Error('Cliente no encontrado: ' + nombre);
@@ -359,7 +387,12 @@ const ClientesRepository = {
 
     // Actualizar solo las columnas que cambian
     filaActual[C.SALDO]      = nuevoSaldo;
-    filaActual[C.TOTAL_MOVS] = (cliente.totalMovs || 0) + 1;
+    // Si el llamador fija el total, se escribe tal cual (operacion idempotente).
+    // Si no, se incrementa leyendo el valor RECIEN leido de la hoja, no el del
+    // objeto cliente, que puede venir de cache y estar desactualizado.
+    filaActual[C.TOTAL_MOVS] = (totalMovsAbsoluto !== undefined && totalMovsAbsoluto !== null)
+      ? totalMovsAbsoluto
+      : (Number(filaActual[C.TOTAL_MOVS]) || 0) + 1;
     filaActual[C.ULTIMO_MOV] = fechaMovimiento;
 
     // M-02: Una sola escritura para toda la fila actualizada
@@ -398,25 +431,3 @@ const ClientesRepository = {
   }
 };
 
-/**
- * Ajuste de saldo por diferencia (delta). No recalcula historial de movimientos.
- * @param {string} nombreCliente
- * @param {number} montoAnterior
- * @param {number} montoNuevo - Use 0 si se eliminó el débito/crédito asociado
- */
-function ajustarSaldoCliente(nombreCliente, montoAnterior, montoNuevo) {
-  const diferencia = parseFloat(montoNuevo) - parseFloat(montoAnterior);
-  if (diferencia === 0 || isNaN(diferencia)) return;
-
-  const nombreBuscado = normalizarString(nombreCliente);
-  const cliente = ClientesRepository.buscarPorNombre(nombreBuscado);
-  if (!cliente) throw new Error('Cliente no encontrado para ajustar saldo.');
-
-  const hoja = ClientesRepository.getHoja();
-  const C = CONFIG.COLS_CLIENTES;
-  const saldoActual = parseFloat(cliente.saldo) || 0;
-  hoja.getRange(cliente.fila, C.SALDO + 1).setValue(saldoActual + diferencia);
-
-  RequestCache.invalidar('clientes_todos', 'clientes_todos_v2', 'clientes_index_nombre');
-  SheetsCache.invalidar('clientes_todos_v2');
-}

@@ -27,8 +27,13 @@ var CONFIG = {
   },
 
   // Configuracion base para los nuevos modulos logisticos
+  //
+  // El PIN NO vive aqui. Antes estaba escrito literalmente en este archivo,
+  // lo que lo hacia publico para cualquiera que viera el repositorio en
+  // GitHub. Ahora se guarda unicamente en la propiedad de script
+  // PIN_MODULOS_EXTRA, que se configura desde Configuracion > Logistica y
+  // nunca se versiona.
   MODULOS_EXTRA: {
-    PIN_ACCESO: '4646',
     ENVASES_DEFAULT: [
       { id: 'E1', nombre: 'Jaulas', valor: 5000 },
       { id: 'E2', nombre: 'Bandejas Rúcula', valor: 4000 },
@@ -194,18 +199,54 @@ var CONFIG = {
     MAX_PAGE_SIZE: 100
   },
 
+  // Limites de visualizacion (editables desde Configuracion)
+  // 0 = sin limite (mostrar todos)
+  VISOR: {
+    MOVS_DEFAULT: 20,                            // Movimientos que muestra el Visor de Cliente al abrir
+    MOVS_OPCIONES: [20, 50, 100, 200, 500, 0],   // Opciones del selector del Visor (0 = Todos)
+    MOVS_TABLA: 25,                              // Filas por pagina en el listado de Movimientos
+    CLIENTES_TABLA: 50,                          // Filas por pagina en Gestion de Clientes
+    AUTOCOMPLETE: 8                              // Sugerencias mostradas en los autocompletados
+  },
+
   // Valores por defecto
   DEFAULTS: {
     LIMITE_CREDITO: 100000,
     SALDO_INICIAL: 0
   },
 
-  // Configuracion de Claude AI
-  CLAUDE: {
-    API_URL: 'https://api.anthropic.com/v1/messages',
-    MODEL: 'claude-sonnet-4-20250514',
-    MAX_TOKENS: 4096,
-    VERSION: '2023-06-01'
+  // Formato de presentacion de numeros y fechas
+  FORMATO: {
+    MONEDA_SIMBOLO: '$',
+    FORMATO_FECHA: 'DD/MM/AAAA',   // DD/MM/AAAA | AAAA-MM-DD | DD-MM-AAAA
+    DECIMALES: 0                   // Decimales a mostrar en los montos
+  },
+
+  // Comportamiento de la interfaz
+  UI: {
+    DURACION_AVISO: 3000,          // ms que dura un aviso en pantalla
+    FILAS_POR_PAGINA: 25,          // Filas por pagina en las tablas con paginador
+    TAMANIO_FUENTE: 100,           // Escala de la tipografia, en porcentaje
+    TEMA_INICIAL: 'light'          // light | dark
+  },
+
+  // Reglas del negocio
+  NEGOCIO: {
+    ALERTA_SALDO: 0,               // Saldo desde el que se destaca un cliente. 0 = usar su limite
+    DIAS_INACTIVO: 60,             // Dias sin movimientos para considerarlo inactivo
+    DIAS_BACKUP: 1,                // Cada cuantos dias se espera un respaldo
+    RETENCION_BACKUP: 30           // Dias que se conservan los respaldos
+  },
+
+  // Configuracion del OCR gratuito (sin IA ni API de pago)
+  OCR: {
+    IDIOMA: 'es',             // Idioma del reconocimiento
+    MOTOR_SERVIDOR: true,     // OCR de Drive (gratis, usa el motor de Google)
+    MOTOR_NAVEGADOR: true,    // Tesseract.js (gratis, aporta posicion de palabras)
+    CONFIANZA_MINIMA: 60,     // Debajo de este valor la celda se marca para revision
+    BINARIZACION: 20,         // Agresividad del umbral adaptativo (0-50)
+    ANCHO_MAXIMO: 2000,       // Redimensionado previo, en pixeles
+    AUTO_ROTAR: true          // Corregir inclinacion antes de reconocer
   },
 
   // Colores del sistema (para referencia en el frontend)
@@ -269,14 +310,29 @@ var CONFIG = {
   },
 
   /**
-   * Obtiene la configuración de Claude
+   * Obtiene la configuración del OCR gratuito.
+   * Todo valor inválido cae al valor por defecto, nunca a NaN.
+   * @returns {Object} Configuración normalizada del OCR
    */
-  getClaude: function() {
+  getOcr: function() {
+    const self = this;
+    function entero(clave, porDefecto, minimo, maximo) {
+      const valor = parseInt(self.get(clave, porDefecto), 10);
+      if (isNaN(valor) || valor < minimo || valor > maximo) return porDefecto;
+      return valor;
+    }
+    function booleano(clave, porDefecto) {
+      return self.get(clave, porDefecto.toString()) !== 'false';
+    }
+    const idioma = String(this.get('OCR_IDIOMA', this.OCR.IDIOMA)).trim();
     return {
-      API_URL: this.CLAUDE.API_URL,
-      MODEL: this.get('CLAUDE_MODEL', this.CLAUDE.MODEL),
-      MAX_TOKENS: parseInt(this.get('CLAUDE_MAX_TOKENS', this.CLAUDE.MAX_TOKENS)),
-      VERSION: this.CLAUDE.VERSION
+      IDIOMA:           /^[a-z]{2,3}(\+[a-z]{2,3})*$/.test(idioma) ? idioma : this.OCR.IDIOMA,
+      MOTOR_SERVIDOR:   booleano('OCR_MOTOR_SERVIDOR',  this.OCR.MOTOR_SERVIDOR),
+      MOTOR_NAVEGADOR:  booleano('OCR_MOTOR_NAVEGADOR', this.OCR.MOTOR_NAVEGADOR),
+      CONFIANZA_MINIMA: entero('OCR_CONFIANZA_MINIMA', this.OCR.CONFIANZA_MINIMA, 0, 100),
+      BINARIZACION:     entero('OCR_BINARIZACION',     this.OCR.BINARIZACION, 0, 50),
+      ANCHO_MAXIMO:     entero('OCR_ANCHO_MAXIMO',     this.OCR.ANCHO_MAXIMO, 600, 5000),
+      AUTO_ROTAR:       booleano('OCR_AUTO_ROTAR',     this.OCR.AUTO_ROTAR)
     };
   },
 
@@ -302,6 +358,120 @@ var CONFIG = {
       DEFAULT_PAGE_SIZE: parseInt(this.get('PAGINATION_DEFAULT_SIZE', this.PAGINATION.DEFAULT_PAGE_SIZE)),
       MAX_PAGE_SIZE: parseInt(this.get('PAGINATION_MAX_SIZE', this.PAGINATION.MAX_PAGE_SIZE))
     };
+  },
+
+  /**
+   * Obtiene los limites de visualizacion configurables.
+   * Cualquier valor invalido cae al valor por defecto, nunca a NaN.
+   * MOVS_DEFAULT = 0 significa "mostrar todos".
+   * @returns {Object} Limites normalizados
+   */
+  getVisor: function() {
+    const self = this;
+    function entero(clave, porDefecto, minimo, maximo) {
+      const valor = parseInt(self.get(clave, porDefecto), 10);
+      if (isNaN(valor) || valor < minimo || valor > maximo) return porDefecto;
+      return valor;
+    }
+    return {
+      MOVS_DEFAULT:   entero('VISOR_MOVS_DEFAULT',   this.VISOR.MOVS_DEFAULT,   0, 100000),
+      MOVS_TABLA:     entero('VISOR_MOVS_TABLA',     this.VISOR.MOVS_TABLA,     1, 1000),
+      CLIENTES_TABLA: entero('VISOR_CLIENTES_TABLA', this.VISOR.CLIENTES_TABLA, 1, 1000),
+      AUTOCOMPLETE:   entero('VISOR_AUTOCOMPLETE',   this.VISOR.AUTOCOMPLETE,   1, 50),
+      MOVS_OPCIONES:  this.VISOR.MOVS_OPCIONES
+    };
+  },
+
+  /**
+   * Obtiene el formato de presentacion de montos y fechas.
+   * @returns {Object} Formato normalizado
+   */
+  getFormato: function() {
+    const simbolo = String(this.get('FORMATO_MONEDA', this.FORMATO.MONEDA_SIMBOLO)).trim();
+    const formatoFecha = String(this.get('FORMATO_FECHA', this.FORMATO.FORMATO_FECHA)).trim().toUpperCase();
+    const validos = ['DD/MM/AAAA', 'AAAA-MM-DD', 'DD-MM-AAAA'];
+    let decimales = parseInt(this.get('FORMATO_DECIMALES', this.FORMATO.DECIMALES), 10);
+    if (isNaN(decimales) || decimales < 0 || decimales > 2) decimales = this.FORMATO.DECIMALES;
+    return {
+      MONEDA_SIMBOLO: (simbolo && simbolo.length <= 5) ? simbolo : this.FORMATO.MONEDA_SIMBOLO,
+      FORMATO_FECHA:  validos.indexOf(formatoFecha) > -1 ? formatoFecha : this.FORMATO.FORMATO_FECHA,
+      DECIMALES:      decimales
+    };
+  },
+
+  /**
+   * Obtiene los ajustes de comportamiento de la interfaz.
+   * @returns {Object} Ajustes normalizados
+   */
+  getUI: function() {
+    const self = this;
+    function entero(clave, porDefecto, minimo, maximo) {
+      const valor = parseInt(self.get(clave, porDefecto), 10);
+      if (isNaN(valor) || valor < minimo || valor > maximo) return porDefecto;
+      return valor;
+    }
+    const tema = String(this.get('UI_TEMA_INICIAL', this.UI.TEMA_INICIAL)).trim().toLowerCase();
+    return {
+      DURACION_AVISO:   entero('UI_DURACION_AVISO',   this.UI.DURACION_AVISO,   500, 30000),
+      FILAS_POR_PAGINA: entero('UI_FILAS_POR_PAGINA', this.UI.FILAS_POR_PAGINA, 5, 500),
+      TAMANIO_FUENTE:   entero('UI_TAMANIO_FUENTE',   this.UI.TAMANIO_FUENTE,   70, 150),
+      TEMA_INICIAL:     (tema === 'dark') ? 'dark' : 'light'
+    };
+  },
+
+  /**
+   * Obtiene las reglas del negocio.
+   * @returns {Object} Reglas normalizadas
+   */
+  getNegocio: function() {
+    const self = this;
+    function entero(clave, porDefecto, minimo, maximo) {
+      const valor = parseInt(self.get(clave, porDefecto), 10);
+      if (isNaN(valor) || valor < minimo || valor > maximo) return porDefecto;
+      return valor;
+    }
+    return {
+      ALERTA_SALDO:      entero('NEGOCIO_ALERTA_SALDO',      this.NEGOCIO.ALERTA_SALDO,      0, 100000000),
+      DIAS_INACTIVO:     entero('NEGOCIO_DIAS_INACTIVO',     this.NEGOCIO.DIAS_INACTIVO,     1, 3650),
+      DIAS_BACKUP:       entero('NEGOCIO_DIAS_BACKUP',       this.NEGOCIO.DIAS_BACKUP,       1, 365),
+      RETENCION_BACKUP:  entero('NEGOCIO_RETENCION_BACKUP',  this.NEGOCIO.RETENCION_BACKUP,  1, 3650)
+    };
+  },
+
+  /**
+   * Obtiene las denominaciones de billetes para el arqueo.
+   *
+   * Antes estaban fijas en el codigo (var DENOMINACIONES), asi que cada vez
+   * que el Banco Central saca o retira un billete habia que editar el archivo
+   * y volver a desplegar. Ahora se pueden editar desde Configuracion.
+   *
+   * @returns {Array<{tipo: string, valor: number, nombre: string}>}
+   */
+  getDenominaciones: function() {
+    try {
+      const guardado = this.get('DENOMINACIONES_BILLETES', '');
+      if (guardado) {
+        const lista = JSON.parse(guardado);
+        if (Array.isArray(lista) && lista.length > 0) {
+          const validas = lista
+            .map(function(d) {
+              const valor = Number(d && d.valor);
+              if (!isFinite(valor) || valor <= 0) return null;
+              return {
+                tipo: 'BILLETE_' + Math.round(valor),
+                valor: Math.round(valor),
+                nombre: String((d && d.nombre) || ('Billete $' + Math.round(valor)))
+              };
+            })
+            .filter(function(d) { return d !== null; })
+            .sort(function(a, b) { return b.valor - a.valor; });
+          if (validas.length > 0) return validas;
+        }
+      }
+    } catch (e) {
+      Logger.log('[CONFIG] Denominaciones guardadas ilegibles, se usan las de fábrica: ' + e.message);
+    }
+    return DENOMINACIONES.BILLETES.slice();
   },
 
   /**

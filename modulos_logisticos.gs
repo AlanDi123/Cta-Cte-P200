@@ -210,7 +210,19 @@ function _validarTokenVales(token) {
 
 function validarPinModulosExtra(pin) {
   const pinGuardado = PropertiesService.getScriptProperties().getProperty('PIN_MODULOS_EXTRA');
-  const pinCorrecto = /^\d{4}$/.test(pinGuardado || '') ? pinGuardado : CONFIG.MODULOS_EXTRA.PIN_ACCESO;
+
+  // Si no hay PIN configurado, NO se cae a ningún valor por defecto.
+  // Antes había un PIN de respaldo escrito en el propio código, de modo que
+  // cualquiera que viera el repositorio en GitHub lo conocía.
+  if (!/^\d{4}$/.test(pinGuardado || '')) {
+    return {
+      success: false,
+      requiereConfiguracion: true,
+      error: 'Todavía no hay PIN configurado para estos módulos. ' +
+             'Definilo en Configuración → Parámetros de Logística.'
+    };
+  }
+  const pinCorrecto = pinGuardado;
   const cache = _obtenerCacheAccesoVales();
   const usuario = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail() || 'anonimo';
   const claveIntentos = 'VALES_PIN_INTENTOS_' + usuario.slice(0, 150);
