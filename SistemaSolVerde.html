@@ -11,13 +11,10 @@
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
   <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cleave.js/1.6.0/cleave.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     /* ============================================================================
        VARIABLES CSS - TEMA CLARO/OSCURO
@@ -2853,7 +2850,7 @@
             <span class="no-print" style="display:inline-flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
               <button type="button" class="btn btn-outline btn-sm no-print" onclick="exportarTablaMovimientosCSV()" title="Descargar CSV">Exportar CSV</button>
               <button type="button" class="btn btn-outline btn-sm no-print" onclick="abrirVistaImpresion('contenedor-tabla-dashboard', 'Reporte de Caja / Movimientos')" title="Imprimir">
-                <i class="fa-solid fa-print"></i> Imprimir Reporte
+                &#128424;&#65039; Imprimir Reporte
               </button>
             </span>
           </div>
@@ -3356,7 +3353,7 @@
             <input type="text" class="form-input" id="filtroClientes" placeholder="Filtrar por nombre..." style="flex: 1; min-width: 0;" oninput="filtrarClientesDebounce()">
             <button class="btn btn-primary" onclick="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
             <button type="button" class="btn btn-outline no-print" onclick="abrirVistaImpresion('contenedor-tabla-clientes', 'Estado de Cuenta - Clientes')" title="Imprimir">
-              <i class="fa-solid fa-print"></i> Imprimir Saldos
+              &#128424;&#65039; Imprimir Saldos
             </button>
           </div>
 
@@ -5796,35 +5793,7 @@
       }
     }
 
-    function buscarClienteUltraRapido(nombreBuscado) {
-      if (!nombreBuscado) return null;
-      return mapaClientesGlobal.get(String(nombreBuscado).toUpperCase().trim()) || null;
-    }
 
-    function llamarBackend(funcionAejecutar) {
-      var parametros = Array.prototype.slice.call(arguments, 1);
-      return new Promise(function(resolve, reject) {
-        google.script.run
-          .withSuccessHandler(function(respuesta) {
-            if (respuesta && respuesta.status === 'success') {
-              resolve(respuesta.payload);
-            } else if (respuesta && respuesta.status === 'error') {
-              if (typeof Swal !== 'undefined') {
-                Swal.fire('Error del sistema', respuesta.message || 'Error', 'error');
-              }
-              reject(respuesta.message);
-            } else {
-              resolve(respuesta);
-            }
-          })
-          .withFailureHandler(function(errorRed) {
-            if (typeof Swal !== 'undefined') {
-              Swal.fire('Error de conexión', errorRed.message, 'error');
-            }
-            reject(errorRed);
-          })[funcionAejecutar].apply(null, parametros);
-      });
-    }
 
     function comprimirImagenParaIA(archivo, callback) {
       if (!archivo || !callback) return;
@@ -5855,14 +5824,23 @@
       window.onerror = function(mensaje, fuente, linea, columna, error) {
         try {
           if (typeof google !== 'undefined' && google.script && google.script.run) {
-            google.script.run.registrarErrorCritico({
-              mensaje: mensaje,
-              linea: linea,
-              columna: columna,
-              archivo: fuente,
-              stack: error && error.stack ? String(error.stack).substring(0, 500) : '',
-              ua: navigator.userAgent
-            });
+            // Con manejadores: el reporte de errores criticos es justo la
+            // pieza que no deberia fallar en silencio. Si el envio falla, al
+            // menos queda registrado en la consola del navegador.
+            google.script.run
+              .withSuccessHandler(function() {})
+              .withFailureHandler(function(e) {
+                console.warn('[initSVInfra] No se pudo reportar el error critico: ' +
+                  ((e && e.message) || e));
+              })
+              .registrarErrorCritico({
+                mensaje: mensaje,
+                linea: linea,
+                columna: columna,
+                archivo: fuente,
+                stack: error && error.stack ? String(error.stack).substring(0, 500) : '',
+                ua: navigator.userAgent
+              });
           }
         } catch (e) { /* silencioso */ }
         return false;
@@ -5885,11 +5863,60 @@
     // ============================================================================
     // UTILIDADES
     // ============================================================================
+    /**
+     * Escapa un valor para insertarlo en HTML, incluidos los ATRIBUTOS.
+     *
+     * Antes usaba el truco de textContent -> innerHTML, que solo convierte
+     * & < > y deja las comillas intactas. Como su resultado se interpola en
+     * decenas de atributos (data-nombre="...", value="...", title="..."), una
+     * comilla doble dentro de un nombre de cliente o una descripcion cerraba
+     * el atributo antes de tiempo e inyectaba HTML.
+     *
+     * En contenido de texto no cambia nada: el navegador muestra &quot; como "
+     * y &#39; como '. Para un literal de cadena JS dentro de un atributo
+     * (onclick="fn('VALOR')") esto NO alcanza: usar escaparJsEnAtributo.
+     *
+     * @param {*} text
+     * @returns {string} Texto seguro en HTML y en atributos
+     */
     function escapeHtml(text) {
       if (text === null || text === undefined) return '';
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Escapa un valor que se inserta como literal de cadena JS DENTRO de un
+     * atributo HTML. Caso tipico: onclick="editarCliente('NOMBRE')".
+     *
+     * Hay dos capas de interpretacion encadenadas: el navegador decodifica
+     * primero las entidades del atributo y despues el motor JS lee la cadena.
+     * Por eso NO sirve escapar la comilla como &#39;: al decodificarse vuelve
+     * a ser ' y parte el literal igual. Hay que escaparla para JS (\') y
+     * ademas proteger el delimitador del atributo (") y el ampersand.
+     *
+     * Sin esto, un apellido con apostrofo —D'ANGELO, D'ELIA, O'CONNOR, muy
+     * frecuentes en Argentina— rompia el handler: los botones de Editar y
+     * Eliminar de ese cliente dejaban de responder. Con una cadena preparada
+     * tambien permitia ejecutar codigo arbitrario.
+     *
+     * @param {*} valor
+     * @returns {string} Valor seguro como literal JS dentro de un atributo
+     */
+    function escaparJsEnAtributo(valor) {
+      if (valor === null || valor === undefined) return '';
+      return String(valor)
+        .replace(/\\/g, '\\\\')      // barras invertidas, primero
+        .replace(/'/g, "\\'")        // comilla simple: escape de JS
+        .replace(/&/g, '&amp;')      // entidad HTML
+        .replace(/"/g, '&quot;')     // cerraria el atributo
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/[\r\n\u2028\u2029]/g, ' '); // un salto de linea parte el literal JS
     }
 
     function formatearMonto(monto) {
@@ -5900,19 +5927,26 @@
       return (numero || 0).toLocaleString('es-AR');
     }
 
+    /**
+     * Formatea una fecha como DD/MM/AAAA.
+     *
+     * Ya no usa dayjs: era una libreria entera descargada por CDN para esta
+     * unica llamada, y el camino nativo que tenia de respaldo cubre los mismos
+     * casos. La rama ISO va PRIMERO a proposito: new Date('2026-11-18')
+     * interpreta la cadena como UTC y en Argentina (UTC-3) mostraria el dia
+     * anterior.
+     */
     function formatearFecha(fecha) {
       if (!fecha) return '-';
-      if (typeof dayjs !== 'undefined') {
-        var dj = dayjs(fecha);
-        if (dj.isValid()) return dj.format('DD/MM/YYYY');
+      if (typeof fecha === 'string') {
+        const iso = fecha.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (iso) return iso[3] + '/' + iso[2] + '/' + iso[1];
       }
-      if (typeof fecha === 'string' && fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const parts = fecha.split('-');
-        return parts[2] + '/' + parts[1] + '/' + parts[0];
-      }
-      const d = new Date(fecha);
+      const d = (fecha instanceof Date) ? fecha : new Date(fecha);
       if (isNaN(d.getTime())) return '-';
-      return d.toLocaleDateString('es-AR');
+      const dia = String(d.getDate()).padStart(2, '0');
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      return dia + '/' + mes + '/' + d.getFullYear();
     }
 
     // Funciones de fecha - definidas aquí arriba para garantizar disponibilidad global
@@ -5948,13 +5982,105 @@
     }
 
     // Fire-and-forget: llama a una función GAS en background sin bloquear la UI
-    function _gasFireAndForget(fnName) {
-      var args = Array.prototype.slice.call(arguments, 1);
-      var runner = google.script.run
-        .withSuccessHandler(function() {})
-        .withFailureHandler(function(e) { console.warn('[BG] ' + fnName + ' falló:', e.message); });
-      runner[fnName].apply(runner, args);
+
+    // ============================================================================
+    // ALMACENAMIENTO LOCAL SEGURO
+    //
+    // localStorage no siempre esta disponible: en el iframe de Apps Script sin
+    // cookies de terceros, en ventana privada o con la cuota llena, tanto leer
+    // como escribir LANZAN. Y JSON.parse revienta si el valor quedo corrupto.
+    //
+    // Importa de verdad: Estado.proveedoresHistorial se inicializaba con un
+    // JSON.parse(localStorage.getItem(...)) suelto, dentro del literal del
+    // objeto y en el nivel superior del script. Si eso lanzaba, la evaluacion
+    // del script entero se detenia y el sistema quedaba EN BLANCO, sin aviso
+    // ni error visible para el usuario.
+    //
+    // Todas las claves llevan el prefijo sv_ para poder barrerlas de una vez
+    // y para no chocar con otras aplicaciones en el mismo origen
+    // (*.googleusercontent.com es compartido).
+    // ============================================================================
+
+    /** Lee una clave como texto. Devuelve porDefecto si no se puede. */
+    function lsLeer(clave, porDefecto) {
+      try {
+        const valor = localStorage.getItem(clave);
+        return (valor === null) ? (porDefecto === undefined ? null : porDefecto) : valor;
+      } catch (e) {
+        return porDefecto === undefined ? null : porDefecto;
+      }
     }
+
+    /** Lee una clave como JSON. Devuelve porDefecto si falta o esta corrupta. */
+    function lsLeerJson(clave, porDefecto) {
+      try {
+        const crudo = localStorage.getItem(clave);
+        if (!crudo) return porDefecto;
+        const valor = JSON.parse(crudo);
+        return (valor === null || valor === undefined) ? porDefecto : valor;
+      } catch (e) {
+        console.warn('[localStorage] "' + clave + '" ilegible, se usa el valor por defecto.');
+        return porDefecto;
+      }
+    }
+
+    /** Guarda texto. Devuelve true si se pudo; nunca lanza. */
+    function lsGuardar(clave, valor) {
+      try {
+        localStorage.setItem(clave, String(valor));
+        return true;
+      } catch (e) {
+        console.warn('[localStorage] No se pudo guardar "' + clave + '": ' + e.message);
+        return false;
+      }
+    }
+
+    /** Guarda JSON. Devuelve true si se pudo; nunca lanza. */
+    function lsGuardarJson(clave, valor) {
+      try {
+        localStorage.setItem(clave, JSON.stringify(valor));
+        return true;
+      } catch (e) {
+        console.warn('[localStorage] No se pudo guardar "' + clave + '": ' + e.message);
+        return false;
+      }
+    }
+
+    /** Borra una clave. Nunca lanza. */
+    function lsBorrar(clave) {
+      try { localStorage.removeItem(clave); } catch (e) {}
+    }
+
+    /**
+     * Mueve las claves viejas sin prefijo a sus nombres nuevos con sv_.
+     * Se ejecuta una vez por navegador y preserva lo que el usuario ya tenia
+     * guardado: su tema, sus historiales de proveedores y de descripciones.
+     * Sin esto, el renombrado les habria borrado las preferencias.
+     */
+    function lsMigrarClavesAntiguas() {
+      const mapa = {
+        'proveedoresHistorial':     'sv_proveedores_historial',
+        'remitoItemsHistorial':     'sv_remito_items_historial',
+        'hojaRutaLiqDescHistorial': 'sv_hoja_ruta_liq_desc',
+        'tema':                     'sv_tema',
+        'animaciones':              'sv_animaciones'
+      };
+      try {
+        Object.keys(mapa).forEach(function(viejo) {
+          const nuevo = mapa[viejo];
+          // Solo si no hay valor nuevo todavia: nunca se pisa lo ya migrado
+          if (localStorage.getItem(nuevo) !== null) return;
+          const valor = localStorage.getItem(viejo);
+          if (valor === null) return;
+          localStorage.setItem(nuevo, valor);
+          localStorage.removeItem(viejo);
+        });
+      } catch (e) {
+        // Storage bloqueado: no hay nada que migrar y nada que romper
+      }
+    }
+
+    lsMigrarClavesAntiguas();
 
     // ============================================================================
     // ESTADO GLOBAL
@@ -5969,7 +6095,9 @@
       vrMovimientos: [],
       configuracion: null,
       arqueo: {},
-      proveedoresHistorial: JSON.parse(localStorage.getItem('proveedoresHistorial') || '[]'),
+      // Lectura tolerante: si la clave esta corrupta o el storage bloqueado,
+      // se arranca con lista vacia en lugar de dejar la aplicacion en blanco
+      proveedoresHistorial: lsLeerJson('sv_proveedores_historial', []),
       sesionesCache: {}
     };
 
@@ -6170,7 +6298,7 @@
       // antes de mostrar nada, para evitar el flash de módulos que deben estar ocultos
       (function() {
         try {
-          const _cfgLocal = localStorage.getItem('sv_config_visual');
+          const _cfgLocal = lsLeer('sv_config_visual');
           if (_cfgLocal) {
             const _cfg = JSON.parse(_cfgLocal);
             aplicarConfiguracionVisual(_cfg);
@@ -6214,8 +6342,8 @@
       // Si hay cache válido y no se fuerza recarga, mostrar datos cacheados primero
       if (!forzarRecarga) {
         try {
-          const cached = localStorage.getItem(cacheKey);
-          const cacheTime = parseInt(localStorage.getItem(cacheTimeKey) || '0');
+          const cached = lsLeer(cacheKey);
+          const cacheTime = parseInt(lsLeer(cacheTimeKey, '0'), 10) || 0;
           const ahora = Date.now();
 
           if (cached && (ahora - cacheTime) < cacheMaxAge) {
@@ -6284,14 +6412,11 @@
 
             console.log('✅ Clientes:', Estado.clientes.length, 'Movimientos:', Estado.movimientos.length);
 
-            try {
-              localStorage.setItem('sv_datos_cache', JSON.stringify({
-                clientes: Estado.clientes,
-                movimientos: Estado.movimientos
-              }));
-              localStorage.setItem('sv_datos_cache_time', Date.now().toString());
-            } catch (e) {
-              console.warn('Error guardando cache:', e);
+            if (lsGuardarJson('sv_datos_cache', {
+                  clientes: Estado.clientes,
+                  movimientos: Estado.movimientos
+                })) {
+              lsGuardar('sv_datos_cache_time', Date.now().toString());
             }
 
             renderMovimientos();
@@ -6332,13 +6457,12 @@
             Estado.clientes = data.clientes || [];
             Estado.movimientos = data.movimientos || [];
             indexarClientes(Estado.clientes);
-            try {
-              localStorage.setItem('sv_datos_cache', JSON.stringify({
-                clientes: Estado.clientes,
-                movimientos: Estado.movimientos
-              }));
-              localStorage.setItem('sv_datos_cache_time', Date.now().toString());
-            } catch (e) {}
+            if (lsGuardarJson('sv_datos_cache', {
+                  clientes: Estado.clientes,
+                  movimientos: Estado.movimientos
+                })) {
+              lsGuardar('sv_datos_cache_time', Date.now().toString());
+            }
             renderMovimientos();
             renderClientesGestion();
             actualizarDatosSistema();
@@ -6380,6 +6504,10 @@
           Estado.configuracion = config;
           renderDenominaciones();
         })
+        .withFailureHandler(function(error) {
+          console.warn('[cargarConfiguracionInicial] obtenerConfiguracion falló: ' +
+            ((error && error.message) || error));
+        })
         .obtenerConfiguracion();
 
       google.script.run
@@ -6390,6 +6518,15 @@
             el.style.color = result.presente ? 'var(--sv-exito)' : 'var(--sv-peligro)';
           }
         })
+        .withFailureHandler(function(error) {
+          var el = document.getElementById('estadoApiKey');
+          if (el) {
+            el.textContent = '⚠️ No se pudo verificar';
+            el.style.color = 'var(--sv-advertencia)';
+          }
+          console.warn('[cargarConfiguracionInicial] verificarApiKey falló: ' +
+            ((error && error.message) || error));
+        })
         .verificarApiKey();
     }
 
@@ -6397,69 +6534,7 @@
     // CAMBIO 2 — SKELETON LOADING + PRECARGA EN PARALELO
     // ============================================================================
 
-    /**
-     * Muestra placeholders animados en el Dashboard mientras cargan los datos reales.
-     * Reemplaza el contenido del dashboard con un skeleton que se ve profesional.
-     */
-    function _svMostrarSkeletonDashboard() {
-      var tbody = document.getElementById('tbodyMovimientos');
-      if (!tbody) return;
 
-      tbody.innerHTML = '<tr><td colspan="7" style="padding:2rem;text-align:center;">' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.75rem;margin-bottom:1.5rem;">' +
-          [1,2,3,4].map(function() {
-            return '<div style="height:90px;background:var(--sv-superficie);border:1px solid var(--sv-borde);border-radius:8px;padding:0.75rem;">' +
-              '<div style="height:28px;width:60%;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:8px;animation:svSkeleton 1.4s infinite;"></div>' +
-              '<div style="height:14px;width:80%;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;animation:svSkeleton 1.4s infinite;"></div>' +
-            '</div>';
-          }).join('') +
-        '</div>' +
-        '<div style="background:var(--sv-superficie);border:1px solid var(--sv-borde);border-radius:8px;padding:1rem;">' +
-          '<div style="height:20px;width:30%;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:1rem;animation:svSkeleton 1.4s infinite;"></div>' +
-          [1,2,3,4,5].map(function() {
-            return '<div style="height:36px;background:linear-gradient(90deg,var(--sv-borde) 25%,var(--sv-superficie-elevada) 50%,var(--sv-borde) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:6px;animation:svSkeleton 1.4s infinite;"></div>';
-          }).join('') +
-        '</div>' +
-      '</td></tr>';
-
-      // Agregar CSS de animación skeleton si no existe
-      if (!document.getElementById('sv-skeleton-css')) {
-        var st = document.createElement('style');
-        st.id = 'sv-skeleton-css';
-        st.textContent =
-          '@keyframes svSkeleton{0%{background-position:200% 0}100%{background-position:-200% 0}}' +
-          '@keyframes svSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}' +
-          '.sv-btn-loading{position:relative;pointer-events:none;opacity:0.85;}' +
-          '.sv-btn-loading::after{content:"";position:absolute;right:10px;top:50%;transform:translateY(-50%);' +
-          'width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;' +
-          'border-radius:50%;animation:svSpin 0.7s linear infinite;}' +
-          '.sv-input-activo{outline:2px solid var(--sv-primario)!important;outline-offset:1px;transition:outline 0.15s;}';
-        document.head.appendChild(st);
-      }
-    }
-
-    /**
-     * Dispara la carga de todos los módulos principales en background.
-     * Cada uno se auto-renderiza cuando sus datos llegan.
-     * NO bloquea la UI en ningún momento.
-     */
-    function _svPrecargarModulos() {
-      // Cargar el dashboard/movimientos como primera prioridad
-      if (typeof cargarDashboard === 'function')       cargarDashboard(true);
-      else if (typeof cargarMovimientos === 'function') cargarMovimientos(true);
-
-      // Los demás módulos se pre-cargan en segundo plano para que estén
-      // listos cuando el usuario navegue a ellos (sin tiempo de espera)
-      setTimeout(function() {
-        if (typeof cargarClientes === 'function')      cargarClientes();
-      }, 500);
-      setTimeout(function() {
-        if (typeof cargarHistorialFacturas === 'function') cargarHistorialFacturas();
-      }, 1000);
-      setTimeout(function() {
-        if (typeof cargarTransferencias === 'function')  cargarTransferencias();
-      }, 1500);
-    }
 
     function setupEventos() {
       // Menu toggle
@@ -6782,12 +6857,6 @@
         .obtenerBorradorCaja('local');
     }
 
-    function descartarBorradorCaja() {
-      google.script.run
-        .withSuccessHandler(function() { mostrarToast('Borrador descartado', 'info'); })
-        .withFailureHandler(function(e) { console.warn('Eliminar borrador falló:', e.message); })
-        .eliminarBorradorCaja('local');
-    }
 
     // BUG F FIX: limpia TODOS los campos del arqueo y el borrador en la nube
     function limpiarArqueoCompleto() {
@@ -6855,7 +6924,7 @@
       const config = { colores, modulosOcultos };
       aplicarConfiguracionVisual(config);
       // Guardar en localStorage para restauración sincrónica al recargar
-      localStorage.setItem('sv_config_visual', JSON.stringify(config));
+      lsGuardarJson('sv_config_visual', config);
       // Feedback inmediato al usuario (no esperar a GAS)
       mostrarToast('Configuración visual guardada', 'success');
       // Guardar en la nube en background (fire-and-forget)
@@ -6890,7 +6959,7 @@
             aplicarConfiguracionVisual(res.config);
             renderToggleModulos(res.config.modulosOcultos || []);
             // BUG A FIX: mantener localStorage sincronizado con la nube
-            localStorage.setItem('sv_config_visual', JSON.stringify(res.config));
+            lsGuardarJson('sv_config_visual', res.config);
             if (res.config.colores) {
               const cp = document.getElementById('colorPrimario');
               const cs = document.getElementById('colorSecundario');
@@ -6900,6 +6969,12 @@
               if (ca && res.config.colores['--sv-acento']) ca.value = res.config.colores['--sv-acento'];
             }
           }
+        })
+        .withFailureHandler(function(error) {
+          // Sin conexion se conserva la configuracion visual que ya haya en
+          // este navegador; no se deja la interfaz a medio aplicar.
+          console.warn('[cargarYAplicarConfigVisual] falló: ' +
+            ((error && error.message) || error));
         })
         .obtenerConfiguracionVisual();
     }
@@ -7178,107 +7253,6 @@
     // Aplica a todos los módulos con formularios de entrada de datos.
     // ============================================================================
 
-    /**
-     * Activa navegación por teclado en un contenedor de formulario.
-     *
-     * Comportamiento:
-     *   Tab / Enter en campo → avanza al siguiente
-     *   Enter en último campo → dispara el botón de acción principal
-     *   Escape → cierra/cancela (botón cancelar o modal)
-     *   Ctrl+Enter en textarea → dispara acción principal
-     *   Números con punto/coma → auto-corrección formato ARS en campos de monto
-     *
-     * @param {string} contenedorId    — ID del div/modal contenedor
-     * @param {string} btnAccionId     — ID del botón de acción principal (Guardar/Agregar)
-     * @param {string} [btnCancelarId] — ID del botón cancelar (para Escape)
-     * @param {Object} [opciones]      — { focusPrimerCampo: bool, camposMonto: string[] }
-     */
-    function svNavTeclado(contenedorId, btnAccionId, btnCancelarId, opciones) {
-      var cont = document.getElementById(contenedorId);
-      if (!cont) return;
-      opciones = opciones || {};
-
-      // Remover listener anterior si existe (para re-aperturas del modal)
-      var keyFn = cont._svKeyFn;
-      if (keyFn) cont.removeEventListener('keydown', keyFn);
-
-      keyFn = function(e) {
-        var target = e.target;
-        var tag    = target.tagName;
-        if (['INPUT','SELECT','TEXTAREA'].indexOf(tag) === -1) return;
-
-        // ── Escape: cancelar ────────────────────────────────────────────────
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          var btnCan = document.getElementById(btnCancelarId);
-          if (btnCan) { btnCan.click(); return; }
-          // Intentar cerrar modal genérico
-          var modal = cont.closest ? cont.closest('.modal') : null;
-          if (modal) modal.classList.remove('active');
-          return;
-        }
-
-        // ── Enter / Ctrl+Enter ───────────────────────────────────────────────
-        if (e.key === 'Enter') {
-          // En textarea: solo Ctrl+Enter dispara la acción
-          if (tag === 'TEXTAREA' && !e.ctrlKey) return;
-          e.preventDefault();
-
-          var campos = Array.from(cont.querySelectorAll(
-            'input:not([disabled]):not([readonly]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),' +
-            'select:not([disabled]),' +
-            'textarea:not([disabled])'
-          )).filter(function(el) {
-            var style = window.getComputedStyle(el);
-            return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 0;
-          });
-
-          var idx = campos.indexOf(target);
-
-          if (idx >= 0 && idx < campos.length - 1) {
-            // Avanzar al siguiente campo
-            var siguiente = campos[idx + 1];
-            siguiente.focus();
-            if (siguiente.tagName === 'INPUT' && siguiente.type !== 'date') {
-              siguiente.select();
-            }
-          } else {
-            // Último campo → disparar acción principal
-            var btnAcc = document.getElementById(btnAccionId);
-            if (btnAcc && !btnAcc.disabled) {
-              btnAcc.click();
-            }
-          }
-          return;
-        }
-      };
-
-      cont._svKeyFn = keyFn;
-      cont.addEventListener('keydown', keyFn);
-
-      // ── Highlight visual de campos activos ─────────────────────────────────
-      cont.querySelectorAll('input, select, textarea').forEach(function(el) {
-        if (!el._svFocusInit) {
-          el._svFocusInit = true;
-          el.addEventListener('focus', function() { el.classList.add('sv-input-activo'); });
-          el.addEventListener('blur',  function() { el.classList.remove('sv-input-activo'); });
-        }
-      });
-
-      // ── Foco automático en el primer campo ─────────────────────────────────
-      if (opciones.focusPrimerCampo !== false) {
-        setTimeout(function() {
-          var primer = cont.querySelector(
-            'input:not([disabled]):not([readonly]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),' +
-            'select:not([disabled])'
-          );
-          if (primer) {
-            primer.focus();
-            if (primer.tagName === 'INPUT' && primer.type !== 'date') primer.select();
-          }
-        }, 120);
-      }
-    }
 
     /**
      * Envuelve una llamada a google.script.run con:
@@ -7338,46 +7312,6 @@
         [config.gasFn](datos);
     }
 
-    /**
-     * Envuelve una carga de datos (lectura) con skeleton y estado visual.
-     *
-     * @param {Object} config
-     * @param {string}   config.contenedorId — ID del contenedor a "loadear"
-     * @param {string}   config.gasFn        — Función GAS que retorna los datos
-     * @param {Function} config.onDatos      — Callback(resultado) cuando llegan los datos
-     * @param {*}        [config.param]      — Parámetro opcional a pasar a la función GAS
-     * @param {string}   [config.msgError]   — Toast de error personalizado
-     */
-    function svCargar(config) {
-      var cont = document.getElementById(config.contenedorId);
-      if (cont) {
-        cont.style.opacity   = '0.5';
-        cont.style.pointerEvents = 'none';
-      }
-
-      var restaurar = function() {
-        if (cont) {
-          cont.style.opacity   = '1';
-          cont.style.pointerEvents = '';
-        }
-      };
-
-      var runner = google.script.run
-        .withSuccessHandler(function(resultado) {
-          restaurar();
-          config.onDatos(resultado);
-        })
-        .withFailureHandler(function(err) {
-          restaurar();
-          mostrarToast((config.msgError || 'Error al cargar datos') + ': ' + err.message, 'error');
-        });
-
-      if (config.param !== undefined) {
-        runner[config.gasFn](config.param);
-      } else {
-        runner[config.gasFn]();
-      }
-    }
 
     // ============================================================================
     // PIN LOCK — Protección de módulos protegidos
@@ -7617,7 +7551,7 @@
         if (window.configSistema) cargarConfiguracionLogisticaUI(window.configSistema);
         // Renderizar toggles con el estado guardado en localStorage (fix definitivo)
         var _cfgVis = {};
-        try { _cfgVis = JSON.parse(localStorage.getItem('sv_config_visual') || '{}'); } catch(e) {}
+        _cfgVis = lsLeerJson('sv_config_visual', {});
         renderToggleModulos(_cfgVis.modulosOcultos || []);
         // Inicializar tabs de configuración (restaura tab activa desde sessionStorage)
         setTimeout(inicializarConfigTabs, 0);
@@ -8072,7 +8006,7 @@
     /** Limite guardado en este navegador, o null si no hay ninguno. */
     function visorLimiteGuardado() {
       try {
-        const crudo = localStorage.getItem(VISOR_LIMITE_KEY);
+        const crudo = lsLeer(VISOR_LIMITE_KEY);
         if (crudo === null || crudo === '') return null;
         const valor = parseInt(crudo, 10);
         return (isNaN(valor) || valor < 0) ? null : valor;
@@ -8084,7 +8018,7 @@
     /** Recuerda el limite elegido. Nunca interrumpe si el storage falla. */
     function visorGuardarLimite(valor) {
       try {
-        localStorage.setItem(VISOR_LIMITE_KEY, String(valor));
+        lsGuardar(VISOR_LIMITE_KEY, valor);
       } catch (e) {}
     }
 
@@ -8861,7 +8795,7 @@ function renderEstadisticas(result) {
       Estado.proveedoresHistorial = Estado.proveedoresHistorial.filter(p => p.toLowerCase() !== nombre.toLowerCase());
       Estado.proveedoresHistorial.unshift(nombre.trim());
       Estado.proveedoresHistorial = Estado.proveedoresHistorial.slice(0, 20);
-      localStorage.setItem('proveedoresHistorial', JSON.stringify(Estado.proveedoresHistorial));
+      lsGuardarJson('sv_proveedores_historial', Estado.proveedoresHistorial);
     }
 
     function confirmarEliminarItem(btn) {
@@ -8976,7 +8910,7 @@ function renderEstadisticas(result) {
 
     // ── Historial de Items del Remito (localStorage) ──────────────────────────
     function _obtenerItemsHistorial() {
-      try { return JSON.parse(localStorage.getItem('remitoItemsHistorial') || '[]'); }
+      try { return lsLeerJson('sv_remito_items_historial', []); }
       catch (e) { return []; }
     }
     function _guardarItemHistorial(desc) {
@@ -8985,7 +8919,7 @@ function renderEstadisticas(result) {
       let lista = _obtenerItemsHistorial().filter(function(d) { return d.toLowerCase() !== desc.toLowerCase(); });
       lista.unshift(desc);
       lista = lista.slice(0, 50);
-      try { localStorage.setItem('remitoItemsHistorial', JSON.stringify(lista)); } catch (e) {}
+      lsGuardarJson('sv_remito_items_historial', lista);
     }
     function _buscarItemHistorial(input, filaIdx, forzarTodos) {
       const fila = input.closest('tr');
@@ -10028,12 +9962,12 @@ function renderEstadisticas(result) {
       try {
         var d = String(desc || '').trim();
         if (!d) return;
-        var arr = JSON.parse(localStorage.getItem('hojaRutaLiqDescHistorial') || '[]');
+        var arr = lsLeerJson('sv_hoja_ruta_liq_desc', []);
         if (!Array.isArray(arr)) arr = [];
         arr = arr.filter(function(x) { return String(x).toLowerCase() !== d.toLowerCase(); });
         arr.unshift(d);
         arr = arr.slice(0, 20);
-        localStorage.setItem('hojaRutaLiqDescHistorial', JSON.stringify(arr));
+        lsGuardarJson('sv_hoja_ruta_liq_desc', arr);
       } catch (e) {}
     }
 
@@ -10049,7 +9983,7 @@ function renderEstadisticas(result) {
       }
       liquidacionesPendientes.forEach(function(l) { add(l.descripcion); });
       try {
-        var h = JSON.parse(localStorage.getItem('hojaRutaLiqDescHistorial') || '[]');
+        var h = lsLeerJson('sv_hoja_ruta_liq_desc', []);
         if (Array.isArray(h)) h.forEach(add);
       } catch (e) {}
       return out;
@@ -10234,7 +10168,7 @@ function renderEstadisticas(result) {
           '<td data-label="Proveedores" style="color: var(--sv-peligro);">-' + formatearMonto(s.totales.proveedores) + '</td>' +
           '<td data-label="Gastos" style="color: var(--sv-peligro);">-' + formatearMonto(s.totales.gastos) + '</td>' +
           '<td data-label="Neto" style="font-weight: bold;">' + formatearMonto(s.totales.neto) + '</td>' +
-          '<td data-label=""><button class="btn btn-outline btn-sm" onclick="verDetalleSesion(\'' + escapeHtml(s.sesionId) + '\')">Ver</button></td>' +
+          '<td data-label=""><button class="btn btn-outline btn-sm" onclick="verDetalleSesion(\'' + escaparJsEnAtributo(s.sesionId) + '\')">Ver</button></td>' +
         '</tr>';
       }).join('');
     }
@@ -10319,7 +10253,7 @@ function renderEstadisticas(result) {
       // Boton para cargar sesion al formulario
       html +=
         '<div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--sv-borde);">' +
-          '<button class="btn btn-primary" style="width: 100%;" onclick="cargarSesionAlFormulario(\'' + escapeHtml(sesionId) + '\')">' +
+          '<button class="btn btn-primary" style="width: 100%;" onclick="cargarSesionAlFormulario(\'' + escaparJsEnAtributo(sesionId) + '\')">' +
             '&#128229; Cargar al Formulario de Arqueo' +
           '</button>' +
         '</div>';
@@ -10449,8 +10383,8 @@ function renderEstadisticas(result) {
           '<td data-label="Movs">' + c.totalMovs + '</td>' +
           '<td data-label="Acciones">' +
             '<div class="btn-group">' +
-              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escapeHtml(c.nombre) + '\')">&#9999;&#65039;</button>' +
-              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escapeHtml(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escaparJsEnAtributo(c.nombre) + '\')">&#9999;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escaparJsEnAtributo(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
             '</div>' +
           '</td>' +
         '</tr>';
@@ -10500,8 +10434,8 @@ function renderEstadisticas(result) {
           '<td data-label="Movs">' + c.totalMovs + '</td>' +
           '<td data-label="Acciones">' +
             '<div class="btn-group">' +
-              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escapeHtml(c.nombre) + '\')">&#9999;&#65039;</button>' +
-              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escapeHtml(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="editarCliente(\'' + escaparJsEnAtributo(c.nombre) + '\')">&#9999;&#65039;</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="eliminarClienteConfirm(\'' + escaparJsEnAtributo(c.nombre) + '\')" style="color: var(--sv-peligro);">&#128465;&#65039;</button>' +
             '</div>' +
           '</td>' +
         '</tr>';
@@ -10741,10 +10675,10 @@ function renderEstadisticas(result) {
     // CONFIGURACION
     // ============================================================================
     function cargarConfiguracionInicial() {
-      const tema = localStorage.getItem('tema') || 'light';
+      const tema = lsLeer('sv_tema', 'light');
       setTema(tema);
 
-      const animaciones = localStorage.getItem('animaciones') !== 'false';
+      const animaciones = lsLeer('sv_animaciones', 'true') !== 'false';
       document.getElementById('toggleAnimaciones').checked = animaciones;
       toggleAnimaciones(animaciones);
       
@@ -10755,7 +10689,7 @@ function renderEstadisticas(result) {
     function setTema(tema) {
       document.documentElement.setAttribute('data-theme', tema === 'dark' ? 'dark' : '');
       document.getElementById('themeToggle').textContent = tema === 'dark' ? '☀️' : '🌙';
-      localStorage.setItem('tema', tema);
+      lsGuardar('sv_tema', tema);
 
       const btnClaro = document.getElementById('btnTemaClaro');
       const btnOscuro = document.getElementById('btnTemaOscuro');
@@ -10766,7 +10700,7 @@ function renderEstadisticas(result) {
     }
 
     function toggleAnimaciones(habilitado) {
-      localStorage.setItem('animaciones', habilitado ? 'true' : 'false');
+      lsGuardar('sv_animaciones', habilitado ? 'true' : 'false');
       let style = document.getElementById('no-animations-style');
 
       if (!habilitado) {
@@ -11096,12 +11030,27 @@ function renderEstadisticas(result) {
         .obtenerTodosClientesParaExportar();
     }
 
+    // Claves que el sistema guarda en este navegador. Todas con prefijo sv_
+    // para poder barrerlas de una vez y no chocar con otras aplicaciones del
+    // mismo origen. SV_CLAVES_PRESERVAR son preferencias del usuario: no se
+    // borran al limpiar la cache, porque no son datos cacheados.
+    const SV_CLAVES_CACHE = [
+      'sv_datos_cache',
+      'sv_datos_cache_time',
+      'sv_proveedores_historial',
+      'sv_remito_items_historial',
+      'sv_hoja_ruta_liq_desc'
+    ];
+    const SV_CLAVES_PRESERVAR = ['sv_tema', 'sv_animaciones', 'sv_config_visual', 'sv_visor_limite'];
+
     function limpiarCacheLocal() {
       if (!confirm('¿Limpiar cache local y recargar datos?')) return;
-      localStorage.removeItem('proveedoresHistorial');
-      localStorage.removeItem('sv_datos_cache');
-      localStorage.removeItem('sv_datos_cache_time');
+      // Antes borraba 3 de las 8 claves y no reseteaba el estado en memoria,
+      // que volvia a escribirse en el siguiente guardado: la cache no quedaba
+      // limpia de verdad.
+      SV_CLAVES_CACHE.forEach(lsBorrar);
       Estado.proveedoresHistorial = [];
+      Estado.sesionesCache = {};
       mostrarToast('Cache limpiada. Recargando datos...', 'success');
       cargarDatosIniciales(true); // Forzar recarga desde servidor
     }
@@ -11807,26 +11756,33 @@ function renderEstadisticas(result) {
       }
 
       mostrarLoading(true);
-      const accion = editandoId ?
-        google.script.run.actualizarProducto(parseInt(editandoId), datos) :
-        google.script.run.agregarProducto(datos);
 
-      google.script.run
+      // Aqui habia una llamada suelta a actualizarProducto/agregarProducto,
+      // asignada a una constante que nadie usaba, ANTES de la llamada con
+      // manejadores. Es decir: el guardado se ejecutaba DOS VECES. En el alta
+      // eso significaba que cada producto nuevo se creaba DUPLICADO en la
+      // hoja, y el resultado de la primera llamada se descartaba en silencio.
+      const peticion = google.script.run
         .withSuccessHandler(function(result) {
           mostrarLoading(false);
-          if (result.success) {
+          if (result && result.success) {
             cerrarModal('modalProducto');
             cargarDatosFacturacion();
             mostrarToast('Producto guardado', 'success');
           } else {
-            mostrarToast(result.error, 'error');
+            mostrarToast((result && result.error) || 'No se pudo guardar el producto', 'error');
           }
         })
         .withFailureHandler(function(error) {
           mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        [editandoId ? 'actualizarProducto' : 'agregarProducto'](editandoId ? parseInt(editandoId) : datos, editandoId ? datos : undefined);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        });
+
+      if (editandoId) {
+        peticion.actualizarProducto(parseInt(editandoId, 10), datos);
+      } else {
+        peticion.agregarProducto(datos);
+      }
     }
 
     // Eliminar producto
@@ -12326,11 +12282,29 @@ function renderEstadisticas(result) {
       // Poner fecha
       document.getElementById('arcaPreviewFecha').textContent = new Date().toLocaleDateString('es-AR');
 
-      // Setup autocomplete para cliente ARCA
+      // Setup autocomplete para cliente ARCA.
+      //
+      // Fuga corregida: se hacia removeEventListener del handler "pelado" pero
+      // se registraba debounce(handler), que es OTRA funcion. El remove nunca
+      // encontraba nada que quitar, y como esta funcion corre cada vez que se
+      // entra al modulo y en cada "Nuevo Comprobante", los listeners se
+      // ACUMULABAN: con cinco visitas, cada tecla disparaba cinco busquedas
+      // de cliente contra el backend.
+      //
+      // Ahora se guarda la referencia al handler debounced y se quita esa
+      // misma referencia antes de registrarla de nuevo.
       var inputArcaCliente = document.getElementById('arcaCliente');
-      inputArcaCliente.removeEventListener('input', arcaClienteInputHandler);
-      inputArcaCliente.addEventListener('input', debounce(arcaClienteInputHandler, 200));
+      if (inputArcaCliente) {
+        if (_arcaClienteInputDebounced) {
+          inputArcaCliente.removeEventListener('input', _arcaClienteInputDebounced);
+        }
+        _arcaClienteInputDebounced = debounce(arcaClienteInputHandler, 200);
+        inputArcaCliente.addEventListener('input', _arcaClienteInputDebounced);
+      }
     }
+
+    // Referencia al handler realmente registrado, para poder retirarlo
+    var _arcaClienteInputDebounced = null;
 
     function arcaClienteInputHandler() {
       buscarClienteAutocompleteArca(document.getElementById('arcaCliente').value);
@@ -12354,7 +12328,7 @@ function renderEstadisticas(result) {
 
       contenedor.innerHTML = resultados.map(function(c) {
         var condTag = c.cuit ? '<span style="color:var(--sv-primario);font-size:0.7rem;"> [RI]</span>' : '<span style="color:var(--sv-texto-muted);font-size:0.7rem;"> [CF]</span>';
-        return '<div class="suggestion-item" onclick="seleccionarClienteArca(\'' + escapeHtml(c.nombre).replace(/'/g, "\\'") + '\')">' +
+        return '<div class="suggestion-item" onclick="seleccionarClienteArca(\'' + escaparJsEnAtributo(c.nombre) + '\')">' +
           escapeHtml(c.nombre) + condTag + '</div>';
       }).join('');
       contenedor.style.display = 'block';
@@ -13489,21 +13463,6 @@ function renderEstadisticas(result) {
       }
     }
 
-    function _hfFilasVacias(n) {
-      var html = '';
-      for (var i = 0; i < n; i++) {
-        html += '<tr>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;height:20px;">&nbsp;</td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-          '<td style="border:1px solid #aaa;padding:4px 6px;"></td>' +
-        '</tr>';
-      }
-      return html;
-    }
 
     function escHtml(str) {
       return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -15307,22 +15266,6 @@ function renderEstadisticas(result) {
       });
     }
 
-    async function procesarFacturasEnLote(listaPayloads, onProgreso) {
-      var total = listaPayloads.length;
-      var ok = 0;
-      for (var i = 0; i < total; i++) {
-        if (onProgreso) onProgreso(i + 1, total);
-        try {
-          var r = await facturarIndividualAsync(listaPayloads[i]);
-          if (r && r.success) ok++;
-          else mostrarToast('Factura ' + (i + 1) + ': ' + (r && r.error ? r.error : 'Error'), 'error');
-        } catch (err) {
-          mostrarToast('Factura ' + (i + 1) + ': ' + err.message, 'error');
-        }
-      }
-      return { procesadas: ok, total: total };
-    }
-
     // Eliminar transferencia
     function eliminarTransferenciaUnif(id) {
       if (!confirm('¿Eliminar esta transferencia?\n\nEsta acción NO se puede deshacer.')) {
@@ -15462,9 +15405,9 @@ function renderEstadisticas(result) {
 
       var accionesHtml =
         '<div class="alq-inq-acciones">' +
-          '<button class="btn btn-primary btn-sm" onclick="abrirModalPagoAlquiler(\'' + escapeHtml(nombre) + '\')">&#128184; Registrar Pago</button>' +
-          '<button class="btn btn-outline btn-sm" onclick="abrirModalFacturaAlquiler(\'' + escapeHtml(nombre) + '\')">&#128196; Factura Transferencia</button>' +
-          '<button class="btn btn-outline btn-sm" onclick="abrirModalConfigAlquiler(\'' + escapeHtml(nombre) + '\')">&#9881;&#65039; Configurar</button>' +
+          '<button class="btn btn-primary btn-sm" onclick="abrirModalPagoAlquiler(\'' + escaparJsEnAtributo(nombre) + '\')">&#128184; Registrar Pago</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="abrirModalFacturaAlquiler(\'' + escaparJsEnAtributo(nombre) + '\')">&#128196; Factura Transferencia</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="abrirModalConfigAlquiler(\'' + escaparJsEnAtributo(nombre) + '\')">&#9881;&#65039; Configurar</button>' +
         '</div>';
 
       var subtabsHtml =
@@ -15703,7 +15646,7 @@ function renderEstadisticas(result) {
           '<button class="btn btn-outline btn-sm" id="btnToggleVista-' + inqId + '" onclick="alqToggleVista(\'' + inqId + '\')" style="margin-left:.25rem;">' +
             (vistaAnual ? '&#128197; Ver mes' : '&#128197; Ver a\u00f1o completo') +
           '</button>' +
-          '<button class="btn btn-outline btn-sm" onclick="abrirModalImprimirAlquiler(\'' + escapeHtml(inquilino) + '\')" style="margin-left:auto;">&#128424; Imprimir mes</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="abrirModalImprimirAlquiler(\'' + escaparJsEnAtributo(inquilino) + '\')" style="margin-left:auto;">&#128424; Imprimir mes</button>' +
         '</div>' +
         '<div class="calendario-leyenda">' +
           '<span class="leyenda-item pagado">Pagado</span>' +
@@ -15867,12 +15810,6 @@ function renderEstadisticas(result) {
       }
     }
 
-    /** Muestra todos los meses del año (legacy, mantenido por compatibilidad). */
-    function alqVerTodo(inqId) {
-      if (!_calendarioVistaAnual[inqId]) {
-        alqToggleVista(inqId); // activar vista anual
-      }
-    }
 
     // ── Modales de registro ──────────────────────────────────────────────────
 
@@ -17245,6 +17182,13 @@ function renderEstadisticas(result) {
             _movCajaDescCache = [];
           }
         })
+        .withFailureHandler(function(error) {
+          // El autocompletado es un extra: si falla, el campo sigue siendo
+          // de texto libre y el usuario puede escribir la descripcion.
+          _movCajaDescCache = [];
+          console.warn('[contabAbrirModalMovManual] obtenerDescripcionesMovManual falló: ' +
+            ((error && error.message) || error));
+        })
         .obtenerDescripcionesMovManual();
 
       abrirModal('modalMovCaja');
@@ -17761,8 +17705,14 @@ function renderEstadisticas(result) {
       }).join('');
     }
 
+    /**
+     * Conservada por compatibilidad con los 6 usos del modulo de envases.
+     * Ahora escapeHtml ya protege las comillas, asi que esto es un alias:
+     * los .replace() que tenia encadenados no encontrarian nada que cambiar,
+     * porque las comillas ya vienen convertidas en entidades.
+     */
     function escaparAtributoHTML(valor) {
-      return escapeHtml(valor).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      return escapeHtml(valor);
     }
 
     function actualizarEnvase(index, campo, valor) {

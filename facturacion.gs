@@ -82,6 +82,12 @@ const TransferenciasRepository = {
 
   /**
    * Obtiene todas las transferencias
+   *
+   * Con límite, devuelve las MÁS RECIENTES. Antes leía desde la fila 2 —las
+   * más viejas— y recién después ordenaba descendente, así que obtenerPorMes,
+   * que llama con límite 500, dejaba de ver el mes en curso en cuanto la hoja
+   * pasaba las 500 filas: el resumen mensual devolvía cero transferencias.
+   *
    * @param {number} limite - Máximo de registros (0 = todos)
    */
   obtenerTodas: function(limite = 0) {
@@ -90,9 +96,12 @@ const TransferenciasRepository = {
 
     if (lastRow <= 1) return [];
 
+    const totalFilas = lastRow - 1;
     // 0 = sin límite (todos los registros)
-    const numRows = (limite > 0) ? Math.min(limite, lastRow - 1) : (lastRow - 1);
-    const datos = hoja.getRange(2, 1, numRows, 10).getValues();
+    const numRows  = (limite > 0) ? Math.min(limite, totalFilas) : totalFilas;
+    // Con límite se arranca desde el final de la hoja, no desde el principio
+    const startRow = (limite > 0) ? Math.max(2, lastRow - numRows + 1) : 2;
+    const datos = hoja.getRange(startRow, 1, numRows, 10).getValues();
 
     return datos.map(fila => ({
       id: fila[CONFIG_FACTURACION.COLS_TRANSFERENCIAS.ID],
@@ -698,18 +707,6 @@ function actualizarTransferencia(id, datos) {
   try {
     TransferenciasRepository.actualizar(id, datos);
     return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Obtiene una transferencia por ID
- */
-function obtenerTransferencia(id) {
-  try {
-    const transferencia = TransferenciasRepository.buscarPorId(id);
-    return { success: true, transferencia: transferencia };
   } catch (error) {
     return { success: false, error: error.message };
   }

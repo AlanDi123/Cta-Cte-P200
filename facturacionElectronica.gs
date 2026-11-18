@@ -6,6 +6,37 @@
  * environment: SIEMPRE 'prod' — hardcoded, nunca configurable.
  */
 
+/**
+ * Desglosa un total con IVA incluido en neto + IVA, usando la alícuota
+ * REALMENTE configurada (CONFIG.getIVA(), 10,5% por defecto).
+ *
+ * Antes este cálculo estaba escrito como `total / 1.21`, es decir 21% fijo,
+ * en dos lugares. Con la alícuota del sistema en 10,5%, una factura de
+ * $110.500 se archivaba y se informaba como neto $91.322,31 / IVA $19.177,69
+ * en lugar de neto $100.000 / IVA $10.500: el libro IVA quedaba mal.
+ *
+ * @param {number} total - Importe total con IVA incluido
+ * @returns {{neto: number, iva: number}} Desglose redondeado a 2 decimales
+ */
+function _feDesglosarIVA(total) {
+  var bruto = Number(total) || 0;
+  if (bruto <= 0) return { neto: 0, iva: 0 };
+
+  var porcentaje = 21; // último recurso si la configuración no está disponible
+  try {
+    var configurado = Number(CONFIG.getIVA().PORCENTAJE);
+    if (!isNaN(configurado) && configurado >= 0 && configurado < 100) {
+      porcentaje = configurado;
+    }
+  } catch (e) {
+    Logger.log('[_feDesglosarIVA] No se pudo leer el IVA configurado: ' + e.message);
+  }
+
+  var neto = parseFloat((bruto / (1 + porcentaje / 100)).toFixed(2));
+  var iva  = parseFloat((bruto - neto).toFixed(2));
+  return { neto: neto, iva: iva };
+}
+
 // ─── SECCIÓN 1: WRAPPERS INTERNOS (delegación a capa afip/) ────────────────
 
 /**
@@ -451,8 +482,9 @@ function obtenerHistorialFacturas() {
         // Calcular neto/iva si no están guardados
         if (!impNeto && total > 0) {
           if (cbteTipoNum === 1 || cbteTipoNum === 3) {
-            impNeto = parseFloat((total / 1.21).toFixed(2));
-            impIVA  = parseFloat((total - impNeto).toFixed(2));
+            var desglose = _feDesglosarIVA(total);
+            impNeto = desglose.neto;
+            impIVA  = desglose.iva;
           } else {
             impNeto = total; impIVA = 0;
           }
@@ -1414,8 +1446,9 @@ function guardarComprobanteARCA(datos) {
 
     // Para Fact A: si no viene neto, calcular
     if (!impNeto && (cbteTipo === 1 || cbteTipo === 3) && total > 0) {
-      impNeto = parseFloat((total / 1.21).toFixed(2));
-      impIVA  = parseFloat((total - impNeto).toFixed(2));
+      var desgloseIVA = _feDesglosarIVA(total);
+      impNeto = desgloseIVA.neto;
+      impIVA  = desgloseIVA.iva;
     }
     // Fact B: neto = total (IVA incluido, no discriminado)
     if (!impNeto && (cbteTipo === 6 || cbteTipo === 8) && total > 0) {

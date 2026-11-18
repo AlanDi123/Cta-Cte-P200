@@ -540,12 +540,6 @@ function afipCalcularFechaValida(fechaTransferencia) {
   return Utilities.formatDate(fechaFinal, "America/Argentina/Buenos_Aires", "yyyyMMdd");
 }
 
-function afipFormatoFecha(fecha) {
-  // Devuelve string "YYYYMMDD" — se convierte a int en afipConstruirFECAEDetRequest
-  return String(fecha.getFullYear()) +
-         String(fecha.getMonth() + 1).padStart(2, '0') +
-         String(fecha.getDate()).padStart(2, '0');
-}
 
 
 function afipParsearRespuestaFactura(resultado, datosFactura, cbteNro, puntoVenta) {
