@@ -240,13 +240,16 @@ var CONFIG = {
 
   // Configuracion del OCR gratuito (sin IA ni API de pago)
   OCR: {
-    IDIOMA: 'es',             // Idioma del reconocimiento
+    IDIOMA: 'es',             // FIJO: solo español. getOcr() lo fuerza, no se configura
     MOTOR_SERVIDOR: true,     // OCR de Drive (gratis, usa el motor de Google)
     MOTOR_NAVEGADOR: true,    // Tesseract.js (gratis, aporta posicion de palabras)
     CONFIANZA_MINIMA: 60,     // Debajo de este valor la celda se marca para revision
     BINARIZACION: 20,         // Agresividad del umbral adaptativo (0-50)
     ANCHO_MAXIMO: 2000,       // Redimensionado previo, en pixeles
-    AUTO_ROTAR: true          // Corregir inclinacion antes de reconocer
+    AUTO_ROTAR: true,         // Corregir inclinacion antes de reconocer
+    REINTENTOS: 3,            // Vueltas de relectura de las filas sin coincidencia (0 = no reintenta)
+    PRESUPUESTO_SEG: 45,      // Tope de tiempo para todos los reintentos juntos
+    UMBRAL_NOMBRE: 90         // Parecido (%) para aceptar un nombre solo, sin preguntar
   },
 
   // Colores del sistema (para referencia en el frontend)
@@ -324,15 +327,20 @@ var CONFIG = {
     function booleano(clave, porDefecto) {
       return self.get(clave, porDefecto.toString()) !== 'false';
     }
-    const idioma = String(this.get('OCR_IDIOMA', this.OCR.IDIOMA)).trim();
     return {
-      IDIOMA:           /^[a-z]{2,3}(\+[a-z]{2,3})*$/.test(idioma) ? idioma : this.OCR.IDIOMA,
+      // El idioma es siempre español. Antes se podia escribir cualquiera (y
+      // 'es+en' mezclaba el ingles, que solo mete ruido al leer nombres): ahora
+      // se ignora lo que haya guardado en OCR_IDIOMA.
+      IDIOMA:           'es',
       MOTOR_SERVIDOR:   booleano('OCR_MOTOR_SERVIDOR',  this.OCR.MOTOR_SERVIDOR),
       MOTOR_NAVEGADOR:  booleano('OCR_MOTOR_NAVEGADOR', this.OCR.MOTOR_NAVEGADOR),
       CONFIANZA_MINIMA: entero('OCR_CONFIANZA_MINIMA', this.OCR.CONFIANZA_MINIMA, 0, 100),
       BINARIZACION:     entero('OCR_BINARIZACION',     this.OCR.BINARIZACION, 0, 50),
       ANCHO_MAXIMO:     entero('OCR_ANCHO_MAXIMO',     this.OCR.ANCHO_MAXIMO, 600, 5000),
-      AUTO_ROTAR:       booleano('OCR_AUTO_ROTAR',     this.OCR.AUTO_ROTAR)
+      AUTO_ROTAR:       booleano('OCR_AUTO_ROTAR',     this.OCR.AUTO_ROTAR),
+      REINTENTOS:       entero('OCR_REINTENTOS',       this.OCR.REINTENTOS, 0, 6),
+      PRESUPUESTO_SEG:  entero('OCR_PRESUPUESTO_SEG',  this.OCR.PRESUPUESTO_SEG, 10, 180),
+      UMBRAL_NOMBRE:    entero('OCR_UMBRAL_NOMBRE',    this.OCR.UMBRAL_NOMBRE, 60, 100)
     };
   },
 
