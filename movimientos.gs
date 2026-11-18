@@ -711,6 +711,13 @@ const MovimientosRepository = {
 
     const saldos = {};
 
+    // Las claves van NORMALIZADAS a proposito.
+    //
+    // Antes se indexaba por el nombre crudo de la hoja MOVIMIENTOS, mientras
+    // quien consume este mapa lo busca por el nombre de la hoja CLIENTES.
+    // Cualquier diferencia de acento o de espacios entre las dos hojas hacia
+    // que la busqueda no encontrara nada y el cliente apareciera con SALDO 0
+    // en la vista historica, aunque tuviera deuda.
     for (let i = 1; i < datos.length; i++) {
       const fila = datos[i];
       const cliente = fila[CONFIG.COLS_MOVS.CLIENTE];
@@ -719,15 +726,17 @@ const MovimientosRepository = {
       const fechaMov = parsearFechaLocal(fila[CONFIG.COLS_MOVS.FECHA]);
       if (fechaMov > fechaLimite) continue;
 
-      if (!saldos[cliente]) saldos[cliente] = 0;
+      const clave = normalizarString(cliente);
+      if (!clave) continue;
+      if (!saldos[clave]) saldos[clave] = 0;
 
       const monto = fila[CONFIG.COLS_MOVS.MONTO] || 0;
       const tipo = fila[CONFIG.COLS_MOVS.TIPO];
 
       if (tipo === CONFIG.TIPOS_MOVIMIENTO.DEBE) {
-        saldos[cliente] += monto;
+        saldos[clave] += monto;
       } else {
-        saldos[cliente] -= monto;
+        saldos[clave] -= monto;
       }
     }
 
