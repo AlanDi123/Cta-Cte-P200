@@ -3767,6 +3767,31 @@
             </div>
 
             <div class="card">
+              <div class="card-title">🔄 Actualización automática de la interfaz</div>
+              <p style="margin-bottom: 0.75rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Con esto activado, la interfaz se toma directamente de la rama <code>main</code>
+                en GitHub en cada carga, <strong>sin desplegar nada</strong>. Son 13.700 líneas:
+                la mayor parte del sistema y todo lo que usted ve.
+              </p>
+              <p style="margin-bottom: 0.75rem; padding: 0.6rem 0.8rem; border-radius: 6px; background: rgba(0,172,193,0.12); font-size: 0.8rem;">
+                ℹ️ GitHub sirve los archivos detrás de una red de distribución con unos
+                <strong>5 minutos</strong> de caché propia, así que el cambio aparece dentro de
+                ese margen y no en el instante exacto del push.
+                <br><br>
+                Si la descarga falla, se usa la copia en caché; si tampoco hay, el archivo del
+                proyecto. <strong>El sistema no puede quedar caído por una falla de red.</strong>
+                <br><br>
+                El <em>backend</em> (los archivos <code>.gs</code>) no se actualiza así: para eso
+                está el despliegue automático con GitHub Actions, descrito en <code>DEPLOY.md</code>.
+              </p>
+              <p id="estadoHtmlRemoto" style="margin-bottom: 0.75rem; font-size: 0.875rem;"></p>
+              <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="configurarHtmlRemotoUI(true)" style="flex:1;min-width:9rem;">Activar</button>
+                <button class="btn btn-outline" onclick="configurarHtmlRemotoUI(false)" style="flex:1;min-width:9rem;">Desactivar</button>
+              </div>
+            </div>
+
+            <div class="card">
               <div class="card-title">⚠️ Comprobantes autorizados sin guardar</div>
               <p style="margin-bottom: 0.75rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
                 Comprobantes que ARCA <strong>autorizó</strong> pero que no se pudieron guardar
@@ -6798,6 +6823,7 @@
 
       // Estado del token de la API REST (nunca devuelve su valor)
       if (typeof cargarEstadoTokenApi === 'function') cargarEstadoTokenApi();
+      if (typeof cargarEstadoHtmlRemoto === 'function') cargarEstadoHtmlRemoto();
     }
 
     // ============================================================================
@@ -15363,6 +15389,60 @@ function renderEstadisticas(result) {
           mostrarToast('Error: ' + ((error && error.message) || error), 'error');
         })
         .revocarTokenApi();
+    }
+
+    // ============================================================================
+    // ACTUALIZACION EN CALIENTE DE LA INTERFAZ
+    // ============================================================================
+
+    function cargarEstadoHtmlRemoto() {
+      const el = document.getElementById('estadoHtmlRemoto');
+      if (!el) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            el.textContent = 'No se pudo consultar el estado.';
+            return;
+          }
+          if (res.activo) {
+            let txt = '<span style="color:var(--sv-exito);">✓ Activado</span> · ' +
+              escapeHtml(res.repo) + ' (' + escapeHtml(res.rama) + ')';
+            if (res.enCache) {
+              txt += '<br><span style="color:var(--sv-texto-muted);font-size:0.8rem;">última descarga: ' +
+                Math.round(res.bytes / 1024) + ' KB, ' + formatearFecha(res.ultimaDescarga) + '</span>';
+            }
+            el.innerHTML = txt;
+          } else {
+            el.innerHTML = '<span style="color:var(--sv-texto-muted);">Desactivado: se usa el archivo del proyecto</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          el.textContent = 'Error al consultar: ' + ((error && error.message) || error);
+        })
+        .obtenerEstadoHtmlRemoto();
+    }
+
+    function configurarHtmlRemotoUI(activar) {
+      if (activar && !confirm('Activar la actualización automática de la interfaz.\n\n' +
+          'Desde ahora el sistema tomará la interfaz de la rama main en GitHub. ' +
+          'Antes de activarlo se hace una descarga de prueba: si falla, no queda activado.\n\n¿Continuar?')) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          mostrarLoading(false);
+          cargarEstadoHtmlRemoto();
+          mostrarToast((res && (res.mensaje || res.error)) || 'Sin respuesta',
+                       (res && res.success) ? 'success' : 'error');
+          if (res && res.success && activar) {
+            mostrarToast('Recargá la página para ver la interfaz traída de GitHub.', 'info');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        })
+        .configurarHtmlRemoto(activar === true);
     }
 
     // ============================================================================

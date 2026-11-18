@@ -58,7 +58,7 @@ function doGet(e) {
 
   // Si no, devolver la Web App
   // XFrame: Script property XFRAME_DENY=1 → DENY (más seguro si no embebés en iframes)
-  var html = HtmlService.createHtmlOutputFromFile('SistemaSolVerde')
+  var html = _crearSalidaHtmlInterfaz()
     .setTitle('Sol & Verde - Sistema de Cuenta Corriente')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   var denyFrame = PropertiesService.getScriptProperties().getProperty('XFRAME_DENY') === '1';
@@ -66,6 +66,260 @@ function doGet(e) {
     denyFrame ? HtmlService.XFrameOptionsMode.DENY : HtmlService.XFrameOptionsMode.ALLOWALL
   );
   return html;
+}
+
+// ============================================================================
+// INTERFAZ EN CALIENTE DESDE GITHUB
+//
+// Con HTML_REMOTO = '1', doGet sirve SistemaSolVerde.html descargado de la
+// rama main en GitHub en lugar del archivo del proyecto. Asi la interfaz —que
+// son 13.700 lineas, la mayor parte del sistema y todo lo que el usuario ve—
+// se actualiza con cada push, sin desplegar nada.
+//
+// Es viable porque el archivo NO usa plantillas de Apps Script: se servia con
+// createHtmlOutputFromFile, no con createTemplateFromFile, asi que es HTML
+// estatico sin ningun <?= ?> que haya que evaluar del lado del servidor.
+//
+// Tres resguardos, en este orden:
+//   1. Si la descarga falla o devuelve algo que no parece la interfaz, se
+//      sirve la COPIA EN CACHE.
+//   2. Si tampoco hay copia, se sirve el ARCHIVO LOCAL del proyecto.
+//   3. Cualquier excepcion cae igualmente al archivo local.
+// El sistema no puede quedar caido por una falla de red o un push a medias.
+//
+// Nota honesta sobre "tiempo real": raw.githubusercontent.com se sirve detras
+// de una CDN con unos 5 minutos de cache propia, asi que el cambio aparece
+// dentro de ese margen, no en el instante exacto del push.
+// ============================================================================
+
+/** Repositorio y archivo de los que se toma la interfaz. */
+var HTML_REMOTO = {
+  REPO:    'AlanDi123/Cta-Cte-P200',
+  RAMA:    'main',
+  ARCHIVO: 'SistemaSolVerde.html',
+  // Marca que debe aparecer en el contenido para considerarlo valido. Evita
+  // servir una pagina de error de GitHub o una descarga cortada a medias.
+  MARCA:   'id="module-visor-cliente"',
+  TAMANIO_MINIMO: 50000,
+  CHUNK:   90000,   // CacheService admite ~100 KB por valor
+  TTL:     21600    // 6 horas, el maximo que permite CacheService
+};
+
+/**
+ * Devuelve el HtmlOutput de la interfaz, remoto si está activado.
+ * @returns {HtmlOutput}
+ */
+function _crearSalidaHtmlInterfaz() {
+  try {
+    if (PropertiesService.getScriptProperties().getProperty('HTML_REMOTO') !== '1') {
+      return HtmlService.createHtmlOutputFromFile('SistemaSolVerde');
+    }
+    var contenido = _obtenerHtmlRemoto();
+    if (contenido) {
+      return HtmlService.createHtmlOutput(contenido);
+    }
+  } catch (error) {
+    Logger.log('[HTML_REMOTO] Falló, se sirve el archivo local: ' + error.message);
+  }
+  return HtmlService.createHtmlOutputFromFile('SistemaSolVerde');
+}
+
+/**
+ * Descarga la interfaz desde GitHub, usando ETag para no retransmitir lo que
+ * no cambió.
+ *
+ * Se usa ETag contra raw.githubusercontent.com en lugar de consultar la API de
+ * GitHub por el último commit: la API sin credenciales tiene un límite de 60
+ * peticiones por hora y por IP, y los servidores de Apps Script comparten IP,
+ * así que ese límite se agotaría solo. Una petición condicional no tiene ese
+ * problema y, cuando no hubo cambios, responde 304 sin cuerpo.
+ *
+ * @returns {string|null} HTML, o null si no se pudo obtener nada servible
+ */
+function _obtenerHtmlRemoto() {
+  var cache = CacheService.getScriptCache();
+  var etagGuardado = cache.get('html_etag');
+
+  var url = 'https://raw.githubusercontent.com/' + HTML_REMOTO.REPO + '/' +
+            HTML_REMOTO.RAMA + '/' + HTML_REMOTO.ARCHIVO;
+
+  var opciones = { muteHttpExceptions: true, followRedirects: true };
+  if (etagGuardado) {
+    opciones.headers = { 'If-None-Match': etagGuardado };
+  }
+
+  var respuesta;
+  try {
+    respuesta = UrlFetchApp.fetch(url, opciones);
+  } catch (e) {
+    Logger.log('[HTML_REMOTO] No se pudo contactar GitHub: ' + e.message);
+    return _leerHtmlDeCache(cache);
+  }
+
+  var codigo = respuesta.getResponseCode();
+
+  // 304: no cambió nada desde la última vez. Es el camino habitual y el rápido.
+  if (codigo === 304) {
+    var deCache = _leerHtmlDeCache(cache);
+    if (deCache) return deCache;
+    // La caché expiró pero el ETag seguía vivo: se pide de nuevo sin condición
+    Logger.log('[HTML_REMOTO] 304 sin copia en caché; se vuelve a pedir completo.');
+    cache.remove('html_etag');
+    return _obtenerHtmlRemoto();
+  }
+
+  if (codigo !== 200) {
+    Logger.log('[HTML_REMOTO] GitHub respondió ' + codigo);
+    return _leerHtmlDeCache(cache);
+  }
+
+  var contenido = respuesta.getContentText('UTF-8');
+
+  // Validación: que de verdad sea la interfaz y no una página de error ni una
+  // descarga cortada. Sin esto, un push a medias dejaría el sistema en blanco.
+  if (!contenido || contenido.length < HTML_REMOTO.TAMANIO_MINIMO ||
+      contenido.indexOf(HTML_REMOTO.MARCA) === -1) {
+    Logger.log('[HTML_REMOTO] Contenido descartado por no parecer la interfaz (' +
+               (contenido ? contenido.length : 0) + ' bytes)');
+    return _leerHtmlDeCache(cache);
+  }
+
+  _guardarHtmlEnCache(cache, contenido, respuesta.getHeaders()['ETag'] ||
+                                        respuesta.getHeaders()['etag'] || '');
+  return contenido;
+}
+
+/** Reconstruye la interfaz guardada en caché. null si falta algún trozo. */
+function _leerHtmlDeCache(cache) {
+  var metaStr = cache.get('html_meta');
+  if (!metaStr) return null;
+  try {
+    var meta = JSON.parse(metaStr);
+    var partes = [];
+    for (var i = 0; i < meta.chunks; i++) {
+      var trozo = cache.get('html_c' + i);
+      if (trozo === null) return null; // copia incompleta: no sirve
+      partes.push(trozo);
+    }
+    var contenido = partes.join('');
+    return contenido.length >= HTML_REMOTO.TAMANIO_MINIMO ? contenido : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Guarda la interfaz troceada, porque CacheService admite ~100 KB por valor. */
+function _guardarHtmlEnCache(cache, contenido, etag) {
+  try {
+    var trozos = {};
+    var n = 0;
+    for (var i = 0; i < contenido.length; i += HTML_REMOTO.CHUNK) {
+      trozos['html_c' + n] = contenido.substring(i, i + HTML_REMOTO.CHUNK);
+      n++;
+    }
+    trozos['html_meta'] = JSON.stringify({ chunks: n, bytes: contenido.length, cuando: new Date().toISOString() });
+    if (etag) trozos['html_etag'] = etag;
+    cache.putAll(trozos, HTML_REMOTO.TTL);
+    Logger.log('[HTML_REMOTO] Interfaz actualizada desde GitHub: ' + contenido.length +
+               ' bytes en ' + n + ' trozos.');
+  } catch (e) {
+    Logger.log('[HTML_REMOTO] No se pudo guardar en caché: ' + e.message);
+  }
+}
+
+/**
+ * Estado de la actualización en caliente, para mostrarlo en Configuración.
+ * @returns {Object} Estado y detalle
+ */
+function obtenerEstadoHtmlRemoto() {
+  try {
+    var activo = PropertiesService.getScriptProperties().getProperty('HTML_REMOTO') === '1';
+    var cache = CacheService.getScriptCache();
+    var metaStr = cache.get('html_meta');
+    var meta = null;
+    if (metaStr) {
+      try { meta = JSON.parse(metaStr); } catch (e) { meta = null; }
+    }
+    return {
+      success: true,
+      activo: activo,
+      repo: HTML_REMOTO.REPO,
+      rama: HTML_REMOTO.RAMA,
+      enCache: !!meta,
+      bytes: meta ? meta.bytes : 0,
+      ultimaDescarga: meta ? meta.cuando : null
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Activa o desactiva la actualización en caliente de la interfaz.
+ *
+ * Al activarla hace una prueba real: si la descarga no funciona, NO queda
+ * activada. Es preferible fallar al configurar que dejar el sistema sirviendo
+ * una interfaz vieja o, peor, en blanco.
+ *
+ * @param {boolean} activar
+ * @returns {Object} Resultado
+ */
+function configurarHtmlRemoto(activar) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+
+    if (!activar) {
+      props.deleteProperty('HTML_REMOTO');
+      CacheService.getScriptCache().removeAll(['html_meta', 'html_etag']);
+      return { success: true, activo: false, mensaje: 'Desactivado. Se sirve el archivo del proyecto.' };
+    }
+
+    // Prueba antes de activar
+    var prueba = _probarDescargaInterfaz();
+    if (!prueba.success) {
+      return { success: false, activo: false, error: prueba.error };
+    }
+
+    props.setProperty('HTML_REMOTO', '1');
+    return {
+      success: true,
+      activo: true,
+      mensaje: 'Activado. La interfaz se tomará de ' + HTML_REMOTO.REPO + ' (' +
+               HTML_REMOTO.RAMA + '), ' + Math.round(prueba.bytes / 1024) + ' KB.'
+    };
+  } catch (error) {
+    Logger.log('Error en configurarHtmlRemoto: ' + error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/** Descarga la interfaz y la valida, sin activar nada ni tocar la caché. */
+function _probarDescargaInterfaz() {
+  try {
+    var url = 'https://raw.githubusercontent.com/' + HTML_REMOTO.REPO + '/' +
+              HTML_REMOTO.RAMA + '/' + HTML_REMOTO.ARCHIVO;
+    var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+
+    if (r.getResponseCode() !== 200) {
+      return {
+        success: false,
+        error: 'GitHub respondió ' + r.getResponseCode() + '. Verificá que el repositorio ' +
+               HTML_REMOTO.REPO + ' sea público o que la rama ' + HTML_REMOTO.RAMA + ' exista.'
+      };
+    }
+
+    var contenido = r.getContentText('UTF-8');
+    if (!contenido || contenido.length < HTML_REMOTO.TAMANIO_MINIMO) {
+      return { success: false, error: 'El archivo descargado es demasiado chico (' +
+               (contenido ? contenido.length : 0) + ' bytes): no parece la interfaz.' };
+    }
+    if (contenido.indexOf(HTML_REMOTO.MARCA) === -1) {
+      return { success: false, error: 'El archivo descargado no tiene la estructura esperada.' };
+    }
+    return { success: true, bytes: contenido.length };
+  } catch (error) {
+    return { success: false, error: 'No se pudo contactar GitHub: ' + error.message };
+  }
 }
 
 // ============================================================================
