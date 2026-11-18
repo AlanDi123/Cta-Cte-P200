@@ -68,6 +68,123 @@ function doGet(e) {
   return html;
 }
 
+// ============================================================================
+// AUTENTICACION DE LA API REST
+//
+// Las acciones financieras de doPost (addTransfers, addMovements, saveBackup)
+// y las de lectura sensible de la API GET (getClients, exportData,
+// getLatestBackup) NO validaban nada, mientras las de logistica si pasaban su
+// token. Segun como este publicado el Web App, cualquiera con la URL podia
+// inyectar movimientos de cuenta corriente, pisar el backup o descargar el
+// padron completo de clientes.
+//
+// El token se guarda en la propiedad de script API_TOKEN y se configura desde
+// Configuracion. Mientras no exista, esas acciones quedan DENEGADAS: es
+// preferible que una integracion falle de forma visible y se arregle, a que
+// el agujero siga abierto en silencio.
+//
+// La accion 'status' queda abierta a proposito, para poder comprobar que el
+// servicio responde sin exponer ningun dato.
+// ============================================================================
+
+/**
+ * Valida el token de la API REST.
+ * La comparacion recorre siempre todos los caracteres para no filtrar
+ * informacion por el tiempo de respuesta.
+ * @param {string} token - Token recibido en la peticion
+ * @returns {{ok: boolean, error?: string}}
+ */
+function _validarTokenApi(token) {
+  const esperado = PropertiesService.getScriptProperties().getProperty('API_TOKEN');
+  if (!esperado || String(esperado).trim().length < 16) {
+    return {
+      ok: false,
+      error: 'La API no tiene token configurado. Generá uno en Configuración → ' +
+             'Claves y Tokens y enviálo en el campo "token" de cada petición.'
+    };
+  }
+
+  const recibido = String(token || '');
+  const objetivo = String(esperado).trim();
+  if (recibido.length !== objetivo.length) {
+    return { ok: false, error: 'Token de API inválido.' };
+  }
+  let diferencias = 0;
+  for (let i = 0; i < objetivo.length; i++) {
+    if (recibido.charCodeAt(i) !== objetivo.charCodeAt(i)) diferencias++;
+  }
+  if (diferencias !== 0) {
+    return { ok: false, error: 'Token de API inválido.' };
+  }
+  return { ok: true };
+}
+
+/** Respuesta JSON de rechazo por token. */
+function _respuestaNoAutorizada(motivo) {
+  return ContentService.createTextOutput(
+    JSON.stringify({ success: false, error: motivo, code: 'NO_AUTORIZADO' })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Informa si la API tiene token configurado, SIN devolver su valor.
+ * @returns {{success: boolean, configurado: boolean, longitud: number}}
+ */
+function obtenerEstadoTokenApi() {
+  try {
+    const token = PropertiesService.getScriptProperties().getProperty('API_TOKEN');
+    const valido = !!token && String(token).trim().length >= 16;
+    return {
+      success: true,
+      configurado: valido,
+      longitud: valido ? String(token).trim().length : 0
+    };
+  } catch (e) {
+    return { success: false, configurado: false, longitud: 0, error: e.message };
+  }
+}
+
+/**
+ * Genera un token nuevo para la API REST y lo guarda.
+ *
+ * Lo devuelve UNA sola vez, en el momento de crearlo: después solo puede
+ * consultarse si está configurado, nunca su valor. Si ya había uno, queda
+ * invalidado, así que hay que actualizarlo en lo que consuma la API.
+ *
+ * @returns {{success: boolean, token?: string, error?: string}}
+ */
+function generarTokenApi() {
+  try {
+    // 48 caracteres hexadecimales a partir de dos UUID: suficiente entropía
+    const token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').substring(0, 48);
+    PropertiesService.getScriptProperties().setProperty('API_TOKEN', token);
+    Logger.log('[API] Token de API regenerado por ' + (Session.getActiveUser().getEmail() || 'desconocido'));
+    return {
+      success: true,
+      token: token,
+      mensaje: 'Token generado. Copialo ahora: no se vuelve a mostrar. ' +
+               'Actualizá cualquier sistema externo que consuma la API.'
+    };
+  } catch (e) {
+    Logger.log('Error en generarTokenApi: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Elimina el token de la API, dejando sus acciones protegidas inaccesibles.
+ * @returns {{success: boolean, error?: string}}
+ */
+function revocarTokenApi() {
+  try {
+    PropertiesService.getScriptProperties().deleteProperty('API_TOKEN');
+    Logger.log('[API] Token de API revocado por ' + (Session.getActiveUser().getEmail() || 'desconocido'));
+    return { success: true, mensaje: 'Token revocado. La API quedó cerrada hasta que generés uno nuevo.' };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 /**
  * Punto de entrada para peticiones POST (API REST)
  * @param {Object} e - Evento con datos POST
@@ -79,6 +196,16 @@ function doPost(e) {
 
     // Registrar en log para debugging
     Logger.log('API POST recibida - Acción: ' + data.action);
+
+    // Acciones financieras: exigen el token de API
+    const ACCIONES_PROTEGIDAS = ['addTransfers', 'addMovements', 'saveBackup'];
+    if (ACCIONES_PROTEGIDAS.indexOf(data.action) > -1) {
+      const auth = _validarTokenApi(data.token);
+      if (!auth.ok) {
+        Logger.log('[API] Rechazada acción "' + data.action + '": ' + auth.error);
+        return _respuestaNoAutorizada(auth.error);
+      }
+    }
 
     if (data.action === 'addTransfers') {
       return agregarTransferenciasAPI(data.data);
@@ -149,6 +276,16 @@ function doPost(e) {
 function manejarApiGet(e) {
   try {
     const action = e.parameter.action;
+
+    // Lecturas sensibles: exigen el token de API. 'status' queda abierta.
+    const ACCIONES_PROTEGIDAS_GET = ['getClients', 'getLatestBackup', 'exportData'];
+    if (ACCIONES_PROTEGIDAS_GET.indexOf(action) > -1) {
+      const auth = _validarTokenApi(e.parameter.token);
+      if (!auth.ok) {
+        Logger.log('[API] Rechazada acción GET "' + action + '": ' + auth.error);
+        return _respuestaNoAutorizada(auth.error);
+      }
+    }
 
     if (action === 'getClients') {
       return obtenerClientesAPI();

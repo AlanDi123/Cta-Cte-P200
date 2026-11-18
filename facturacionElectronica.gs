@@ -37,6 +37,153 @@ function _feDesglosarIVA(total) {
   return { neto: neto, iva: iva };
 }
 
+/**
+ * Anota un comprobante que ARCA autorizó pero que NO se pudo guardar en la
+ * hoja local, para que no se pierda.
+ *
+ * Va a una hoja aparte, CAE_SIN_GUARDAR, deliberadamente separada de la cola
+ * Pendientes_ARCA: esa cola es para comprobantes que NO se emitieron y hay
+ * que reintentar. Un CAE huérfano es el caso opuesto —ya existe ante el
+ * fisco— y reintentar su emisión generaría un comprobante DUPLICADO.
+ *
+ * @param {Object} fila - Datos del comprobante, incluido el CAE
+ * @param {string} motivo - Error que impidió el guardado
+ * @returns {{success: boolean, error?: string}}
+ */
+function _registrarCaeSinGuardar(fila, motivo) {
+  try {
+    var ss = getSpreadsheet();
+    var nombre = 'CAE_SIN_GUARDAR';
+    var hoja = ss.getSheetByName(nombre);
+    if (!hoja) {
+      hoja = ss.insertSheet(nombre);
+      hoja.appendRow(['TIMESTAMP', 'CAE', 'CAE_VTO', 'PTO_VTA', 'CBTE_NRO',
+                      'CBTE_TIPO', 'CLIENTE', 'CUIT', 'NETO', 'IVA', 'TOTAL',
+                      'MOTIVO', 'RESUELTO', 'PAYLOAD_JSON']);
+      hoja.getRange(1, 1, 1, 14).setFontWeight('bold').setBackground('#FFCDD2');
+      hoja.setFrozenRows(1);
+    }
+    hoja.appendRow([
+      new Date(),
+      fila.cae || '',
+      fila.caeVto || '',
+      fila.ptoVta || 0,
+      fila.cbteNro || 0,
+      fila.cbteTipoNombre || fila.cbteTipo || '',
+      fila.clienteNombre || '',
+      fila.clienteCuit || '',
+      fila.impNeto !== undefined ? fila.impNeto : '',
+      fila.impIVA !== undefined ? fila.impIVA : '',
+      fila.total || 0,
+      String(motivo || ''),
+      'NO',
+      JSON.stringify(fila || {})
+    ]);
+    return { success: true };
+  } catch (e) {
+    // Último recurso: si ni esto se puede escribir, al menos queda en el log
+    Logger.log('[FACT] CRITICO: no se pudo anotar el CAE huerfano. CAE=' +
+      (fila && fila.cae) + ' Error=' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Lista los comprobantes autorizados en ARCA que quedaron sin guardar.
+ * Expuesta al frontend para poder revisarlos y registrarlos a mano.
+ * @returns {{success: boolean, pendientes: Array<Object>, error?: string}}
+ */
+function obtenerCaesSinGuardar() {
+  try {
+    var ss = getSpreadsheet();
+    var hoja = ss.getSheetByName('CAE_SIN_GUARDAR');
+    if (!hoja || hoja.getLastRow() <= 1) {
+      return { success: true, pendientes: [] };
+    }
+    var datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, 13).getValues();
+    var pendientes = [];
+    for (var i = 0; i < datos.length; i++) {
+      var f = datos[i];
+      if (String(f[12]).toUpperCase() === 'SI') continue; // ya resuelto
+      pendientes.push({
+        fila:      i + 2,
+        timestamp: f[0] instanceof Date ? f[0].toISOString() : String(f[0] || ''),
+        cae:       String(f[1] || ''),
+        caeVto:    String(f[2] || ''),
+        ptoVta:    f[3] || 0,
+        cbteNro:   f[4] || 0,
+        cbteTipo:  String(f[5] || ''),
+        cliente:   String(f[6] || ''),
+        cuit:      String(f[7] || ''),
+        neto:      Number(f[8]) || 0,
+        iva:       Number(f[9]) || 0,
+        total:     Number(f[10]) || 0,
+        motivo:    String(f[11] || '')
+      });
+    }
+    return { success: true, pendientes: pendientes };
+  } catch (e) {
+    Logger.log('Error en obtenerCaesSinGuardar: ' + e.message);
+    return { success: false, pendientes: [], error: e.message };
+  }
+}
+
+/**
+ * Reintenta guardar en FACTURAS_EMITIDAS un comprobante anotado en
+ * CAE_SIN_GUARDAR y, si lo logra, lo marca como resuelto.
+ *
+ * NO vuelve a emitir nada en ARCA: solo completa el registro local que faltó.
+ *
+ * @param {number} fila - Número de fila en la hoja CAE_SIN_GUARDAR
+ * @returns {{success: boolean, mensaje?: string, error?: string}}
+ */
+function reintentarGuardadoCaeSinGuardar(fila) {
+  var lock = LockService.getScriptLock();
+  var lockAdquirido = false;
+  try {
+    lock.waitLock(30000);
+    lockAdquirido = true;
+
+    var numFila = parseInt(fila, 10);
+    if (isNaN(numFila) || numFila < 2) {
+      return { success: false, error: 'Fila inválida.' };
+    }
+
+    var ss = getSpreadsheet();
+    var hoja = ss.getSheetByName('CAE_SIN_GUARDAR');
+    if (!hoja || numFila > hoja.getLastRow()) {
+      return { success: false, error: 'No se encontró el registro.' };
+    }
+
+    var valores = hoja.getRange(numFila, 1, 1, 14).getValues()[0];
+    if (String(valores[12]).toUpperCase() === 'SI') {
+      return { success: false, error: 'Ese comprobante ya figura como resuelto.' };
+    }
+
+    var payload;
+    try {
+      payload = JSON.parse(String(valores[13] || '{}'));
+    } catch (e) {
+      return { success: false, error: 'El detalle guardado no se puede interpretar: ' + e.message };
+    }
+    if (!payload || !payload.cae) {
+      return { success: false, error: 'El registro no tiene CAE: no se puede guardar.' };
+    }
+
+    _guardarFacturaEnHoja(payload);
+    hoja.getRange(numFila, 13).setValue('SI');
+
+    Logger.log('[FACT] CAE ' + payload.cae + ' recuperado y guardado en FACTURAS_EMITIDAS.');
+    return { success: true, mensaje: 'Comprobante registrado. CAE ' + payload.cae };
+
+  } catch (e) {
+    Logger.log('Error en reintentarGuardadoCaeSinGuardar: ' + e.message);
+    return { success: false, error: e.message };
+  } finally {
+    if (lockAdquirido) lock.releaseLock();
+  }
+}
+
 // ─── SECCIÓN 1: WRAPPERS INTERNOS (delegación a capa afip/) ────────────────
 
 /**
@@ -308,9 +455,26 @@ function emitirFacturaElectronica(datosFactura) {
       return resultado;
     }
 
-    var postAfipError = '';
+    // ═══════════════════════════════════════════════════════════════════════
+    // DESDE AQUI EL CAE YA ESTA EMITIDO EN ARCA. El comprobante EXISTE ante
+    // el fisco y no se puede deshacer: solo se anula con una nota de credito.
+    //
+    // Por eso lo que sigue nunca puede terminar en un `success: false` que
+    // invite a reintentar la emision —seria un comprobante duplicado—, pero
+    // tampoco puede quedar en un aviso sepultado dentro de un string, que es
+    // lo que pasaba antes: el `catch` atrapaba el fallo de guardado y se
+    // devolvia `success: true` igual. La factura quedaba en ARCA y no en el
+    // sistema: sin historial, sin posibilidad de emitir NC y sin que nada la
+    // detectara al conciliar.
+    //
+    // Ahora el stock y el guardado son independientes, el guardado se
+    // reintenta, y si aun asi falla queda un registro DURABLE del CAE
+    // huerfano, mas una marca estructurada para que la interfaz avise.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ── Stock: su fallo no debe impedir el guardado del comprobante ─────────
+    var errorStock = '';
     try {
-      // ── Descontar stock de productos facturados ────────────────────────────
       if (datos.detalle && datos.detalle.length > 0) {
         datos.detalle.forEach(function(item) {
           var prodId = parseInt(item.productoId || item.id || 0);
@@ -324,48 +488,71 @@ function emitirFacturaElectronica(datosFactura) {
           }
         });
       }
+    } catch (eStock) {
+      errorStock = eStock.message || String(eStock);
+      Logger.log('[FACT] Error al descontar stock (CAE ya emitido): ' + errorStock);
+    }
 
-      // ── Guardar en hoja FACTURAS_EMITIDAS ───────────────────────────────────
-      _guardarFacturaEnHoja({
-        id:            Utilities.getUuid().substring(0, 8).toUpperCase(),
-        fecha:         formatearFechaLocal(new Date()),
-        cbteTipo:      datos.cbteTipo,
-        cbteTipoNombre: _nombreTipoComprobante(datos.cbteTipo),
-        ptoVta:        resultado.ptoVta || resultado.puntoVenta || 0,
-        cbteNro:       resultado.cbteNro || 0,
-        clienteNombre: datos.clienteNombre,
-        clienteCuit:   datos.clienteCuit || '',
-        clienteRazonSocial: datos.clienteRazonSocial || '',
-        condicionIvaReceptor: datos.clienteCondicionTexto || '',
-        impNeto:       neto,
-        impIVA:        iva,
-        total:         total,
-        detalle:       datos.detalle || [],
-        cae:           resultado.cae || '',
-        caeVto:        resultado.caeVencimiento || '',
-        estado:        'EMITIDA',
-        usuario:       Session.getActiveUser().getEmail()
-      });
-    } catch (ePost) {
-      postAfipError = ePost.message || String(ePost);
-      Logger.log('[FACT] Error post-AFIP (stock/hoja, CAE ya emitido): ' + postAfipError);
+    // ── Guardado local del comprobante, con reintento ───────────────────────
+    var filaFactura = {
+      id:            Utilities.getUuid().substring(0, 8).toUpperCase(),
+      fecha:         formatearFechaLocal(new Date()),
+      cbteTipo:      datos.cbteTipo,
+      cbteTipoNombre: _nombreTipoComprobante(datos.cbteTipo),
+      ptoVta:        resultado.ptoVta || resultado.puntoVenta || 0,
+      cbteNro:       resultado.cbteNro || 0,
+      clienteNombre: datos.clienteNombre,
+      clienteCuit:   datos.clienteCuit || '',
+      clienteRazonSocial: datos.clienteRazonSocial || '',
+      condicionIvaReceptor: datos.clienteCondicionTexto || '',
+      impNeto:       neto,
+      impIVA:        iva,
+      total:         total,
+      detalle:       datos.detalle || [],
+      cae:           resultado.cae || '',
+      caeVto:        resultado.caeVencimiento || '',
+      estado:        'EMITIDA',
+      usuario:       Session.getActiveUser().getEmail()
+    };
+
+    var errorGuardado = '';
+    try {
+      conRetry(function() { _guardarFacturaEnHoja(filaFactura); },
+        { contexto: 'FACT.guardarFacturaEnHoja', maxIntentos: 3 });
+    } catch (eGuardar) {
+      errorGuardado = eGuardar.message || String(eGuardar);
+      Logger.log('[FACT] CAE EMITIDO SIN GUARDAR: ' + errorGuardado);
+      // Rastro durable: hoja aparte, nunca la cola de pendientes de emision,
+      // porque un reintento de emision generaria un comprobante DUPLICADO.
+      _registrarCaeSinGuardar(filaFactura, errorGuardado);
     }
 
     var mensajeFront = resultado.mensaje || ('Comprobante emitido correctamente. CAE: ' + resultado.cae);
     if (avisoFecha) mensajeFront = mensajeFront + ' · ' + avisoFecha;
-    if (postAfipError) {
-      mensajeFront = mensajeFront + ' · Atención: el comprobante fue autorizado en ARCA pero falló guardar stock o la hoja local: ' + postAfipError;
+    if (errorGuardado) {
+      mensajeFront = 'COMPROBANTE AUTORIZADO EN ARCA PERO NO GUARDADO EN EL SISTEMA. ' +
+        'CAE ' + (resultado.cae || '—') +
+        ', comprobante ' + (resultado.ptoVta || resultado.puntoVenta || 0) + '-' + (resultado.cbteNro || 0) +
+        ', total ' + total + '. Quedó anotado en la hoja CAE_SIN_GUARDAR: hay que registrarlo a mano. ' +
+        'NO vuelva a emitirlo, se duplicaría. Motivo: ' + errorGuardado;
+    } else if (errorStock) {
+      mensajeFront = mensajeFront + ' · Atención: no se pudo descontar el stock: ' + errorStock;
     }
 
     return {
-      success:    true,
+      success:    true,   // el CAE existe: informar lo contrario invitaria a duplicar
       cae:        resultado.cae,
       ptoVta:     resultado.ptoVta || resultado.puntoVenta,
       cbteNro:    resultado.cbteNro,
       total:      total,
       mensaje:    mensajeFront,
       avisoFecha: avisoFecha,
-      advertencia: postAfipError || undefined
+      // Marca estructurada: la interfaz la usa para un aviso imposible de
+      // pasar por alto, en lugar de depender de leer el texto del mensaje
+      requiereAtencion: errorGuardado ? 'CAE_SIN_GUARDAR' : undefined,
+      errorGuardado:    errorGuardado || undefined,
+      errorStock:       errorStock || undefined,
+      advertencia:      errorGuardado || errorStock || undefined
     };
 
   } catch (error) {
@@ -2047,53 +2234,99 @@ function descontarStockPorFactura(items) {
     var descontados = [];
     var errores     = [];
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // Identificación del producto, por prioridades y sin adivinar.
+    //
+    // Antes la condición era `filaNombre.includes(busqueda) ||
+    // busqueda.includes(filaNombre)` con `break` en la PRIMERA coincidencia.
+    // Un ítem «AGUA» descontaba del primer producto cuyo nombre contuviera
+    // «agua»: podía descontar de «AGUA MINERAL 2L» en lugar de «AGUA SODA»,
+    // según el orden de las filas. Y si el stock quedaba negativo,
+    // descontaba igual y solo anotaba la advertencia.
+    //
+    // Ahora: 1) código exacto, 2) nombre exacto, 3) coincidencia parcial
+    // SOLO si es única. Si varios productos coinciden parcialmente, es
+    // ambiguo y no se toca nada: se informa y se listan los candidatos.
+    // ═══════════════════════════════════════════════════════════════════════
+
     items.forEach(function(item) {
       var busqueda = String(item.codigo || item.descripcion || '').toLowerCase().trim();
       if (!busqueda) return;
 
       var cantidad = Number(item.cantidad) || 1;
-      var encontrado = false;
+
+      var porCodigo = -1;
+      var porNombreExacto = -1;
+      var parciales = [];
 
       for (var r = 1; r < datos.length; r++) {
-        var filaCodigo  = colCodigo > -1 ? String(datos[r][colCodigo] || '').toLowerCase().trim() : '';
-        var filaNombre  = colNombre > -1 ? String(datos[r][colNombre] || '').toLowerCase().trim() : '';
-        var stockActual = Number(datos[r][colStock]) || 0;
+        var filaCodigo = colCodigo > -1 ? String(datos[r][colCodigo] || '').toLowerCase().trim() : '';
+        var filaNombre = colNombre > -1 ? String(datos[r][colNombre] || '').toLowerCase().trim() : '';
 
-        // Coincidencia por código exacto o nombre parcial
-        var coincide = (colCodigo > -1 && filaCodigo === busqueda) ||
-                       (colNombre > -1 && filaNombre.includes(busqueda)) ||
-                       (colNombre > -1 && busqueda.includes(filaNombre) && filaNombre.length > 3);
-
-        if (coincide) {
-          encontrado = true;
-          var nuevoStock = stockActual - cantidad;
-
-          if (nuevoStock < 0) {
-            errores.push('Stock insuficiente para "' + (datos[r][colNombre] || busqueda) +
-                         '" — stock: ' + stockActual + ', pedido: ' + cantidad);
-            // Se descuenta igual pero se registra la advertencia
-          }
-
-          // Actualizar la celda de stock (fila r+1 porque Sheets es 1-indexed)
-          hoja.getRange(r + 1, colStock + 1).setValue(nuevoStock);
-
-          descontados.push({
-            nombre:    datos[r][colNombre] || busqueda,
-            codigo:    colCodigo > -1 ? datos[r][colCodigo] : '',
-            anterior:  stockActual,
-            descontado: cantidad,
-            nuevo:     nuevoStock
-          });
-
-          Logger.log('[STOCK] "' + (datos[r][colNombre] || busqueda) + '": ' + stockActual + ' → ' + nuevoStock);
-          break; // Solo descuenta el primer match
+        if (colCodigo > -1 && filaCodigo && filaCodigo === busqueda) {
+          porCodigo = r;
+          break; // el código es la identificación más fuerte
+        }
+        if (colNombre > -1 && filaNombre && filaNombre === busqueda && porNombreExacto === -1) {
+          porNombreExacto = r;
+        }
+        if (colNombre > -1 && filaNombre && filaNombre.length > 3 &&
+            (filaNombre.indexOf(busqueda) > -1 || busqueda.indexOf(filaNombre) > -1)) {
+          parciales.push(r);
         }
       }
 
-      if (!encontrado) {
+      var fila = -1;
+      if (porCodigo > -1) {
+        fila = porCodigo;
+      } else if (porNombreExacto > -1) {
+        fila = porNombreExacto;
+      } else if (parciales.length === 1) {
+        fila = parciales[0];
+      } else if (parciales.length > 1) {
+        var candidatos = parciales.slice(0, 5).map(function(i) {
+          return '"' + String(datos[i][colNombre] || '') + '"';
+        }).join(', ');
+        errores.push('"' + busqueda + '" coincide con ' + parciales.length +
+                     ' productos (' + candidatos + '): NO se descontó stock para evitar ' +
+                     'descontar del producto equivocado. Usá el código exacto.');
+        Logger.log('[STOCK] Ambiguo: "' + busqueda + '" → ' + parciales.length + ' candidatos');
+        return;
+      }
+
+      if (fila === -1) {
         errores.push('Producto no encontrado en stock: "' + busqueda + '"');
         Logger.log('[STOCK] No encontrado: ' + busqueda);
+        return;
       }
+
+      var stockActual = Number(datos[fila][colStock]) || 0;
+      var nombreProd  = String(datos[fila][colNombre] || busqueda);
+
+      // Stock insuficiente: NO se descuenta. Dejar el stock en negativo
+      // convertía un dato de inventario en un número sin sentido.
+      if (stockActual - cantidad < 0) {
+        errores.push('Stock insuficiente para "' + nombreProd +
+                     '" — disponible: ' + stockActual + ', pedido: ' + cantidad +
+                     '. NO se descontó: ajustá el stock a mano.');
+        Logger.log('[STOCK] Insuficiente, sin descontar: "' + nombreProd +
+                   '" (' + stockActual + ' < ' + cantidad + ')');
+        return;
+      }
+
+      var nuevoStock = stockActual - cantidad;
+      // Fila fila+1 porque Sheets es 1-indexed y datos[0] es la cabecera
+      hoja.getRange(fila + 1, colStock + 1).setValue(nuevoStock);
+
+      descontados.push({
+        nombre:     nombreProd,
+        codigo:     colCodigo > -1 ? datos[fila][colCodigo] : '',
+        anterior:   stockActual,
+        descontado: cantidad,
+        nuevo:      nuevoStock
+      });
+
+      Logger.log('[STOCK] "' + nombreProd + '": ' + stockActual + ' → ' + nuevoStock);
     });
 
     return { success: true, descontados: descontados, errores: errores };

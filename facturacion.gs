@@ -954,9 +954,27 @@ function generarResumenFacturacion(mes, anio) {
       return { success: false, error: 'No hay transferencias para el mes seleccionado' };
     }
 
-    // Separar por tipo
-    const facturasA = transferencias.filter(t => t.tipoFactura === 'A');
-    const consumidoresFinales = transferencias.filter(t => t.tipoFactura === 'CONSUMIDOR FINAL');
+    // Separar por tipo.
+    //
+    // El alta escribe tipoFactura como 'A' o 'B' (ver línea ~216), pero este
+    // filtro comparaba contra 'CONSUMIDOR FINAL', un valor que el sistema
+    // NUNCA escribe en esa columna: solo lo usa como nombre de cliente. Por
+    // eso la rama nunca se ejecutaba, TODAS las facturas B quedaban fuera del
+    // resumen y la hoja «Consumidores Finales» no se generaba jamás.
+    //
+    // Se acepta también el valor antiguo por si alguna fila histórica lo tiene.
+    const esA = function(t) { return String(t.tipoFactura || '').toUpperCase() === 'A'; };
+    const esB = function(t) {
+      const tipo = String(t.tipoFactura || '').toUpperCase();
+      return tipo === 'B' || tipo === 'CONSUMIDOR FINAL';
+    };
+
+    const facturasA = transferencias.filter(esA);
+    const consumidoresFinales = transferencias.filter(esB);
+
+    // Nada debe desaparecer en silencio: si alguna fila no entra en ninguna
+    // categoría (columna vacía o valor inesperado), se informa.
+    const sinClasificar = transferencias.filter(function(t) { return !esA(t) && !esB(t); });
 
     const nombreMes = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][mes - 1];
@@ -971,11 +989,19 @@ function generarResumenFacturacion(mes, anio) {
       crearHojaConsumidoresFinales(ss, `Consumidores Finales - ${nombreMes} ${anio}`, consumidoresFinales);
     }
 
+    let mensaje = `Resumen generado: ${facturasA.length} Facturas A, ${consumidoresFinales.length} Consumidores Finales`;
+    if (sinClasificar.length > 0) {
+      mensaje += ` · Atención: ${sinClasificar.length} transferencia(s) sin tipo de factura quedaron fuera del resumen`;
+      Logger.log('[FACT] Transferencias sin clasificar en el resumen de ' + nombreMes + ' ' + anio +
+        ': ' + sinClasificar.map(function(t) { return t.id; }).join(', '));
+    }
+
     return {
       success: true,
-      mensaje: `Resumen generado: ${facturasA.length} Facturas A, ${consumidoresFinales.length} Consumidores Finales`,
+      mensaje: mensaje,
       facturasA: facturasA.length,
-      consumidoresFinales: consumidoresFinales.length
+      consumidoresFinales: consumidoresFinales.length,
+      sinClasificar: sinClasificar.length
     };
 
   } catch (error) {

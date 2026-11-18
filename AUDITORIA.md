@@ -4,8 +4,8 @@ Revisión completa de las 29.619 líneas del sistema: 11.700 en 17 archivos `.gs
 
 Cada hallazgo fue **verificado leyendo el código**, no inferido. Donde un informe preliminar exageró, se dice.
 
-- **Corregidos:** 18 fallos, todos con prueba o verificación directa.
-- **Documentados sin tocar:** 8, porque afectan dinero, stock o fisco y requieren su decisión.
+- **Corregidos:** 22 fallos, todos con prueba o verificación directa.
+- **Documentados sin tocar:** 4, porque afectan dinero, stock o fisco y esperan su decisión (ver sección 7).
 - **Código muerto eliminado:** 17 funciones.
 - **Conservado a propósito:** 9 funciones sin referencias que NO conviene borrar.
 
@@ -171,53 +171,73 @@ Codifica reglas fiscales reales de AFIP (Factura A exige CUIT y condición RI o 
 
 ---
 
-## 7. Pendientes de su decisión — 8 puntos, sin tocar
+## 7. Puntos sensibles
 
-Afectan dinero, stock o fisco. No se modificaron.
+Afectan dinero, stock o fisco. Los cuatro que el usuario autorizó ya están corregidos; los otros cuatro siguen sin tocar y esperan su decisión.
 
-### 7.1 CAE emitido en ARCA que el sistema reporta como éxito aunque no guarde nada · `facturacionElectronica.gs`
+### 7.1 ✅ CORREGIDO — CAE emitido en ARCA que el sistema reportaba como éxito aunque no guardara nada · `facturacionElectronica.gs`
 
-Si ARCA **otorga el CAE** pero falla el guardado local, el `catch` lo captura y se devuelve `success: true` con una advertencia dentro del mensaje.
+Si ARCA **otorgaba el CAE** pero fallaba el guardado local, el `catch` lo capturaba y se devolvía `success: true` con una advertencia sepultada dentro del mensaje.
 
-> **Consecuencia:** el comprobante **existe en ARCA** y no en su sistema. No aparece en el historial, no se le puede emitir nota de crédito y no se detecta al conciliar. Es el más grave de esta lista.
+> **Qué pasaba:** el comprobante **existía en ARCA** y no en el sistema. No aparecía en el historial, no se le podía emitir nota de crédito y no se detectaba al conciliar. Era el más grave.
 
-### 7.2 El stock se descuenta por coincidencia parcial de nombre · `facturacionElectronica.gs`
+**Corrección.** El punto de partida es que desde que ARCA otorga el CAE, el comprobante existe ante el fisco y no se puede deshacer: solo se anula con una nota de crédito. Por eso **el resultado sigue siendo `success: true`** — informar un fallo invitaría a reemitir y duplicar el comprobante. Lo que cambia es todo lo demás:
+
+1. **Stock y guardado quedan independientes:** un fallo al descontar stock ya no impide guardar el comprobante.
+2. **El guardado se reintenta** con `conRetry`.
+3. Si aun así falla, queda un **registro durable** en una hoja nueva, `CAE_SIN_GUARDAR`, con el CAE, el número, los importes y el detalle completo en JSON. Es una hoja **aparte** de `Pendientes_ARCA` a propósito: esa cola es para comprobantes que *no* se emitieron, y reintentar la emisión de un CAE huérfano generaría un duplicado.
+4. La respuesta lleva una marca estructurada `requiereAtencion: 'CAE_SIN_GUARDAR'`, y la interfaz pinta el recuadro **en rojo** en lugar del verde de éxito, con los datos para anotar y la advertencia de no reemitir.
+5. Nuevas funciones `obtenerCaesSinGuardar()` y `reintentarGuardadoCaeSinGuardar(fila)`, con su tarjeta en Configuración: permiten completar el registro local **sin tocar ARCA**.
+
+### 7.2 ✅ CORREGIDO — El stock se descontaba por coincidencia parcial de nombre · `facturacionElectronica.gs`
 
 `filaNombre.includes(busqueda) || busqueda.includes(filaNombre)`, con `break` en la primera coincidencia.
 
-> **Consecuencia:** un ítem «AGUA» descuenta del primer producto cuyo nombre contenga «agua» — «AGUA MINERAL 2L» en vez de «AGUA SODA». Y si el stock queda **negativo, descuenta igual** y solo registra una advertencia en el log.
+> **Qué pasaba:** un ítem «AGUA» descontaba del primer producto cuyo nombre contuviera «agua» — «AGUA MINERAL 2L» en vez de «AGUA SODA», según el orden de las filas. Y si el stock quedaba **negativo, descontaba igual**.
 
-### 7.3 ID de factura truncado a 8 caracteres · `facturacionElectronica.gs`
+**Corrección.** Identificación por prioridades y sin adivinar: **1)** código exacto, **2)** nombre exacto, **3)** coincidencia parcial **solo si es única**. Si varios productos coinciden parcialmente es ambiguo, **no se toca nada** y se informa listando los candidatos para que se use el código exacto. Y si el stock no alcanza, **no se descuenta**: dejarlo en negativo convertía un dato de inventario en un número sin sentido.
+
+### 7.3 ⏸ SIN TOCAR — ID de factura truncado a 8 caracteres · `facturacionElectronica.gs`
 
 `Utilities.getUuid().substring(0,8)` como clave, y el historial **deduplica por ese ID**.
 
 > **Consecuencia:** una colisión (≈1% con 10.000 comprobantes) hace que una factura real **desaparezca del historial** y que una nota de crédito apunte a la factura equivocada.
 
-### 7.4 La rama «Consumidor Final» del resumen mensual nunca se ejecuta · `facturacion.gs`
+### 7.4 ✅ CORREGIDO — La rama «Consumidor Final» del resumen mensual nunca se ejecutaba · `facturacion.gs`
 
-El alta escribe `tipoFactura` como `'A'` o `'B'`, pero el filtro compara contra `'CONSUMIDOR FINAL'`, que solo se usa como nombre de cliente.
+El alta escribe `tipoFactura` como `'A'` o `'B'`, pero el filtro comparaba contra `'CONSUMIDOR FINAL'`, un valor que el sistema nunca escribe en esa columna: solo lo usa como nombre de cliente.
 
-> **Consecuencia:** **todas las facturas B quedan fuera del resumen mensual** y la hoja «Consumidores Finales» nunca se genera.
+> **Qué pasaba:** **todas las facturas B quedaban fuera del resumen mensual** y la hoja «Consumidores Finales» no se generaba jamás.
 
-### 7.5 Stock sin transacción ni reversión · `facturacion.gs`
+**Corrección.** El filtro compara contra `'B'`, y acepta también el valor antiguo `'CONSUMIDOR FINAL'` por si alguna fila histórica lo tiene. Además, nada desaparece en silencio: las transferencias que no entran en ninguna categoría —columna vacía o valor inesperado— se cuentan aparte y se informan en el mensaje y en el log, con sus IDs.
+
+### 7.5 ⏸ SIN TOCAR — Stock sin transacción ni reversión · `facturacion.gs`
 
 `validarStock` lee y `descontarStock` vuelve a leer y escribe, sin candado entre ambas; y `procesarFacturaConStock` descuenta ítem por ítem sin reversión.
 
 > **Consecuencia:** dos facturas simultáneas del último producto pasan ambas la validación. Y si el tercer ítem falla, los dos primeros ya quedaron descontados y la transferencia **no** se marca como facturada.
 
-### 7.6 `doPost` sin autenticación en las acciones financieras · `main.gs`
+### 7.6 ✅ CORREGIDO — La API REST no tenía autenticación · `main.gs`
 
-`addTransfers`, `addMovements` y `saveBackup` **no validan token alguno**, mientras las acciones de logística sí pasan `data.token` por `_validarTokenVales`. `manejarApiGet` expone además `getClients` y `exportData` sin validación.
+`addTransfers`, `addMovements` y `saveBackup` **no validaban token alguno**, mientras las acciones de logística sí pasaban `data.token`. `manejarApiGet` exponía además `getClients`, `exportData` y `getLatestBackup` sin validación.
 
-> **Consecuencia:** depende de cómo esté publicado el Web App. Si está como «cualquier persona», **cualquiera con la URL puede inyectar movimientos de cuenta corriente, pisar el backup o descargar su padrón de clientes**. Convendría que me confirme esa configuración.
+> **Qué pasaba:** depende de cómo esté publicado el Web App. Si está como «cualquier persona», **cualquiera con la URL podía inyectar movimientos de cuenta corriente, pisar el backup o descargar el padrón completo de clientes**.
 
-### 7.7 Saldos indexados sin normalizar · `movimientos.gs` + `main.gs`
+**Corrección.** Token en la propiedad de script `API_TOKEN`, exigido en las seis acciones sensibles. La comparación recorre siempre todos los caracteres para no filtrar nada por el tiempo de respuesta. `status` queda abierta a propósito, para comprobar que el servicio responde sin exponer datos. En Configuración → Claves y Tokens hay una tarjeta para generar el token (48 caracteres, se muestra una sola vez), consultar si está configurado —nunca su valor— y revocarlo.
+
+> ### ⚠️ Esto puede cortar una integración existente
+>
+> **Mientras `API_TOKEN` no esté configurado, esas seis acciones quedan denegadas.** Es deliberado: preferible que una integración falle de forma visible y se arregle, a que el agujero siga abierto en silencio.
+>
+> Si tiene un sistema externo —un POS, un script— que consume esta API, hay que hacer dos cosas **antes** de desplegar: generar el token en Configuración y cargarlo en ese sistema. Se envía en el campo `token` del cuerpo JSON en POST, o como parámetro `&token=` en la URL en GET. Si no hay nada externo consumiendo la API, no hay nada que hacer.
+
+### 7.7 ⏸ SIN TOCAR — Saldos indexados sin normalizar · `movimientos.gs` + `main.gs`
 
 `calcularSaldosHistoricos` indexa por el nombre crudo de la hoja, mientras `obtenerSaldosConMovimientosDia` busca por el nombre de la hoja CLIENTES.
 
 > **Consecuencia:** cualquier diferencia de acentos o espacios hace que ese cliente aparezca con **saldo 0** en la vista histórica.
 
-### 7.8 El PIN de logística está escrito en el repositorio · `config.gs`
+### 7.8 ⏸ SIN TOCAR — El PIN de logística está escrito en el repositorio · `config.gs`
 
 `PIN_ACCESO: '4646'`.
 

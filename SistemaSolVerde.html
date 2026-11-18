@@ -3692,6 +3692,43 @@
             </div>
 
             <div class="card">
+              <div class="card-title">🔐 Token de la API REST</div>
+              <p style="margin-bottom: 0.75rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Protege las acciones de la API que mueven dinero o exponen datos:
+                <code>addMovements</code>, <code>addTransfers</code>, <code>saveBackup</code>,
+                <code>getClients</code>, <code>exportData</code> y <code>getLatestBackup</code>.
+                Sin token configurado, esas acciones quedan <strong>cerradas</strong>.
+              </p>
+              <p style="margin-bottom: 1rem; padding: 0.6rem 0.8rem; border-radius: 6px; background: rgba(251,192,45,0.15); font-size: 0.8rem;">
+                ⚠️ Si tenés un sistema externo que consume esta API, al generar el token
+                <strong>tenés que actualizarlo allí</strong>: enviá el token en el campo
+                <code>token</code> del cuerpo JSON (POST) o como parámetro <code>&amp;token=</code> en la URL (GET).
+                Hasta entonces, ese sistema recibirá un error de autorización.
+              </p>
+              <p id="estadoTokenApi" style="margin-bottom: 0.75rem; font-size: 0.875rem;"></p>
+              <div id="tokenApiGenerado" style="display:none; margin-bottom: 0.75rem;">
+                <label class="form-label" style="font-size: 0.8rem;">Token nuevo — copialo ahora, no se vuelve a mostrar</label>
+                <input type="text" class="form-input" id="inputTokenApiGenerado" readonly
+                       style="font-family: monospace; font-size: 0.8rem;" onclick="this.select();">
+              </div>
+              <div class="btn-group" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="generarTokenApiConfig()" style="flex:1; min-width:10rem;">Generar token</button>
+                <button class="btn btn-outline" onclick="revocarTokenApiConfig()" style="flex:1; min-width:10rem; color: var(--sv-peligro);">Revocar</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">⚠️ Comprobantes autorizados sin guardar</div>
+              <p style="margin-bottom: 0.75rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
+                Comprobantes que ARCA <strong>autorizó</strong> pero que no se pudieron guardar
+                en el sistema. Existen ante el fisco, así que <strong>no hay que volver a emitirlos</strong>:
+                hay que completar el registro local.
+              </p>
+              <div id="listaCaesSinGuardar"></div>
+              <button class="btn btn-outline" onclick="cargarCaesSinGuardar()" style="width: 100%; margin-top: 0.5rem;">Revisar</button>
+            </div>
+
+            <div class="card">
               <div class="card-title">📋 Datos Fiscales del Emisor</div>
               <p style="margin-bottom: 1rem; color: var(--sv-texto-secundario); font-size: 0.875rem;">
                 Datos que aparecerán en las facturas electrónicas ARCA
@@ -6528,6 +6565,9 @@
             ((error && error.message) || error));
         })
         .verificarApiKey();
+
+      // Estado del token de la API REST (nunca devuelve su valor)
+      if (typeof cargarEstadoTokenApi === 'function') cargarEstadoTokenApi();
     }
 
     // ============================================================================
@@ -12616,9 +12656,19 @@ function renderEstadisticas(result) {
             document.getElementById('btnEmitirArca').disabled = false;
 
             if (result.success) {
-              mostrarToast(result.mensaje || 'Comprobante emitido', 'success');
-              if (result.advertencia) {
-                mostrarToast(result.advertencia, 'warning');
+              // El CAE existe en ARCA, pero puede no haberse guardado en el
+              // sistema. Ese caso NO puede mostrarse como un exito verde: se
+              // destaca en rojo, porque hay que registrarlo a mano y sobre
+              // todo NO volver a emitirlo.
+              var sinGuardar = result.requiereAtencion === 'CAE_SIN_GUARDAR';
+
+              if (sinGuardar) {
+                mostrarToast('ATENCIÓN: el comprobante se autorizó en ARCA pero NO se guardó en el sistema. No lo emitas de nuevo.', 'error');
+              } else {
+                mostrarToast(result.mensaje || 'Comprobante emitido', 'success');
+                if (result.advertencia) {
+                  mostrarToast(result.advertencia, 'warning');
+                }
               }
               sincronizarProductosTrasFacturaExito();
 
@@ -12627,7 +12677,13 @@ function renderEstadisticas(result) {
               var cont = document.getElementById('arcaResultadoContenido');
               var pdfOk = result.pdfUrl && /^https:\/\//i.test(String(result.pdfUrl));
               var bloque =
-                '<div class="alert" style="background:var(--sv-exito);color:white;padding:1rem;border-radius:8px;">' +
+                '<div class="alert" style="background:' + (sinGuardar ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';color:white;padding:1rem;border-radius:8px;">' +
+                (sinGuardar
+                  ? '<p style="font-weight:bold;font-size:1.05rem;margin-bottom:0.5rem;">⚠️ AUTORIZADO EN ARCA — NO GUARDADO EN EL SISTEMA</p>' +
+                    '<p style="font-size:0.9rem;line-height:1.4;margin-bottom:0.5rem;">Anotá estos datos: quedaron registrados en la hoja <strong>CAE_SIN_GUARDAR</strong> ' +
+                    'y podés completarlos desde Configuración → Comprobantes autorizados sin guardar. ' +
+                    '<strong>No vuelvas a emitir este comprobante</strong>, se duplicaría ante ARCA.</p>'
+                  : '') +
                 '<p style="font-size:0.95rem;line-height:1.4;">' + escapeHtml(String(result.mensaje || '')) + '</p>' +
                 '<p><strong>CAE:</strong> ' + escapeHtml(String(result.cae != null ? result.cae : '')) + '</p>' +
                 '<p><strong>Numero:</strong> ' + escapeHtml(String(result.ptoVta).padStart(5, '0') + '-' + String(result.cbteNro).padStart(8, '0')) + '</p>' +
@@ -13995,6 +14051,132 @@ function renderEstadisticas(result) {
     /**
      * Guarda la configuración general del sistema
      */
+    // ============================================================================
+    // TOKEN DE LA API REST
+    // ============================================================================
+
+    /** Refresca el texto de estado del token sin mostrar nunca su valor. */
+    function cargarEstadoTokenApi() {
+      const el = document.getElementById('estadoTokenApi');
+      if (!el) return;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res && res.configurado) {
+            el.innerHTML = '<span style="color:var(--sv-exito);">✓ Token configurado</span> ' +
+              '<span style="color:var(--sv-texto-muted);">(' + res.longitud + ' caracteres)</span>';
+          } else {
+            el.innerHTML = '<span style="color:var(--sv-peligro);">✗ Sin token: las acciones protegidas de la API están cerradas</span>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          el.textContent = 'No se pudo consultar el estado: ' + ((error && error.message) || error);
+        })
+        .obtenerEstadoTokenApi();
+    }
+
+    function generarTokenApiConfig() {
+      if (!confirm('Generar un token nuevo invalida el anterior.\n\n' +
+                   'Si tenés un sistema externo que consume la API, dejará de funcionar ' +
+                   'hasta que le cargues el token nuevo.\n\n¿Continuar?')) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          mostrarLoading(false);
+          if (res && res.success) {
+            const cont = document.getElementById('tokenApiGenerado');
+            const campo = document.getElementById('inputTokenApiGenerado');
+            if (campo) campo.value = res.token;
+            if (cont) cont.style.display = 'block';
+            cargarEstadoTokenApi();
+            mostrarToast('Token generado. Copialo ahora: no se vuelve a mostrar.', 'success');
+          } else {
+            mostrarToast((res && res.error) || 'No se pudo generar el token', 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        })
+        .generarTokenApi();
+    }
+
+    function revocarTokenApiConfig() {
+      if (!confirm('Revocar el token cierra por completo las acciones protegidas de la API.\n\n¿Continuar?')) return;
+
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          mostrarLoading(false);
+          const cont = document.getElementById('tokenApiGenerado');
+          if (cont) cont.style.display = 'none';
+          cargarEstadoTokenApi();
+          mostrarToast((res && res.mensaje) || 'Token revocado', (res && res.success) ? 'success' : 'error');
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        })
+        .revocarTokenApi();
+    }
+
+    // ============================================================================
+    // COMPROBANTES AUTORIZADOS EN ARCA QUE NO SE GUARDARON
+    // ============================================================================
+
+    function cargarCaesSinGuardar() {
+      const cont = document.getElementById('listaCaesSinGuardar');
+      if (!cont) return;
+      cont.innerHTML = '<p style="font-size:0.85rem;color:var(--sv-texto-muted);">Consultando...</p>';
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (!res || !res.success) {
+            cont.innerHTML = '<p style="font-size:0.85rem;color:var(--sv-peligro);">' +
+              escapeHtml((res && res.error) || 'No se pudo consultar') + '</p>';
+            return;
+          }
+          const lista = res.pendientes || [];
+          if (lista.length === 0) {
+            cont.innerHTML = '<p style="font-size:0.85rem;color:var(--sv-exito);">✓ No hay comprobantes pendientes de registrar.</p>';
+            return;
+          }
+          cont.innerHTML = lista.map(function(p) {
+            return '<div style="border:1px solid var(--sv-peligro);border-radius:6px;padding:0.6rem;margin-bottom:0.5rem;font-size:0.82rem;">' +
+              '<div><strong>' + escapeHtml(p.cbteTipo) + ' ' + p.ptoVta + '-' + p.cbteNro + '</strong> · ' +
+                escapeHtml(p.cliente) + '</div>' +
+              '<div style="color:var(--sv-texto-secundario);">CAE ' + escapeHtml(p.cae) +
+                ' · Total ' + formatearMonto(p.total) + '</div>' +
+              '<div style="color:var(--sv-texto-muted);font-size:0.75rem;margin-top:0.2rem;">' +
+                escapeHtml(p.motivo) + '</div>' +
+              '<button class="btn btn-outline btn-sm" style="margin-top:0.4rem;" ' +
+                'onclick="reintentarGuardadoCae(' + p.fila + ')">Registrar en el sistema</button>' +
+            '</div>';
+          }).join('');
+        })
+        .withFailureHandler(function(error) {
+          cont.innerHTML = '<p style="font-size:0.85rem;color:var(--sv-peligro);">Error: ' +
+            escapeHtml((error && error.message) || String(error)) + '</p>';
+        })
+        .obtenerCaesSinGuardar();
+    }
+
+    function reintentarGuardadoCae(fila) {
+      mostrarLoading(true);
+      google.script.run
+        .withSuccessHandler(function(res) {
+          mostrarLoading(false);
+          mostrarToast((res && (res.mensaje || res.error)) || 'Sin respuesta',
+                       (res && res.success) ? 'success' : 'error');
+          cargarCaesSinGuardar();
+        })
+        .withFailureHandler(function(error) {
+          mostrarLoading(false);
+          mostrarToast('Error: ' + ((error && error.message) || error), 'error');
+        })
+        .reintentarGuardadoCaeSinGuardar(fila);
+    }
+
     /**
      * Lee el campo "Movimientos en el Visor" respetando el 0.
      * Con el patron habitual (parseInt(...) || 20) un 0 escrito a proposito
