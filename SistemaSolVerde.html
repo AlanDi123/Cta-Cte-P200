@@ -4231,9 +4231,42 @@
 
                 <div class="form-group">
                   <label class="form-label">Idioma del reconocimiento</label>
-                  <input type="text" class="form-input" id="inputOcrIdioma" placeholder="es">
+                  <div class="form-input" style="max-width:260px;background:var(--sv-superficie-elevada);font-weight:bold;">Español (fijo)</div>
                   <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
-                    Código de idioma: <code>es</code>, o <code>es+en</code> para libros mezclados
+                    Los dos motores leen solo en español, con la fonética y los apellidos de
+                    origen español, italiano, vasco y otros comunes en Argentina. No se mezcla
+                    con otros idiomas porque el inglés solo mete ruido al leer nombres.
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Reintentos de lectura (0-6)</label>
+                  <input type="number" class="form-input" id="inputOcrReintentos" placeholder="3" min="0" max="6">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Si un nombre no coincide con tu padrón, el sistema <strong>vuelve a leer solo ese
+                    renglón</strong> con otro procesado de la imagen, hasta encontrar una coincidencia.
+                    Cada vuelta usa un método distinto. <code>0</code> apaga los reintentos.
+                    Necesitan el motor del navegador.
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Tiempo máximo de reintentos (segundos)</label>
+                  <input type="number" class="form-input" id="inputOcrPresupuestoSeg" placeholder="45" min="10" max="180">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Tope para todas las vueltas juntas. Al llegar, se muestra lo que haya
+                    y las filas restantes quedan para revisar a mano.
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Parecido para aceptar un nombre solo (%)</label>
+                  <input type="number" class="form-input" id="inputOcrUmbralNombre" placeholder="90" min="60" max="100">
+                  <p style="font-size: 0.75rem; color: var(--sv-texto-muted); margin-top: 0.25rem;">
+                    Por encima de este valor, <strong>y</strong> con ventaja clara sobre el segundo
+                    cliente más parecido, el nombre se corrige y se marca solo. Si hay dos clientes
+                    casi iguales (PAZ y PAEZ) <strong>siempre pregunta</strong>. Subilo si querés más
+                    cautela; bajarlo de 85 aumenta el riesgo de cargarle una deuda al cliente equivocado.
                   </p>
                 </div>
 
@@ -8806,21 +8839,495 @@ function renderEstadisticas(result) {
 
     const TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
 
+    // ============================================================================
+    // COMPARADOR DE NOMBRES EN ESPAÑOL
+    //
+    // COPIA IDENTICA de nombres_es.gs (entre los marcadores NOMBRES_ES). El servidor y
+    // el navegador tienen que decidir igual: si se edita una, hay que editar la otra.
+    // El flujo de despliegue verifica que sean iguales.
+    // ============================================================================
+// ===NOMBRES_ES_INICIO===
+const NombresEs = (function() {
+  'use strict';
+
+  const HONORIFICOS = {
+    SR: 1, SRA: 1, SRES: 1, SRTA: 1, SRS: 1, DR: 1, DRA: 1, DON: 1, DONA: 1,
+    ING: 1, LIC: 1, ARQ: 1, HNOS: 1, HNO: 1, HERMANOS: 1, FLIA: 1, FAMILIA: 1,
+    SA: 1, SRL: 1, SAS: 1, CIA: 1, SOC: 1, SOCIEDAD: 1
+  };
+  const CONJUNCIONES = { Y: 1, E: 1 };
+  // Partículas que se pegan al apellido: "DI MARCO" y "DIMARCO" son lo mismo
+  const PARTICULAS = {
+    DE: 1, DEL: 1, LA: 1, LAS: 1, LOS: 1, EL: 1, DA: 1, DAS: 1, DO: 1, DOS: 1,
+    DI: 1, VAN: 1, VON: 1, MC: 1, MAC: 1
+  };
+  const DIGITO_A_LETRA = { '0': 'O', '1': 'I', '2': 'Z', '3': 'E', '4': 'A', '5': 'S', '6': 'G', '7': 'T', '8': 'B', '9': 'G' };
+
+  // Costo de confundir dos letras al leer. 1 = sustitución cualquiera.
+  const CONFUSION = {};
+  function par(a, b, costo) { CONFUSION[a + b] = costo; CONFUSION[b + a] = costo; }
+  // Formas redondas, trazos verticales, curvas abiertas...
+  par('O', 'Q', 0.35); par('O', 'D', 0.45); par('O', 'C', 0.5); par('O', 'G', 0.5);
+  par('Q', 'G', 0.5);  par('C', 'G', 0.5);  par('D', 'Q', 0.5);
+  par('I', 'L', 0.35); par('I', 'T', 0.55); par('L', 'T', 0.5); par('I', 'J', 0.5);
+  par('U', 'V', 0.35); par('U', 'Y', 0.55); par('V', 'Y', 0.4);
+  par('A', 'O', 0.5);  par('E', 'C', 0.5);  par('E', 'F', 0.6);
+  par('M', 'N', 0.5);  par('N', 'H', 0.55); par('M', 'W', 0.55); par('N', 'R', 0.55);
+  par('B', 'R', 0.6);  par('P', 'R', 0.55);
+  // Suenan igual en el español rioplatense
+  par('S', 'Z', 0.25); par('S', 'C', 0.25); par('Z', 'C', 0.25); par('B', 'V', 0.2);
+  par('G', 'J', 0.4);  par('K', 'C', 0.25); par('K', 'Q', 0.25); par('Q', 'C', 0.35);
+  par('Y', 'I', 0.3);
+
+  function costoSustitucion(x, y) {
+    if (x === y) return 0;
+    const c = CONFUSION[x + y];
+    return c === undefined ? 1 : c;
+  }
+  function costoIndel(x) {
+    if (x === 'H') return 0.25;                       // la h muda se pierde y se agrega
+    if (x === 'A' || x === 'E' || x === 'I' || x === 'O' || x === 'U') return 0.8;
+    return 1;
+  }
+
+  /** Mayúsculas, sin acentos ni tilde de la Ñ, sin signos. D'ANGELO → DANGELO. */
+  function normalizar(texto) {
+    return String(texto == null ? '' : texto)
+      .toUpperCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[’'´`]/g, '')
+      .replace(/[^A-Z0-9]+/g, ' ')
+      .trim();
+  }
+
+  /** G0NZALES → GONZALES. Un token que es casi todo número no es un nombre. */
+  function corregirDigitos(token) {
+    const letras = (token.match(/[A-Z]/g) || []).length;
+    const digitos = token.length - letras;
+    if (digitos === 0) return token;
+    if (letras < 2 || digitos > letras) return null;
+    return token.replace(/[0-9]/g, function(d) { return DIGITO_A_LETRA[d] || d; });
+  }
+
+  /**
+   * Parte un nombre en palabras significativas: {t: palabra, core?: sin partícula}.
+   * Saca "y", honoríficos (SR, DON, HNOS, SA...) y pega las partículas.
+   */
+  function tokenizar(texto) {
+    const crudos = normalizar(texto).split(' ');
+    const base = [];
+    for (let i = 0; i < crudos.length; i++) {
+      if (!crudos[i]) continue;
+      const f = corregirDigitos(crudos[i]);
+      if (f) base.push(f);
+    }
+    let util = base.filter(function(x) { return !CONJUNCIONES[x] && !HONORIFICOS[x]; });
+    if (util.length === 0) util = base.filter(function(x) { return !CONJUNCIONES[x]; });
+    if (util.length === 0) util = base;
+
+    const salida = [];
+    let pendiente = '';
+    for (let i = 0; i < util.length; i++) {
+      const x = util[i];
+      if (PARTICULAS[x]) { pendiente += x; continue; }
+      const tok = { t: pendiente + x };
+      if (pendiente) tok.core = x;
+      salida.push(tok);
+      pendiente = '';
+    }
+    if (pendiente && salida.length === 0) salida.push({ t: pendiente });
+    return salida;
+  }
+
+  // Memoria de resultados. En un padrón las mismas palabras se repiten en muchos
+  // clientes (JUAN, GONZALEZ...): sin esto se recalcula lo mismo miles de veces.
+  // Se vacía al llegar al tope para no crecer sin límite.
+  let memoFonetica = {}, memoParecido = {}, nFonetica = 0, nParecido = 0;
+
+  /** Clave fonética del español rioplatense (con tolerancia a grafías de otras lenguas). */
+  function fonetica(token) {
+    const guardada = memoFonetica[token];
+    if (guardada !== undefined) return guardada;
+    if (nFonetica > 20000) { memoFonetica = {}; nFonetica = 0; }
+    const r = calcularFonetica(token);
+    memoFonetica[token] = r; nFonetica++;
+    return r;
+  }
+
+  function calcularFonetica(token) {
+    // 1 = "ch", 2 = "ll"/"y" (yeísmo). Los dígitos no existen en un token ya corregido.
+    const s = token
+      .replace(/SCH/g, '1').replace(/TX/g, '1').replace(/CH/g, '1')
+      .replace(/LL/g, '2')
+      .replace(/PH/g, 'F').replace(/GH/g, 'G').replace(/TZ/g, 'S')
+      .replace(/GN/g, 'N').replace(/NY/g, 'N');
+    let r = '';
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i], n = s[i + 1] || '', n2 = s[i + 2] || '';
+      const suave = (n === 'E' || n === 'I');
+      switch (c) {
+        case 'H': break;
+        case 'V': case 'W': case 'B': r += 'B'; break;
+        case 'Z': case 'S': r += 'S'; break;
+        case 'C': r += suave ? 'S' : 'K'; break;
+        case 'Q': if (n === 'U') i++; r += 'K'; break;
+        case 'G':
+          if (n === 'U' && (n2 === 'E' || n2 === 'I')) { i++; r += 'G'; }
+          else r += suave ? 'J' : 'G';
+          break;
+        case 'X': r += 'KS'; break;
+        case 'Y': r += ('AEIOU'.indexOf(n) > -1 && n) ? 'Y' : 'I'; break;
+        case '1': r += 'X'; break;
+        case '2': r += 'Y'; break;
+        default: r += c;
+      }
+    }
+    return r.replace(/(.)\1+/g, '$1');
+  }
+
+  /** Distancia de edición ponderada (con transposiciones) entre dos cadenas. */
+  function distancia(a, b) {
+    const n = a.length, m = b.length;
+    if (n === 0) { let t = 0; for (let k = 0; k < m; k++) t += costoIndel(b[k]); return t; }
+    if (m === 0) { let t = 0; for (let k = 0; k < n; k++) t += costoIndel(a[k]); return t; }
+    const d = [];
+    for (let i = 0; i <= n; i++) { d.push(new Array(m + 1)); }
+    d[0][0] = 0;
+    for (let i = 1; i <= n; i++) d[i][0] = d[i - 1][0] + costoIndel(a[i - 1]);
+    for (let j = 1; j <= m; j++) d[0][j] = d[0][j - 1] + costoIndel(b[j - 1]);
+    for (let i = 1; i <= n; i++) {
+      for (let j = 1; j <= m; j++) {
+        let v = Math.min(
+          d[i - 1][j - 1] + costoSustitucion(a[i - 1], b[j - 1]),
+          d[i - 1][j] + costoIndel(a[i - 1]),
+          d[i][j - 1] + costoIndel(b[j - 1])
+        );
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+          v = Math.min(v, d[i - 2][j - 2] + 0.7);
+        }
+        d[i][j] = v;
+      }
+    }
+    return d[n][m];
+  }
+
+  function parecidoPorEdicion(a, b) {
+    const largo = Math.max(a.length, b.length);
+    if (largo === 0) return 1;
+    const s = 1 - distancia(a, b) / largo;
+    return s < 0 ? 0 : s;
+  }
+
+  /** Lecturas alternativas típicas del OCR: rn↔m, cl↔d. Solo si el patrón está. */
+  function variantesDeRuido(t) {
+    const v = [t];
+    if (t.indexOf('RN') > -1) v.push(t.replace(/RN/g, 'M'));
+    if (t.indexOf('CL') > -1) v.push(t.replace(/CL/g, 'D'));
+    if (t.indexOf('VV') > -1) v.push(t.replace(/VV/g, 'W'));
+    return v;
+  }
+
+  /** Parecido entre dos palabras sueltas (cadenas normalizadas): 0 a 1. */
+  function parecidoTexto(a, b) {
+    if (a === b) return 1;
+    const clave = a + '|' + b;
+    const guardado = memoParecido[clave];
+    if (guardado !== undefined) return guardado;
+    if (nParecido > 40000) { memoParecido = {}; nParecido = 0; }
+    const r = calcularParecidoTexto(a, b);
+    memoParecido[clave] = r; nParecido++;
+    return r;
+  }
+
+  function calcularParecidoTexto(a, b) {
+    const la = a.length, lb = b.length;
+    if (la === 0 || lb === 0) return 0;
+    if (la === 1 || lb === 1) {
+      const corto = la === 1 ? a : b, largo = la === 1 ? b : a;
+      return largo[0] === corto ? 0.5 : 0;           // inicial: "J." por JUAN
+    }
+    if (la <= 2 || lb <= 2) {
+      const s = parecidoPorEdicion(a, b);
+      return s >= 0.75 ? s * 0.9 : 0;
+    }
+    let mejor = parecidoPorEdicion(a, b);
+    const fa = fonetica(a), fb = fonetica(b);
+    if (fa === fb) {
+      if (mejor < 0.93) mejor = 0.93;
+    } else {
+      const sf = parecidoPorEdicion(fa, fb) * 0.97;
+      if (sf > mejor) mejor = sf;
+    }
+    // El libro suele abreviar: "HERN." por HERNANDEZ
+    if (la >= 3 && la < lb && b.indexOf(a) === 0) {
+      const sp = 0.55 + 0.35 * (la / lb);
+      if (sp > mejor) mejor = sp;
+    }
+    return mejor;
+  }
+
+  /** Parecido entre dos palabras con sus variantes (sin partícula, ruido de lectura). */
+  function parecidoToken(q, c) {
+    const consultas = variantesDeRuido(q.t);
+    if (q.core) consultas.push(q.core);
+    const candidatas = [c.t];
+    if (c.core) candidatas.push(c.core);
+    let mejor = 0;
+    for (let i = 0; i < consultas.length; i++) {
+      for (let j = 0; j < candidatas.length; j++) {
+        let s = parecidoTexto(consultas[i], candidatas[j]);
+        if (i > 0 || j > 0) s *= 0.97;
+        if (s > mejor) mejor = s;
+      }
+    }
+    return mejor;
+  }
+
+  const PISO_PAR = 0.5;   // debajo de esto, dos palabras no cuentan como la misma
+
+  /**
+   * Puntúa una consulta contra un candidato, de 0 a 1.
+   * @param {Array} Q - tokens de la consulta
+   * @param {{tokens: Array, pesos: Array<number>}} cand
+   */
+  function puntuar(Q, cand) {
+    const C = cand.tokens;
+    if (Q.length === 0 || C.length === 0) return 0;
+
+    // Asignación voraz uno a uno, de mayor a menor parecido
+    const pares = [];
+    for (let i = 0; i < Q.length; i++) {
+      for (let j = 0; j < C.length; j++) {
+        const s = parecidoToken(Q[i], C[j]);
+        if (s >= PISO_PAR) pares.push({ i: i, j: j, s: s });
+      }
+    }
+    pares.sort(function(x, y) { return y.s - x.s; });
+    const usadoQ = {}, usadoC = {};
+    let sumaQ = 0, sumaC = 0;
+    for (let k = 0; k < pares.length; k++) {
+      const p = pares[k];
+      if (usadoQ[p.i] || usadoC[p.j]) continue;
+      usadoQ[p.i] = true; usadoC[p.j] = true;
+      sumaQ += p.s;
+      sumaC += p.s * cand.pesos[p.j];
+    }
+    let pesoTotal = 0;
+    for (let j = 0; j < C.length; j++) pesoTotal += cand.pesos[j];
+
+    const cubreConsulta = sumaQ / Q.length;
+    const cubreCandidato = pesoTotal > 0 ? sumaC / pesoTotal : 0;
+    let score = 0.6 * cubreConsulta + 0.4 * cubreCandidato;
+
+    // Palabras partidas o pegadas por el OCR: "MAR TINEZ" contra "MARTINEZ"
+    if (Q.length >= 2 || C.length >= 2) {
+      const cq = Q.map(function(x) { return x.t; }).join('');
+      const cc = C.map(function(x) { return x.t; }).join('');
+      const s = parecidoTexto(cq, cc) * 0.95;
+      if (s > score) score = s;
+    }
+    return score > 1 ? 1 : score;
+  }
+
+  /** Prepara el padrón: tokeniza cada nombre y pesa cada palabra por su rareza. */
+  function indexar(nombres) {
+    const filas = [];
+    const df = {};
+    const vistos = {};
+    for (let i = 0; i < nombres.length; i++) {
+      const nombre = String(nombres[i] == null ? '' : nombres[i]).trim();
+      if (!nombre || vistos[nombre]) continue;
+      vistos[nombre] = true;
+      const tokens = tokenizar(nombre);
+      if (tokens.length === 0) continue;
+      filas.push({ nombre: nombre, norm: normalizar(nombre), tokens: tokens });
+      const unicos = {};
+      tokens.forEach(function(t) { unicos[t.t] = true; });
+      Object.keys(unicos).forEach(function(k) { df[k] = (df[k] || 0) + 1; });
+    }
+    const N = filas.length;
+    filas.forEach(function(f) {
+      f.pesos = f.tokens.map(function(t) { return 1 + Math.log((N + 1) / ((df[t.t] || 0) + 1)); });
+    });
+    // Índice invertido: palabra → filas que la contienen. Permite puntuar solo
+    // los clientes que comparten alguna palabra parecida, en vez de todo el padrón.
+    const porPalabra = {};
+    filas.forEach(function(f, i) {
+      const vistas = {};
+      f.tokens.forEach(function(t) {
+        [t.t, t.core].forEach(function(w) {
+          if (w && !vistas[w]) { vistas[w] = true; (porPalabra[w] = porPalabra[w] || []).push(i); }
+        });
+      });
+    });
+    const palabras = Object.keys(porPalabra);
+    const huellas = {};
+    palabras.forEach(function(w) { huellas[w] = huella(w); });
+    return { filas: filas, N: N, porPalabra: porPalabra, palabras: palabras, huellas: huellas };
+  }
+
+  /** Pares de letras de una palabra, tal cual y en su forma fonética. */
+  function huella(palabra) {
+    const h = {};
+    const f = fonetica(palabra);
+    for (let i = 0; i < palabra.length - 1; i++) h['r' + palabra.substr(i, 2)] = 1;
+    for (let i = 0; i < f.length - 1; i++) h['f' + f.substr(i, 2)] = 1;
+    return h;
+  }
+
+  function comparten(h1, h2) {
+    for (const k in h1) { if (h2[k]) return true; }
+    return false;
+  }
+
+  /** Filas del padrón que comparten al menos una palabra parecida con la consulta. */
+  function filasCandidatas(Q, indice) {
+    const consultas = [];
+    Q.forEach(function(q) {
+      variantesDeRuido(q.t).forEach(function(v) { consultas.push(v); });
+      if (q.core) consultas.push(q.core);
+    });
+    if (Q.length >= 2) consultas.push(Q.map(function(x) { return x.t; }).join(''));
+    const marcadas = {};
+    const lista = [];
+    for (let c = 0; c < consultas.length; c++) {
+      const hc = huella(consultas[c]);
+      for (let w = 0; w < indice.palabras.length; w++) {
+        const palabra = indice.palabras[w];
+        // Dos palabras parecidas casi siempre comparten algún par de letras: se
+        // descartan las demás sin hacer la comparación completa, que es la cara.
+        // Las cortas (hasta 3 letras) no se filtran: ahí un solo error cambia todos los pares.
+        if (consultas[c].length > 3 && palabra.length > 3 && !comparten(hc, indice.huellas[palabra])) continue;
+        if (parecidoTexto(consultas[c], palabra) < PISO_PAR) continue;
+        const filas = indice.porPalabra[palabra];
+        for (let k = 0; k < filas.length; k++) {
+          if (!marcadas[filas[k]]) { marcadas[filas[k]] = true; lista.push(filas[k]); }
+        }
+      }
+    }
+    return lista;
+  }
+
+  /**
+   * Candidatos del padrón para un texto leído, de mejor a peor.
+   * @returns {Array<{nombre: string, score: number, exacto: boolean}>}
+   */
+  function buscar(consulta, indice, maximo, minimo) {
+    const Q = tokenizar(consulta);
+    if (Q.length === 0 || !indice || !indice.filas) return [];
+    const piso = (minimo === undefined) ? PISO_PAR : minimo;
+    const salida = [];
+    const candidatas = filasCandidatas(Q, indice);
+    for (let k = 0; k < candidatas.length; k++) {
+      const f = indice.filas[candidatas[k]];
+      const score = puntuar(Q, f);
+      if (score >= piso) salida.push({ nombre: f.nombre, score: score, exacto: score >= 0.999 });
+    }
+    salida.sort(function(a, b) { return b.score - a.score; });
+    return salida.slice(0, maximo || 5);
+  }
+
+  /**
+   * Decide qué hacer con un nombre leído (puede haber varias lecturas del
+   * mismo renglón, de distintos motores o reintentos).
+   *
+   *   alta  → se acepta sola: score alto Y ventaja clara sobre la segunda
+   *   media → se sugiere; decide la persona
+   *   baja  → sin coincidencia (probablemente un cliente nuevo)
+   */
+  function decidir(lecturas, indice, opciones) {
+    const opc = opciones || {};
+    const umbral = (opc.umbralAuto === undefined) ? 0.90 : opc.umbralAuto;
+    const margen = (opc.margen === undefined) ? 0.15 : opc.margen;
+
+    const mejorPorNombre = {};
+    const vistas = {};
+    const mejorDeCadaLectura = [];
+    (lecturas || []).forEach(function(l) {
+      const clave = normalizar(l);
+      if (!clave || vistas[clave]) return;
+      vistas[clave] = true;
+      const res = buscar(l, indice, 6);
+      if (res.length) mejorDeCadaLectura.push(res[0]);
+      res.forEach(function(r) {
+        if (!(mejorPorNombre[r.nombre] >= r.score)) mejorPorNombre[r.nombre] = r.score;
+      });
+    });
+
+    const ranking = Object.keys(mejorPorNombre).map(function(n) {
+      return { nombre: n, score: mejorPorNombre[n] };
+    }).sort(function(a, b) { return b.score - a.score; });
+
+    if (ranking.length === 0 || ranking[0].score < 0.55) {
+      return { estado: 'baja', mejor: null, sugerencias: [], score: ranking.length ? ranking[0].score : 0, segundo: 0,
+               conflicto: false, empate: false };
+    }
+    const m = ranking[0], s2 = ranking[1];
+    // Con varias lecturas del mismo renglon, el mejor puntaje por nombre puede salir
+    // de lecturas distintas. Si dos lecturas apuntan a CLIENTES DISTINTOS y las dos
+    // calzan bien, no hay una lectura confiable: decide la persona.
+    const conflicto = mejorDeCadaLectura.some(function(r) { return r.nombre !== m.nombre && r.score >= 0.85; });
+    // Dos clientes igual de buenos: releer no ayuda si la hoja no trae el dato que los distingue
+    const empate = !!s2 && m.score >= 0.70 && (m.score - s2.score) < 0.03;
+    // Un nombre EXACTO y único se acepta siempre (aunque exista "GONZALEZ JUAN
+    // CARLOS" parecido). Si no es exacto, hace falta ventaja clara sobre el
+    // segundo: con dos clientes casi iguales (PAZ / PAEZ) decide la persona.
+    const exactoUnico = m.score >= 0.999 && (!s2 || s2.score < 0.999);
+    const clara = !s2 || (m.score - s2.score >= margen);
+    const estado = (((m.score >= umbral && clara) || exactoUnico) && !conflicto) ? 'alta' : 'media';
+    const piso = Math.max(0.5, m.score - 0.3);
+    return {
+      estado: estado,
+      mejor: m,
+      sugerencias: ranking.filter(function(r) { return r.score >= piso; }).slice(0, 3).map(function(r) { return r.nombre; }),
+      score: m.score,
+      segundo: s2 ? s2.score : 0,
+      conflicto: conflicto,
+      empate: empate
+    };
+  }
+
+  /** Parecido entre dos nombres libres (sin padrón), de 0 a 1. Simétrico. */
+  function parecidoNombres(a, b) {
+    const A = tokenizar(a), B = tokenizar(b);
+    if (A.length === 0 || B.length === 0) return 0;
+    const unos = function(T) { return { tokens: T, pesos: T.map(function() { return 1; }) }; };
+    return Math.max(puntuar(A, unos(B)), puntuar(B, unos(A)));
+  }
+
+  return {
+    normalizar: normalizar,
+    tokenizar: tokenizar,
+    fonetica: fonetica,
+    distancia: distancia,
+    parecidoTexto: parecidoTexto,
+    puntuar: puntuar,
+    indexar: indexar,
+    buscar: buscar,
+    decidir: decidir,
+    parecidoNombres: parecidoNombres
+  };
+})();
+// ===NOMBRES_ES_FIN===
+
     const SvOcr = {
       _tesseractCargando: null,
-      _palabrasPadron: null,
 
       /** Configuracion del OCR, con valores por defecto si no llego la del servidor. */
       cfg: function() {
         const c = (Estado.configuracion && Estado.configuracion.ocr) || {};
+        const num = function(v, porDefecto) { return (typeof v === 'number' && isFinite(v)) ? v : porDefecto; };
         return {
-          idioma:        c.idioma || 'spa',
-          confianza:     (typeof c.confianzaMinima === 'number') ? c.confianzaMinima : 60,
-          binarizacion:  (typeof c.binarizacion === 'number') ? c.binarizacion : 20,
-          anchoMaximo:   (typeof c.anchoMaximo === 'number') ? c.anchoMaximo : 2000,
+          idioma:        'spa',   // FIJO: solo español, en los dos motores
+          confianza:     num(c.confianzaMinima, 60),
+          binarizacion:  num(c.binarizacion, 20),
+          anchoMaximo:   num(c.anchoMaximo, 2000),
           autoRotar:     c.autoRotar !== false,
           motorServidor: c.motorServidor !== false,
-          motorNavegador: c.motorNavegador !== false
+          motorNavegador: c.motorNavegador !== false,
+          reintentos:     num(c.reintentos, 3),
+          presupuestoSeg: num(c.presupuestoSeg, 45),
+          umbralNombre:   num(c.umbralNombre, 90)
         };
       },
 
@@ -8877,9 +9384,22 @@ function renderEstadisticas(result) {
                 //    absolutos: un solo pixel extremo arruinaba el estirado
                 self._autocontrastePercentiles(limpio);
 
+                // Copia en grises, ya limpia y con contraste, para los REINTENTOS:
+                // releer un renglon exige volver a binarizarlo de otra forma, y eso
+                // no se puede hacer sobre la imagen que ya quedo en blanco y negro.
+                const lienzoGris = document.createElement('canvas');
+                lienzoGris.width = ancho; lienzoGris.height = alto;
+                const gctx = lienzoGris.getContext('2d', { willReadFrequently: true });
+                const datosGris = gctx.createImageData(ancho, alto);
+                for (let i = 0, g = 0; g < limpio.length; i += 4, g++) {
+                  datosGris.data[i] = datosGris.data[i + 1] = datosGris.data[i + 2] = limpio[g];
+                  datosGris.data[i + 3] = 255;
+                }
+                gctx.putImageData(datosGris, 0, 0);
+
                 // 5. Binarizacion adaptativa: umbral por zona, no global. Es
                 //    lo que salva las fotos con sombra de un lado
-                let binario = self._binarizarAdaptativo(limpio, ancho, alto, cfg.binarizacion);
+                let binario = self._binarizar(limpio, ancho, alto, cfg.binarizacion);
 
                 // 6. Quitar motas sueltas del binario con filtro de mayoria
                 binario = self._limpiarMotas(binario, ancho, alto);
@@ -8899,22 +9419,29 @@ function renderEstadisticas(result) {
                 }
                 ctx.putImageData(datos, 0, 0);
 
-                // 6. Rotar si hacia falta, sobre la imagen ya binarizada
+                // 6. Rotar si hacia falta: la imagen binaria Y la de grises, para que las
+                //    coordenadas de una sirvan en la otra
+                let grisRotado = lienzoGris;
                 if (Math.abs(inclinacion) > 0.3) {
-                  const rotado = document.createElement('canvas');
-                  rotado.width = ancho; rotado.height = alto;
-                  const rctx = rotado.getContext('2d');
-                  rctx.fillStyle = '#ffffff';
-                  rctx.fillRect(0, 0, ancho, alto);
-                  rctx.translate(ancho / 2, alto / 2);
-                  rctx.rotate(-inclinacion * Math.PI / 180);
-                  rctx.drawImage(lienzo, -ancho / 2, -alto / 2);
-                  lienzo = rotado;
+                  const rotar = function(origen) {
+                    const rotado = document.createElement('canvas');
+                    rotado.width = ancho; rotado.height = alto;
+                    const rctx = rotado.getContext('2d');
+                    rctx.fillStyle = '#ffffff';
+                    rctx.fillRect(0, 0, ancho, alto);
+                    rctx.translate(ancho / 2, alto / 2);
+                    rctx.rotate(-inclinacion * Math.PI / 180);
+                    rctx.drawImage(origen, -ancho / 2, -alto / 2);
+                    return rotado;
+                  };
+                  lienzo = rotar(lienzo);
+                  grisRotado = rotar(lienzoGris);
                 }
 
                 const dataUrl = lienzo.toDataURL('image/png');
                 resolver({
                   dataUrl: dataUrl,
+                  gris: grisRotado,
                   ancho: ancho,
                   alto: alto,
                   inclinacion: Math.round(inclinacion * 10) / 10,
@@ -9069,9 +9596,13 @@ function renderEstadisticas(result) {
        * contra la media de su vecindario, no contra un umbral global.
        * @returns {Uint8ClampedArray} 0 o 255 por pixel
        */
-      _binarizarAdaptativo: function(gris, ancho, alto, agresividad) {
+      _binarizarAdaptativo: function(gris, ancho, alto, agresividad, ventanaPx) {
         const salida = new Uint8ClampedArray(ancho * alto);
-        const ventana = Math.max(7, (Math.min(ancho, alto) / 40) | 0) | 1; // impar
+        // Para una pagina entera la ventana sale del tamanio de la imagen. Para el
+        // recorte de UN renglon no sirve (daria ~7 px, menos que un trazo ampliado):
+        // ahi se la indica quien llama, en proporcion al alto de la letra.
+        const ventana = ventanaPx ? (Math.max(7, ventanaPx | 0) | 1)
+                                  : (Math.max(7, (Math.min(ancho, alto) / 40) | 0) | 1); // impar
         const radio = ventana >> 1;
         const k = Math.max(0, Math.min(50, agresividad)) / 100; // 0 a 0.5
 
@@ -9103,6 +9634,65 @@ function renderEstadisticas(result) {
         return salida;
       },
 
+      /**
+       * Binarizacion de Sauvola: ademas de la media local mide cuanto VARIA el
+       * vecindario. Donde casi no varia (un fondo con grano, una zona en sombra)
+       * el umbral baja y no se marca tinta; donde hay un trazo, varia mucho y el
+       * umbral se acerca a la media. La binarizacion por media sola convertia el
+       * lado en sombra de una foto en una lluvia de puntitos que le destruia al
+       * OCR el analisis de la pagina, aunque a simple vista el texto se leyera bien.
+       * @returns {Uint8ClampedArray} 0 o 255 por pixel
+       */
+      _binarizarSauvola: function(gris, ancho, alto, agresividad, ventanaPx) {
+        const salida = new Uint8ClampedArray(ancho * alto);
+        const ventana = ventanaPx ? (Math.max(7, ventanaPx | 0) | 1)
+                                  : (Math.max(15, (Math.min(ancho, alto) / 25) | 0) | 1);
+        const radio = ventana >> 1;
+        // 0-50 de la configuracion -> k de 0,2 a 0,5
+        const k = 0.2 + Math.max(0, Math.min(50, agresividad)) / 100 * 0.6;
+        const R = 128;
+
+        const ancho1 = ancho + 1;
+        const suma = new Float64Array(ancho1 * (alto + 1));
+        const suma2 = new Float64Array(ancho1 * (alto + 1));
+        for (let y = 0; y < alto; y++) {
+          let f = 0, f2 = 0;
+          for (let x = 0; x < ancho; x++) {
+            const v = gris[y * ancho + x];
+            f += v; f2 += v * v;
+            suma[(y + 1) * ancho1 + (x + 1)] = suma[y * ancho1 + (x + 1)] + f;
+            suma2[(y + 1) * ancho1 + (x + 1)] = suma2[y * ancho1 + (x + 1)] + f2;
+          }
+        }
+        for (let y = 0; y < alto; y++) {
+          const y0 = Math.max(0, y - radio), y1 = Math.min(alto - 1, y + radio);
+          for (let x = 0; x < ancho; x++) {
+            const x0 = Math.max(0, x - radio), x1 = Math.min(ancho - 1, x + radio);
+            const area = (y1 - y0 + 1) * (x1 - x0 + 1);
+            const a = (y1 + 1) * ancho1 + (x1 + 1), b = y0 * ancho1 + (x1 + 1);
+            const c = (y1 + 1) * ancho1 + x0,      d = y0 * ancho1 + x0;
+            const media = (suma[a] - suma[b] - suma[c] + suma[d]) / area;
+            const varianza = (suma2[a] - suma2[b] - suma2[c] + suma2[d]) / area - media * media;
+            const desvio = Math.sqrt(varianza > 0 ? varianza : 0);
+            const umbral = media * (1 + k * (desvio / R - 1));
+            salida[y * ancho + x] = (gris[y * ancho + x] < umbral) ? 0 : 255;
+          }
+        }
+        return salida;
+      },
+
+      /**
+       * Metodo de binarizacion en uso: 'sauvola' o 'media'. Sauvola es el default:
+       * con grano o sombra lee bastante mas (nivel medio de mala foto: 50% -> 68% de
+       * montos; mala foto: 7% -> 35%), y en una foto buena no cambia nada.
+       */
+      metodoBin: 'sauvola',
+      _binarizar: function(gris, ancho, alto, agresividad, ventanaPx) {
+        return (this.metodoBin === 'sauvola')
+          ? this._binarizarSauvola(gris, ancho, alto, agresividad, ventanaPx)
+          : this._binarizarAdaptativo(gris, ancho, alto, agresividad, ventanaPx);
+      },
+
       // ──────────────────────────────────────────────────────────────────────
       // MOTOR DEL NAVEGADOR
       // ──────────────────────────────────────────────────────────────────────
@@ -9126,35 +9716,58 @@ function renderEstadisticas(result) {
         return this._tesseractCargando;
       },
 
-      /** Trae del servidor los nombres del padrón para sembrar el diccionario. */
-      palabrasPadron: function() {
+      /** Opciones extra de Tesseract. Las pruebas las usan para apuntar a archivos locales. */
+      opcionesWorker: {},
+      _worker: null,
+      _workerPromesa: null,
+      _liberarTimer: null,
+      _alProgresarActual: null,
+
+      /** Solo letras del español y los signos de un nombre: lo demas no puede ser parte de un nombre. */
+      ALFABETO_ES: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÁÉÍÓÚÜÑáéíóúüñ .'-",
+
+      /**
+       * Un solo worker de Tesseract para toda la sesion, en español. Crear uno por
+       * llamada recarga el modelo cada vez; reutilizarlo hace que las relecturas
+       * (que son muchas y chicas) sean practicamente gratis.
+       */
+      obtenerWorker: function() {
         const self = this;
-        if (this._palabrasPadron) return Promise.resolve(this._palabrasPadron);
-
-        // Si el padrón ya está en memoria, no hace falta ir al servidor
-        if (Estado.clientes && Estado.clientes.length > 0) {
-          const set = {};
-          Estado.clientes.forEach(function(c) {
-            const nombre = String(c.nombre || '').trim();
-            if (!nombre) return;
-            set[nombre] = true;
-            nombre.split(/\s+/).forEach(function(parte) {
-              if (parte.length >= 3) set[parte] = true;
+        clearTimeout(this._liberarTimer);
+        if (!this._workerPromesa) {
+          this._workerPromesa = this.cargarTesseract().then(function() {
+            const opciones = Object.assign({}, self.opcionesWorker, {
+              logger: function(m) {
+                if (self._alProgresarActual && m && m.status === 'recognizing text') {
+                  self._alProgresarActual(Math.round((m.progress || 0) * 100));
+                }
+              }
             });
+            // 'spa' fijo, motor LSTM (1): solo español
+            return Tesseract.createWorker('spa', 1, opciones);
+          }).then(function(w) {
+            self._worker = w;
+            return w;
+          }).catch(function(e) {
+            self._workerPromesa = null;
+            throw e;
           });
-          this._palabrasPadron = Object.keys(set);
-          return Promise.resolve(this._palabrasPadron);
         }
+        return this._workerPromesa;
+      },
 
-        return new Promise(function(resolver) {
-          google.script.run
-            .withSuccessHandler(function(res) {
-              self._palabrasPadron = (res && res.palabras) || [];
-              resolver(self._palabrasPadron);
-            })
-            .withFailureHandler(function() { resolver([]); })
-            .ocrObtenerPalabrasDelPadron();
-        });
+      /** Libera el worker (memoria) tras un rato sin usarse. */
+      liberarWorkerEn: function(ms) {
+        const self = this;
+        clearTimeout(this._liberarTimer);
+        this._liberarTimer = setTimeout(function() { self.liberarWorker(); }, ms);
+      },
+
+      liberarWorker: function() {
+        const promesa = this._workerPromesa;
+        this._workerPromesa = null;
+        this._worker = null;
+        if (promesa) promesa.then(function(w) { return w.terminate(); }).catch(function() {});
       },
 
       /**
@@ -9162,27 +9775,73 @@ function renderEstadisticas(result) {
        * su posicion.
        * @returns {Promise<{texto: string, palabras: Array, confianzaMedia: number}>}
        */
-      reconocerEnNavegador: function(dataUrl, alProgresar) {
-        const cfg = this.cfg();
+      /**
+       * Modo de segmentacion de pagina de Tesseract. El modo 3 (pagina automatica) esta
+       * pensado para PARRAFOS; un libro de cuentas son columnas, y ahi encontraba la mitad
+       * de los montos. El 6 (bloque) es el mejor en una foto buena; el 11 (texto disperso)
+       * es mejor en una mala, y se usa de segunda pasada cuando la primera deja algo
+       * incompleto. Las filas se arman por POSICION, asi que el orden de lectura no importa.
+       */
+      psmPagina: '6',
+      psmSegundaPasada: '11',
+      /** Borde blanco, como fraccion del ancho: evita que el texto pegado al borde se pierda. */
+      margenPagina: 0.04,
+
+      /**
+       * Pone un borde blanco alrededor de una imagen.
+       * @param {number} fraccion - Del ancho de la imagen
+       * @returns {Promise<{imagen: HTMLCanvasElement, margen: number}>} El margen en pixeles realmente usado
+       */
+      _conMargen: function(dataUrl, fraccion) {
+        return new Promise(function(resolver, rechazar) {
+          const img = new Image();
+          img.onerror = function() { rechazar(new Error('No se pudo leer la imagen preparada.')); };
+          img.onload = function() {
+            const margen = Math.max(8, Math.round(img.width * fraccion));
+            const c = document.createElement('canvas');
+            c.width = img.width + margen * 2;
+            c.height = img.height + margen * 2;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, c.width, c.height);
+            ctx.drawImage(img, margen, margen);
+            resolver({ imagen: c, margen: margen });
+          };
+          img.src = dataUrl;
+        });
+      },
+
+      reconocerEnNavegador: function(dataUrl, alProgresar, opciones) {
         const self = this;
+        this._alProgresarActual = alProgresar || null;
+        const psm = (opciones && opciones.psm) || this.psmPagina;
+        let margen = 0;
 
-        return this.cargarTesseract().then(function() {
-          return self.palabrasPadron();
-        }).then(function(palabras) {
-          // El idioma de Tesseract usa codigos de 3 letras
-          const idioma = (cfg.idioma === 'es' || cfg.idioma === 'spa') ? 'spa'
-                       : cfg.idioma.replace(/\bes\b/g, 'spa').replace(/\ben\b/g, 'eng');
-
-          return Tesseract.recognize(dataUrl, idioma, {
-            logger: function(m) {
-              if (alProgresar && m && m.status === 'recognizing text') {
-                alProgresar(Math.round((m.progress || 0) * 100));
-              }
-            }
+        return this.obtenerWorker().then(function(worker) {
+          // Una pagina entera, sin lista blanca de letras. El modo de segmentacion
+          // importa mucho: ver psmPagina.
+          return worker.setParameters({
+            tessedit_pageseg_mode: psm,
+            tessedit_char_whitelist: ''
+          }).then(function() {
+            // Un borde blanco evita que el puntillado o el texto pegado al borde
+            // de la foto haga que el analisis de pagina se saltee esa zona
+            return self.margenPagina > 0 ? self._conMargen(dataUrl, self.margenPagina) : { imagen: dataUrl, margen: 0 };
+          }).then(function(preparada) {
+            margen = preparada.margen;
+            return worker.recognize(preparada.imagen);
           });
         }).then(function(res) {
           const data = (res && res.data) || {};
           const palabras = self._extraerPalabras(data);
+          // Si nadie lo vuelve a usar (por ejemplo, el banco de pruebas), se libera solo.
+          // obtenerWorker() cancela este temporizador cada vez que se lo necesita de nuevo.
+          self.liberarWorkerEn(120000);
+          // Las coordenadas tienen que quedar en el sistema de la imagen SIN margen:
+          // despues se usan para recortar y releer cada renglon
+          if (margen > 0) {
+            palabras.forEach(function(p) { p.x0 -= margen; p.x1 -= margen; p.y0 -= margen; p.y1 -= margen; });
+          }
           let suma = 0;
           palabras.forEach(function(p) { suma += p.confianza; });
           return {
@@ -9201,6 +9860,8 @@ function renderEstadisticas(result) {
         const salida = [];
         function agregar(w) {
           if (!w || !w.text || !String(w.text).trim()) return;
+          // Solo signos (la raya que divide las columnas, un punto suelto): no es texto
+          if (!/[A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ]/.test(String(w.text))) return;
           const bb = w.bbox || {};
           salida.push({
             texto: String(w.text).trim(),
@@ -9276,6 +9937,9 @@ function renderEstadisticas(result) {
         // 2. Por fila: ordenar por x y partir en bloques nombre + monto
         const mitad = anchoImagen / 2;
         const movimientos = [];
+        // Cuantas anotaciones quedaron a medias (monto sin nombre, o nombre sin monto).
+        // Una pagina bien leida no deja ninguna: es la senal para dar una segunda mirada.
+        let incompletas = 0;
 
         for (let f = 0; f < filas.length; f++) {
           const fila = filas[f].slice().sort(function(a, b) { return a.x0 - b.x0; });
@@ -9283,6 +9947,7 @@ function renderEstadisticas(result) {
           if (SvOcr._esFilaDescartable(textoFila)) continue;
 
           let nombreTokens = [];
+          let nombrePalabras = [];
           let confianzas = [];
           let entradasEnFila = 0;
 
@@ -9301,6 +9966,17 @@ function renderEstadisticas(result) {
                 confianzas.concat([tok.confianza]).forEach(function(c) { conf += c; });
                 conf = Math.round(conf / (confianzas.length + 1));
 
+                // Caja del NOMBRE solo (para releerlo) y de TODA la anotacion
+                // (para mostrar el trazo). Antes el recorte arrancaba en el borde
+                // izquierdo de la fila aunque la anotacion fuera de la columna derecha.
+                const cajaDe = function(lista) {
+                  return {
+                    x0: Math.min.apply(null, lista.map(function(p) { return p.x0; })),
+                    y0: Math.min.apply(null, lista.map(function(p) { return p.y0; })),
+                    x1: Math.max.apply(null, lista.map(function(p) { return p.x1; })),
+                    y1: Math.max.apply(null, lista.map(function(p) { return p.y1; }))
+                  };
+                };
                 movimientos.push({
                   cliente: nombre.toUpperCase(),
                   clienteOriginal: nombre.toUpperCase(),
@@ -9311,25 +9987,98 @@ function renderEstadisticas(result) {
                   fecha: fecha,
                   obs: esDerecha ? 'Fiado' : 'Cobranza',
                   motor: 'navegador',
-                  recorte: { x0: fila[0].x0, y0: Math.min.apply(null, fila.map(function(p){return p.y0;})),
-                             x1: tok.x1,      y1: Math.max.apply(null, fila.map(function(p){return p.y1;})) }
+                  nombreBox: cajaDe(nombrePalabras),
+                  recorte: cajaDe(nombrePalabras.concat([tok]))
                 });
                 entradasEnFila++;
               }
               nombreTokens = [];
+              nombrePalabras = [];
               confianzas = [];
             } else if (monto > 0) {
-              // Monto sin nombre delante: probablemente un total o un arrastre
+              // Monto sin nombre delante. Antes se descartaba ("probablemente un total"),
+              // pero con mala letra es lo contrario: lo que el OCR no logra ver es el
+              // NOMBRE, y perder el monto sin avisar es lo peor que puede pasar con un
+              // libro de fiados. Los totales ya se filtran arriba por su rotulo.
+              // Se crea una fila y se estima donde deberia estar el nombre: a la
+              // izquierda del monto, sin salirse de su columna. Si el sistema no
+              // logra leerlo queda sin tildar y marcada, para completarla a mano.
+              if (tok.confianza >= 40) {
+                incompletas++;
+                const centro = (tok.x0 + tok.x1) / 2;
+                const derecha = centro > mitad;
+                const altoMonto = Math.max(8, tok.y1 - tok.y0);
+                const desde = derecha ? mitad + 8 : 0;
+                const hasta = tok.x0 - 8;
+                movimientos.push({
+                  cliente: '',
+                  clienteOriginal: '',
+                  monto: monto,
+                  tipo: derecha ? 'DEBE' : 'HABER',
+                  confianzaTipo: 'alta',
+                  confianzaOcr: tok.confianza,
+                  fecha: fecha,
+                  obs: derecha ? 'Fiado' : 'Cobranza',
+                  motor: 'navegador',
+                  huerfano: true,
+                  // Sin sitio suficiente para un nombre, no se puede releer
+                  nombreBox: (hasta - desde >= altoMonto * 2.5) ? { x0: desde, y0: tok.y0, x1: hasta, y1: tok.y1 } : null,
+                  recorte: { x0: Math.max(0, desde), y0: tok.y0, x1: tok.x1, y1: tok.y1 }
+                });
+              }
               nombreTokens = [];
+              nombrePalabras = [];
               confianzas = [];
             } else {
               nombreTokens.push(tok.texto);
+              nombrePalabras.push(tok);
               confianzas.push(tok.confianza);
+            }
+            // Ultima palabra de la fila y quedaron letras sin monto: nombre colgante
+            if (i === fila.length - 1 && nombreTokens.length > 0 &&
+                nombreTokens.join('').replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, '').length >= 3) {
+              incompletas++;
             }
           }
         }
 
+        movimientos.incompletas = incompletas;
         return movimientos;
+      },
+
+      /**
+       * Une las filas de dos pasadas de lectura sobre la misma pagina. Una anotacion es
+       * "la misma" si tiene igual monto y tipo y esta a la misma altura. Si una pasada
+       * la vio sin nombre y la otra con nombre, se queda con el nombre; si las dos
+       * leyeron un nombre distinto, se conservan las dos lecturas.
+       */
+      unirPasadas: function(a, b) {
+        const salida = a.map(function(m) { return Object.assign({}, m); });
+        const usada = {};
+        const centroY = function(m) { return (m.recorte.y0 + m.recorte.y1) / 2; };
+        const altoDe = function(m) { return Math.max(8, m.recorte.y1 - m.recorte.y0); };
+
+        b.forEach(function(mb) {
+          let idx = -1, mejor = Infinity;
+          for (let i = 0; i < salida.length; i++) {
+            const ma = salida[i];
+            if (usada[i] || ma.monto !== mb.monto || ma.tipo !== mb.tipo) continue;
+            const d = Math.abs(centroY(ma) - centroY(mb));
+            if (d <= altoDe(ma) * 1.2 && d < mejor) { mejor = d; idx = i; }
+          }
+          if (idx === -1) { salida.push(Object.assign({}, mb)); return; }
+
+          usada[idx] = true;
+          const ma = salida[idx];
+          if (mb.cliente && !ma.cliente) {
+            // La primera no vio el nombre: se toma la segunda, con su posicion
+            salida[idx] = Object.assign({}, mb);
+          } else if (mb.cliente && ma.cliente && mb.cliente !== ma.cliente) {
+            // Dos lecturas distintas del mismo renglon: se guardan las dos
+            ma.lecturas = (ma.lecturas || []).concat([mb.cliente]);
+          }
+        });
+        return salida;
       },
 
       /** True si la fila es encabezado, total o similar. */
@@ -9372,34 +10121,416 @@ function renderEstadisticas(result) {
        * nadie note.
        */
       fusionar: function(delNavegador, delServidor) {
-        const clave = function(m) {
-          return String(m.cliente || '').replace(/\s+/g, '') + '|' + m.monto;
+        // Antes se emparejaba por nombre EXACTO + monto: "G0NZALES|5000" y
+        // "GONZALEZ|5000" eran filas distintas y el mismo renglon aparecia dos
+        // veces. Ahora se empareja por monto y por parecido del nombre.
+        const lecturasDe = function(m) {
+          const l = [];
+          [m.cliente, m.clienteOriginal].concat(m.lecturas || []).forEach(function(x) {
+            x = String(x || '').trim();
+            if (x && l.indexOf(x) === -1) l.push(x);
+          });
+          return l;
         };
-        const indice = {};
-        const salida = [];
+        const contar = function(lista) {
+          const c = {};
+          lista.forEach(function(m) { c[m.monto] = (c[m.monto] || 0) + 1; });
+          return c;
+        };
 
+        const salida = [];
         (delNavegador || []).forEach(function(m) {
-          indice[clave(m)] = m;
-          salida.push(Object.assign({}, m, { motores: ['navegador'] }));
+          salida.push(Object.assign({}, m, { motores: ['navegador'], lecturas: lecturasDe(m), reintentos: 0 }));
         });
 
-        (delServidor || []).forEach(function(m) {
-          const k = clave(m);
-          if (indice[k]) {
-            // Coincidencia entre los dos motores: maxima confianza
-            for (let i = 0; i < salida.length; i++) {
-              if (clave(salida[i]) === k) {
-                salida[i].motores = ['navegador', 'servidor'];
-                salida[i].confianzaOcr = Math.max(salida[i].confianzaOcr || 0, 90);
-                break;
-              }
-            }
+        const srv = delServidor || [];
+        const enNav = contar(salida), enSrv = contar(srv);
+
+        srv.forEach(function(s) {
+          let mejor = -1, mejorSim = -1;
+          for (let i = 0; i < salida.length; i++) {
+            const f = salida[i];
+            if (f.monto !== s.monto || f.motores.indexOf('servidor') > -1) continue;
+            const sim = Math.max(
+              NombresEs.parecidoNombres(f.cliente, s.cliente),
+              NombresEs.parecidoNombres(f.cliente, s.clienteOriginal || ''));
+            if (sim > mejorSim) { mejorSim = sim; mejor = i; }
+          }
+          // Mismo monto, unico en los dos motores = casi seguro el mismo renglon,
+          // aunque uno haya leido el nombre muy mal
+          const montoUnico = enNav[s.monto] === 1 && enSrv[s.monto] === 1;
+
+          if (mejor > -1 && (mejorSim >= 0.45 || montoUnico)) {
+            const f = salida[mejor];
+            f.motores = ['navegador', 'servidor'];
+            lecturasDe(s).forEach(function(l) { if (f.lecturas.indexOf(l) === -1) f.lecturas.push(l); });
+            if (mejorSim >= 0.8) f.confianzaOcr = Math.max(f.confianzaOcr || 0, 90);   // coinciden: maxima confianza
+            if (s.tipo && f.tipo && s.tipo !== f.tipo) f.confianzaTipo = 'baja';       // no coinciden en la columna
           } else {
-            salida.push(Object.assign({}, m, { motores: ['servidor'] }));
+            salida.push(Object.assign({}, s, { motores: ['servidor'], lecturas: lecturasDe(s), reintentos: 0 }));
           }
         });
 
         return salida;
+      },
+
+      // ──────────────────────────────────────────────────────────────────────
+      // COMPARACION CON EL PADRON Y REINTENTOS
+      // ──────────────────────────────────────────────────────────────────────
+
+      /**
+       * Indice del padron para el comparador de nombres. Se arma en cada lectura:
+       * es barato (unos ms) y asi incluye los clientes dados de alta hace un rato.
+       * @returns {Promise<Object>}
+       */
+      indicePadron: function() {
+        const locales = (Estado.clientes || [])
+          .map(function(c) { return String(c.nombre || '').trim(); })
+          .filter(function(n) { return n; });
+        if (locales.length) return Promise.resolve(NombresEs.indexar(locales));
+
+        return new Promise(function(resolver) {
+          svBackend('ocrObtenerPalabrasDelPadron', [], function(res) {
+            resolver(NombresEs.indexar((res && res.nombres) || []));
+          }, function() { resolver(NombresEs.indexar([])); });
+        });
+      },
+
+      /**
+       * Evalua una fila contra el padron usando TODAS sus lecturas (de los dos
+       * motores y de cada reintento). Completa estado, coincidencia y sugerencias.
+       */
+      evaluarFila: function(fila, indice, umbralNombre) {
+        const d = NombresEs.decidir(fila.lecturas, indice, { umbralAuto: umbralNombre / 100 });
+        fila.estado = d.estado;                         // 'alta' | 'media' | 'baja'
+        fila.coincidencia = Math.round((d.score || 0) * 100);
+        fila.sugerencias = d.sugerencias || [];
+        fila.mejorNombre = d.mejor ? d.mejor.nombre : '';
+        fila.empate = !!d.empate;
+        return d;
+      },
+
+      /** Corre fn(item, indice) sobre cada item, de a uno y en orden. */
+      _secuencia: function(items, fn) {
+        return items.reduce(function(prev, item, i) {
+          return prev.then(function() { return fn(item, i); });
+        }, Promise.resolve());
+      },
+
+      /**
+       * Las formas de volver a mirar un renglon, de a una por vuelta. Cada una
+       * ataca una causa distinta de mala lectura; repetir la misma no sirve.
+       */
+      VARIANTES: [
+        { id: 'suave',     altura: 48, modo: 'binario', delta: -6 },                 // conserva trazos finos
+        { id: 'gris',      altura: 56, modo: 'gris' },                               // sin blanco y negro: tinta debil
+        { id: 'fuerte',    altura: 48, modo: 'binario', delta: 10, mediana: true },  // fondo sucio o con grano
+        { id: 'inclinada', altura: 56, modo: 'gris', giros: [-3, 3] },              // letra inclinada
+        { id: 'otsu',      altura: 64, modo: 'otsu' },                               // umbral global, otra sensibilidad
+        { id: 'grande',    altura: 84, modo: 'gris' }                                // letra muy chica
+      ],
+
+      /** Umbral global de Otsu: el que mejor separa tinta de papel. */
+      _umbralOtsu: function(gris) {
+        const h = new Uint32Array(256);
+        for (let i = 0; i < gris.length; i++) h[gris[i]]++;
+        const total = gris.length;
+        let suma = 0;
+        for (let v = 0; v < 256; v++) suma += v * h[v];
+        let sumaB = 0, wB = 0, mejor = 0, umbral = 128;
+        for (let v = 0; v < 256; v++) {
+          wB += h[v];
+          if (wB === 0) continue;
+          const wF = total - wB;
+          if (wF === 0) break;
+          sumaB += v * h[v];
+          const mB = sumaB / wB, mF = (suma - sumaB) / wF;
+          const entre = wB * wF * (mB - mF) * (mB - mF);
+          if (entre > mejor) { mejor = entre; umbral = v; }
+        }
+        return umbral;
+      },
+
+      /**
+       * Recorta un renglon de la imagen en GRISES y lo prepara con una variante.
+       * @returns {Array<HTMLCanvasElement>} Una imagen por cada giro de la variante
+       */
+      _imagenesDeVariante: function(prep, caja, v, cfg) {
+        const alto = Math.max(8, caja.y1 - caja.y0);
+        // Margen generoso: una letra cortada por el borde no se lee
+        const mV = Math.round(alto * 0.4), mH = Math.round(alto * 0.8);
+        const x0 = Math.max(0, caja.x0 - mH), y0 = Math.max(0, caja.y0 - mV);
+        const x1 = Math.min(prep.ancho, caja.x1 + mH), y1 = Math.min(prep.alto, caja.y1 + mV);
+        const w = Math.max(8, x1 - x0), h = Math.max(8, y1 - y0);
+
+        // Escala para que la letra mida lo que el reconocedor lee mejor
+        const escala = Math.max(1, Math.min(4, v.altura / alto));
+        const borde = 14;
+        const W = Math.round(w * escala), H = Math.round(h * escala);
+        const ancho = W + borde * 2, altoLienzo = H + borde * 2;
+
+        const lienzo = document.createElement('canvas');
+        lienzo.width = ancho; lienzo.height = altoLienzo;
+        const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, ancho, altoLienzo);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(prep.gris, x0, y0, w, h, borde, borde, W, H);
+
+        const datos = ctx.getImageData(0, 0, ancho, altoLienzo);
+        const px = datos.data;
+        const n = ancho * altoLienzo;
+        let gris = new Uint8ClampedArray(n);
+        for (let i = 0, g = 0; g < n; i += 4, g++) gris[g] = px[i];
+
+        if (v.mediana) gris = this._medianaFiltro(gris, ancho, altoLienzo);
+        this._autocontrastePercentiles(gris);
+
+        let salida = gris;
+        if (v.modo === 'binario') {
+          const agresividad = Math.max(0, Math.min(50, cfg.binarizacion + (v.delta || 0)));
+          // Ventana en proporcion a la letra: ~1,6 veces su alto
+          salida = this._binarizar(gris, ancho, altoLienzo, agresividad, Math.round(alto * escala * 1.6));
+        } else if (v.modo === 'otsu') {
+          const umbral = this._umbralOtsu(gris);
+          salida = new Uint8ClampedArray(n);
+          for (let g = 0; g < n; g++) salida[g] = gris[g] < umbral ? 0 : 255;
+        }
+        for (let i = 0, g = 0; g < n; i += 4, g++) {
+          px[i] = px[i + 1] = px[i + 2] = salida[g];
+          px[i + 3] = 255;
+        }
+        ctx.putImageData(datos, 0, 0);
+
+        if (!v.giros || !v.giros.length) return [lienzo];
+        return v.giros.map(function(grados) {
+          const rot = document.createElement('canvas');
+          rot.width = ancho; rot.height = altoLienzo;
+          const rctx = rot.getContext('2d');
+          rctx.fillStyle = '#ffffff';
+          rctx.fillRect(0, 0, ancho, altoLienzo);
+          rctx.translate(ancho / 2, altoLienzo / 2);
+          rctx.rotate(grados * Math.PI / 180);
+          rctx.drawImage(lienzo, -ancho / 2, -altoLienzo / 2);
+          return rot;
+        });
+      },
+
+      /** Deja solo lo que puede ser un nombre; '' si no queda al menos una palabra con 2 letras. */
+      _limpiarNombreLeido: function(texto) {
+        const t = String(texto || '')
+          .replace(/[\r\n]+/g, ' ')
+          .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ .'\-]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return (t.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, '').length >= 2) ? t.toUpperCase() : '';
+      },
+
+      /**
+       * Vuelve a leer, SOLO el nombre, las filas que no coincidieron con el padron.
+       * Cada vuelta usa una variante distinta, y se corta apenas la fila coincide,
+       * se acaban las vueltas o se agota el tiempo.
+       *
+       * @returns {Promise<{rondas:number, relecturas:number, resueltas:number, agotado:boolean}>}
+       */
+      reintentar: function(prep, filas, indice, cfg, alProgresar) {
+        const self = this;
+        const resumen = { rondas: 0, relecturas: 0, resueltas: 0, agotado: false, sinCaja: 0 };
+        // Las filas EMPATADAS (un apellido que calza igual con dos clientes) solo se
+        // releen en la primera vuelta: si la hoja no trae el dato que los distingue,
+        // releer cien veces no lo inventa, y solo gastaria el tiempo de las demas.
+        let rondaActual = 1;
+        const pendientes = function() {
+          return filas.filter(function(f) {
+            return f.estado !== 'alta' && f.nombreBox && !(f.empate && rondaActual > 1);
+          });
+        };
+        resumen.sinCaja = filas.filter(function(f) { return f.estado !== 'alta' && !f.nombreBox; }).length;
+        if (cfg.reintentos < 1 || !prep.gris || pendientes().length === 0) return Promise.resolve(resumen);
+
+        const inicio = Date.now();
+        const limiteMs = cfg.presupuestoSeg * 1000;
+        let workerUsado = null;
+        const restablecer = function() {
+          if (!workerUsado) return Promise.resolve();
+          return workerUsado.setParameters({ tessedit_pageseg_mode: '3', tessedit_char_whitelist: '' });
+        };
+
+        return this.obtenerWorker().then(function(worker) {
+          workerUsado = worker;
+          // Una sola linea de texto, y solo letras de un nombre en español
+          return worker.setParameters({
+            tessedit_pageseg_mode: '7',
+            tessedit_char_whitelist: self.ALFABETO_ES
+          });
+        }).then(function() {
+          let cadena = Promise.resolve();
+          for (let ronda = 1; ronda <= cfg.reintentos; ronda++) {
+            cadena = cadena.then(function() {
+              rondaActual = ronda;
+              const lista = pendientes();
+              if (lista.length === 0 || resumen.agotado) return null;
+              resumen.rondas = ronda;
+              const variante = self.VARIANTES[(ronda - 1) % self.VARIANTES.length];
+
+              return self._secuencia(lista, function(fila, k) {
+                if (resumen.agotado) return null;
+                if (Date.now() - inicio > limiteMs) { resumen.agotado = true; return null; }
+                if (alProgresar) {
+                  alProgresar('Releyendo ' + (k + 1) + ' de ' + lista.length + ' (vuelta ' + ronda +
+                              ' de ' + cfg.reintentos + ')…');
+                }
+                const imagenes = self._imagenesDeVariante(prep, fila.nombreBox, variante, cfg);
+                return self._secuencia(imagenes, function(img) {
+                  if (fila.estado === 'alta') return null;
+                  return workerUsado.recognize(img).then(function(r) {
+                    resumen.relecturas++;
+                    const texto = self._limpiarNombreLeido(r && r.data && r.data.text);
+                    if (texto && fila.lecturas.indexOf(texto) === -1) fila.lecturas.push(texto);
+                  });
+                }).then(function() {
+                  fila.reintentos = ronda;
+                  const antes = fila.estado;
+                  self.evaluarFila(fila, indice, cfg.umbralNombre);
+                  if (antes !== 'alta' && fila.estado === 'alta') {
+                    resumen.resueltas++;
+                    fila.resueltaEnVuelta = ronda;
+                  }
+                });
+              });
+            });
+          }
+          return cadena;
+        }).then(function() {
+          return restablecer();
+        }, function(error) {
+          // Pase lo que pase, el worker queda listo para la proxima pagina
+          return restablecer().then(function() { throw error; }, function() { throw error; });
+        }).then(function() {
+          return resumen;
+        });
+      },
+
+      /**
+       * Lectura completa de una imagen preparada: los dos motores en paralelo, el
+       * cruce de sus resultados, la comparacion con el padron y los reintentos.
+       *
+       * @param {Object} prep - Resultado de preparar()
+       * @param {string} fecha
+       * @param {Function} [alProgreso] - Recibe un texto de estado
+       * @returns {Promise<{ok:boolean, error?:string, filas:Array, nav:Object, srv:Object, resumen:Object}>}
+       */
+      leerTodo: function(prep, fecha, alProgreso) {
+        const self = this;
+        const cfg = this.cfg();
+        const poner = alProgreso || function() {};
+        const inicio = Date.now();
+
+        const tareaNavegador = cfg.motorNavegador
+          ? this.reconocerEnNavegador(prep.dataUrl, function(pct) {
+              poner('Motor del navegador: ' + pct + '%');
+            }).then(function(r) {
+              const movs = self.armarMovimientos(r.palabras, prep.ancho, fecha);
+              // Una pagina bien leida no deja nada a medias. Si quedo algo, una SEGUNDA
+              // MIRADA con otro modo de pagina (cada modo ve cosas que el otro no) y se
+              // unen las filas. Con reintentos en 0 no se hace: es el modo rapido.
+              if (movs.incompletas > 0 && cfg.reintentos > 0) {
+                poner('Segunda mirada a la página…');
+                return self.reconocerEnNavegador(prep.dataUrl, null, { psm: self.psmSegundaPasada }).then(function(r2) {
+                  const movs2 = self.armarMovimientos(r2.palabras, prep.ancho, fecha);
+                  return { ok: true, movimientos: self.unirPasadas(movs, movs2), crudo: r, segundaPasada: true,
+                           incompletasAntes: movs.incompletas };
+                }).catch(function(e) {
+                  // La segunda pasada es un refuerzo: si falla, se conserva la primera
+                  console.warn('[OCR] Falló la segunda mirada: ' + ((e && e.message) || e));
+                  return { ok: true, movimientos: movs, crudo: r };
+                });
+              }
+              return { ok: true, movimientos: movs, crudo: r };
+            }).catch(function(e) {
+              return { ok: false, error: (e && e.message) || String(e), movimientos: [] };
+            })
+          : Promise.resolve({ ok: false, error: 'Motor del navegador desactivado', movimientos: [] });
+
+        const tareaServidor = (cfg.motorServidor && Estado.vrImagenToken)
+          ? new Promise(function(resolver) {
+              google.script.run
+                .withSuccessHandler(function(res) {
+                  if (res && res.success) {
+                    const todos = (res.movimientosValidos || []).concat(res.movimientosConSugerencias || []);
+                    resolver({ ok: true, movimientos: todos, textoCrudo: res.textoCrudo, ms: res.ms });
+                  } else {
+                    resolver({ ok: false, error: (res && res.error) || 'Error del motor del servidor', movimientos: [] });
+                  }
+                })
+                .withFailureHandler(function(error) {
+                  resolver({ ok: false, error: (error && error.message) || String(error), movimientos: [] });
+                })
+                .analizarImagen(Estado.vrImagenToken, fecha);
+            })
+          : Promise.resolve({ ok: false, error: 'Motor del servidor no disponible', movimientos: [] });
+
+        return Promise.all([tareaNavegador, tareaServidor, this.indicePadron()]).then(function(r) {
+          const nav = r[0], srv = r[1], indice = r[2];
+
+          if (!nav.ok && !srv.ok) {
+            return { ok: false, error: nav.error || srv.error || '', filas: [], nav: nav, srv: srv };
+          }
+
+          const filas = self.fusionar(nav.movimientos, srv.movimientos);
+          filas.forEach(function(f, i) {
+            f.idFila = i + 1;
+            self.evaluarFila(f, indice, cfg.umbralNombre);
+            // Como quedo SOLO con la primera lectura: sirve para saber que rescataron los reintentos
+            f.estadoPrimera = f.estado;
+            f.mejorPrimera = f.mejorNombre;
+          });
+          const altaPrimera = filas.filter(function(f) { return f.estado === 'alta'; }).length;
+
+          // Elige, entre las lecturas de un renglon, la que mas se parece al mejor
+          // cliente encontrado (o la primera): es la que se muestra como "leido"
+          const nombreRepresentativo = function(f) {
+            if (!f.lecturas.length) return '';
+            if (!f.mejorNombre) return f.lecturas[0];
+            let mejor = f.lecturas[0], mejorSim = -1;
+            f.lecturas.forEach(function(l) {
+              const s = NombresEs.parecidoNombres(l, f.mejorNombre);
+              if (s > mejorSim) { mejorSim = s; mejor = l; }
+            });
+            return mejor;
+          };
+
+          return self.reintentar(prep, filas, indice, cfg, poner).catch(function(e) {
+            // Los reintentos son un refuerzo: si fallan, se conserva la primera lectura
+            console.warn('[OCR] Los reintentos fallaron: ' + ((e && e.message) || e));
+            return { rondas: 0, relecturas: 0, resueltas: 0, agotado: false, sinCaja: 0, error: (e && e.message) || String(e) };
+          }).then(function(reint) {
+            // Las filas que nacieron de un monto sin nombre toman la mejor lectura que consiguieron
+            filas.forEach(function(f) {
+              if (!f.cliente && f.lecturas.length) {
+                f.cliente = nombreRepresentativo(f);
+                f.clienteOriginal = f.cliente;
+              }
+            });
+            const altaFinal = filas.filter(function(f) { return f.estado === 'alta'; }).length;
+            return {
+              ok: true, nav: nav, srv: srv, filas: filas,
+              resumen: {
+                total: filas.length, altaPrimera: altaPrimera, altaFinal: altaFinal,
+                resueltasEnReintento: reint.resueltas, rondas: reint.rondas, relecturas: reint.relecturas,
+                agotado: reint.agotado, sinCaja: reint.sinCaja, errorReintentos: reint.error || '',
+                sinNombre: filas.filter(function(f) { return !f.cliente; }).length,
+                segundaPasada: !!nav.segundaPasada,
+                ms: Date.now() - inicio
+              }
+            };
+          });
+        }).then(function(resultado) {
+          // El worker ocupa memoria: se libera si no se usa por un rato
+          self.liberarWorkerEn(120000);
+          return resultado;
+        });
       }
     };
 
@@ -9475,7 +10606,6 @@ function renderEstadisticas(result) {
         return;
       }
 
-      const cfg = SvOcr.cfg();
       const fecha = document.getElementById('vrFecha').value || obtenerFechaLocal();
       const progreso = document.getElementById('vrProgreso');
       const poner = function(txt) { if (progreso) progreso.textContent = txt; };
@@ -9483,49 +10613,20 @@ function renderEstadisticas(result) {
       mostrarLoading(true);
       poner('Leyendo...');
 
-      // Los dos motores corren en paralelo: ninguno espera al otro
-      const tareaNavegador = (cfg.motorNavegador)
-        ? SvOcr.reconocerEnNavegador(prep.dataUrl, function(pct) {
-            poner('Motor del navegador: ' + pct + '%');
-          }).then(function(r) {
-            return { ok: true, movimientos: SvOcr.armarMovimientos(r.palabras, prep.ancho, fecha), crudo: r };
-          }).catch(function(e) {
-            return { ok: false, error: (e && e.message) || String(e), movimientos: [] };
-          })
-        : Promise.resolve({ ok: false, error: 'Motor del navegador desactivado', movimientos: [] });
+      // Los dos motores en paralelo, el cruce, la comparacion con el padron y los
+      // reintentos de lo que no coincide: todo en SvOcr.leerTodo
+      SvOcr.leerTodo(prep, fecha, poner).then(function(lectura) {
+        Estado.vrDiagnostico = { navegador: lectura.nav, servidor: lectura.srv, preparada: prep, resumen: lectura.resumen };
 
-      const tareaServidor = (cfg.motorServidor && Estado.vrImagenToken)
-        ? new Promise(function(resolver) {
-            google.script.run
-              .withSuccessHandler(function(res) {
-                if (res && res.success) {
-                  const todos = (res.movimientosValidos || []).concat(res.movimientosConSugerencias || []);
-                  resolver({ ok: true, movimientos: todos, textoCrudo: res.textoCrudo, ms: res.ms });
-                } else {
-                  resolver({ ok: false, error: (res && res.error) || 'Error del motor del servidor', movimientos: [] });
-                }
-              })
-              .withFailureHandler(function(error) {
-                resolver({ ok: false, error: (error && error.message) || String(error), movimientos: [] });
-              })
-              .analizarImagen(Estado.vrImagenToken, fecha);
-          })
-        : Promise.resolve({ ok: false, error: 'Motor del servidor no disponible', movimientos: [] });
-
-      Promise.all([tareaNavegador, tareaServidor]).then(function(r) {
-        const nav = r[0], srv = r[1];
-        Estado.vrDiagnostico = { navegador: nav, servidor: srv, preparada: prep };
-
-        if (!nav.ok && !srv.ok) {
+        if (!lectura.ok) {
           mostrarLoading(false);
           poner('');
-          mostrarToast('Ningún motor pudo leer la imagen. ' + (nav.error || srv.error || ''), 'error');
+          mostrarToast('Ningún motor pudo leer la imagen. ' + (lectura.error || ''), 'error');
           return;
         }
 
-        const fusionados = SvOcr.fusionar(nav.movimientos, srv.movimientos);
-
-        if (fusionados.length === 0) {
+        const filas = lectura.filas;
+        if (filas.length === 0) {
           mostrarLoading(false);
           poner('');
           mostrarToast('No se detectó ningún movimiento. Probá con una foto más nítida y derecha, ' +
@@ -9536,8 +10637,27 @@ function renderEstadisticas(result) {
           return;
         }
 
-        // Corregir los nombres contra el padrón, que es lo que más acierto da
-        poner('Comparando ' + fusionados.length + ' nombres con tu padrón...');
+        // El servidor devuelve las filas sin su geometria (y reordenadas: primero
+        // las validas). Se guarda por idFila para volver a pegarsela despues; sin esto
+        // el "recorte ampliado" de cada fila nunca llegaba a mostrarse.
+        const geometria = {};
+        filas.forEach(function(f) {
+          geometria[f.idFila] = { recorte: f.recorte, nombreBox: f.nombreBox, reintentos: f.reintentos || 0 };
+        });
+
+        // Las filas a las que no se les pudo leer NINGUN nombre no pasan por el servidor
+        // (las descartaria por no tener cliente): se muestran igual, sin tildar, con su
+        // recorte, para que la persona escriba el nombre. Un fiado nunca se pierde en silencio.
+        const sinNombre = filas.filter(function(f) { return !String(f.cliente || '').trim(); }).map(function(f) {
+          return { idFila: f.idFila, cliente: '', clienteOriginal: '', monto: f.monto, tipo: f.tipo,
+                   confianzaTipo: f.confianzaTipo, confianzaOcr: f.confianzaOcr, obs: f.obs, fecha: fecha,
+                   valido: false, esNuevo: true, huerfano: true, sugerencias: [],
+                   recorte: f.recorte, nombreBox: f.nombreBox, reintentos: f.reintentos || 0 };
+        });
+        const paraServidor = filas.filter(function(f) { return String(f.cliente || '').trim(); });
+
+        // La decision final la toma el servidor con el padron vigente
+        poner('Comparando ' + paraServidor.length + ' nombres con tu padrón...');
         google.script.run
           .withSuccessHandler(function(res) {
             mostrarLoading(false);
@@ -9546,31 +10666,52 @@ function renderEstadisticas(result) {
               mostrarToast((res && res.error) || 'No se pudo comparar con el padrón', 'error');
               return;
             }
-            Estado.vrMovimientos = (res.movimientosValidos || []).map(function(m) {
-              return Object.assign({}, m, { valido: true });
-            }).concat((res.movimientosConSugerencias || []).map(function(m) {
-              return Object.assign({}, m, { valido: false });
-            }));
+            const pegar = function(m, valido) {
+              const g = geometria[m.idFila] || {};
+              return Object.assign({}, m, { valido: valido, recorte: g.recorte, nombreBox: g.nombreBox,
+                                            reintentos: g.reintentos || m.reintentos || 0 });
+            };
+            // En el orden en que aparecen en la hoja, no "validas primero"
+            Estado.vrMovimientos = (res.movimientosValidos || []).map(function(m) { return pegar(m, true); })
+              .concat((res.movimientosConSugerencias || []).map(function(m) { return pegar(m, false); }))
+              .concat(sinNombre)
+              .sort(function(a, b) { return (a.idFila || 0) - (b.idFila || 0); });
 
             document.getElementById('vrResultados').style.display = 'block';
             renderMovimientosVR();
 
             const motores = [];
-            if (nav.ok) motores.push('navegador');
-            if (srv.ok) motores.push('servidor');
-            mostrarToast(Estado.vrMovimientos.length + ' movimientos detectados (' +
-                         motores.join(' + ') + ')', 'success');
+            if (lectura.nav.ok) motores.push('navegador');
+            if (lectura.srv.ok) motores.push('servidor');
+            const rs = lectura.resumen;
+            let msg = Estado.vrMovimientos.length + ' movimientos detectados (' + motores.join(' + ') + ')';
+            if (rs.rondas > 0) {
+              msg += ' · releyendo se resolvieron ' + rs.resueltasEnReintento + ' nombre(s)';
+            }
+            if (rs.agotado) msg += ' · se agotó el tiempo de reintentos';
+            if (sinNombre.length > 0) {
+              msg += ' · ' + sinNombre.length + ' sin nombre legible: completalas a mano';
+            }
+            mostrarToast(msg, 'success');
+            if (rs.sinCaja > 0 && SvOcr.cfg().reintentos > 0) {
+              console.info('[OCR] ' + rs.sinCaja + ' fila(s) solo las vio el motor del servidor: no se pueden releer (no tienen posición).');
+            }
           })
           .withFailureHandler(function(error) {
             mostrarLoading(false);
             poner('');
             mostrarToast('Error: ' + ((error && error.message) || error), 'error');
           })
-          .ocrCorregirMovimientos(fusionados.map(function(m) {
-            return { cliente: m.cliente, clienteOriginal: m.clienteOriginal, monto: m.monto,
+          .ocrCorregirMovimientos(paraServidor.map(function(m) {
+            return { idFila: m.idFila, cliente: m.cliente, clienteOriginal: m.clienteOriginal, monto: m.monto,
                      tipo: m.tipo, confianzaTipo: m.confianzaTipo, confianzaOcr: m.confianzaOcr,
-                     obs: m.obs, motor: (m.motores || []).join('+') };
+                     obs: m.obs, motor: (m.motores || []).join('+'),
+                     lecturas: m.lecturas, reintentos: m.reintentos || 0 };
           }), fecha);
+      }).catch(function(e) {
+        mostrarLoading(false);
+        poner('');
+        mostrarToast('No se pudo leer la imagen: ' + ((e && e.message) || e), 'error');
       });
     }
 
@@ -9631,6 +10772,15 @@ function renderEstadisticas(result) {
             (m.clienteOriginal && m.clienteOriginal !== m.cliente
               ? '<div style="font-size:0.7rem;color:var(--sv-texto-muted);margin-top:0.15rem;">leído: ' +
                 escapeHtml(m.clienteOriginal) + '</div>' : '') +
+            ((m.huerfano && !String(m.cliente || '').trim())
+              ? '<div style="font-size:0.7rem;color:var(--sv-advertencia);margin-top:0.15rem;">' +
+                'no se pudo leer el nombre: escribilo mirando el recorte</div>' : '') +
+            ((m.coincidencia || m.reintentos)
+              ? '<div style="font-size:0.68rem;color:var(--sv-texto-muted);margin-top:0.1rem;">' +
+                (m.coincidencia ? 'coincidencia ' + m.coincidencia + '%' : '') +
+                (m.reintentos > 0 ? (m.coincidencia ? ' · ' : '') + 'releída ' + m.reintentos +
+                  (m.reintentos === 1 ? ' vez' : ' veces') : '') +
+                '</div>' : '') +
             (m.sugerencias && m.sugerencias.length
               ? '<div style="margin-top:0.25rem;display:flex;gap:0.25rem;flex-wrap:wrap;">' +
                 m.sugerencias.slice(0, 3).map(function(sg) {
@@ -9701,6 +10851,22 @@ function renderEstadisticas(result) {
       _actualizarResumenVR();
     }
 
+    /**
+     * Clave para comparar nombres de cliente: la misma regla que usa el servidor
+     * (normalizarString): mayusculas, sin acentos, espacios simples.
+     */
+    function _claveClienteVR(nombre) {
+      return String(nombre || '').toUpperCase().trim().replace(/\s+/g, ' ')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function _clienteEnPadronVR(nombre) {
+      const clave = _claveClienteVR(nombre);
+      return !!clave && (Estado.clientes || []).some(function(c) {
+        return _claveClienteVR(c.nombre) === clave;
+      });
+    }
+
     /** Cambia el cliente. Acepta texto libre, no solo las sugerencias. */
     function cambiarClienteVR(i, nombre) {
       const m = Estado.vrMovimientos[i];
@@ -9708,9 +10874,7 @@ function renderEstadisticas(result) {
       const limpio = String(nombre || '').trim().toUpperCase();
       m.cliente = limpio;
       // Se marca sola si el nombre existe en el padrón
-      const existe = (Estado.clientes || []).some(function(c) {
-        return String(c.nombre).toUpperCase() === limpio;
-      });
+      const existe = _clienteEnPadronVR(limpio);
       m.valido = existe && m.monto > 0;
       m.esNuevo = !existe;
       renderMovimientosVR();
@@ -9766,11 +10930,25 @@ function renderEstadisticas(result) {
         return;
       }
 
-      const nuevos = marcados.filter(function(m) { return m.esNuevo; });
-      if (nuevos.length > 0) {
-        if (!confirm(nuevos.length + ' cliente(s) no están en tu padrón:\n\n' +
-                     nuevos.map(function(m) { return '· ' + m.cliente; }).join('\n') +
-                     '\n\nSe van a dar de alta. ¿Continuar?')) return;
+      // El servidor NO da de alta clientes al guardar un movimiento: si el cliente no
+      // existe, esa fila falla con "Cliente no encontrado". El aviso anterior decia
+      // "se van a dar de alta", lo cual no era cierto. Se comprueba contra el padron
+      // (no solo con la marca esNuevo, que ya no es confiable) y se avisa lo real.
+      let aGuardar = marcados;
+      if ((Estado.clientes || []).length > 0) {
+        const sinPadron = marcados.filter(function(m) { return !_clienteEnPadronVR(m.cliente); });
+        if (sinPadron.length > 0) {
+          aGuardar = marcados.filter(function(m) { return _clienteEnPadronVR(m.cliente); });
+          const lista = sinPadron.map(function(m) { return '· ' + m.cliente; }).join('\n');
+          if (aGuardar.length === 0) {
+            alert(sinPadron.length + ' fila(s) tienen un cliente que no está en tu padrón y no se pueden guardar:\n\n' +
+                  lista + '\n\nCreá primero el cliente en Gestión de Clientes, o elegí uno de las sugerencias.');
+            return;
+          }
+          if (!confirm(sinPadron.length + ' fila(s) tienen un cliente que no está en tu padrón y NO se van a guardar:\n\n' +
+                       lista + '\n\nCreá esos clientes en Gestión de Clientes y volvé a cargarlas.\n\n' +
+                       '¿Guardar las otras ' + aGuardar.length + '?')) return;
+        }
       }
 
       mostrarLoading(true);
@@ -9794,7 +10972,7 @@ function renderEstadisticas(result) {
           mostrarLoading(false);
           mostrarToast('Error: ' + ((error && error.message) || error), 'error');
         })
-        .guardarMovimientosLote(marcados);
+        .guardarMovimientosLote(aGuardar);
     }
 
     // ============================================================================
@@ -9880,6 +11058,19 @@ function renderEstadisticas(result) {
             '<strong>Cruce de los dos motores:</strong> ' + fus.length + ' filas en total, ' +
             coinciden + ' en las que ambos coinciden (son las más confiables)' +
           '</div>';
+        }
+
+        const rl = Estado.vrDiagnostico && Estado.vrDiagnostico.resumen;
+        if (rl) {
+          html += '<div style="margin-top:0.5rem;padding:0.6rem;border-radius:6px;background:var(--sv-superficie-elevada);font-size:0.82rem;">' +
+            '<strong>Última lectura completa:</strong> ' + rl.total + ' filas · ' +
+            rl.altaPrimera + ' reconocidas en la primera pasada · ' + rl.altaFinal + ' al final' +
+            (rl.rondas > 0 ? ' (' + rl.resueltasEnReintento + ' rescatadas releyendo, en ' + rl.rondas +
+              ' vuelta(s) y ' + rl.relecturas + ' relecturas)' : ' (sin reintentos)') +
+            (rl.segundaPasada ? ' · con segunda mirada a la página' : '') +
+            (rl.agotado ? ' · <span style="color:var(--sv-advertencia);">se agotó el tiempo</span>' : '') +
+            (rl.sinCaja ? ' · ' + rl.sinCaja + ' sin posición (no se pueden releer)' : '') +
+            ' · ' + (Math.round(rl.ms / 100) / 10) + ' s</div>';
         }
 
         html += '<p style="font-size:0.75rem;color:var(--sv-texto-muted);margin-top:0.75rem;">' +
@@ -15231,7 +16422,10 @@ function renderEstadisticas(result) {
             document.getElementById('inputIvaAlicuotaId').value = config.ivaAlicuotaId || '';
             
             // OCR gratuito
-            document.getElementById('inputOcrIdioma').value = config.ocrIdioma || 'es';
+            document.getElementById('inputOcrReintentos').value =
+              (config.ocrReintentos !== undefined && config.ocrReintentos !== null) ? config.ocrReintentos : '';
+            document.getElementById('inputOcrPresupuestoSeg').value = config.ocrPresupuestoSeg || '';
+            document.getElementById('inputOcrUmbralNombre').value = config.ocrUmbralNombre || '';
             document.getElementById('inputOcrConfianza').value =
               (config.ocrConfianzaMinima === undefined || config.ocrConfianzaMinima === null) ? '' : config.ocrConfianzaMinima;
             document.getElementById('inputOcrBinarizacion').value =
@@ -15876,7 +17070,9 @@ function renderEstadisticas(result) {
         denominaciones: _denominacionesConfig,
         ivaPorcentaje: parseFloat(document.getElementById('inputIvaPorcentaje').value) || 10.5,
         ivaAlicuotaId: parseInt(document.getElementById('inputIvaAlicuotaId').value) || 4,
-        ocrIdioma: document.getElementById('inputOcrIdioma').value.trim() || 'es',
+        ocrReintentos: _enteroDeInput('inputOcrReintentos', 3, 0, 6),
+        ocrPresupuestoSeg: _enteroDeInput('inputOcrPresupuestoSeg', 45, 10, 180),
+        ocrUmbralNombre: _enteroDeInput('inputOcrUmbralNombre', 90, 60, 100),
         ocrConfianzaMinima: _enteroDeInput('inputOcrConfianza', 60, 0, 100),
         ocrBinarizacion: _enteroDeInput('inputOcrBinarizacion', 20, 0, 50),
         ocrAnchoMaximo: _enteroDeInput('inputOcrAnchoMaximo', 2000, 600, 5000),

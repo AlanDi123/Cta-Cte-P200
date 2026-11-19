@@ -1281,6 +1281,19 @@ function seleccionarProductosParaMonto(montoObjetivo, productos) {
  */
 function probarOcrGratuito() {
   try {
+    // En Apps Script cada archivo .gs que falta en el proyecto aparece como
+    // "X is not defined", sin decir que hacer. Aca se dice exactamente cual falta.
+    const faltantes = [];
+    if (typeof OcrService === 'undefined') faltantes.push('ocr.gs');
+    if (typeof NombresEs === 'undefined') faltantes.push('nombres_es.gs');
+    if (faltantes.length > 0) {
+      return {
+        success: false,
+        error: 'Falta subir a Apps Script: ' + faltantes.join(' y ') + '. Creá cada uno con ' +
+               '"+ → Script", con ese nombre, y pegá su contenido completo. Si además quedó el ' +
+               'viejo claude.gs, borralo: duplica ImageCache y hace que ocr.gs no cargue.'
+      };
+    }
     if (typeof Drive === 'undefined' || !Drive.Files || !Drive.Files.create) {
       return {
         success: false,

@@ -170,40 +170,59 @@ const OcrService = {
    * Corrige los nombres leídos contra el padrón real de clientes.
    *
    * Es el paso que más precisión aporta: el OCR puede leer "G0NZALES" y el
-   * padrón resuelve "GONZALEZ JUAN". Reutiliza la búsqueda difusa que ya
-   * existe, con los pesos configurables de CONFIG.getFuzzy().
+   * padrón resuelve "GONZALEZ JUAN". Usa NombresEs (nombres_es.gs), que compara
+   * palabra por palabra con fonética del español, sin importar el orden, y que
+   * solo acepta sola una coincidencia cuando es clara; si hay duda, sugiere.
+   *
+   * Cada movimiento puede traer varias lecturas del mismo renglón (de los dos
+   * motores y de cada reintento): se prueban todas y gana la que mejor calza.
    *
    * @param {Array<Object>} movimientos - Movimientos interpretados
    * @returns {{validos: Array<Object>, conSugerencias: Array<Object>}}
    */
   corregirContraPadron: function(movimientos) {
+    if (typeof NombresEs === 'undefined') {
+      throw new Error('Falta el archivo nombres_es.gs en el proyecto de Apps Script. ' +
+                      'Creá un archivo de script con ese nombre y pegá su contenido completo.');
+    }
     const validos = [];
     const conSugerencias = [];
+
+    const clientes = ClientesRepository.obtenerTodos();
+    const indice = NombresEs.indexar(clientes.map(function(c) { return c.nombre; }));
+    const opciones = { umbralAuto: CONFIG.getOcr().UMBRAL_NOMBRE / 100 };
 
     for (let i = 0; i < movimientos.length; i++) {
       const mov = movimientos[i];
       if (!mov.cliente || !(mov.monto > 0)) continue;
 
-      const busqueda = ClientesRepository.buscarConSugerencias(normalizarString(mov.cliente));
+      const lecturas = [mov.cliente, mov.clienteOriginal]
+        .concat(Array.isArray(mov.lecturas) ? mov.lecturas : [])
+        .filter(function(l) { return l && String(l).trim(); });
+      const decision = NombresEs.decidir(lecturas, indice, opciones);
+      const coincidencia = Math.round((decision.score || 0) * 100);
 
-      if (busqueda.exacto) {
+      if (decision.estado === 'alta') {
         validos.push(Object.assign({}, mov, {
-          cliente: busqueda.exacto.nombre,
+          cliente: decision.mejor.nombre,
           clienteValidado: true,
-          confianzaNombre: 'alta'
+          confianzaNombre: 'alta',
+          coincidencia: coincidencia
         }));
-      } else if (busqueda.sugerencias && busqueda.sugerencias.length > 0) {
+      } else if (decision.estado === 'media') {
         conSugerencias.push(Object.assign({}, mov, {
-          sugerencias: busqueda.sugerencias.map(function(s) { return s.nombre; }),
+          sugerencias: decision.sugerencias,
           clienteValidado: false,
-          confianzaNombre: 'media'
+          confianzaNombre: 'media',
+          coincidencia: coincidencia
         }));
       } else {
         conSugerencias.push(Object.assign({}, mov, {
           sugerencias: [],
           clienteValidado: false,
           esNuevo: true,
-          confianzaNombre: 'baja'
+          confianzaNombre: 'baja',
+          coincidencia: coincidencia
         }));
       }
     }
@@ -602,6 +621,9 @@ function ocrCorregirMovimientos(movimientos, fecha) {
     const fechaUso = fecha || obtenerFechaHoy();
     const normalizados = movimientos.map(function(m) {
       return {
+        // Se devuelve tal cual: el navegador lo usa para volver a asociar cada fila
+        // con su posicion en la imagen (el servidor la desconoce)
+        idFila: Number(m.idFila) || undefined,
         cliente: String(m.cliente || '').trim(),
         clienteOriginal: String(m.clienteOriginal || m.cliente || '').trim(),
         monto: Number(m.monto) || 0,
@@ -610,6 +632,11 @@ function ocrCorregirMovimientos(movimientos, fecha) {
           : CONFIG.TIPOS_MOVIMIENTO.DEBE,
         confianzaTipo: m.confianzaTipo || 'media',
         confianzaOcr: m.confianzaOcr,
+        // Otras lecturas del mismo renglón (de cada motor y de los reintentos)
+        lecturas: Array.isArray(m.lecturas)
+          ? m.lecturas.slice(0, 12).map(function(l) { return String(l || '').slice(0, 120); })
+          : [],
+        reintentos: Number(m.reintentos) || 0,
         fecha: fechaUso,
         obs: m.obs || ((m.tipo === CONFIG.TIPOS_MOVIMIENTO.HABER) ? 'Cobranza' : 'Fiado'),
         motor: m.motor || 'navegador'
@@ -756,7 +783,13 @@ function ocrObtenerPalabrasDelPadron() {
       }
     }
 
-    return { success: true, palabras: Object.keys(palabras) };
+    return {
+      success: true,
+      palabras: Object.keys(palabras),
+      // Nombres completos: el navegador los usa para comparar sin ir al servidor
+      nombres: clientes.map(function(c) { return String(c.nombre || '').trim(); })
+                       .filter(function(n) { return n; })
+    };
   } catch (error) {
     Logger.log('Error en ocrObtenerPalabrasDelPadron: ' + error.message);
     return { success: false, palabras: [], error: error.message };

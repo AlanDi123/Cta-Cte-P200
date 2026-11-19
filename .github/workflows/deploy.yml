@@ -95,6 +95,23 @@ jobs:
           fi
           echo "Sin credenciales a la vista"
 
+      - name: Comprobar que el comparador de nombres es identico en servidor y navegador
+        run: |
+          # nombres_es.gs y SistemaSolVerde.html llevan la MISMA copia del comparador
+          # (entre los marcadores NOMBRES_ES_INICIO y NOMBRES_ES_FIN). Si se edita una
+          # y no la otra, el servidor y el navegador decidirian distinto el mismo nombre.
+          cat > /tmp/copias.js <<'FIN'
+          const fs = require('fs');
+          const MI = '// ===NOMBRES_ES_INICIO===', MF = '// ===NOMBRES_ES_FIN===';
+          const corta = (s) => { const i = s.indexOf(MI), f = s.indexOf(MF); if (i < 0 || f < 0) return null; return s.slice(i, f + MF.length); };
+          const gs = corta(fs.readFileSync('nombres_es.gs', 'utf8'));
+          const html = corta(fs.readFileSync('SistemaSolVerde.html', 'utf8'));
+          if (!gs || !html) { console.log('::error::Faltan los marcadores NOMBRES_ES en nombres_es.gs o en el HTML'); process.exit(1); }
+          if (gs !== html) { console.log('::error::nombres_es.gs y SistemaSolVerde.html tienen copias DISTINTAS del comparador de nombres'); process.exit(1); }
+          console.log('Copias identicas (' + gs.split('\n').length + ' lineas)');
+          FIN
+          node /tmp/copias.js
+
       # ─────────────────────────────────────────────────────────────────────
       # Despliegue
       # ─────────────────────────────────────────────────────────────────────

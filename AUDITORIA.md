@@ -291,6 +291,67 @@ Las tres llamadas que corren solas al abrir Configuración —inquilinos, estado
 
 > **Para que no vuelva a pasar:** la interfaz y los `.gs` tienen que subirse juntos. Es exactamente lo que resuelve el despliegue automático de `DEPLOY.md`, y es la razón por la que la Capa 1 —la interfaz en caliente desde GitHub— **no debe usarse sola** sin la Capa 2.
 
+## 7-ter. Lectura de nombres en español: lo que se encontró al medir
+
+Al mejorar el OCR para nombres en español se midió contra el comportamiento anterior, con un
+padrón sintético y páginas de libro con mala letra generadas a propósito. **Esa medición destapó
+siete defectos, la mayoría míos.** Se documentan todos.
+
+| # | Hallazgo | Dónde | Estado |
+|---|---|---|---|
+| 1 | **La búsqueda difusa del sistema nunca sugiere por errores de tipeo con la configuración por defecto.** Una letra de diferencia da 46 puntos; el mínimo para sugerir es 65 (`PESO_LEVENSHTEIN: 50` < `MIN_SCORE: 65`). Solo funciona por prefijo o por «contiene». | `config.gs` `FUZZY` | **Sin tocar** fuera del OCR (afecta a otras búsquedas) |
+| 2 | **La «siembra del diccionario» con el padrón nunca existió.** Se descargaban las palabras del padrón y no se le pasaban a Tesseract. Lo que sí aportaba era la corrección posterior. | `SistemaSolVerde.html` | Corregido el relato; ahora el padrón se usa de verdad para comparar |
+| 3 | **El «recorte ampliado» de cada fila nunca se mostraba.** El dato se calculaba, el servidor lo descartaba al corregir los nombres y nada lo volvía a pegar. | `ocr.gs` + HTML | Corregido (`idFila`) |
+| 4 | **El aviso «se van a dar de alta» era falso.** El servidor no da de alta clientes: esas filas fallaban con «Cliente no encontrado». | HTML | Corregido: avisa lo real y no intenta guardarlas |
+| 5 | **La binarización por media convertía el lado en sombra de una foto en una lluvia de puntitos** que le impedía al OCR ver los montos; y el modo de página 3 de Tesseract está pensado para párrafos, no para columnas. | HTML | Corregido (Sauvola + modo 6/11 + margen) |
+| 6 | **Un monto sin nombre se descartaba en silencio** («probablemente un total»), igual que un nombre sin monto. Con mala letra es lo contrario a un total. | HTML | Corregido |
+| 7 | **El PIN de facturación (`1234`) está escrito en el HTML y se comprueba solo en el navegador.** Es público en el repositorio y evitable desde la consola. La auditoría 7.8 solo cubrió el PIN de logística. | `SistemaSolVerde.html` `PinLock` | **Sin tocar: pendiente de su decisión** |
+
+### Lo que se cambió
+
+- **`nombres_es.gs`** (nuevo): comparador de nombres. Compara palabra por palabra, sin importar el
+  orden; entiende la fonética rioplatense (b/v, s/z/c, ll/y, h muda, g/j, qu/k); apellidos con
+  partícula (`DI MARCO` = `DIMARCO`, `DE LA TORRE` = `TORRE`); confusiones de lectura (0/O, 1/I, rn/m);
+  grafías de origen italiano, vasco y otros comunes en Argentina; y pesa más una palabra rara
+  que una común. Copia idéntica dentro del HTML; el despliegue verifica que coincidan.
+- **Regla de seguridad para aceptar un nombre solo:** parecido alto, ventaja clara sobre el
+  segundo, y ninguna otra lectura apuntando a otro cliente. Un nombre exacto y único siempre
+  pasa. Si hay dos clientes casi iguales (`PAZ`/`PAEZ`), **siempre pregunta**.
+- **Reintentos:** las filas que no coinciden se vuelven a leer, solo el nombre, con seis
+  variantes distintas (una por vuelta) hasta coincidir o agotar vueltas/tiempo.
+- **Segunda mirada a la página**, solo si la primera dejó algo incompleto.
+- **Idioma fijo en español.** Se ignora lo que hubiera guardado en `OCR_IDIOMA`.
+- Tres ajustes nuevos en Configuración: reintentos, tiempo máximo y umbral de aceptación.
+
+### Cifras (padrón sintético de 150 clientes; páginas generadas con letra irregular)
+
+Sobre **60 anotaciones por nivel** (6 páginas de 10). «Útil» = el sistema acertó el cliente solo
+**o** lo dejó entre las 3 sugerencias.
+
+| Nivel de mala letra | Montos leídos antes → ahora | Clientes útiles antes → ahora | Aceptados solos, antes → ahora | Aceptados **mal** |
+|---|---|---|---|---|
+| 1 (leve) | 100% → 100% | 60 → 60 de 60 | 25 → 26 | 0 → 0 |
+| 2 (media) | 50% → **82%** | 28 → **46** de 60 (47% → 77%) | 3 → **17** | 0 → 0 |
+| 3 (mala) | 7% → **52%** | 2 → **23** de 60 (3% → 38%) | 0 → 2 | 0 → 0 |
+
+«Antes» es el sistema anterior a esta ronda: binarización por media, modo de página 3, sin
+margen, sin reintentos. En una foto buena no cambia nada (y no cuesta más: una sola lectura).
+El comparador viejo, con su configuración por defecto, acierta entre las 3 primeras solo el
+35% en el nivel 2 y el 6% en el nivel 3 (ver hallazgo 1).
+
+Del comparador de nombres solo, sin imagen (padrón de 150 clientes, 200 lecturas por celda,
+con 1, 2 y 3 errores de lectura): con el **apellido solo**, el cliente correcto queda entre las
+3 primeras sugerencias el 93% / 82% / 73% de las veces, contra 10% / 6% / 2% del anterior;
+con el **nombre en otro orden**, 95% / 92% / 84% contra 0%; con **apellido e inicial**,
+99% / 93% / 82% contra 19% / 4% / 2%. Con el nombre completo empatan (100%).
+Entre 600 lecturas de clientes que **no** están en el padrón, ninguna se aceptó sola.
+
+> **Límite honesto.** Son páginas **sintéticas**: letra irregular simulada sobre fuentes de
+> imprenta, no manuscrito real. Sirven para comparar versiones entre sí, no para prometer un
+> porcentaje sobre sus libros. La calibración real se hace con el banco de pruebas y fotos suyas.
+
+---
+
 ## 8. Cómo se verificó
 
 Apps Script no se ejecuta en el contenedor de desarrollo, así que la comprobación fue en capas:

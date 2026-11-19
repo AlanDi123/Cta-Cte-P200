@@ -112,6 +112,44 @@ En **Actions → Desplegar a Apps Script → Run workflow**. Si sale verde, list
 
 ---
 
+## Subida manual (cuando Actions no está disponible)
+
+La Capa 2 depende de GitHub Actions. Si no se puede usar (por ejemplo, por haber agotado
+la cuota del mes), el código se sube a mano. **Es seguro**, pero tiene una trampa que ya
+causó errores: los archivos **nuevos** no reemplazan a ninguno, hay que *crearlos*.
+
+### Los archivos del proyecto
+
+Son **17 archivos `.gs`** más `SistemaSolVerde.html` y `appsscript.json`:
+
+`afipModule` · `alquileres` · `auditoria` · `backups` · `caja` · `clientes` · `config` ·
+`contabilidad` · `facturacion` · `facturacionElectronica` · `main` · `modulos_logisticos` ·
+`movimientos` · **`nombres_es`** · **`ocr`** · `test_alquileres` · `utils`
+
+Los dos en negrita son **nuevos** y hay que crearlos con **+ → Script**, con *exactamente*
+ese nombre (sin `.gs`; el editor lo agrega) y pegar el contenido completo.
+
+### Archivos que ya no existen
+
+- **`claude`** (era `claude.gs`): **hay que borrarlo.** Si queda junto a `ocr`, `ImageCache`
+  queda declarado dos veces y Apps Script descarta `ocr` entero: el síntoma es
+  `OcrService is not defined`.
+
+### Orden y comprobación
+
+1. Subir **todos** los `.gs` y el `SistemaSolVerde.html` **juntos**. La interfaz nueva con
+   un servidor viejo (o al revés) deja partes de la pantalla sin funcionar.
+2. **Implementar → Administrar implementaciones → editar → Versión nueva → Implementar.**
+   Guardar los archivos no basta: el Web App sirve la última *versión desplegada*.
+3. Recargar el sistema con **Ctrl+F5**.
+4. Abrir **Configuración → OCR de imágenes** y usar el botón de prueba. Si falta un archivo,
+   el mensaje dice *cuál* es.
+
+> `nombres_es.gs` tiene una copia idéntica dentro de `SistemaSolVerde.html`. Si se edita
+> una, hay que editar la otra: el servidor y el navegador tienen que decidir igual.
+
+---
+
 ## Qué hace el workflow, en orden
 
 1. **Verifica la sintaxis de los 16 archivos `.gs`.**

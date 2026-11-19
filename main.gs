@@ -1991,7 +1991,10 @@ function obtenerConfiguracion() {
       anchoMaximo:     ocr.ANCHO_MAXIMO,
       autoRotar:       ocr.AUTO_ROTAR,
       motorServidor:   ocr.MOTOR_SERVIDOR,
-      motorNavegador:  ocr.MOTOR_NAVEGADOR
+      motorNavegador:  ocr.MOTOR_NAVEGADOR,
+      reintentos:      ocr.REINTENTOS,
+      presupuestoSeg:  ocr.PRESUPUESTO_SEG,
+      umbralNombre:    ocr.UMBRAL_NOMBRE
     }
   };
 }
@@ -2154,6 +2157,9 @@ function obtenerConfiguracionCompleta() {
       ocrMotorServidor:    CONFIG.getOcr().MOTOR_SERVIDOR,
       ocrMotorNavegador:   CONFIG.getOcr().MOTOR_NAVEGADOR,
       ocrAutoRotar:        CONFIG.getOcr().AUTO_ROTAR,
+      ocrReintentos:       CONFIG.getOcr().REINTENTOS,
+      ocrPresupuestoSeg:   CONFIG.getOcr().PRESUPUESTO_SEG,
+      ocrUmbralNombre:     CONFIG.getOcr().UMBRAL_NOMBRE,
       
       // IVA
       ivaPorcentaje: parseFloat(props.getProperty('IVA_PORCENTAJE') || '10.5'),
@@ -2399,13 +2405,8 @@ function guardarConfiguracionGeneral(config) {
     }
 
     // OCR gratuito (reemplaza a la configuración de Claude AI, que ya no existe)
-    if (config.ocrIdioma !== undefined) {
-      const idioma = String(config.ocrIdioma).trim().toLowerCase();
-      if (!/^[a-z]{2,3}(\+[a-z]{2,3})*$/.test(idioma)) {
-        throw new Error('Idioma de OCR inválido. Usá códigos como "es" o "es+en".');
-      }
-      props.setProperty('OCR_IDIOMA', idioma);
-    }
+    // El idioma del OCR es siempre español y ya no se configura: si una
+    // pantalla vieja todavía manda ocrIdioma, se ignora en silencio.
 
     if (config.ocrConfianzaMinima !== undefined) {
       const conf = parseInt(config.ocrConfianzaMinima);
@@ -2429,6 +2430,30 @@ function guardarConfiguracionGeneral(config) {
         throw new Error('El ancho máximo del OCR debe estar entre 600 y 5000 píxeles');
       }
       props.setProperty('OCR_ANCHO_MAXIMO', ancho.toString());
+    }
+
+    if (config.ocrReintentos !== undefined) {
+      const n = parseInt(config.ocrReintentos, 10);
+      if (isNaN(n) || n < 0 || n > 6) {
+        throw new Error('Los reintentos del OCR deben estar entre 0 y 6');
+      }
+      props.setProperty('OCR_REINTENTOS', n.toString());
+    }
+
+    if (config.ocrPresupuestoSeg !== undefined) {
+      const s = parseInt(config.ocrPresupuestoSeg, 10);
+      if (isNaN(s) || s < 10 || s > 180) {
+        throw new Error('El tiempo máximo de reintentos debe estar entre 10 y 180 segundos');
+      }
+      props.setProperty('OCR_PRESUPUESTO_SEG', s.toString());
+    }
+
+    if (config.ocrUmbralNombre !== undefined) {
+      const u = parseInt(config.ocrUmbralNombre, 10);
+      if (isNaN(u) || u < 60 || u > 100) {
+        throw new Error('El parecido para aceptar un nombre solo debe estar entre 60 y 100');
+      }
+      props.setProperty('OCR_UMBRAL_NOMBRE', u.toString());
     }
 
     if (config.ocrMotorServidor !== undefined) {
