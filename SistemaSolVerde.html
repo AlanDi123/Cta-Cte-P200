@@ -753,6 +753,36 @@
       .table-responsive-cards td:last-child {
         justify-content: flex-end;
       }
+
+      /* Escanear: las celdas traen campos y sugerencias; la etiqueta va arriba */
+      .esc-tabla td {
+        display: block;
+      }
+      .esc-tabla td::before {
+        display: block;
+        margin-bottom: 0.3rem;
+      }
+      .esc-tabla td[data-label=""]::before,
+      .esc-tabla td:last-child::before {
+        display: none;
+      }
+      .esc-tabla td:last-child {
+        text-align: right;
+      }
+    }
+
+    /* Escanear: botones de banco compactos dentro de la tabla */
+    .esc-bancos {
+      display: flex;
+      gap: 0.3rem;
+      flex-wrap: wrap;
+    }
+    .esc-bancos .banco-option {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 0.35rem 0.55rem;
+      font-size: 0.75rem;
+      white-space: nowrap;
     }
 
     /* Tags */
@@ -4717,35 +4747,71 @@
 
       <!-- MODULO: ESCANEAR IA -->
       <div class="module-view" id="module-escanear">
-        <h2 style="margin-bottom: 1rem;">Escanear Comprobantes con IA</h2>
+        <h2 style="margin-bottom: 1rem;">Escanear Transferencias</h2>
 
         <div class="card" style="margin-bottom: 1rem;">
-          <div class="card-title">📸 Subir Imagen de Comprobante Bancario</div>
+          <div class="card-title">📸 Foto de la planilla o del comprobante</div>
           <p style="font-size: 0.875rem; color: var(--sv-texto-secundario); margin-bottom: 1rem;">
-            La IA analizara la imagen y extraera los datos de las transferencias automaticamente.
-            Los datos sensibles (CBU, cuentas) NO seran procesados.
+            Lee una <strong>planilla de transferencias</strong> escrita a mano (Cliente · Banco · Importe) o una
+            <strong>captura de homebanking</strong>. Gratis y sin IA. Los datos sensibles (CBU, cuentas) no se guardan.
           </p>
 
-          <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-            <input type="file" id="inputImagenComprobante" accept="image/*" class="form-input" style="flex: 1; min-width: 200px;">
-            <button class="btn btn-primary" onclick="procesarImagenIA()" id="btnProcesarIA">
-              🤖 Procesar con IA
-            </button>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+            <label class="btn btn-primary" style="cursor:pointer;margin:0;">
+              📷 Sacar foto
+              <input type="file" id="inputFotoCamaraIA" accept="image/*" capture="environment" style="display:none;">
+            </label>
+            <label class="btn btn-outline" style="cursor:pointer;margin:0;">
+              🖼️ Elegir fotos
+              <input type="file" id="inputImagenComprobante" accept="image/*" multiple style="display:none;">
+            </label>
+            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;cursor:pointer;margin:0;">
+              <input type="checkbox" id="escEnMiles" checked onchange="guardarPreferenciaMilesIA()">
+              Importes anotados en miles (101 = 101.000)
+            </label>
           </div>
 
+          <!-- Fotos cargadas -->
+          <div id="escFotos" style="display:none;margin-top:1rem;gap:0.5rem;flex-wrap:wrap;"></div>
+
+          <!-- Vista previa con la zona a leer -->
           <div id="previewImagen" style="margin-top: 1rem; display: none;">
-            <img id="imgPreview" style="max-width: 100%; max-height: 300px; border-radius: var(--sv-radius); border: 1px solid var(--sv-borde);">
+            <p style="font-size:0.8rem;color:var(--sv-texto-muted);margin:0 0 0.4rem 0;">
+              Arrastrá sobre la foto para marcar <strong>solo la planilla</strong> (sin teclado, sin mesa, sin otras columnas).
+              Es opcional, pero mejora mucho la lectura.
+            </p>
+            <div id="escZonaMarco" style="position:relative;display:inline-block;max-width:100%;touch-action:none;user-select:none;cursor:crosshair;">
+              <img id="imgPreview" alt="Foto a leer" draggable="false"
+                   style="display:block;max-width:100%;max-height:420px;border-radius:var(--sv-radius);border:1px solid var(--sv-borde);">
+              <div id="escZonaRect" style="position:absolute;display:none;border:2px dashed var(--sv-primario);background:rgba(37,99,235,0.08);pointer-events:none;"></div>
+            </div>
+            <div style="margin-top:0.4rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="limpiarZonaIA()">Leer toda la foto</button>
+              <span id="escZonaInfo" style="font-size:0.75rem;color:var(--sv-texto-muted);"></span>
+            </div>
+          </div>
+
+          <div style="margin-top:1rem;display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="procesarImagenIA()" id="btnProcesarIA" disabled>
+              🔎 Leer foto
+            </button>
+            <span id="escProgreso" style="font-size:0.8rem;color:var(--sv-texto-muted);"></span>
           </div>
         </div>
 
         <div class="card" id="resultadosIA" style="display: none;">
-          <div class="card-title">✅ Datos Detectados</div>
-          <p style="font-size: 0.875rem; color: var(--sv-texto-secundario); margin-bottom: 1rem;">
-            Revisa y edita los datos antes de importar. Fecha del documento: <strong id="fechaDocumentoIA">-</strong>
-          </p>
+          <div class="card-title">✅ Transferencias detectadas</div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:0.75rem;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" for="escFecha">Fecha de las transferencias</label>
+              <input type="date" class="form-input" id="escFecha" style="max-width:200px;">
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" id="btnRecortesIA" onclick="alternarRecortesIA()">Ver recortes</button>
+          </div>
+          <p id="escResumen" style="font-size: 0.85rem; color: var(--sv-texto-secundario); margin-bottom: 0.75rem;"></p>
 
           <div class="table-container">
-            <table class="table">
+            <table class="table table-responsive-cards esc-tabla">
               <thead>
                 <tr>
                   <th>Cliente</th>
@@ -4758,9 +4824,10 @@
             </table>
           </div>
 
-          <div style="margin-top: 1rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+          <div style="margin-top: 1rem; display: flex; gap: 0.75rem; justify-content: flex-end; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline" onclick="agregarFilaIA()" style="margin-right:auto;">＋ Agregar fila</button>
             <button class="btn btn-outline" onclick="limpiarResultadosIA()">Cancelar</button>
-            <button class="btn btn-primary" onclick="importarTransferenciasIA()">📥 Importar Todas</button>
+            <button class="btn btn-primary" onclick="importarTransferenciasIA()" id="btnImportarIA">📥 Importar</button>
           </div>
         </div>
 
@@ -9340,30 +9407,133 @@ const NombresEs = (function() {
        * @param {File|Blob} archivo
        * @returns {Promise<{dataUrl: string, ancho: number, alto: number, inclinacion: number, pesoKB: number}>}
        */
-      preparar: function(archivo) {
+      /**
+       * Copia el archivo elegido a memoria, UNA vez, en el momento de elegirlo.
+       *
+       * Por que: en Android, una foto elegida desde la galeria o desde Google Fotos
+       * puede perder el permiso de lectura un rato despues. Antes el archivo se leia
+       * dos veces (vista previa y procesado) y la segunda fallaba con "No se pudo leer
+       * el archivo". Con la copia, todo lo demas trabaja sobre memoria propia.
+       * @returns {Promise<Blob>}
+       */
+      copiarArchivo: function(archivo) {
+        if (!archivo) return Promise.reject(new Error('No hay ninguna imagen elegida.'));
+        const tipo = archivo.type || 'image/jpeg';
+        const consejo = ' Si la foto está en la nube (Google Fotos, Drive), descargala primero al ' +
+                        'teléfono, o usá el botón «Sacar foto».';
+        const leer = (typeof archivo.arrayBuffer === 'function')
+          ? archivo.arrayBuffer()
+          : new Promise(function(ok, mal) {
+              const l = new FileReader();
+              l.onerror = function() { mal(l.error || new Error('lectura fallida')); };
+              l.onload = function() { ok(l.result); };
+              l.readAsArrayBuffer(archivo);
+            });
+        return leer.then(function(buf) {
+          if (!buf || !buf.byteLength) throw new Error('el archivo está vacío');
+          return new Blob([buf], { type: tipo });
+        }).catch(function(e) {
+          throw new Error('No se pudo leer el archivo de la imagen (' + ((e && e.name) ? e.name + ': ' : '') +
+                          ((e && e.message) || e) + ').' + consejo);
+        });
+      },
+
+      /**
+       * Decodifica una imagen probando tres caminos, porque cada navegador falla distinto:
+       * createImageBitmap, FileReader + Image, y URL de objeto + Image.
+       * Acepta tambien una imagen ya decodificada (canvas, ImageBitmap, img).
+       * @returns {Promise<CanvasImageSource>}
+       */
+      cargarImagen: function(fuente) {
+        if (fuente && ((typeof HTMLCanvasElement !== 'undefined' && fuente instanceof HTMLCanvasElement) ||
+                       (typeof ImageBitmap !== 'undefined' && fuente instanceof ImageBitmap) ||
+                       (typeof HTMLImageElement !== 'undefined' && fuente instanceof HTMLImageElement))) {
+          return Promise.resolve(fuente);
+        }
+        const motivos = [];
+        const porImagen = function(url, liberar) {
+          return new Promise(function(ok, mal) {
+            const img = new Image();
+            img.onload = function() { if (liberar) URL.revokeObjectURL(url); ok(img); };
+            img.onerror = function() {
+              if (liberar) URL.revokeObjectURL(url);
+              mal(new Error('el navegador no pudo decodificar la imagen'));
+            };
+            img.src = url;
+          });
+        };
+        const caminos = [
+          function() {
+            if (typeof createImageBitmap !== 'function') throw new Error('createImageBitmap no disponible');
+            // from-image: respeta la orientacion de la foto del telefono
+            return createImageBitmap(fuente, { imageOrientation: 'from-image' });
+          },
+          function() {
+            return new Promise(function(ok, mal) {
+              const lector = new FileReader();
+              lector.onerror = function() { mal(lector.error || new Error('lectura fallida')); };
+              lector.onload = function(ev) { ok(ev.target.result); };
+              lector.readAsDataURL(fuente);
+            }).then(function(url) { return porImagen(url, false); });
+          },
+          function() { return porImagen(URL.createObjectURL(fuente), true); }
+        ];
+        let cadena = Promise.reject(null);
+        caminos.forEach(function(camino) {
+          cadena = cadena.catch(function(e) {
+            if (e) motivos.push(((e.name && e.name !== 'Error') ? e.name + ': ' : '') + (e.message || e));
+            return Promise.resolve().then(camino);
+          });
+        });
+        return cadena.catch(function(e) {
+          if (e) motivos.push(((e.name && e.name !== 'Error') ? e.name + ': ' : '') + (e.message || e));
+          throw new Error('No se pudo abrir la imagen (' + motivos.join(' · ') + '). Si la foto está en la ' +
+                          'nube (Google Fotos, Drive), descargala primero al teléfono, o usá «Sacar foto».');
+        });
+      },
+
+      /** Tope de pixeles de la imagen preparada: una foto alta de telefono los multiplica. */
+      MAX_PIXELES: 5000000,
+
+      /**
+       * @param {Blob|File|CanvasImageSource} archivo
+       * @param {{zona?: {x:number,y:number,w:number,h:number}}} [opciones] - zona en fracciones de la imagen
+       */
+      preparar: function(archivo, opciones) {
         const cfg = this.cfg();
         const self = this;
+        const opc = opciones || {};
 
-        return new Promise(function(resolver, rechazar) {
-          const lector = new FileReader();
-          lector.onerror = function() { rechazar(new Error('No se pudo leer el archivo.')); };
-          lector.onload = function(ev) {
-            const img = new Image();
-            img.onerror = function() { rechazar(new Error('El archivo no es una imagen válida.')); };
-            img.onload = function() {
+        return this.cargarImagen(archivo).then(function(img) {
+          return new Promise(function(resolver, rechazar) {
               try {
-                // 1. Redimensionar: mas chico carga antes, y por encima de
-                //    cierto tamanio el OCR no mejora
-                let ancho = img.width, alto = img.height;
-                if (ancho > cfg.anchoMaximo) {
-                  alto = Math.round(alto * (cfg.anchoMaximo / ancho));
-                  ancho = cfg.anchoMaximo;
+                // 0. La zona que eligio la persona (en fracciones de la foto original)
+                let sx = 0, sy = 0, sw = img.width, sh = img.height;
+                const z = opc.zona;
+                if (z && z.w > 0.02 && z.h > 0.02) {
+                  sx = Math.max(0, Math.min(img.width - 1, Math.round(z.x * img.width)));
+                  sy = Math.max(0, Math.min(img.height - 1, Math.round(z.y * img.height)));
+                  sw = Math.max(1, Math.min(img.width - sx, Math.round(z.w * img.width)));
+                  sh = Math.max(1, Math.min(img.height - sy, Math.round(z.h * img.height)));
                 }
+
+                // 1. Redimensionar: mas chico carga antes, y por encima de cierto tamanio el
+                //    OCR no mejora. Tope por ancho Y por pixeles: una foto alta de telefono
+                //    (2000x4500) consumia memoria de mas sin leer mejor
+                const escala = Math.min(1, cfg.anchoMaximo / sw, Math.sqrt(self.MAX_PIXELES / (sw * sh)));
+                let ancho = Math.max(1, Math.round(sw * escala)), alto = Math.max(1, Math.round(sh * escala));
 
                 let lienzo = document.createElement('canvas');
                 lienzo.width = ancho; lienzo.height = alto;
                 let ctx = lienzo.getContext('2d', { willReadFrequently: true });
-                ctx.drawImage(img, 0, 0, ancho, alto);
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, ancho, alto);
+
+                // Copia en COLOR reducida (1/3): sirve para ver el resaltador rosa de los
+                // avisos sin cargar en memoria otra imagen de tamanio completo
+                const colorChico = document.createElement('canvas');
+                colorChico.width = Math.max(1, Math.round(ancho / 3));
+                colorChico.height = Math.max(1, Math.round(alto / 3));
+                colorChico.getContext('2d').drawImage(lienzo, 0, 0, colorChico.width, colorChico.height);
 
                 // 2. Escala de grises con pesos de luminancia
                 let datos = ctx.getImageData(0, 0, ancho, alto);
@@ -9422,26 +9592,30 @@ const NombresEs = (function() {
                 // 6. Rotar si hacia falta: la imagen binaria Y la de grises, para que las
                 //    coordenadas de una sirvan en la otra
                 let grisRotado = lienzoGris;
+                let colorRotado = colorChico;
                 if (Math.abs(inclinacion) > 0.3) {
                   const rotar = function(origen) {
+                    const w = origen.width, h = origen.height;
                     const rotado = document.createElement('canvas');
-                    rotado.width = ancho; rotado.height = alto;
+                    rotado.width = w; rotado.height = h;
                     const rctx = rotado.getContext('2d');
                     rctx.fillStyle = '#ffffff';
-                    rctx.fillRect(0, 0, ancho, alto);
-                    rctx.translate(ancho / 2, alto / 2);
+                    rctx.fillRect(0, 0, w, h);
+                    rctx.translate(w / 2, h / 2);
                     rctx.rotate(-inclinacion * Math.PI / 180);
-                    rctx.drawImage(origen, -ancho / 2, -alto / 2);
+                    rctx.drawImage(origen, -w / 2, -h / 2);
                     return rotado;
                   };
                   lienzo = rotar(lienzo);
                   grisRotado = rotar(lienzoGris);
+                  colorRotado = rotar(colorChico);
                 }
 
                 const dataUrl = lienzo.toDataURL('image/png');
                 resolver({
                   dataUrl: dataUrl,
                   gris: grisRotado,
+                  color: colorRotado,
                   ancho: ancho,
                   alto: alto,
                   inclinacion: Math.round(inclinacion * 10) / 10,
@@ -9450,10 +9624,7 @@ const NombresEs = (function() {
               } catch (e) {
                 rechazar(e);
               }
-            };
-            img.src = ev.target.result;
-          };
-          lector.readAsDataURL(archivo);
+          });
         });
       },
 
@@ -10175,6 +10346,713 @@ const NombresEs = (function() {
       },
 
       // ──────────────────────────────────────────────────────────────────────
+      // PLANILLAS CON CUADRICULA (escaneo de transferencias)
+      //
+      // Una planilla rayada (Cliente | Bco | Importe) arruina el analisis de pagina:
+      // el reconocedor toma las lineas por texto o por cajas. Pero las mismas lineas
+      // dicen donde esta cada renglon y cada columna. Se detecta la cuadricula, se
+      // borran las lineas y se lee CADA CELDA por separado, con la lista de caracteres
+      // que le corresponde (letras para el nombre, digitos para el importe).
+      // ──────────────────────────────────────────────────────────────────────
+
+      LETRAS_NOMBRE: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÁÉÍÓÚÜÑáéíóúüñ .'-",
+      DIGITOS: '0123456789',
+
+      /** Imagen preparada (binaria) como arreglo: 1 = tinta, 0 = papel. */
+      _pixelesBinarios: function(prep) {
+        return this._imagenDeUrl(prep.dataUrl).then(function(img) {
+          const c = document.createElement('canvas');
+          c.width = prep.ancho; c.height = prep.alto;
+          const ctx = c.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, prep.ancho, prep.alto);
+          const d = ctx.getImageData(0, 0, prep.ancho, prep.alto).data;
+          const n = prep.ancho * prep.alto, b = new Uint8Array(n);
+          for (let i = 0, g = 0; g < n; i += 4, g++) b[g] = d[i] < 128 ? 1 : 0;
+          return { b: b, W: prep.ancho, H: prep.alto };
+        });
+      },
+
+      /** Un dataURL como imagen ya decodificada (para cargarImagen). */
+      _imagenDeUrl: function(url) {
+        const img = new Image();
+        img.src = url;
+        return img.decode ? img.decode().then(function() { return img; }) : new Promise(function(ok, mal) {
+          img.onload = function() { ok(img); };
+          img.onerror = function() { mal(new Error('No se pudo leer la imagen preparada.')); };
+        });
+      },
+
+      /** Renglones: filas de pixeles con un tramo de tinta muy largo (tolera huecos chicos). */
+      _lineasHorizontales: function(b, W, H) {
+        const minimo = W * 0.35, hueco = 4, marcas = new Uint8Array(H);
+        for (let y = 0; y < H; y++) {
+          let mejor = 0, actual = 0, vacio = 0;
+          const fila = y * W;
+          for (let x = 0; x < W; x++) {
+            if (b[fila + x]) { actual += 1 + vacio; vacio = 0; if (actual > mejor) mejor = actual; }
+            else if (actual > 0 && vacio < hueco) vacio++;
+            else { actual = 0; vacio = 0; }
+          }
+          marcas[y] = mejor >= minimo ? 1 : 0;
+        }
+        const lineas = [];
+        let ini = -1;
+        for (let y = 0; y <= H; y++) {
+          if (y < H && marcas[y]) { if (ini < 0) ini = y; }
+          else if (ini >= 0) { lineas.push({ a: ini, b: y - 1, c: Math.round((ini + y - 1) / 2) }); ini = -1; }
+        }
+        return lineas;
+      },
+
+      /**
+       * Columnas: lineas casi verticales AUNQUE ESTEN INCLINADAS (las trazadas a mano lo
+       * estan). Se prueban angulos y se cuenta la tinta a lo largo de cada recta.
+       */
+      _lineasVerticales: function(b, W, H) {
+        const paso = 2, cy = H / 2, muestras = Math.floor(H / paso), minimo = muestras * 0.55;
+        const candidatas = [];
+        for (let a = -4; a <= 4.001; a += 0.5) {
+          const tan = Math.tan(a * Math.PI / 180);
+          const cuenta = new Uint32Array(W);
+          for (let y = 0; y < H; y += paso) {
+            const dx = Math.round((y - cy) * tan), fila = y * W;
+            for (let x0 = 0; x0 < W; x0++) {
+              const x = x0 + dx;
+              if (x < 1 || x >= W - 1) continue;
+              if (b[fila + x] || b[fila + x - 1] || b[fila + x + 1]) cuenta[x0]++;
+            }
+          }
+          for (let x0 = 0; x0 < W; x0++) if (cuenta[x0] >= minimo) candidatas.push({ c: x0, a: a, n: cuenta[x0] });
+        }
+        candidatas.sort(function(p, q) { return q.n - p.n; });
+        const elegidas = [];
+        candidatas.forEach(function(c) {
+          if (!elegidas.some(function(e) { return Math.abs(e.c - c.c) < 12; })) elegidas.push(c);
+        });
+        return elegidas.sort(function(p, q) { return p.c - q.c; });
+      },
+
+      /** x de una linea vertical (inclinada) a la altura y. */
+      _xEn: function(linea, y, H) {
+        return linea.c + (y - H / 2) * Math.tan(linea.a * Math.PI / 180);
+      },
+
+      /**
+       * Detecta renglones y columnas de una planilla.
+       * @returns {Promise<{ok:boolean, motivo?:string, filas:Array, columnas:Object, lineasH:Array, lineasV:Array, b, W, H}>}
+       */
+      detectarCuadricula: function(prep) {
+        const self = this;
+        return this._pixelesBinarios(prep).then(function(px) {
+          const b = px.b, W = px.W, H = px.H;
+          const lineasH = self._lineasHorizontales(b, W, H);
+          const lineasV = self._lineasVerticales(b, W, H);
+          const base = { ok: false, filas: [], columnas: {}, lineasH: lineasH, lineasV: lineasV, b: b, W: W, H: H };
+
+          if (lineasH.length < 3) return Object.assign(base, { motivo: 'no se encontraron renglones' });
+
+          // Renglones: entre lineas consecutivas, con una altura parecida a la tipica
+          const alturas = [];
+          for (let i = 0; i < lineasH.length - 1; i++) alturas.push(lineasH[i + 1].c - lineasH[i].c);
+          const tipica = alturas.slice().sort(function(p, q) { return p - q; })[Math.floor(alturas.length / 2)];
+          const filas = [];
+          for (let i = 0; i < lineasH.length - 1; i++) {
+            const h = lineasH[i + 1].c - lineasH[i].c;
+            if (h >= tipica * 0.55 && h <= tipica * 1.8) filas.push({ y0: lineasH[i].c, y1: lineasH[i + 1].c });
+          }
+
+          // Columnas: SOLO lo que esta entre dos lineas (el borde de la foto no cuenta),
+          // y anchas. Las tres de la derecha son Cliente, Banco e Importe; si hay dos,
+          // Cliente e Importe. A la izquierda puede quedar otra columna cortada: se ignora.
+          const pares = [];
+          for (let i = 0; i < lineasV.length - 1; i++) {
+            if (lineasV[i + 1].c - lineasV[i].c >= W * 0.06) pares.push([lineasV[i], lineasV[i + 1]]);
+          }
+          if (pares.length < 2) return Object.assign(base, { filas: filas, motivo: 'no se encontraron las columnas' });
+          const ultimas = pares.slice(-3);
+          const columnas = (ultimas.length === 3)
+            ? { cliente: ultimas[0], banco: ultimas[1], importe: ultimas[2] }
+            : { cliente: ultimas[0], banco: null, importe: ultimas[1] };
+
+          return Object.assign(base, { ok: filas.length > 0, filas: filas, columnas: columnas,
+                                       motivo: filas.length ? '' : 'no se encontraron renglones' });
+        });
+      },
+
+      /**
+       * Gris SIN la cuadricula: se borran los tramos largos de las lineas horizontales y
+       * una franja angosta a lo largo de cada linea vertical. La letra que las cruza se
+       * conserva casi entera (solo pierde los pixeles justo encima de la linea).
+       */
+      grisSinLineas: function(prep, cuad) {
+        const W = cuad.W, H = cuad.H, b = cuad.b, self = this;
+        const lienzo = document.createElement('canvas');
+        lienzo.width = W; lienzo.height = H;
+        const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(prep.gris, 0, 0);
+        const datos = ctx.getImageData(0, 0, W, H), px = datos.data;
+        const blanco = function(x, y) { const i = (y * W + x) * 4; px[i] = px[i + 1] = px[i + 2] = 255; };
+        cuad.lineasH.forEach(function(l) {
+          for (let y = Math.max(0, l.a - 3); y <= Math.min(H - 1, l.b + 3); y++) {
+            let x = 0;
+            while (x < W) {
+              if (!b[y * W + x]) { x++; continue; }
+              let f = x;
+              while (f < W && b[y * W + f]) f++;
+              if (f - x >= W * 0.04) for (let k = x; k < f; k++) blanco(k, y);
+              x = f;
+            }
+          }
+        });
+        cuad.lineasV.forEach(function(v) {
+          for (let y = 0; y < H; y++) {
+            const xc = Math.round(self._xEn(v, y, H));
+            for (let k = -4; k <= 4; k++) { const x = xc + k; if (x >= 0 && x < W) blanco(x, y); }
+          }
+        });
+        ctx.putImageData(datos, 0, 0);
+        return lienzo;
+      },
+
+      /**
+       * Caja de una celda en la imagen preparada. La escritura de un libro se apoya
+       * sobre el renglon y lo cruza hacia abajo: se extiende la caja un 30% para abajo.
+       */
+      cajaCelda: function(cuad, col, fila, recorteIzq) {
+        const H = cuad.H, ym = (fila.y0 + fila.y1) / 2, alto = fila.y1 - fila.y0;
+        const xa = this._xEn(col[0], ym, H), xb = this._xEn(col[1], ym, H);
+        return {
+          x0: Math.round(xa + 5 + (xb - xa) * (recorteIzq || 0)), x1: Math.round(xb - 5),
+          y0: Math.max(0, Math.round(fila.y0 + 2)), y1: Math.min(H - 1, Math.round(fila.y1 + alto * 0.30)),
+          estricta: true
+        };
+      },
+
+      /** Recorta una caja de una imagen, la escala y opcionalmente la binariza. */
+      recortar: function(fuente, caja, alturaObjetivo, binarizar) {
+        const w = Math.max(4, caja.x1 - caja.x0), h = Math.max(4, caja.y1 - caja.y0);
+        const esc = Math.max(1, Math.min(3, (alturaObjetivo || 64) / (h * 0.7)));
+        const borde = 14;
+        const c = document.createElement('canvas');
+        c.width = Math.round(w * esc) + borde * 2; c.height = Math.round(h * esc) + borde * 2;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(fuente, caja.x0, caja.y0, w, h, borde, borde, Math.round(w * esc), Math.round(h * esc));
+        if (binarizar) {
+          const d = ctx.getImageData(0, 0, c.width, c.height), px = d.data, n = c.width * c.height;
+          const g = new Uint8ClampedArray(n);
+          for (let i = 0, k = 0; k < n; i += 4, k++) g[k] = px[i];
+          this._autocontrastePercentiles(g);
+          const bn = this._binarizarSauvola(g, c.width, c.height, 20, Math.round(h * esc * 1.2));
+          for (let i = 0, k = 0; k < n; i += 4, k++) { px[i] = px[i + 1] = px[i + 2] = bn[k]; px[i + 3] = 255; }
+          ctx.putImageData(d, 0, 0);
+        }
+        return c;
+      },
+
+      /**
+       * Interpreta un importe leido. Si se anotan EN MILES (101 = 101.000), un numero
+       * menor a 1.000 se multiplica por mil. Los ceros chicos que se escriben al lado
+       * ("101" grande + "000" chico) se reconocen por su altura cuando hay simbolos, y
+       * por su forma ("101 000", "101 00") cuando solo hay texto.
+       * @param {string} texto
+       * @param {boolean} enMiles
+       * @param {Array} [simbolos] - [{t, alto}] de Tesseract
+       * @returns {number} 0 si no es un importe valido
+       */
+      interpretarImporte: function(texto, enMiles, simbolos) {
+        let digitos = '';
+        if (simbolos && simbolos.length) {
+          const conAltura = simbolos.filter(function(s) { return /\d/.test(s.t); });
+          const maximo = Math.max.apply(null, conAltura.map(function(s) { return s.alto; }).concat([0]));
+          digitos = conAltura.filter(function(s) { return s.alto >= maximo * 0.6; })
+                             .map(function(s) { return s.t.replace(/\D/g, ''); }).join('');
+        }
+        if (!digitos) {
+          const grupos = String(texto || '').replace(/[oO@]/g, '0').match(/\d+/g) || [];
+          if (grupos.length === 0) return 0;
+          // "101 000", "101 00", "101 0": el ultimo grupo de ceros es el agregado chico
+          if (enMiles && grupos.length >= 2 && /^0+$/.test(grupos[grupos.length - 1])) grupos.pop();
+          digitos = grupos.join('');
+        }
+        let n = parseInt(digitos, 10);
+        if (!n || n <= 0) return 0;
+        if (enMiles) {
+          if (n < 1000) n = n * 1000;
+          else if (n % 1000 !== 0) {
+            // "10100" = 101 + "00" chico: se quitan los ceros del final si queda un numero de miles
+            const sinCeros = String(n).replace(/0+$/, '');
+            if (sinCeros.length >= 1 && sinCeros.length <= 3) n = parseInt(sinCeros, 10) * 1000;
+          }
+        }
+        return n > 999999999 ? 0 : n;
+      },
+
+      /**
+       * Banco a partir de lo leido en su celda. Devuelve el nombre que usa la carga
+       * manual (Santander, Mercado Pago, Macro) o el aviso de "Chajari": una
+       * transferencia a un tercero que se anota para recordar, no para facturar.
+       */
+      interpretarBanco: function(texto) {
+        const t = NombresEs.normalizar(texto).replace(/[^A-Z0-9]/g, '');
+        if (!t) return { banco: '', aviso: false };
+        const L = t.replace(/[0-9]/g, function(d) { return { '5': 'S', '1': 'I', '0': 'O', '8': 'B' }[d] || ''; });
+        if (L.length >= 4 && (NombresEs.parecidoTexto(L, 'CHAJARI') >= 0.55 || /^CH?A?J/.test(L) || /^C[HN]A[JY]/.test(L))) {
+          return { banco: '', aviso: true };
+        }
+        if (/^MAC/.test(L) || NombresEs.parecidoTexto(L, 'MACRO') >= 0.75) return { banco: 'Macro', aviso: false };
+        if (/^SANT/.test(L) || NombresEs.parecidoTexto(L, 'SANTANDER') >= 0.75) return { banco: 'Santander', aviso: false };
+        if (/^MERC/.test(L) || NombresEs.parecidoTexto(L, 'MERCADOPAGO') >= 0.7) return { banco: 'Mercado Pago', aviso: false };
+        // Abreviaturas del libro: "ST", "St.", "MP", "M.P."
+        if (L.length <= 3 && /^S/.test(L)) return { banco: 'Santander', aviso: false };
+        if (L.length <= 3 && /^[MN]/.test(L)) return { banco: 'Mercado Pago', aviso: false };
+        return { banco: '', aviso: false };
+      },
+
+      /**
+       * Fraccion de la caja pintada con resaltador ROSA (en la copia en color).
+       * Se usa como segunda senal de aviso, independiente de lo que se lea.
+       */
+      fraccionRosa: function(prep, caja) {
+        if (!prep.color) return 0;
+        const k = prep.color.width / prep.ancho;
+        const x0 = Math.max(0, Math.floor(caja.x0 * k)), y0 = Math.max(0, Math.floor(caja.y0 * k));
+        const x1 = Math.min(prep.color.width, Math.ceil(caja.x1 * k)), y1 = Math.min(prep.color.height, Math.ceil(caja.y1 * k));
+        if (x1 - x0 < 2 || y1 - y0 < 2) return 0;
+        const d = prep.color.getContext('2d', { willReadFrequently: true }).getImageData(x0, y0, x1 - x0, y1 - y0).data;
+        let rosa = 0, total = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i] / 255, g = d[i + 1] / 255, bl = d[i + 2] / 255;
+          const max = Math.max(r, g, bl), min = Math.min(r, g, bl), delta = max - min;
+          total++;
+          if (max < 0.35 || delta / max < 0.30) continue;          // oscuro o poco saturado
+          let h;
+          if (max === r) h = 60 * (((g - bl) / delta) % 6);
+          else if (max === g) h = 60 * ((bl - r) / delta + 2);
+          else h = 60 * ((r - g) / delta + 4);
+          if (h < 0) h += 360;
+          // Magenta / rosa. Desde 290 y no antes: el boligrafo violeta no es resaltador
+          if (h >= 290 && h <= 350) rosa++;
+        }
+        return total ? rosa / total : 0;
+      },
+
+      /** Lee una lista de celdas con el worker, de a una, con un modo y una lista de caracteres. */
+      _leerCeldas: function(lienzos, psm, lista) {
+        const self = this;
+        let worker;
+        const salida = [];
+        return this.obtenerWorker().then(function(w) {
+          worker = w;
+          return w.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: lista });
+        }).then(function() {
+          return self._secuencia(lienzos, function(lienzo) {
+            return worker.recognize(lienzo).then(function(r) {
+              const data = (r && r.data) || {};
+              const simbolos = [];
+              (data.blocks || []).forEach(function(bk) { (bk.paragraphs || []).forEach(function(pa) {
+                (pa.lines || []).forEach(function(li) { (li.words || []).forEach(function(wd) {
+                  (wd.symbols || []).forEach(function(s) {
+                    if (s && s.bbox) simbolos.push({ t: String(s.text || ''), alto: s.bbox.y1 - s.bbox.y0, x0: s.bbox.x0 });
+                  });
+                }); });
+              }); });
+              salida.push({ texto: String(data.text || '').replace(/\s+/g, ' ').trim(),
+                            confianza: Math.round(data.confidence || 0), simbolos: simbolos });
+            });
+          });
+        }).then(function() {
+          return worker.setParameters({ tessedit_pageseg_mode: self.psmPagina, tessedit_char_whitelist: '' });
+        }).then(function() { return salida; });
+      },
+
+      /**
+       * Mosaico para el OCR de Drive: cada celda limpia en su propio renglon, con una
+       * etiqueta IMPRESA delante ("07N", "07B", "07I"). Drive lee muy bien el manuscrito
+       * suelto, y la etiqueta impresa dice a que fila y columna pertenece cada texto,
+       * aunque cambie el orden de lectura.
+       * @returns {string} dataURL JPEG
+       */
+      armarMosaico: function(celdas) {
+        const alto = 76, separacion = 34, anchoEtiqueta = 150;
+        let anchoMax = 200;
+        const piezas = celdas.map(function(c) {
+          const esc = alto / c.lienzo.height;
+          const w = Math.min(900, Math.round(c.lienzo.width * esc));
+          if (w > anchoMax) anchoMax = w;
+          return { etiqueta: c.etiqueta, lienzo: c.lienzo, w: w };
+        });
+        const m = document.createElement('canvas');
+        m.width = anchoEtiqueta + anchoMax + 40;
+        m.height = piezas.length * (alto + separacion) + separacion;
+        const ctx = m.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, m.width, m.height);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 40px Arial, Helvetica, sans-serif';
+        ctx.textBaseline = 'middle';
+        piezas.forEach(function(p, i) {
+          const y = separacion + i * (alto + separacion);
+          ctx.fillText(p.etiqueta, 12, y + alto / 2);
+          ctx.drawImage(p.lienzo, anchoEtiqueta, y, p.w, alto);
+        });
+        return m.toDataURL('image/jpeg', 0.85);
+      },
+
+      /**
+       * Lee el texto que devolvio Drive para el mosaico.
+       * @returns {Object} { '07': {N: '...', B: '...', I: '...'} }
+       */
+      leerMosaico: function(texto) {
+        const salida = {};
+        const lineas = String(texto || '').split(/\r?\n/).map(function(l) { return l.trim(); }).filter(Boolean);
+        let pendiente = null;
+        lineas.forEach(function(l) {
+          const m = l.match(/^\[?\s*(\d{2})\s*[-.:]?\s*([NBI])\b\s*[\]:\-.]?\s*(.*)$/i);
+          if (m) {
+            const fila = m[1], col = m[2].toUpperCase(), resto = m[3].trim();
+            salida[fila] = salida[fila] || {};
+            if (resto) { salida[fila][col] = resto; pendiente = null; }
+            else pendiente = { fila: fila, col: col };     // la etiqueta sola: el texto vino en la linea siguiente
+          } else if (pendiente) {
+            salida[pendiente.fila][pendiente.col] = l;
+            pendiente = null;
+          }
+        });
+        return salida;
+      },
+
+      /** Elige el importe entre varias lecturas: el que mas se repite; si empatan, el de Drive. */
+      votarImporte: function(lecturas) {
+        const cuenta = {};
+        lecturas.forEach(function(l) { if (l.valor > 0) cuenta[l.valor] = (cuenta[l.valor] || 0) + (l.peso || 1); });
+        const valores = Object.keys(cuenta).map(Number).sort(function(a, b) { return cuenta[b] - cuenta[a]; });
+        if (!valores.length) return { valor: 0, seguro: false, alternativas: [] };
+        const top = cuenta[valores[0]];
+        const empatados = valores.filter(function(v) { return cuenta[v] === top; });
+        const drive = lecturas.filter(function(l) { return l.motor === 'drive' && l.valor > 0; })[0];
+        const valor = (empatados.length > 1 && drive && empatados.indexOf(drive.valor) > -1) ? drive.valor : empatados[0];
+        return { valor: valor, seguro: valores.length === 1 && top >= 2, alternativas: valores.filter(function(v) { return v !== valor; }) };
+      },
+
+      /**
+       * A partir de esta fraccion de rosa, la fila se toma como aviso. Calibrado con una
+       * planilla real: los renglones resaltados dan 0,38-0,85 y los demas menos de 0,004.
+       */
+      UMBRAL_ROSA: 0.10,
+
+      /** Recorte chico (JPEG) de una caja, para mostrar junto a cada fila. */
+      _miniatura: function(fuente, caja) {
+        if (!caja) return '';
+        const w = Math.max(4, caja.x1 - caja.x0), h = Math.max(4, caja.y1 - caja.y0);
+        const esc = Math.min(1, 52 / h);
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * esc)); c.height = Math.max(1, Math.round(h * esc));
+        c.getContext('2d').drawImage(fuente, caja.x0, caja.y0, w, h, 0, 0, c.width, c.height);
+        return c.toDataURL('image/jpeg', 0.7);
+      },
+
+      /** Pide a Drive el texto del mosaico. Si algo falla, null: Tesseract sigue solo. */
+      _leerMosaicoDrive: function(piezas) {
+        const self = this;
+        if (!piezas.length || typeof google === 'undefined' || !google.script || !google.script.run) {
+          return Promise.resolve(null);
+        }
+        const url = this.armarMosaico(piezas);
+        return new Promise(function(resolver) {
+          svBackend('guardarImagenTemporal', [url], function(r) {
+            if (!r || !r.success) return resolver(null);
+            svBackend('ocrLeerTextoDeImagen', [r.token], function(t) {
+              resolver(t && t.success ? { celdas: self.leerMosaico(t.texto), texto: t.texto } : null);
+            }, function() { resolver(null); });
+          }, function() { resolver(null); });
+        });
+      },
+
+      /** Fecha escrita (9/11/26, 09-11-2026) en un texto, como AAAA-MM-DD. */
+      fechaDeTexto: function(texto) {
+        const m = String(texto || '').match(/\b(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{2,4})\b/);
+        if (!m) return '';
+        const d = +m[1], mes = +m[2];
+        let a = +m[3];
+        if (a < 100) a += 2000;
+        if (d < 1 || d > 31 || mes < 1 || mes > 12 || a < 2000 || a > 2100) return '';
+        return a + '-' + String(mes).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      },
+
+      /**
+       * Lee una planilla de transferencias (o una captura de homebanking).
+       *
+       * Con cuadricula: celda por celda, con Tesseract y con Drive (mosaico) en paralelo.
+       * Sin cuadricula: lectura por palabras con su posicion, como el libro.
+       *
+       * @param {Object} prep - de preparar()
+       * @param {{enMiles?: boolean}} [opciones]
+       * @returns {Promise<{ok:boolean, error?:string, filas:Array, cuadricula:boolean, fecha:string, resumen:Object}>}
+       */
+      leerTransferencias: function(prep, opciones, alProgreso) {
+        const self = this, cfg = this.cfg(), opc = opciones || {};
+        const poner = alProgreso || function() {};
+        const enMiles = opc.enMiles !== false;
+        const inicio = Date.now();
+        poner('Buscando renglones y columnas…');
+
+        return Promise.all([this.detectarCuadricula(prep), this.indicePadron()]).then(function(r) {
+          const cuad = r[0], indice = r[1];
+          if (!cuad.ok) return self._transferenciasSinCuadricula(prep, opc, indice, poner, cuad.motivo, inicio);
+
+          const limpio = self.grisSinLineas(prep, cuad);
+          const col = cuad.columnas;
+          const filas = cuad.filas.map(function(f, i) {
+            const cajas = {
+              nombre: self.cajaCelda(cuad, col.cliente, f),
+              banco: col.banco ? self.cajaCelda(cuad, col.banco, f) : null,
+              importe: self.cajaCelda(cuad, col.importe, f, 0.18)   // sin las cruces de control
+            };
+            // El rosa se mide SOLO dentro del renglon (recortado arriba y abajo): las cajas de
+            // lectura se estiran hacia abajo y tocarian el resaltador del renglon siguiente
+            const banda = function(caja) {
+              const alto = f.y1 - f.y0;
+              return caja ? { x0: caja.x0, x1: caja.x1, y0: Math.round(f.y0 + alto * 0.12), y1: Math.round(f.y1 - alto * 0.12) } : null;
+            };
+            return { idFila: i + 1, cajas: cajas, nombreBox: cajas.nombre, lecturas: [], reintentos: 0,
+                     rosa: Math.max(self.fraccionRosa(prep, banda(cajas.nombre)),
+                                    cajas.banco ? self.fraccionRosa(prep, banda(cajas.banco)) : 0) };
+          });
+
+          // Recortes de cada celda para leer
+          const recN = filas.map(function(f) { return self.recortar(limpio, f.cajas.nombre, 64, false); });
+          const conBanco = filas.filter(function(f) { return f.cajas.banco; });
+          const recB = conBanco.map(function(f) { return self.recortar(limpio, f.cajas.banco, 64, false); });
+          const recI = filas.map(function(f) { return self.recortar(limpio, f.cajas.importe, 64, false); });
+          const recI2 = filas.map(function(f) { return self.recortar(limpio, f.cajas.importe, 80, true); });
+
+          // Drive, en paralelo: cada celda con su etiqueta impresa
+          const dos = function(n) { return String(n).padStart(2, '0'); };
+          const piezas = [];
+          filas.forEach(function(f, i) {
+            piezas.push({ etiqueta: dos(f.idFila) + 'N', lienzo: recN[i] });
+            if (f.cajas.banco) piezas.push({ etiqueta: dos(f.idFila) + 'B', lienzo: recB[conBanco.indexOf(f)] });
+            piezas.push({ etiqueta: dos(f.idFila) + 'I', lienzo: recI[i] });
+          });
+          // La franja de arriba de la tabla suele tener la fecha
+          const primera = cuad.lineasH[0];
+          if (primera && primera.a > 30) {
+            const cabecera = self.recortar(prep.gris, { x0: 0, y0: 0, x1: cuad.W, y1: Math.max(10, primera.a - 2) }, 64, false);
+            piezas.push({ etiqueta: '00F', lienzo: cabecera });
+          }
+          const tareaDrive = (cfg.motorServidor && opc.servidor !== false) ? self._leerMosaicoDrive(piezas) : Promise.resolve(null);
+
+          poner('Leyendo ' + filas.length + ' renglones…');
+          let tN, tB, tI, tI2;
+          const tareaTess = self._leerCeldas(recN, '7', self.LETRAS_NOMBRE).then(function(x) { tN = x;
+            return recB.length ? self._leerCeldas(recB, '7', self.LETRAS_NOMBRE) : [];
+          }).then(function(x) { tB = x;
+            return self._leerCeldas(recI, '7', self.DIGITOS);
+          }).then(function(x) { tI = x;
+            return self._leerCeldas(recI2, '7', self.DIGITOS);
+          }).then(function(x) { tI2 = x; }).catch(function(e) {
+            console.warn('[Escanear] Tesseract falló en las celdas: ' + ((e && e.message) || e));
+          });
+
+          return Promise.all([tareaTess, tareaDrive]).then(function(res) {
+            const drive = res[1];
+            const celdasDrive = (drive && drive.celdas) || {};
+            let fecha = '';
+            if (celdasDrive['00'] && celdasDrive['00'].F) fecha = self.fechaDeTexto(celdasDrive['00'].F);
+            if (!fecha && drive && drive.texto) fecha = self.fechaDeTexto(drive.texto);
+
+            filas.forEach(function(f, i) {
+              const d = celdasDrive[dos(f.idFila)] || {};
+              // Nombre: todas las lecturas, limpias
+              [d.N, tN && tN[i] && tN[i].texto].forEach(function(l) {
+                const t = self._limpiarNombreLeido(l);
+                if (t && f.lecturas.indexOf(t) === -1) f.lecturas.push(t);
+              });
+              // Banco: primero Drive, que lee mejor el manuscrito
+              const jB = conBanco.indexOf(f);
+              const bD = self.interpretarBanco(d.B), bT = self.interpretarBanco(jB > -1 && tB && tB[jB] ? tB[jB].texto : '');
+              f.banco = bD.banco || bT.banco;
+              f.bancoLeido = d.B || (jB > -1 && tB && tB[jB] ? tB[jB].texto : '');
+              // El "Chajarí" de Tesseract cuenta solo si Drive no leyó un banco: su caja se
+              // estira hacia abajo y puede alcanzar el "Chajarí" del renglón siguiente
+              const dice = bD.aviso || (!bD.banco && bT.aviso);
+              f.aviso = dice || f.rosa >= self.UMBRAL_ROSA;
+              f.motivoAviso = dice ? 'dice "Chajarí"' : (f.rosa >= self.UMBRAL_ROSA ? 'resaltada en rosa' : '');
+              // Importe: votacion entre las lecturas validas. Las dos de Tesseract salen de la
+              // misma celda y del mismo motor (sus errores van juntos): no le ganan a Drive,
+              // que lee mucho mejor la letra a mano; sirven de respaldo y para confirmar
+              const votos = [];
+              if (d.I) votos.push({ valor: self.interpretarImporte(d.I, enMiles), motor: 'drive', peso: 2.5 });
+              if (tI && tI[i]) votos.push({ valor: self.interpretarImporte(tI[i].texto, enMiles, tI[i].simbolos), motor: 'tesseract' });
+              if (tI2 && tI2[i]) votos.push({ valor: self.interpretarImporte(tI2[i].texto, enMiles, tI2[i].simbolos), motor: 'tesseract' });
+              const voto = self.votarImporte(votos);
+              f.monto = voto.valor;
+              f.montoSeguro = voto.seguro;
+              f.montoAlternativas = voto.alternativas;
+              f.importeLeido = votos.map(function(v) { return v.valor; }).filter(Boolean);
+            });
+
+            // Fuera los renglones que no son transferencias: titulo, encabezado, vacios, total
+            const letras = function(f) { return f.lecturas.join('').replace(/[^A-ZÁÉÍÓÚÜÑ]/gi, '').length; };
+            const ENCABEZADO = /CLIENTE|IMPORTE|TRANSFER|BANCO/;
+            let utiles = filas.filter(function(f) {
+              if (f.lecturas.some(function(l) { return ENCABEZADO.test(NombresEs.normalizar(l)); })) return false;
+              return f.monto > 0 || (letras(f) >= 3 && (f.banco || f.aviso));
+            });
+            // El total al pie: importe sin nombre ni banco, y del tamanio de la suma del resto
+            const suma = utiles.reduce(function(s, f) { return s + (f.monto || 0); }, 0);
+            utiles = utiles.filter(function(f) {
+              const esTotal = f.monto > 0 && letras(f) < 3 && !f.banco && !f.aviso && f.monto >= (suma - f.monto) * 0.8;
+              return !esTotal;
+            });
+
+            utiles.forEach(function(f) { self.evaluarFila(f, indice, cfg.umbralNombre); f.estadoPrimera = f.estado; });
+            const prepLimpio = Object.assign({}, prep, { gris: limpio });
+            return self.reintentar(prepLimpio, utiles.filter(function(f) { return !f.aviso; }), indice, cfg, poner)
+              .catch(function(e) { console.warn('[Escanear] reintentos: ' + ((e && e.message) || e)); return {}; })
+              .then(function(reint) {
+                return {
+                  ok: true, cuadricula: true, fecha: fecha,
+                  filas: utiles.map(function(f) { return self._filaParaPantalla(f, prep); }),
+                  resumen: { renglones: filas.length, transferencias: utiles.length, drive: !!drive,
+                             avisos: utiles.filter(function(f) { return f.aviso; }).length,
+                             resueltasEnReintento: (reint && reint.resueltas) || 0, ms: Date.now() - inicio }
+                };
+              });
+          });
+        }).then(function(res) {
+          self.liberarWorkerEn(120000);
+          return res;
+        });
+      },
+
+      /** Una fila interna -> lo que muestra y edita la pantalla. */
+      _filaParaPantalla: function(f, prep) {
+        const alta = f.estado === 'alta';
+        let leido = f.lecturas[0] || '';
+        if (f.mejorNombre) {
+          let mejor = -1;
+          f.lecturas.forEach(function(l) {
+            const s = NombresEs.parecidoNombres(l, f.mejorNombre);
+            if (s > mejor) { mejor = s; leido = l; }
+          });
+        }
+        return {
+          idFila: f.idFila,
+          nombre: alta ? f.mejorNombre : (leido || ''),
+          nombreLeido: leido,
+          enPadron: alta,
+          estado: f.estado || 'baja',
+          coincidencia: f.coincidencia || 0,
+          sugerencias: alta ? [] : (f.sugerencias || []),
+          monto: f.monto || 0,
+          montoSeguro: !!f.montoSeguro,
+          montoAlternativas: f.montoAlternativas || [],
+          banco: f.banco || '',
+          bancoLeido: f.bancoLeido || '',
+          aviso: !!f.aviso,
+          motivoAviso: f.motivoAviso || '',
+          rosa: Math.round((f.rosa || 0) * 1000) / 1000,
+          facturarIgual: false,
+          reintentos: f.reintentos || 0,
+          recortes: f.cajas ? {
+            nombre: this._miniatura(prep.gris, f.cajas.nombre),
+            banco: this._miniatura(prep.gris, f.cajas.banco),
+            importe: this._miniatura(prep.gris, f.cajas.importe)
+          } : { nombre: this._miniatura(prep.gris, f.nombreBox) }
+        };
+      },
+
+      /**
+       * Sin cuadricula (una captura de homebanking, una hoja lisa): palabras con su
+       * posicion, agrupadas en renglones. El importe es el numero mas a la derecha, el
+       * banco una abreviatura conocida, y el nombre lo que queda a la izquierda.
+       */
+      _transferenciasSinCuadricula: function(prep, opc, indice, poner, motivo, inicio) {
+        const self = this, cfg = this.cfg(), enMiles = opc.enMiles !== false;
+        poner('Sin cuadrícula (' + (motivo || 'hoja lisa') + '): leyendo por renglones…');
+        const tareaServidor = (cfg.motorServidor && opc.servidor !== false && typeof google !== 'undefined' && google.script && google.script.run)
+          ? new Promise(function(resolver) {
+              svBackend('procesarImagenComprobante', [prep.dataUrl], function(r) { resolver(r || null); }, function() { resolver(null); });
+            })
+          : Promise.resolve(null);
+
+        return Promise.all([this.reconocerEnNavegador(prep.dataUrl).catch(function() { return { palabras: [] }; }), tareaServidor])
+          .then(function(r) {
+            const palabras = r[0].palabras || [], srv = r[1];
+            const filas = self._renglonesDePalabras(palabras).map(function(fila, i) {
+              const ordenada = fila.slice().sort(function(a, b) { return a.x0 - b.x0; });
+              // Importe: numeros pegados desde la derecha ("101" "000")
+              let k = ordenada.length - 1, numeros = [];
+              while (k >= 0 && /^[\d.,$]+$/.test(ordenada[k].texto)) { numeros.unshift(ordenada[k]); k--; }
+              const resto = ordenada.slice(0, k + 1).filter(function(p) { return !/^[xX✓✗√]$/.test(p.texto); });
+              let banco = { banco: '', aviso: false }, nombre = [];
+              resto.forEach(function(p) {
+                const b = self.interpretarBanco(p.texto);
+                if (!banco.banco && !banco.aviso && (b.banco || b.aviso) && p.texto.length <= 9 && nombre.length) banco = b;
+                else nombre.push(p);
+              });
+              const textoNombre = nombre.map(function(p) { return p.texto; }).join(' ');
+              const caja = nombre.length ? {
+                x0: Math.min.apply(null, nombre.map(function(p) { return p.x0; })),
+                y0: Math.min.apply(null, nombre.map(function(p) { return p.y0; })),
+                x1: Math.max.apply(null, nombre.map(function(p) { return p.x1; })),
+                y1: Math.max.apply(null, nombre.map(function(p) { return p.y1; }))
+              } : null;
+              const lect = self._limpiarNombreLeido(textoNombre);
+              return { idFila: i + 1, lecturas: lect ? [lect] : [], nombreBox: caja, cajas: caja ? { nombre: caja } : null,
+                       monto: self.interpretarImporte(numeros.map(function(p) { return p.texto; }).join(' '), enMiles),
+                       banco: banco.banco, aviso: banco.aviso, motivoAviso: banco.aviso ? 'dice "Chajarí"' : '',
+                       rosa: caja ? self.fraccionRosa(prep, caja) : 0, reintentos: 0 };
+            }).filter(function(f) { return f.monto > 0 && f.lecturas.length; });
+
+            filas.forEach(function(f) {
+              if (!f.aviso && f.rosa >= self.UMBRAL_ROSA) { f.aviso = true; f.motivoAviso = 'resaltada en rosa'; }
+            });
+            // Lo que leyo Drive (capturas de pantalla): se suma por importe
+            ((srv && srv.success && srv.items) || []).forEach(function(it) {
+              const monto = Number(it.monto) || 0;
+              const par = filas.filter(function(f) { return f.monto === monto; })[0];
+              if (par) { if (it.nombre && par.lecturas.indexOf(it.nombre) === -1) par.lecturas.push(it.nombre); if (!par.banco) par.banco = self.interpretarBanco(it.banco).banco || it.banco || ''; }
+              else if (monto > 0 && it.nombre) filas.push({ idFila: filas.length + 1, lecturas: [it.nombre], monto: monto,
+                banco: self.interpretarBanco(it.banco).banco || it.banco || '', aviso: false, motivoAviso: '', rosa: 0, reintentos: 0 });
+            });
+            filas.forEach(function(f) { self.evaluarFila(f, indice, cfg.umbralNombre); });
+            return self.reintentar(prep, filas.filter(function(f) { return !f.aviso; }), indice, cfg, poner)
+              .catch(function() { return {}; })
+              .then(function(reint) {
+                return {
+                  ok: filas.length > 0, cuadricula: false, fecha: (srv && srv.fecha) || '',
+                  error: filas.length ? '' : 'No se detectó ninguna transferencia. Probá eligiendo la zona de la planilla.',
+                  filas: filas.map(function(f) { return self._filaParaPantalla(f, prep); }),
+                  resumen: { renglones: filas.length, transferencias: filas.length, drive: !!(srv && srv.success),
+                             avisos: filas.filter(function(f) { return f.aviso; }).length,
+                             resueltasEnReintento: (reint && reint.resueltas) || 0, ms: Date.now() - inicio }
+                };
+              });
+          });
+      },
+
+      /** Agrupa palabras en renglones por la altura de su centro (como el libro). */
+      _renglonesDePalabras: function(palabras) {
+        if (!palabras.length) return [];
+        const alturas = palabras.map(function(p) { return Math.max(1, p.y1 - p.y0); }).sort(function(a, b) { return a - b; });
+        const tolerancia = (alturas[Math.floor(alturas.length / 2)] || 10) * 0.7;
+        const ordenadas = palabras.slice().sort(function(a, b) { return (a.y0 + a.y1) - (b.y0 + b.y1); });
+        const filas = [];
+        let actual = [], centro = null;
+        ordenadas.forEach(function(p) {
+          const c = (p.y0 + p.y1) / 2;
+          if (centro === null || Math.abs(c - centro) <= tolerancia) {
+            actual.push(p); centro = centro === null ? c : (centro + c) / 2;
+          } else { filas.push(actual); actual = [p]; centro = c; }
+        });
+        if (actual.length) filas.push(actual);
+        return filas;
+      },
+
+      // ──────────────────────────────────────────────────────────────────────
       // COMPARACION CON EL PADRON Y REINTENTOS
       // ──────────────────────────────────────────────────────────────────────
 
@@ -10257,8 +11135,9 @@ const NombresEs = (function() {
        */
       _imagenesDeVariante: function(prep, caja, v, cfg) {
         const alto = Math.max(8, caja.y1 - caja.y0);
-        // Margen generoso: una letra cortada por el borde no se lee
-        const mV = Math.round(alto * 0.4), mH = Math.round(alto * 0.8);
+        // Margen generoso: una letra cortada por el borde no se lee. Una celda de
+        // cuadricula ya viene medida ("estricta"): ahi el margen meteria las celdas vecinas
+        const mV = caja.estricta ? 0 : Math.round(alto * 0.4), mH = caja.estricta ? 0 : Math.round(alto * 0.8);
         const x0 = Math.max(0, caja.x0 - mH), y0 = Math.max(0, caja.y0 - mV);
         const x1 = Math.min(prep.ancho, caja.x1 + mH), y1 = Math.min(prep.alto, caja.y1 + mV);
         const w = Math.max(8, x1 - x0), h = Math.max(8, y1 - y0);
@@ -10555,12 +11434,14 @@ const NombresEs = (function() {
       document.getElementById('vrBancoPruebas').style.display = 'none';
       if (infoEl) infoEl.textContent = 'Preparando la imagen...';
 
-      // Vista previa de la foto original, sin esperar el preprocesado
-      try {
-        document.getElementById('vrPreviewImg').src = URL.createObjectURL(file);
-      } catch (e) {}
-
-      SvOcr.preparar(file).then(function(prep) {
+      // Una sola lectura del archivo, a memoria: en Android la segunda puede fallar
+      SvOcr.copiarArchivo(file).then(function(copia) {
+        // Vista previa de la foto original, sin esperar el preprocesado
+        try {
+          document.getElementById('vrPreviewImg').src = URL.createObjectURL(copia);
+        } catch (e) {}
+        return SvOcr.preparar(copia);
+      }).then(function(prep) {
         Estado.vrImagenPreparada = prep;
         document.getElementById('vrPreviewProcesada').src = prep.dataUrl;
         if (infoEl) {
@@ -14539,151 +15420,496 @@ const NombresEs = (function() {
     }
 
     // ============================================================================
-    // ESCANEAR CON IA
+    // ESCANEAR TRANSFERENCIAS
+    //
+    // Lee planillas de transferencias escritas a mano (Cliente · Bco · Importe) y
+    // capturas de homebanking, con el mismo OCR gratuito que el libro. La lectura
+    // vive en SvOcr.leerTransferencias; aca esta la pantalla.
     // ============================================================================
 
-    // Preview de imagen
+    const EscIA = { fotos: [], actual: -1, recortes: false, arrastre: null, siguienteId: 1 };
+
     document.addEventListener('DOMContentLoaded', function() {
-      const inputImagen = document.getElementById('inputImagenComprobante');
-      if (inputImagen) {
-        inputImagen.addEventListener('change', function() {
-          const file = this.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-              document.getElementById('imgPreview').src = e.target.result;
-              document.getElementById('previewImagen').style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-          }
+      ['inputImagenComprobante', 'inputFotoCamaraIA'].forEach(function(id) {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener('change', function() {
+          // La copia a memoria arranca YA, mientras el archivo es legible; recien
+          // despues se vacia el input (para poder volver a elegir la misma foto)
+          agregarFotosIA(Array.prototype.slice.call(this.files || []));
+          this.value = '';
         });
-      }
+      });
+      try {
+        const v = localStorage.getItem('sv_escaneo_miles');
+        const casilla = document.getElementById('escEnMiles');
+        if (v !== null && casilla) casilla.checked = (v === '1');
+      } catch (e) {}
+      _prepararZonaIA();
     });
 
-    // Lee una captura de comprobantes con el mismo OCR gratuito.
-    //
-    // Antes comprimía la imagen y la mandaba a la API de Claude. Ahora pasa
-    // por el mismo preprocesado que el libro —escala de grises, contraste,
-    // binarización adaptativa— y la lee el OCR de Drive. Este caso le resulta
-    // bastante más favorable: es texto de pantalla, no manuscrito.
-    function procesarImagenIA() {
-      const input = document.getElementById('inputImagenComprobante');
-      if (!input.files || !input.files[0]) {
-        mostrarToast('Seleccioná una imagen primero', 'error');
+    function guardarPreferenciaMilesIA() {
+      try { localStorage.setItem('sv_escaneo_miles', document.getElementById('escEnMiles').checked ? '1' : '0'); } catch (e) {}
+    }
+
+    /** Agrega fotos: cada una se copia a memoria al instante (ver SvOcr.copiarArchivo). */
+    function agregarFotosIA(archivos) {
+      const imagenes = (archivos || []).filter(function(f) { return f && (!f.type || f.type.indexOf('image/') === 0); });
+      if (!imagenes.length) {
+        if ((archivos || []).length) mostrarToast('Solo se pueden leer imágenes', 'error');
         return;
       }
+      imagenes.forEach(function(archivo) {
+        const foto = { id: EscIA.siguienteId++, nombre: archivo.name || 'foto', copia: null, url: '',
+                       zona: null, estado: 'copiando', error: '' };
+        EscIA.fotos.push(foto);
+        SvOcr.copiarArchivo(archivo).then(function(copia) {
+          foto.copia = copia;
+          foto.url = URL.createObjectURL(copia);
+          foto.estado = 'lista';
+          if (EscIA.actual < 0 || !EscIA.fotos[EscIA.actual] || !EscIA.fotos[EscIA.actual].url) {
+            seleccionarFotoIA(EscIA.fotos.indexOf(foto));
+          }
+          _renderFotosIA();
+        }).catch(function(e) {
+          foto.estado = 'error';
+          foto.error = (e && e.message) || String(e);
+          _renderFotosIA();
+          mostrarToast(foto.error, 'error');
+        });
+      });
+      _renderFotosIA();
+    }
 
-      const file = input.files[0];
+    function _renderFotosIA() {
+      const cont = document.getElementById('escFotos');
+      if (!cont) return;
+      cont.style.display = EscIA.fotos.length ? 'flex' : 'none';
+      const icono = { copiando: '⏳', lista: '', leyendo: '🔎', leida: '✓', error: '⚠️' };
+      cont.innerHTML = EscIA.fotos.map(function(f, i) {
+        const activa = i === EscIA.actual;
+        return '<div style="position:relative;border:2px solid ' + (activa ? 'var(--sv-primario)' : 'var(--sv-borde)') +
+            ';border-radius:6px;padding:2px;cursor:pointer;" onclick="seleccionarFotoIA(' + i + ')" title="' +
+            escapeHtml(f.error || f.nombre) + '">' +
+            (f.url ? '<img src="' + escapeHtml(f.url) + '" style="display:block;height:64px;max-width:90px;object-fit:cover;border-radius:4px;">'
+                   : '<div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;">' + (icono[f.estado] || '') + '</div>') +
+            '<div style="font-size:0.7rem;text-align:center;">' + (i + 1) + ' ' + (icono[f.estado] || '') + (f.zona ? ' ▭' : '') + '</div>' +
+            '<button type="button" onclick="event.stopPropagation();quitarFotoIA(' + i + ')" aria-label="Quitar foto" ' +
+              'style="position:absolute;top:-8px;right:-8px;border:none;border-radius:50%;width:20px;height:20px;line-height:18px;' +
+              'background:var(--sv-peligro);color:#fff;font-size:0.7rem;cursor:pointer;">&#10005;</button>' +
+          '</div>';
+      }).join('');
+      const listas = EscIA.fotos.filter(function(f) { return f.copia; }).length;
+      const btn = document.getElementById('btnProcesarIA');
+      if (btn) {
+        btn.disabled = listas === 0;
+        btn.textContent = listas > 1 ? '🔎 Leer ' + listas + ' fotos' : '🔎 Leer foto';
+      }
+    }
 
+    function seleccionarFotoIA(i) {
+      const foto = EscIA.fotos[i];
+      if (!foto) return;
+      EscIA.actual = i;
+      const img = document.getElementById('imgPreview');
+      if (foto.url) {
+        img.onload = function() { _dibujarZonaIA(foto.zona); };
+        img.src = foto.url;
+        document.getElementById('previewImagen').style.display = 'block';
+      }
+      _dibujarZonaIA(foto.zona);
+      _renderFotosIA();
+    }
+
+    function quitarFotoIA(i) {
+      const foto = EscIA.fotos[i];
+      if (!foto) return;
+      if (foto.url) { try { URL.revokeObjectURL(foto.url); } catch (e) {} }
+      EscIA.fotos.splice(i, 1);
+      EstadoFacturacion.resultadosIA = (EstadoFacturacion.resultadosIA || []).filter(function(r) { return r.fotoId !== foto.id; });
+      if (!EscIA.fotos.length) {
+        EscIA.actual = -1;
+        document.getElementById('previewImagen').style.display = 'none';
+      } else {
+        seleccionarFotoIA(Math.min(i, EscIA.fotos.length - 1));
+      }
+      _renderFotosIA();
+      if ((EstadoFacturacion.resultadosIA || []).length) renderResultadosIA();
+      else document.getElementById('resultadosIA').style.display = 'none';
+    }
+
+    // ── Zona a leer: se arrastra un recuadro sobre la foto (dedo o mouse) ──────────
+    function _prepararZonaIA() {
+      const marco = document.getElementById('escZonaMarco');
+      const img = document.getElementById('imgPreview');
+      if (!marco || !img) return;
+      const fraccion = function(e) {
+        const r = img.getBoundingClientRect();
+        return {
+          x: Math.max(0, Math.min(1, (e.clientX - r.left) / Math.max(1, r.width))),
+          y: Math.max(0, Math.min(1, (e.clientY - r.top) / Math.max(1, r.height)))
+        };
+      };
+      marco.addEventListener('pointerdown', function(e) {
+        if (!EscIA.fotos[EscIA.actual]) return;
+        EscIA.arrastre = fraccion(e);
+        try { marco.setPointerCapture(e.pointerId); } catch (err) {}
+        e.preventDefault();
+      });
+      marco.addEventListener('pointermove', function(e) {
+        if (!EscIA.arrastre) return;
+        const p = fraccion(e), a = EscIA.arrastre;
+        _dibujarZonaIA({ x: Math.min(a.x, p.x), y: Math.min(a.y, p.y), w: Math.abs(p.x - a.x), h: Math.abs(p.y - a.y) });
+        e.preventDefault();
+      });
+      const terminar = function(e) {
+        if (!EscIA.arrastre) return;
+        const p = fraccion(e), a = EscIA.arrastre;
+        EscIA.arrastre = null;
+        const zona = { x: Math.min(a.x, p.x), y: Math.min(a.y, p.y), w: Math.abs(p.x - a.x), h: Math.abs(p.y - a.y) };
+        const foto = EscIA.fotos[EscIA.actual];
+        // Un toque sin arrastrar no borra la zona que ya habia
+        if (foto && zona.w > 0.04 && zona.h > 0.04) foto.zona = zona;
+        _dibujarZonaIA(foto ? foto.zona : null);
+        _renderFotosIA();
+      };
+      marco.addEventListener('pointerup', terminar);
+      marco.addEventListener('pointercancel', terminar);
+    }
+
+    function _dibujarZonaIA(zona) {
+      const rect = document.getElementById('escZonaRect');
+      const img = document.getElementById('imgPreview');
+      const info = document.getElementById('escZonaInfo');
+      if (!rect || !img) return;
+      if (!zona) {
+        rect.style.display = 'none';
+        if (info) info.textContent = EscIA.fotos.length ? 'Se lee toda la foto' : '';
+        return;
+      }
+      rect.style.display = 'block';
+      rect.style.left = (zona.x * img.clientWidth) + 'px';
+      rect.style.top = (zona.y * img.clientHeight) + 'px';
+      rect.style.width = (zona.w * img.clientWidth) + 'px';
+      rect.style.height = (zona.h * img.clientHeight) + 'px';
+      if (info) info.textContent = 'Se lee solo la zona marcada';
+    }
+
+    function limpiarZonaIA() {
+      const foto = EscIA.fotos[EscIA.actual];
+      if (foto) foto.zona = null;
+      _dibujarZonaIA(null);
+      _renderFotosIA();
+    }
+
+    // ── Lectura ────────────────────────────────────────────────────────────────
+    function procesarImagenIA() {
+      const fotos = EscIA.fotos.filter(function(f) { return f.copia && f.estado !== 'leyendo'; });
+      if (!fotos.length) {
+        mostrarToast('Sacá o elegí una foto primero', 'error');
+        return;
+      }
+      const enMiles = document.getElementById('escEnMiles').checked;
+      const progreso = document.getElementById('escProgreso');
+      const poner = function(t) { if (progreso) progreso.textContent = t; };
+      const btn = document.getElementById('btnProcesarIA');
+      btn.disabled = true;
       mostrarLoading(true);
-      document.getElementById('btnProcesarIA').disabled = true;
 
-      SvOcr.preparar(file).then(function(prep) {
-        const base64 = prep.dataUrl;
+      // Releer una foto reemplaza sus filas anteriores
+      const ids = fotos.map(function(f) { return f.id; });
+      EstadoFacturacion.resultadosIA = (EstadoFacturacion.resultadosIA || []).filter(function(r) { return ids.indexOf(r.fotoId) === -1; });
+      let fechaDetectada = '';
 
-        google.script.run
-          .withSuccessHandler(function(result) {
-            mostrarLoading(false);
-            document.getElementById('btnProcesarIA').disabled = false;
-
-            if (result.success) {
-              EstadoFacturacion.resultadosIA = result.items || [];
-              document.getElementById('fechaDocumentoIA').textContent = result.fecha || '-';
-              renderResultadosIA();
-              document.getElementById('resultadosIA').style.display = 'block';
-              const fuera = (result.items || []).filter(function(i) { return !i.enPadron; }).length;
-              mostrarToast(result.items.length + ' transferencias detectadas' +
-                (fuera > 0 ? ' · ' + fuera + ' nombre(s) no están en tu padrón: revisalos' : ''),
-                fuera > 0 ? 'warning' : 'success');
-            } else {
-              mostrarToast('No se pudo leer: ' + result.error, 'error');
-            }
-          })
-          .withFailureHandler(function(error) {
-            mostrarLoading(false);
-            document.getElementById('btnProcesarIA').disabled = false;
-            mostrarToast('Error: ' + error.message, 'error');
-          })
-          .procesarImagenComprobante(base64);
-      }).catch(function(e) {
+      SvOcr._secuencia(fotos, function(foto, k) {
+        foto.estado = 'leyendo';
+        _renderFotosIA();
+        const prefijo = fotos.length > 1 ? 'Foto ' + (k + 1) + ' de ' + fotos.length + ': ' : '';
+        poner(prefijo + 'preparando la imagen…');
+        return SvOcr.preparar(foto.copia, { zona: foto.zona }).then(function(prep) {
+          return SvOcr.leerTransferencias(prep, { enMiles: enMiles }, function(t) { poner(prefijo + t); });
+        }).then(function(r) {
+          foto.estado = r.ok ? 'leida' : 'error';
+          foto.error = r.ok ? '' : (r.error || 'No se detectó ninguna transferencia');
+          if (r.fecha && !fechaDetectada) fechaDetectada = r.fecha;
+          (r.filas || []).forEach(function(fila) {
+            EstadoFacturacion.resultadosIA.push(Object.assign(fila, { fotoId: foto.id }));
+          });
+        }).catch(function(e) {
+          foto.estado = 'error';
+          foto.error = (e && e.message) || String(e);
+        });
+      }).then(function() {
         mostrarLoading(false);
-        document.getElementById('btnProcesarIA').disabled = false;
-        mostrarToast('No se pudo preparar la imagen: ' + ((e && e.message) || e), 'error');
+        poner('');
+        btn.disabled = false;
+        const fecha = document.getElementById('escFecha');
+        if (fecha && !fecha.value) fecha.value = fechaDetectada || obtenerFechaLocal();
+        _renderFotosIA();
+        renderResultadosIA();
+        document.getElementById('resultadosIA').style.display = 'block';
+
+        const filas = EstadoFacturacion.resultadosIA;
+        const avisos = filas.filter(function(f) { return f.aviso; }).length;
+        const fallidas = fotos.filter(function(f) { return f.estado === 'error'; });
+        if (fallidas.length) mostrarToast(fallidas.map(function(f) { return f.error; }).join(' · '), 'warning');
+        mostrarToast(filas.length + ' transferencia(s) detectada(s)' +
+                     (avisos ? ' · ' + avisos + ' aviso(s) que no se facturan' : ''), filas.length ? 'success' : 'warning');
       });
     }
 
-    // Renderizar resultados de IA
+    // ── Revisión ───────────────────────────────────────────────────────────────
     function renderResultadosIA() {
       const tbody = document.getElementById('tbodyResultadosIA');
       if (!tbody) return;
-      _asegurarListaClientesVR(); // la lista de nombres del padron para el autocompletado
+      _asegurarListaClientesVR();
+      const filas = EstadoFacturacion.resultadosIA || [];
+      if (!filas.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Sin transferencias. Probá marcando la zona de la planilla y volvé a leer.</td></tr>';
+        _resumenIA();
+        return;
+      }
+      const verRecortes = EscIA.recortes;
+      const varias = EscIA.fotos.length > 1;
+      const miniatura = function(src) {
+        return (verRecortes && src)
+          ? '<div style="margin-top:0.3rem;"><img src="' + escapeHtml(src) + '" alt="" style="max-height:52px;max-width:100%;border:1px solid var(--sv-borde);border-radius:4px;"></div>'
+          : '';
+      };
 
-      tbody.innerHTML = EstadoFacturacion.resultadosIA.map(function(item, idx) {
-        // Franja de color según si el nombre existe en el padrón: el OCR libre
-        // acierta mucho en capturas de pantalla, pero el usuario tiene que
-        // poder ver de un vistazo qué revisar.
-        var borde = (item.enPadron === false) ? 'var(--sv-advertencia)'
-                  : (item.enPadron === true) ? 'var(--sv-exito)' : 'transparent';
-        return '<tr style="border-left:4px solid ' + borde + ';">' +
-          '<td><input type="text" class="form-input" list="vrClientes" value="' + escapeHtml(item.nombre) + '" onchange="EstadoFacturacion.resultadosIA[' + idx + '].nombre = this.value">' +
-            (item.nombreLeido && item.nombreLeido !== item.nombre
-              ? '<div style="font-size:0.7rem;color:var(--sv-texto-muted);margin-top:0.15rem;">leído: ' + escapeHtml(item.nombreLeido) + '</div>' : '') +
-            (item.sugerencias && item.sugerencias.length
-              ? '<div style="font-size:0.7rem;color:var(--sv-texto-muted);margin-top:0.15rem;">¿' + escapeHtml(item.sugerencias.slice(0,2).join(' / ')) + '?</div>' : '') +
-          '</td>' +
-          '<td><input type="number" class="form-input" value="' + item.monto + '" step="0.01" onchange="EstadoFacturacion.resultadosIA[' + idx + '].monto = parseFloat(this.value)"></td>' +
-          '<td><input type="text" class="form-input" value="' + escapeHtml(item.banco || '') + '" onchange="EstadoFacturacion.resultadosIA[' + idx + '].banco = this.value"></td>' +
-          '<td><button class="btn btn-outline btn-sm" onclick="eliminarResultadoIA(' + idx + ')" style="color: var(--sv-peligro);">&#10005;</button></td>' +
-          '</tr>';
+      tbody.innerHTML = filas.map(function(it, i) {
+        const excluida = it.aviso && !it.facturarIgual;
+        const color = excluida ? 'var(--sv-texto-muted)'
+                    : it.enPadron ? 'var(--sv-exito)'
+                    : (it.sugerencias && it.sugerencias.length) ? 'var(--sv-advertencia)' : 'var(--sv-peligro)';
+        const nFoto = varias ? EscIA.fotos.findIndex(function(f) { return f.id === it.fotoId; }) + 1 : 0;
+
+        const celdaCliente =
+          '<input type="text" class="form-input" list="vrClientes" value="' + escapeHtml(it.nombre || '') + '" ' +
+            'onchange="cambiarNombreIA(' + i + ', this.value)" placeholder="Escribí el nombre" style="padding:0.45rem;">' +
+          ((it.nombreLeido && it.nombreLeido !== it.nombre)
+            ? '<div style="font-size:0.7rem;color:var(--sv-texto-muted);margin-top:0.15rem;">leído: ' + escapeHtml(it.nombreLeido) + '</div>' : '') +
+          ((it.sugerencias && it.sugerencias.length && !it.enPadron)
+            ? '<div style="margin-top:0.25rem;display:flex;gap:0.25rem;flex-wrap:wrap;">' +
+                it.sugerencias.slice(0, 3).map(function(sg) {
+                  return '<button type="button" class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:0.15rem 0.4rem;" ' +
+                    'onclick="cambiarNombreIA(' + i + ', \'' + escaparJsEnAtributo(sg) + '\')">' + escapeHtml(sg) + '</button>';
+                }).join('') + '</div>' : '') +
+          (it.aviso
+            ? '<div style="margin-top:0.3rem;font-size:0.72rem;">' +
+                '<span style="background:var(--sv-superficie-elevada);border:1px solid var(--sv-borde);border-radius:4px;padding:0.05rem 0.35rem;font-weight:bold;">' +
+                  (it.facturarIgual ? 'SE VA A FACTURAR' : 'AVISO · no se factura') + '</span> ' +
+                '<span style="color:var(--sv-texto-muted);">' + escapeHtml(it.motivoAviso || '') + '</span> ' +
+                '<button type="button" class="btn btn-outline btn-sm" style="font-size:0.68rem;padding:0.1rem 0.35rem;" onclick="alternarAvisoIA(' + i + ')">' +
+                  (it.facturarIgual ? 'No facturar' : 'Facturar igual') + '</button>' +
+              '</div>' : '') +
+          (nFoto ? '<div style="font-size:0.68rem;color:var(--sv-texto-muted);margin-top:0.1rem;">foto ' + nFoto + '</div>' : '') +
+          miniatura(it.recortes && it.recortes.nombre);
+
+        const celdaMonto =
+          '<input type="number" class="form-input" value="' + (it.monto || '') + '" step="1" min="0" inputmode="decimal" ' +
+            'onchange="cambiarMontoIA(' + i + ', this.value)" style="padding:0.45rem;">' +
+          ((!it.montoSeguro && it.monto > 0)
+            ? '<div style="font-size:0.7rem;color:var(--sv-advertencia);margin-top:0.15rem;">revisá el importe' +
+                ((it.montoAlternativas && it.montoAlternativas.length)
+                  ? ': ¿o ' + it.montoAlternativas.slice(0, 2).map(function(a) {
+                      return '<a href="#" onclick="cambiarMontoIA(' + i + ', ' + Number(a) + ');return false;">' + escapeHtml(formatearMonto(a)) + '</a>';
+                    }).join(' / ') + '?'
+                  : '') + '</div>' : '') +
+          miniatura(it.recortes && it.recortes.importe);
+
+        const celdaBanco =
+          '<div class="esc-bancos">' +
+            ['Santander', 'Mercado Pago', 'Macro'].map(function(b) {
+              return '<button type="button" class="banco-option' + (it.banco === b ? ' selected' : '') + '" ' +
+                'onclick="elegirBancoIA(' + i + ', \'' + escaparJsEnAtributo(b) + '\')">' +
+                escapeHtml(b) + '</button>';
+            }).join('') +
+          '</div>' +
+          ((it.bancoLeido && !it.banco)
+            ? '<div style="font-size:0.7rem;color:var(--sv-texto-muted);margin-top:0.15rem;">leído: ' + escapeHtml(it.bancoLeido) + '</div>' : '') +
+          miniatura(it.recortes && it.recortes.banco);
+
+        return '<tr style="border-left:4px solid ' + color + ';' + (excluida ? 'opacity:0.55;' : '') + '">' +
+          '<td data-label="Cliente">' + celdaCliente + '</td>' +
+          '<td data-label="Monto">' + celdaMonto + '</td>' +
+          '<td data-label="Banco">' + celdaBanco + '</td>' +
+          '<td data-label=""><button type="button" class="btn btn-outline btn-sm" onclick="eliminarResultadoIA(' + i + ')" ' +
+            'style="color:var(--sv-peligro);" aria-label="Quitar fila">&#10005;</button></td>' +
+        '</tr>';
       }).join('');
+      _resumenIA();
+      try {
+        svApplyDataLabelsFromHeaders(document.getElementById('module-escanear'));
+        svInitTableScrollHints();
+      } catch (e) {}
     }
 
-    // Eliminar resultado de IA
+    function _filasAImportarIA() {
+      return (EstadoFacturacion.resultadosIA || []).filter(function(it) { return !(it.aviso && !it.facturarIgual); });
+    }
+
+    function _resumenIA() {
+      const filas = EstadoFacturacion.resultadosIA || [];
+      const aImportar = _filasAImportarIA();
+      const avisos = filas.filter(function(it) { return it.aviso && !it.facturarIgual; }).length;
+      const fueraPadron = aImportar.filter(function(it) { return !it.enPadron; }).length;
+      const total = aImportar.reduce(function(s, it) { return s + (Number(it.monto) || 0); }, 0);
+      const el = document.getElementById('escResumen');
+      if (el) {
+        el.innerHTML = '<strong>' + aImportar.length + '</strong> para importar · total <strong>' + escapeHtml(formatearMonto(total)) + '</strong>' +
+          (avisos ? ' · ' + avisos + ' aviso(s) que no se facturan' : '') +
+          (fueraPadron ? ' · <span style="color:var(--sv-advertencia);">' + fueraPadron + ' cliente(s) para revisar</span>' : '');
+      }
+      const btn = document.getElementById('btnImportarIA');
+      if (btn) btn.textContent = '📥 Importar ' + aImportar.length;
+    }
+
+    function cambiarNombreIA(i, valor) {
+      const it = EstadoFacturacion.resultadosIA[i];
+      if (!it) return;
+      it.nombre = String(valor || '').trim().toUpperCase();
+      it.enPadron = _clienteEnPadronVR(it.nombre);
+      renderResultadosIA();
+    }
+
+    function cambiarMontoIA(i, valor) {
+      const it = EstadoFacturacion.resultadosIA[i];
+      if (!it) return;
+      const n = Number(valor);
+      it.monto = (isFinite(n) && n > 0) ? Math.round(n * 100) / 100 : 0;
+      it.montoSeguro = true;
+      it.montoAlternativas = [];
+      renderResultadosIA();
+    }
+
+    function elegirBancoIA(i, banco) {
+      const it = EstadoFacturacion.resultadosIA[i];
+      if (!it) return;
+      it.banco = (it.banco === banco) ? '' : banco;
+      renderResultadosIA();
+    }
+
+    function alternarAvisoIA(i) {
+      const it = EstadoFacturacion.resultadosIA[i];
+      if (!it) return;
+      it.facturarIgual = !it.facturarIgual;
+      renderResultadosIA();
+    }
+
+    /** Fila en blanco para un renglón que no se leyó (se completa a mano). */
+    function agregarFilaIA() {
+      EstadoFacturacion.resultadosIA = EstadoFacturacion.resultadosIA || [];
+      EstadoFacturacion.resultadosIA.push({
+        idFila: 0, nombre: '', nombreLeido: '', enPadron: false, estado: 'baja', coincidencia: 0, sugerencias: [],
+        monto: 0, montoSeguro: true, montoAlternativas: [], banco: '', bancoLeido: '', aviso: false, motivoAviso: '',
+        rosa: 0, facturarIgual: false, reintentos: 0, recortes: {}, fotoId: null, manual: true
+      });
+      renderResultadosIA();
+      const filas = document.querySelectorAll('#tbodyResultadosIA tr');
+      const ultima = filas[filas.length - 1];
+      const campo = ultima && ultima.querySelector('input[list="vrClientes"]');
+      if (campo) campo.focus();
+    }
+
     function eliminarResultadoIA(idx) {
       EstadoFacturacion.resultadosIA.splice(idx, 1);
       renderResultadosIA();
     }
 
-    // Limpiar resultados de IA
-    function limpiarResultadosIA() {
-      EstadoFacturacion.resultadosIA = [];
-      document.getElementById('resultadosIA').style.display = 'none';
-      document.getElementById('inputImagenComprobante').value = '';
-      document.getElementById('previewImagen').style.display = 'none';
+    function alternarRecortesIA() {
+      EscIA.recortes = !EscIA.recortes;
+      const btn = document.getElementById('btnRecortesIA');
+      if (btn) btn.textContent = EscIA.recortes ? 'Ocultar recortes' : 'Ver recortes';
+      renderResultadosIA();
     }
 
-    // Importar transferencias desde IA
+    function limpiarResultadosIA() {
+      EstadoFacturacion.resultadosIA = [];
+      EscIA.fotos.forEach(function(f) { if (f.url) { try { URL.revokeObjectURL(f.url); } catch (e) {} } });
+      EscIA.fotos = [];
+      EscIA.actual = -1;
+      document.getElementById('resultadosIA').style.display = 'none';
+      document.getElementById('previewImagen').style.display = 'none';
+      const fecha = document.getElementById('escFecha');
+      if (fecha) fecha.value = '';
+      _dibujarZonaIA(null);
+      _renderFotosIA();
+    }
+
+    // ── Importación ────────────────────────────────────────────────────────────
     function importarTransferenciasIA() {
-      if (EstadoFacturacion.resultadosIA.length === 0) {
-        mostrarToast('No hay datos para importar', 'error');
+      const fecha = (document.getElementById('escFecha') || {}).value || obtenerFechaLocal();
+      const elegibles = _filasAImportarIA();
+      if (!elegibles.length) {
+        mostrarToast('No hay transferencias para importar (los avisos no se facturan)', 'warning');
         return;
       }
-
-      const fecha = document.getElementById('fechaDocumentoIA').textContent;
-      const transferencias = EstadoFacturacion.resultadosIA.map(item => ({
-        fecha: fecha !== '-' ? fecha : obtenerFechaLocal(),
-        cliente: item.nombre,
-        monto: item.monto,
-        banco: item.banco || ''
-      }));
+      const incompletas = elegibles.filter(function(it) { return !(Number(it.monto) > 0) || !String(it.nombre || '').trim(); });
+      if (incompletas.length) {
+        mostrarToast(incompletas.length + ' fila(s) sin cliente o sin monto: completalas o quitalas con ✕', 'error');
+        return;
+      }
+      const lista = elegibles.map(function(it) {
+        return { fecha: fecha, cliente: String(it.nombre).trim().toUpperCase(), monto: Number(it.monto), banco: it.banco || '' };
+      });
 
       mostrarLoading(true);
-      google.script.run
-        .withSuccessHandler(function(result) {
-          mostrarLoading(false);
-          if (result.success) {
-            limpiarResultadosIA();
-            cargarDatosFacturacion();
-            mostrarToast(result.cantidad + ' transferencias importadas', 'success');
-          } else {
-            mostrarToast(result.error, 'error');
+      svBackend('buscarTransferenciasDuplicadas', [lista], function(res) {
+        mostrarLoading(false);
+        const dups = (res && res.success && res.duplicadas) || [];
+        if (!dups.length) return _enviarImportacionIA(lista);
+        const sinDuplicados = lista.filter(function(x, k) { return dups.indexOf(k) === -1; });
+        const detalle = dups.map(function(k) {
+          return '· ' + escapeHtml(lista[k].cliente) + ' — ' + escapeHtml(formatearMonto(lista[k].monto));
+        }).join('<br>');
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            title: 'Ya están cargadas',
+            html: dups.length + ' transferencia(s) ya figuran con la misma fecha, cliente y monto:<br><br>' + detalle,
+            icon: 'warning', showDenyButton: true, showCancelButton: true,
+            confirmButtonText: 'Importar sin duplicados', denyButtonText: 'Importar todo', cancelButtonText: 'Cancelar'
+          }).then(function(r) {
+            if (r.isConfirmed) _enviarImportacionIA(sinDuplicados);
+            else if (r.isDenied) _enviarImportacionIA(lista);
+          });
+        } else if (confirm(dups.length + ' transferencia(s) ya están cargadas. Aceptar: importar SIN los duplicados.')) {
+          _enviarImportacionIA(sinDuplicados);
+        }
+      }, function(msg) {
+        // Un servidor sin esta funcion (archivos .gs viejos) no debe impedir importar
+        mostrarLoading(false);
+        if (confirm('No se pudo comprobar si hay duplicados (' + msg + ').\n\n¿Importar igual?')) _enviarImportacionIA(lista);
+      });
+    }
+
+    function _enviarImportacionIA(lista) {
+      if (!lista.length) {
+        mostrarToast('No quedó nada para importar', 'warning');
+        return;
+      }
+      mostrarLoading(true);
+      svBackend('importarTransferenciasIA', [lista], function(result) {
+        mostrarLoading(false);
+        if (result && result.success) {
+          const errores = result.errores || [];
+          limpiarResultadosIA();
+          cargarDatosFacturacion();
+          mostrarToast(result.cantidad + ' transferencia(s) importada(s)' + (errores.length ? ' · ' + errores.length + ' con error' : ''),
+                       errores.length ? 'warning' : 'success');
+          if (errores.length) {
+            alert('Estas no se importaron:\n\n' + errores.map(function(e) {
+              return '· ' + ((e.datos && e.datos.cliente) || '?') + ': ' + e.error;
+            }).join('\n'));
           }
-        })
-        .withFailureHandler(function(error) {
-          mostrarLoading(false);
-          mostrarToast('Error: ' + error.message, 'error');
-        })
-        .importarTransferenciasIA(transferencias);
+        } else {
+          // Si falla, la lista NO se borra: se puede reintentar sin volver a leer la foto
+          mostrarToast((result && result.error) || 'No se pudo importar', 'error');
+        }
+      }, function(msg) {
+        mostrarLoading(false);
+        mostrarToast('Error: ' + msg, 'error');
+      });
     }
 
     // ============================================================================
