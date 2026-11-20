@@ -1009,8 +1009,29 @@ function procesarImagenComprobante(base64Image) {
 
     const extracto = OcrService.interpretarExtracto(lectura.texto);
 
-    // Casar cada nombre leído con el padrón: es lo que más precisión aporta
+    // Casar cada nombre leído con el padrón: es lo que más precisión aporta.
+    // Mismo comparador que el libro (NombresEs: fonética del español, orden
+    // libre, solo acepta solo cuando la coincidencia es clara).
+    let indice = null;
+    const opciones = { umbralAuto: cfg.UMBRAL_NOMBRE / 100 };
+    if (typeof NombresEs !== 'undefined') {
+      indice = NombresEs.indexar(ClientesRepository.obtenerTodos().map(function(c) { return c.nombre; }));
+    }
     const items = extracto.items.map(function(item) {
+      if (indice) {
+        const d = NombresEs.decidir([item.nombre], indice, opciones);
+        const alta = d.estado === 'alta';
+        return {
+          nombre: alta ? d.mejor.nombre : item.nombre,
+          nombreLeido: item.nombre,
+          monto: item.monto,
+          banco: item.banco,
+          enPadron: alta,
+          coincidencia: Math.round((d.score || 0) * 100),
+          sugerencias: alta ? [] : (d.sugerencias || [])
+        };
+      }
+      // Sin nombres_es.gs en el proyecto: buscador clásico
       const busqueda = ClientesRepository.buscarConSugerencias(normalizarString(item.nombre));
       return {
         nombre: busqueda.exacto ? busqueda.exacto.nombre : item.nombre,
@@ -1048,16 +1069,69 @@ function procesarImagenComprobante(base64Image) {
 }
 
 /**
- * Importa transferencias detectadas por IA
+ * Importa transferencias detectadas en una foto.
+ *
+ * agregarMultiples devuelve { exitosos, errores }: antes se devolvía
+ * resultados.length (de un objeto → undefined) y la pantalla mostraba
+ * "undefined transferencias importadas", perdiendo además los errores por fila.
+ *
+ * @param {Array<{fecha, cliente, monto, banco}>} transferencias
+ * @returns {{success: boolean, cantidad?: number, errores?: Array, transferencias?: Array, error?: string}}
  */
 function importarTransferenciasIA(transferencias) {
   try {
-    const resultados = TransferenciasRepository.agregarMultiples(transferencias);
+    if (!Array.isArray(transferencias) || transferencias.length === 0) {
+      return { success: false, error: 'No hay transferencias para importar.' };
+    }
+    const r = TransferenciasRepository.agregarMultiples(transferencias) || {};
+    const exitosos = r.exitosos || [];
+    const errores = r.errores || [];
+    if (exitosos.length === 0 && errores.length > 0) {
+      return { success: false, error: 'No se pudo importar ninguna: ' + errores[0].error, errores: errores };
+    }
     return {
       success: true,
-      cantidad: resultados.length,
-      transferencias: resultados
+      cantidad: exitosos.length,
+      errores: errores,
+      transferencias: exitosos
     };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Busca cuáles de las transferencias a importar ya están cargadas: misma
+ * fecha, mismo cliente (sin tildes ni mayúsculas) y mismo monto.
+ *
+ * Solo lee; no modifica nada. La pantalla pregunta qué hacer con ellas.
+ *
+ * @param {Array<{fecha: string, cliente: string, monto: number}>} lista
+ * @returns {{success: boolean, duplicadas?: Array<number>, error?: string}}
+ *          duplicadas = índices (dentro de lista) que ya existen
+ */
+function buscarTransferenciasDuplicadas(lista) {
+  try {
+    if (!Array.isArray(lista) || lista.length === 0) return { success: true, duplicadas: [] };
+    const fechas = {};
+    lista.forEach(function(t) { if (t && t.fecha) fechas[t.fecha] = true; });
+
+    const clave = function(fecha, cliente) { return fecha + '|' + normalizarString(String(cliente || '')); };
+    const existentes = {};
+    TransferenciasRepository.obtenerTodas(0).forEach(function(t) {
+      if (!fechas[t.fecha]) return;
+      const k = clave(t.fecha, t.cliente);
+      (existentes[k] = existentes[k] || []).push(Number(t.monto) || 0);
+    });
+
+    const duplicadas = [];
+    lista.forEach(function(t, i) {
+      if (!t) return;
+      const montos = existentes[clave(t.fecha, t.cliente)];
+      const m = Number(t.monto) || 0;
+      if (montos && montos.some(function(x) { return Math.abs(x - m) < 0.5; })) duplicadas.push(i);
+    });
+    return { success: true, duplicadas: duplicadas };
   } catch (error) {
     return { success: false, error: error.message };
   }

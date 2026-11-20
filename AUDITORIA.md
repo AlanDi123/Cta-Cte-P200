@@ -352,6 +352,64 @@ Entre 600 lecturas de clientes que **no** están en el padrón, ninguna se acept
 
 ---
 
+## 7-quater. «Escanear» de Facturación: el error al leer la foto, y por qué no habría servido igual
+
+Al elegir la foto de la planilla **TRANSFERENCIAS** (manuscrita: Cliente · Bco · Importe), el
+módulo respondía **«No se pudo preparar la imagen: No se pudo leer el archivo.»**
+
+### Lo que se encontró
+
+1. **El archivo se leía dos veces.** Una al elegirlo (vista previa) y otra al tocar «Procesar».
+   En Android, una foto elegida desde la galería o Google Fotos puede perder el permiso de
+   lectura entre las dos → `NotReadableError`. Reproducido en Chromium borrando el archivo entre
+   ambas lecturas: el camino viejo falla, el nuevo lee desde la copia.
+2. **Aunque leyera, el resultado habría sido malo.** El servidor interpretaba la imagen con
+   `interpretarExtracto`, pensado para **capturas de homebanking impresas**, no para una planilla
+   manuscrita con columnas, y comparaba nombres con el buscador viejo.
+3. **«undefined transferencias importadas».** `importarTransferenciasIA` devolvía
+   `resultados.length` sobre un objeto `{exitosos, errores}`: el conteo salía `undefined` y los
+   errores por fila se perdían.
+4. Sin forma de corregir la fecha, banco como texto libre (la carga manual usa botones) y sin
+   control de duplicados.
+
+### Lo que se cambió
+
+- **Lectura del archivo:** se copia a memoria **una sola vez, al elegirlo**; todo lo demás usa la
+  copia. Decodificación con tres respaldos (`createImageBitmap` → `FileReader` → `objectURL`) y un
+  mensaje que dice qué hacer si las tres fallan. Lo mismo en la lectura del libro.
+- **Lectura de la planilla:** se detecta la **cuadrícula** (renglones y columnas dibujadas a mano,
+  aunque estén inclinadas) y se lee **celda por celda**: Tesseract en el navegador y, en paralelo,
+  el OCR de Google (Drive) sobre un **mosaico etiquetado** de recortes. El importe se decide por
+  votación; el banco, por diccionario (`ST`, `MP`, `Macro`…); el nombre, contra el padrón con
+  `NombresEs` y reintentos.
+- **Filas «Chajarí» = aviso, no se factura.** Dos señales independientes: lo escrito en la columna
+  Banco y el **resaltador rosa** medido sobre la foto en color. Se muestran atenuadas, fuera de la
+  importación, con un botón «Facturar igual».
+- **Importes en miles** (101 = 101.000), con un interruptor visible que se recuerda por navegador.
+- **Pantalla:** sacar foto directo o elegir varias; marcar la **zona** de la planilla arrastrando;
+  semáforo por fila; «Ver recortes» con el trazo de cada celda; sugerencias del padrón como botones;
+  **bancos como botones**; **fecha editable**; «＋ Agregar fila» para un renglón que no se leyó; en el
+  celular, cada transferencia es una tarjeta.
+- **Servidor** (`facturacion.gs`): conteo y errores por fila al importar; nueva
+  `buscarTransferenciasDuplicadas` (misma fecha, cliente sin tildes ni mayúsculas, y monto); antes
+  de importar se elige «Importar sin duplicados» o «Importar todo». Si la importación falla, la
+  lista **no se borra**. `procesarImagenComprobante` compara con `NombresEs`.
+
+### Cifras sobre la foto real (16 transferencias, 4 de ellas «Chajarí»)
+
+| Escenario | Filas | Nombre correcto o sugerido | Importe exacto | Banco / aviso | Avisos bien |
+|---|---|---|---|---|---|
+| Zona marcada, **solo Tesseract** (sin Drive) | 11/16 | 2/16 | 0/16 | 6/16 | 4/4, sin falsos |
+| Zona marcada, **Drive simulado** con lectura correcta | 16/16 | 16/16 | 16/16 | 16/16 | 4/4, sin falsos |
+
+> **Límite honesto.** Tesseract lee muy mal los números escritos a mano; la calidad real depende del
+> OCR de Google (Drive), que **no se puede ejecutar en el contenedor**. La segunda fila mide el
+> encastre (cuadrícula → mosaico → fusión → pantalla) suponiendo que Drive lee bien; no promete
+> esa precisión. Marcar la zona importa: con la foto entera (teclado, mesa, columna «OTROS»), la
+> cuadrícula se arma peor.
+
+---
+
 ## 8. Cómo se verificó
 
 Apps Script no se ejecuta en el contenedor de desarrollo, así que la comprobación fue en capas:
@@ -370,3 +428,6 @@ Apps Script no se ejecuta en el contenedor de desarrollo, así que la comprobaci
 4. El **resumen mensual** con más de 500 transferencias en la hoja.
 5. **Alta de un producto** y confirmar que se crea **una sola vez**.
 6. Que su **tema y colores** siguen ahí tras la migración de claves.
+7. **Escanear:** la foto de la planilla desde la galería del teléfono, marcando la zona; ver cuántos
+   importes acierta Drive y que las filas «Chajarí» salgan como aviso.
+8. **Importar** dos veces la misma planilla y comprobar que avisa de los duplicados.
