@@ -410,6 +410,71 @@ módulo respondía **«No se pudo preparar la imagen: No se pudo leer el archivo
 
 ---
 
+## 7-quinquies. Celular, Control de Vacíos y PINes
+
+### En el celular se veía como en una computadora
+
+La tabla del inicio ya tenía diseño de tarjetas para el celular, pero en el teléfono salía como
+tabla de escritorio, diminuta y con una franja verde vacía a la izquierda. El teléfono estaba
+dibujando la página a ~980 px, el ancho de una computadora, por ejemplo con «Sitio de escritorio»
+activado. Apps Script muestra el sistema dentro de un marco de Google, y el sistema no controla
+esa página exterior.
+
+- **Detector automático** (`SvMovil`, al principio del HTML). Actúa solo si la pantalla es táctil
+  y su lado corto mide menos de 600 px. En ese caso:
+  1. evalúa las reglas `@media` del propio CSS con el ancho **real** del teléfono;
+  2. aplica `zoom` = ancho dibujado ÷ ancho de pantalla.
+
+  El diseño móvil que ya existía se usa tal cual. Las computadoras y las tabletas grandes no
+  entran en ese camino.
+- **La franja verde vacía:** la regla de tableta ocultaba todos los `<span>` del menú, incluido el
+  del ícono.
+- **Grillas que se salían de la pantalla:** la regla móvil que las pone en una columna estaba
+  escrita **antes** de la definición base y quedaba pisada. Afectaba a Estadísticas y Configuración.
+- **Diez tablas más** pasan a tarjetas, y un observador les pone los rótulos aunque se recarguen.
+- **Acceso directo:** `doGet` declara el logo como ícono (`setFaviconUrl`).
+
+Verificado en Chromium con tres perfiles:
+
+| Perfil | Resultado |
+|---|---|
+| Teléfono normal (390 px) | sin desbordes |
+| Teléfono a ancho de escritorio (página 980, pantalla 412, táctil), como la captura del usuario | sin desbordes; zoom 2,38 y tablas en tarjetas |
+| Computadora (1280 px) | estilos calculados **idénticos** en los 16 módulos no rediseñados |
+
+### Control de Vacíos: de turnos a movimientos
+
+Se reemplazó el esquema de turnos (abrir / guardar / cerrar) por un registro de movimientos en la
+hoja nueva `MOD_VACIOS_MOV`. Cada movimiento tiene fecha, proveedor, tipo, INGRESO o EGRESO,
+cantidad y observación.
+
+- El servidor calcula **desde las filas** el saldo corrido por proveedor y tipo, el stock por tipo
+  y los saldos por proveedor. No se guardan, así que no pueden desincronizarse.
+- Los tipos son la lista de envases de Configuración; Vales la sigue usando para calcular montos.
+- Las hojas de turnos viejas no se tocan y se consultan desde «Turnos anteriores».
+
+### PINes
+
+1. **El PIN de facturación estaba escrito en el HTML** (`'1234'`) y se comparaba en el navegador.
+   Además, el HTML se sirve **desde GitHub** (`HTML_REMOTO`), así que editarlo en Apps Script no
+   tenía efecto. Ahora se valida en el servidor (`validarPinFacturacion`) contra la propiedad
+   `PIN_FACTURACION`. Mientras no se cambie, vale el de siempre.
+2. **El PIN de Vacíos y Vales se cambiaba en Configuración sin pedir el actual.** Ahora se cambia en
+   Configuración → Seguridad con `cambiarPines`:
+   - exige el PIN **actual de Vacíos y Vales**;
+   - ante un error responde siempre «No autorizado.», sin pistas;
+   - tiene límite de intentos;
+   - `guardarConfiguracionGeneral` ya no acepta cambiar el PIN.
+3. **Lentitud al entrar a Vacíos y Vales.** Eran dos viajes al servidor en serie, sin aviso mientras
+   tanto. Ahora la misma llamada que valida el PIN devuelve los datos del módulo. El teclado
+   muestra «Verificando…» y se bloquea al instante. Cancelar durante la espera no abre el módulo.
+
+> **Límite honesto.** El PIN de facturación protege la pantalla, no las funciones de servidor de
+> facturación, igual que antes. La demora mínima de un viaje a Apps Script (~1 s) sigue existiendo:
+> se eliminó el segundo viaje, no el primero.
+
+---
+
 ## 8. Cómo se verificó
 
 Apps Script no se ejecuta en el contenedor de desarrollo, así que la comprobación fue en capas:
@@ -431,3 +496,8 @@ Apps Script no se ejecuta en el contenedor de desarrollo, así que la comprobaci
 7. **Escanear:** la foto de la planilla desde la galería del teléfono, marcando la zona; ver cuántos
    importes acierta Drive y que las filas «Chajarí» salgan como aviso.
 8. **Importar** dos veces la misma planilla y comprobar que avisa de los duplicados.
+9. **Celular:** abrir el acceso directo y comprobar que se ve como app: menú ☰ oculto y tablas en
+   tarjetas.
+10. **PINes:** cambiar el de Facturación desde Configuración → Seguridad y verificar que el viejo
+    ya no entra.
+11. **Vacíos:** cargar un ingreso y un egreso del mismo proveedor y tipo, y revisar el saldo.
