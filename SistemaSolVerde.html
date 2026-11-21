@@ -466,7 +466,7 @@
     @media (min-width: 768px) and (max-width: 1199px) {
       :root { --sv-sidebar-width: 60px; }
 
-      .menu-item span,
+      .menu-item span:not(.menu-icon),
       .menu-section-title {
         display: none;
       }
@@ -753,21 +753,41 @@
       .table-responsive-cards td:last-child {
         justify-content: flex-end;
       }
+      /* Tablas cuya última columna es un dato (no botones): etiqueta y valor separados */
+      .table-responsive-cards.tabla-sin-acciones td:last-child {
+        justify-content: space-between;
+      }
 
-      /* Escanear: las celdas traen campos y sugerencias; la etiqueta va arriba */
-      .esc-tabla td {
+      /* Tablas con campos (Escanear, Configuración): la etiqueta va arriba del campo */
+      .esc-tabla td, .tabla-campos td {
         display: block;
       }
-      .esc-tabla td::before {
+      .esc-tabla td::before, .tabla-campos td::before {
         display: block;
         margin-bottom: 0.3rem;
       }
       .esc-tabla td[data-label=""]::before,
-      .esc-tabla td:last-child::before {
+      .esc-tabla td:last-child::before,
+      .tabla-campos td[data-label=""]::before {
         display: none;
       }
-      .esc-tabla td:last-child {
+      .esc-tabla td:last-child, .tabla-campos td:last-child {
         text-align: right;
+      }
+
+      /* DataTables: «Mostrar» y «Búsqueda» uno debajo del otro, a lo ancho */
+      .dataTables_wrapper .dataTables_length,
+      .dataTables_wrapper .dataTables_filter {
+        float: none;
+        text-align: left;
+        margin-bottom: 0.5rem;
+      }
+      .dataTables_wrapper .dataTables_filter input {
+        width: 100%;
+        margin-left: 0;
+      }
+      .dataTables_wrapper .dataTables_filter label {
+        display: block;
       }
     }
 
@@ -821,6 +841,18 @@
     .grid-2 { grid-template-columns: repeat(2, 1fr); }
     .grid-3 { grid-template-columns: repeat(3, 1fr); }
     .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+    /* Celular: la regla movil de arriba (RESPONSIVE - MOBILE FIRST) quedaba ANTES de
+       estas bases y la pisaban: en el telefono las grillas seguian de 2 y 4 columnas
+       y se salian de la pantalla. Solo hasta 768 px: la computadora no cambia. */
+    @media (max-width: 768px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid > * { min-width: 0; }
+    }
+    @media (max-width: 380px) {
+      .grid-4 { grid-template-columns: 1fr; }
+    }
 
     /* Modulos */
     .module-view {
@@ -1257,6 +1289,18 @@
       align-items: center;
       justify-content: center;
     }
+    /* Mientras el servidor verifica: teclado apagado y puntos latiendo */
+    #pinLockOverlay.pin-verificando .pin-lock-grid {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+    #pinLockOverlay.pin-verificando .pin-lock-dots {
+      animation: pinLatido 0.8s ease-in-out infinite;
+    }
+    @keyframes pinLatido {
+      50% { opacity: 0.35; }
+    }
+
     #pinLockOverlay.active {
       display: flex;
     }
@@ -2656,6 +2700,107 @@
     }
 
   </style>
+  <script>
+    // ============================================================================
+    // CELULAR AUTOMATICO
+    //
+    // Apps Script muestra el sistema dentro de un marco de Google, y algunos
+    // telefonos lo dibujan con el ancho de una computadora (~980 px): todo sale
+    // diminuto, el menu de tableta y las tablas sin tarjetas. Aca se detecta ese
+    // caso y se usa el diseno movil que el CSS ya tiene:
+    //   1. las reglas @media se evaluan con el ancho REAL de la pantalla;
+    //   2. zoom = ancho dibujado / ancho de la pantalla.
+    // Solo actua con pantalla tactil Y lado corto < 600 px: las computadoras
+    // (mouse) y las tabletas grandes no se tocan.
+    // ============================================================================
+    var SvMovil = (function() {
+      var originales = [];   // { regla, texto } para poder restaurar
+      var activo = false;
+
+      function esCelular() {
+        var tactil = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        var corto = Math.min(screen.width || 0, screen.height || 0);
+        return !!tactil && corto > 0 && corto < 600;
+      }
+
+      function anchoPantalla() {
+        var w = screen.width || 0, h = screen.height || 0;
+        var horizontal = window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
+        return horizontal ? Math.max(w, h) : Math.min(w, h);
+      }
+
+      /** true/false si la condicion es solo de ancho; null si tiene otra cosa (print, color...). */
+      function cumple(texto, ancho) {
+        var t = String(texto || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        t = t.replace(/^only /, '').replace(/^screen and /, '').replace(/^all and /, '');
+        var partes = t.split(' and ');
+        var ok = true;
+        for (var i = 0; i < partes.length; i++) {
+          var m = partes[i].match(/^\((min|max)-width:\s*(\d+(?:\.\d+)?)px\)$/);
+          if (!m) return null;
+          var v = parseFloat(m[2]);
+          if (m[1] === 'min' ? ancho < v : ancho > v) ok = false;
+        }
+        return ok;
+      }
+
+      function reglasMedia() {
+        var lista = [];
+        for (var i = 0; i < document.styleSheets.length; i++) {
+          var hoja = document.styleSheets[i], reglas;
+          try { reglas = hoja.cssRules; } catch (e) { continue; }   // CSS de otro dominio
+          if (!reglas) continue;
+          for (var j = 0; j < reglas.length; j++) {
+            if (reglas[j].type === 4 /* CSSMediaRule */) lista.push(reglas[j]);
+          }
+        }
+        return lista;
+      }
+
+      function restaurar() {
+        originales.forEach(function(o) { try { o.regla.media.mediaText = o.texto; } catch (e) {} });
+        originales = [];
+        document.documentElement.style.zoom = '';
+        document.documentElement.classList.remove('sv-movil-forzado');
+        activo = false;
+      }
+
+      function aplicar() {
+        restaurar();
+        if (!esCelular()) return;
+        var pantalla = anchoPantalla();
+        var dibujado = window.innerWidth || document.documentElement.clientWidth;
+        // Celular bien configurado: las @media ya funcionan solas
+        if (!pantalla || dibujado <= pantalla * 1.2) return;
+
+        reglasMedia().forEach(function(regla) {
+          var texto = regla.media.mediaText;
+          var r = cumple(texto, pantalla);
+          if (r === null) return;
+          originales.push({ regla: regla, texto: texto });
+          regla.media.mediaText = r ? 'all' : 'not all';
+        });
+        document.documentElement.style.zoom = String(Math.round(dibujado / pantalla * 1000) / 1000);
+        document.documentElement.classList.add('sv-movil-forzado');
+        activo = true;
+      }
+
+      var espera = null;
+      function reprogramar() {
+        clearTimeout(espera);
+        espera = setTimeout(aplicar, 150);
+      }
+
+      aplicar();
+      window.addEventListener('orientationchange', reprogramar);
+      window.addEventListener('resize', function() {
+        // El zoom no cambia innerWidth, asi que esto no entra en bucle
+        reprogramar();
+      });
+
+      return { aplicar: aplicar, estaActivo: function() { return activo; }, _cumple: cumple, _esCelular: esCelular };
+    })();
+  </script>
 </head>
 <body>
   <!-- Splash Screen -->
@@ -2756,7 +2901,7 @@
         <div class="menu-section-title">Logística (Protegido)</div>
         <div class="menu-item" data-module="vacios" data-protected="true">
           <span class="menu-icon">📦</span>
-          <span>Vacíos Diarios</span>
+          <span>Control de Vacíos</span>
         </div>
         <div class="menu-item" data-module="vales" data-protected="true">
           <span class="menu-icon">🎫</span>
@@ -3310,7 +3455,7 @@
           <div id="seccionHojaProveedores" style="margin-bottom: 1rem;" class="page-break-avoid">
             <h4 style="color: var(--sv-primario); margin-bottom: 0.5rem;">Proveedores</h4>
             <div class="table-container">
-              <table class="table">
+              <table class="table table-responsive-cards">
                 <thead>
                   <tr>
                     <th>Proveedor</th>
@@ -3349,7 +3494,7 @@
           <div id="hojaRutaLiqPendientesSection" style="margin-bottom: 1rem; display: none;" class="page-break-avoid">
             <h4 style="color: var(--sv-advertencia); margin-bottom: 0.5rem;">Liquidaciones Pendientes</h4>
             <div class="table-container">
-              <table class="table">
+              <table class="table table-responsive-cards">
                 <thead>
                   <tr>
                     <th>Descripcion</th>
@@ -3371,7 +3516,7 @@
           <div id="seccionHojaGastos" style="margin-bottom: 1rem;" class="page-break-avoid">
             <h4 style="color: var(--sv-peligro); margin-bottom: 0.5rem;">Gastos Extras</h4>
             <div class="table-container">
-              <table class="table">
+              <table class="table table-responsive-cards">
                 <thead>
                   <tr>
                     <th>Descripcion</th>
@@ -4500,18 +4645,38 @@
           </div>
         </div>
 
+        <div class="card" data-config-section="general" style="margin-top:1.5rem;border-left:4px solid var(--sv-peligro);">
+          <div class="card-title">🔒 Seguridad</div>
+          <form id="formCambiarPines" onsubmit="cambiarPinesUI(event)" autocomplete="off">
+            <div class="form-group">
+              <label class="form-label" for="pinActualMaestro">Autorización</label>
+              <input type="password" id="pinActualMaestro" class="form-input" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" style="max-width:200px;" autocomplete="off">
+            </div>
+            <div class="grid grid-2">
+              <div class="form-group">
+                <label class="form-label" for="pinNuevoFact">Nuevo PIN de Facturación</label>
+                <input type="password" id="pinNuevoFact" class="form-input" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password">
+                <input type="password" id="pinNuevoFact2" class="form-input" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password" style="margin-top:.4rem;" aria-label="Repetir nuevo PIN de Facturación" placeholder="Repetir">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="pinNuevoLog">Nuevo PIN de Vacíos y Vales</label>
+                <input type="password" id="pinNuevoLog" class="form-input" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password">
+                <input type="password" id="pinNuevoLog2" class="form-input" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password" style="margin-top:.4rem;" aria-label="Repetir nuevo PIN de Vacíos y Vales" placeholder="Repetir">
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <button type="submit" class="btn btn-primary" id="btnCambiarPines">🔒 Cambiar PIN</button>
+            </div>
+          </form>
+        </div>
+
         <div class="card" data-config-section="general" style="margin-top:1.5rem;border-left:4px solid var(--sv-secundario);">
           <div class="card-title">⚙️ Parámetros de Logística (Vales y Vacíos)</div>
 
-          <div class="form-group">
-            <label class="form-label" for="configPinLogistica">PIN de Seguridad (Módulos Protegidos)</label>
-            <input type="password" id="configPinLogistica" class="form-input" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" style="max-width:200px;font-weight:bold;" placeholder="Vacío conserva el PIN actual" autocomplete="new-password">
-            <p style="font-size:.75rem;color:var(--sv-texto-muted);margin-top:.25rem;">Solo completa este campo si quieres cambiar el PIN. Debe contener 4 dígitos.</p>
-          </div>
-
-          <h4 style="margin-top:1.5rem;margin-bottom:.5rem;color:var(--sv-texto-secundario);">Tipos de Envases (Vacíos)</h4>
+          <h4 style="margin-top:.5rem;margin-bottom:.5rem;color:var(--sv-texto-secundario);">Tipos de vacío / envases</h4>
+          <p style="font-size:.8rem;color:var(--sv-texto-muted);margin-bottom:.5rem;">Cada nombre es un botón en Control de Vacíos (por ejemplo 1000, 2000, 3000). Vales usa el valor para calcular montos.</p>
           <div class="table-container">
-            <table class="table">
+            <table class="table table-responsive-cards tabla-campos">
               <thead>
                 <tr>
                   <th style="width:80px;">ID Interno</th>
@@ -4642,7 +4807,7 @@
               Clientes con CUIT que requieren Factura A
             </p>
             <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-              <table class="table">
+              <table class="table table-responsive-cards">
                 <thead>
                   <tr>
                     <th>Fecha</th>
@@ -4666,7 +4831,7 @@
               Clientes sin CUIT o Consumidor Final
             </p>
             <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-              <table class="table">
+              <table class="table table-responsive-cards">
                 <thead>
                   <tr>
                     <th>Fecha</th>
@@ -4913,7 +5078,7 @@
                 <span style="font-size:0.75rem; color:var(--sv-texto-muted);">Solo lectura · Calculados en tiempo real</span>
               </div>
               <div class="table-container">
-                <table class="table">
+                <table class="table table-responsive-cards">
                   <thead>
                     <tr>
                       <th>Concepto</th>
@@ -4935,7 +5100,7 @@
                 <button class="btn btn-outline btn-sm" id="btnAgregarMovManual" onclick="abrirModalMovManual()">+ Agregar</button>
               </div>
               <div class="table-container">
-                <table class="table">
+                <table class="table table-responsive-cards">
                   <thead>
                     <tr>
                       <th>Descripción</th>
@@ -5031,31 +5196,88 @@
       <div class="module-view" id="module-vacios">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem;">
           <h2 style="margin:0;">Control de Vacíos</h2>
-          <div style="display:flex;gap:0.5rem;align-items:center;">
-            <div id="vaciosStatusBadge" class="caja-estado-badge" style="display:none;"></div>
-            <button type="button" class="btn btn-outline" onclick="abrirModal('modalHistorialVacios');cargarHistorialVacios();">📚 Ver Historial</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="abrirModal('modalHistorialVacios');cargarHistorialVacios();">📚 Turnos anteriores</button>
+        </div>
+
+        <!-- Stock total por tipo -->
+        <div class="grid grid-4" id="vacStock" style="margin-bottom:1rem;"></div>
+
+        <div class="card">
+          <div id="vacEditando" style="display:none;margin-bottom:1rem;padding:.6rem .8rem;border-radius:var(--sv-radius);background:var(--sv-superficie-elevada);border-left:4px solid var(--sv-advertencia);">
+            ✏️ Editando un movimiento
+            <button type="button" class="btn btn-outline btn-sm" style="margin-left:.5rem;" onclick="cancelarEdicionVacio()">Cancelar edición</button>
+          </div>
+          <form id="formVacios" onsubmit="guardarVacio(event)" autocomplete="off">
+            <div class="form-group">
+              <label class="form-label" for="vacFecha">Fecha</label>
+              <input type="date" class="form-input" id="vacFecha" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="vacProveedor">Proveedor *</label>
+              <input type="text" class="form-input" id="vacProveedor" list="vacProveedoresLista" placeholder="Nombre del proveedor" maxlength="100" required>
+              <datalist id="vacProveedoresLista"></datalist>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipo de vacío *</label>
+              <div id="vacTipos" class="esc-bancos" role="group" aria-label="Tipo de vacío"></div>
+            </div>
+            <div class="tipo-tabs">
+              <div class="tipo-tab active-haber" id="tabVacIngreso" onclick="seleccionarMovVacio('INGRESO')" tabindex="0" role="button" aria-pressed="true" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();seleccionarMovVacio('INGRESO');}">
+                <div class="tipo-tab-label">INGRESO</div>
+                <div class="tipo-tab-value" style="color: var(--sv-exito);">+ Vacíos</div>
+              </div>
+              <div class="tipo-tab" id="tabVacEgreso" onclick="seleccionarMovVacio('EGRESO')" tabindex="0" role="button" aria-pressed="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();seleccionarMovVacio('EGRESO');}">
+                <div class="tipo-tab-label">EGRESO</div>
+                <div class="tipo-tab-value" style="color: var(--sv-peligro);">− Vacíos</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="vacCantidad">Cantidad *</label>
+              <input type="number" class="form-input" id="vacCantidad" placeholder="0" min="1" step="1" inputmode="numeric" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="vacObs">Observación</label>
+              <input type="text" class="form-input" id="vacObs" placeholder="Opcional" maxlength="300">
+            </div>
+            <button type="submit" class="btn btn-primary" id="btnGuardarVacio" style="width:100%;">💾 Guardar</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Saldos por proveedor</div>
+          <div class="table-container">
+            <table class="table table-responsive-cards tabla-sin-acciones" id="tablaVacSaldos">
+              <thead id="theadVacSaldos"></thead>
+              <tbody id="tbodyVacSaldos"></tbody>
+            </table>
           </div>
         </div>
 
-        <div id="vaciosEmptyState" style="display:none;" class="card empty-state">
-          <div class="empty-state-icon">📦</div>
-          <h3>El turno está cerrado</h3>
-          <p style="margin-top:0.5rem;margin-bottom:1.5rem;">Abre el turno para cargar los vacíos de hoy. El stock inicial se copiará del cierre anterior.</p>
-          <button class="btn btn-primary" onclick="vaciosProcesarAbrir()">Abrir Turno de Vacíos</button>
-        </div>
-
-        <div id="vaciosWorkArea" style="display:none;">
-          <input type="hidden" id="vaciosSesionId">
-          <div class="grid grid-3" id="vaciosGrid"></div>
-          <div class="card" style="background:var(--sv-superficie-elevada);margin-top:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
-            <div id="vaciosDiferenciaResumen">
-              <p style="font-size:0.875rem;color:var(--sv-texto-secundario);margin:0;">Diferencia Económica de Hoy</p>
-              <h3 id="vaciosDifDinero" style="margin:0;font-size:1.5rem;">$0</h3>
-            </div>
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-              <button type="button" class="btn btn-outline" id="btnVaciosGuardar" onclick="vaciosProcesarGuardado(false)">💾 Guardar Entradas/Salidas</button>
-              <button type="button" class="btn btn-danger" id="btnVaciosCerrar" onclick="vaciosProcesarGuardado(true)">🔒 Cerrar Turno</button>
-            </div>
+        <div class="card">
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+            <span>Movimientos de vacíos</span>
+            <span class="no-print" style="display:inline-flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="exportarVaciosCSV()">Exportar CSV</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="abrirVistaImpresion('contenedor-tabla-vacios', 'Control de Vacíos')">&#128424;&#65039; Imprimir</button>
+            </span>
+          </div>
+          <input type="search" class="form-input no-print" id="vacBuscar" placeholder="Buscar proveedor, tipo u observación…" oninput="renderMovimientosVacios()" style="margin-bottom:.75rem;">
+          <div class="table-container" id="contenedor-tabla-vacios">
+            <table class="table table-responsive-cards" id="tablaVacMov">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Proveedor</th>
+                  <th>Tipo</th>
+                  <th>Mov</th>
+                  <th>Cantidad</th>
+                  <th>Saldo</th>
+                  <th>Obs</th>
+                  <th class="no-print">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyVacMov"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -5751,7 +5973,7 @@
               Elegí cantidad en el catálogo y tocá +, o usá el selector rápido abajo.
             </p>
             <div class="table-container" style="max-height: 220px; overflow-y: auto; margin-bottom: 0.75rem;">
-              <table class="table">
+              <table class="table table-responsive-cards">
                 <thead>
                   <tr>
                     <th>Producto</th>
@@ -5788,7 +6010,7 @@
           <div class="card">
             <div class="card-title">Productos Agregados</div>
             <div class="table-container" style="max-height: 250px; overflow-y: auto;">
-              <table class="table">
+              <table class="table table-responsive-cards">
                 <thead>
                   <tr>
                     <th>Cant.</th>
@@ -6684,6 +6906,15 @@
         svApplyDataLabelsFromHeaders();
         svInitTableScrollHints();
       }, 600);
+      // Las tablas que se recargan después también llevan sus rótulos de tarjeta
+      try {
+        var _svRotulosPend = null;
+        new MutationObserver(function(cambios) {
+          var enTabla = cambios.some(function(c) { return c.target && c.target.closest && c.target.closest('table.table-responsive-cards'); });
+          if (!enTabla || _svRotulosPend) return;
+          _svRotulosPend = setTimeout(function() { _svRotulosPend = null; svApplyDataLabelsFromHeaders(); }, 80);
+        }).observe(document.body, { childList: true, subtree: true });
+      } catch (e) {}
 
       // BUG A FIX: Aplicar config visual desde localStorage SINCRÓNICAMENTE
       // antes de mostrar nada, para evitar el flash de módulos que deben estar ocultos
@@ -7715,7 +7946,9 @@
     // PIN LOCK — Protección de módulos protegidos
     // ============================================================================
     var PinLock = (function() {
-      var PIN_CORRECTO = '1234';
+      // Ningún PIN vive en este archivo (es público en GitHub): los dos se
+      // comprueban en el servidor. Facturación: validarPinFacturacion. Vacíos y
+      // Vales: validarPinModulosExtra, que además devuelve los datos del módulo.
 
       // BUGFIX: la lista anterior tenía nombres inventados ('facturacion',
       // 'transferencias', 'listas-facturas') que no coinciden con ningún
@@ -7734,6 +7967,9 @@
       var _desbloqueado = false; // una vez correcto, no vuelve a pedir hasta recargar la página
       var _logisticaDesbloqueada = false;
       var _tokenLogistico = '';
+      var _verificando = false;
+      var _pedidoActual = 0;
+      var _datosPrevios = null;   // { modulo, datos } que llegaron junto con el permiso
 
       function _actualizarDots() {
         for (var i = 0; i < 4; i++) {
@@ -7756,11 +7992,15 @@
         _actualizarDots();
         _setError('');
         var sub = document.getElementById('pinLockSubtitle');
-        if (sub) sub.textContent = 'Ingresá el PIN para acceder a ' + modulo;
+        if (sub) {
+          var item = document.querySelector('.menu-item[data-module="' + modulo + '"] span:not(.menu-icon)');
+          sub.textContent = 'Ingresá el PIN para acceder a ' + (item ? item.textContent.trim() : modulo);
+        }
         document.getElementById('pinLockOverlay').classList.add('active');
       }
 
       function _key(val) {
+        if (_verificando) return;   // esperando al servidor: no se acumulan teclas
         var ahora = Date.now();
         if (ahora < _bloqueadoHasta) {
           var seg = Math.ceil((_bloqueadoHasta - ahora) / 1000);
@@ -7784,54 +8024,85 @@
         }
       }
 
+      function _ponerVerificando(si) {
+        _verificando = si;
+        var ov = document.getElementById('pinLockOverlay');
+        if (ov) ov.classList.toggle('pin-verificando', si);
+        if (si) _setError('Verificando…');
+      }
+
+      function _concedido(modulo, cb) {
+        _intentosFallidos = 0;
+        _buffer = '';
+        _actualizarDots();
+        document.getElementById('pinLockOverlay').classList.remove('active');
+        _onSuccess = null;
+        _moduloPendiente = null;
+        _setError('');
+        if (cb) cb(modulo);
+      }
+
       function _verificar() {
-        var esLogistica = MODULOS_LOGISTICOS.indexOf(_moduloPendiente) !== -1;
+        if (_verificando) return;
+        var pin = _buffer;   // los puntos quedan llenos mientras se verifica
+        var modulo = _moduloPendiente;
+        var cb = _onSuccess;
+        var esLogistica = MODULOS_LOGISTICOS.indexOf(modulo) !== -1;
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          _rechazarPin('Sin conexión con el servidor', true);
+          return;
+        }
+        _ponerVerificando(true);
+        // Si se cancela mientras se espera, la respuesta tardía no abre nada
+        var pedido = ++_pedidoActual;
+        var vigente = function() { return pedido === _pedidoActual; };
+        var fallo = function(error) {
+          if (!vigente()) return;
+          _ponerVerificando(false);
+          _rechazarPin('No se pudo verificar el PIN: ' + ((error && error.message) || error), true);
+        };
+
         if (esLogistica) {
-          var pin = _buffer;
-          _buffer = '';
-          _actualizarDots();
           google.script.run
             .withSuccessHandler(function(resultado) {
+              if (!vigente()) return;
+              _ponerVerificando(false);
               if (resultado && resultado.success && resultado.token) {
-                _intentosFallidos = 0;
                 _logisticaDesbloqueada = true;
                 _tokenLogistico = resultado.token;
-                document.getElementById('pinLockOverlay').classList.remove('active');
-                var cbLogistica = _onSuccess;
-                var moduloLogistico = _moduloPendiente;
-                _onSuccess = null;
-                _moduloPendiente = null;
-                _setError('');
-                if (cbLogistica) cbLogistica(moduloLogistico);
+                _datosPrevios = resultado.datos ? { modulo: modulo, datos: resultado.datos } : null;
+                _concedido(modulo, cb);
               } else {
                 _rechazarPin(resultado && resultado.error ? resultado.error : 'PIN incorrecto');
               }
             })
-            .withFailureHandler(function(error) {
-              _rechazarPin('No se pudo verificar el PIN: ' + (error.message || error));
-            })
-            .validarPinModulosExtra(pin);
+            .withFailureHandler(fallo)
+            .validarPinModulosExtra(pin, modulo);
           return;
         }
 
-        if (_buffer === PIN_CORRECTO) {
-          _intentosFallidos = 0;
-          _desbloqueado = true;
-          document.getElementById('pinLockOverlay').classList.remove('active');
-          var cb = _onSuccess;
-          var mod = _moduloPendiente;
-          _onSuccess = null;
-          _moduloPendiente = null;
-          _buffer = '';
-          _actualizarDots();
-          if (cb) cb(mod);
-        } else _rechazarPin('PIN incorrecto');
+        google.script.run
+          .withSuccessHandler(function(resultado) {
+            if (!vigente()) return;
+            _ponerVerificando(false);
+            if (resultado && resultado.success) {
+              _desbloqueado = true;
+              _concedido(modulo, cb);
+            } else {
+              _rechazarPin(resultado && resultado.error ? resultado.error : 'PIN incorrecto');
+            }
+          })
+          .withFailureHandler(fallo)
+          .validarPinFacturacion(pin);
       }
 
-      function _rechazarPin(mensaje) {
-        _intentosFallidos++;
+      function _rechazarPin(mensaje, sinContar) {
+        mensaje = String(mensaje || 'PIN incorrecto').replace(/\.+$/, '');
         _buffer = '';
         _actualizarDots();
+        // Una falla de conexión no es un PIN equivocado: no consume intentos
+        if (sinContar) { _setError(mensaje); return; }
+        _intentosFallidos++;
         if (_intentosFallidos >= 3) {
           var espera = Math.min(30 * Math.pow(2, _intentosFallidos - 3), 300) * 1000;
           _bloqueadoHasta = Date.now() + espera;
@@ -7842,6 +8113,8 @@
       }
 
       function cancelar() {
+        _pedidoActual++;
+        _ponerVerificando(false);
         document.getElementById('pinLockOverlay').classList.remove('active');
         _buffer = '';
         _actualizarDots();
@@ -7866,6 +8139,14 @@
           return MODULOS_LOGISTICOS.indexOf(mod) !== -1 ? (_logisticaDesbloqueada && !!_tokenLogistico) : _desbloqueado;
         },
         obtenerTokenLogistico: function() { return _tokenLogistico; },
+        /** Datos que llegaron con el permiso (una sola vez por módulo). */
+        tomarDatosPrevios: function(modulo) {
+          if (!_datosPrevios || _datosPrevios.modulo !== modulo) return null;
+          var d = _datosPrevios.datos;
+          _datosPrevios = null;
+          return d;
+        },
+        bloquearFacturacion: function() { _desbloqueado = false; },
         expirarTokenLogistico: function() {
           _tokenLogistico = '';
           _logisticaDesbloqueada = false;
@@ -7941,7 +8222,7 @@
       if (modulo === 'historial-facturas') cargarHistorialFacturas();
       if (modulo === 'alquileres') cargarModuloAlquileres();
       if (modulo === 'contabilidad') cargarContabilidad();
-      if (modulo === 'vacios') cargarVaciosDiarios();
+      if (modulo === 'vacios') cargarVaciosMov();
       if (modulo === 'vales') cargarValesFisicos();
       if (modulo === 'configuracion') {
         cargarDatosEmisor();
@@ -21677,8 +21958,7 @@ const NombresEs = (function() {
         fecha: document.getElementById('filtroValeFecha').value
       };
 
-      google.script.run
-        .withSuccessHandler(function(resultado) {
+      var alOk = function(resultado) {
           if (_gestionarAccesoLogisticoVencido(resultado, 'vales', function() { cargarValesFisicos(); })) return;
           if (!resultado || !resultado.success) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--sv-peligro);">' +
@@ -21717,7 +21997,13 @@ const NombresEs = (function() {
               '<td>' + accion + '</td>' +
               '</tr>';
           }).join('');
-        })
+        };
+      // Los datos que llegaron con el PIN sirven si no hay filtros puestos
+      var previos = PinLock.tomarDatosPrevios('vales');
+      if (previos && previos.success && !filtros.numero && !filtros.fecha) { alOk(previos); return; }
+
+      google.script.run
+        .withSuccessHandler(alOk)
         .withFailureHandler(function(error) {
           tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--sv-peligro);">' +
             escapeHtml(error && error.message ? error.message : 'Error de comunicación') + '</td></tr>';
@@ -21970,7 +22256,6 @@ const NombresEs = (function() {
           valor: envase.valor === '' || envase.valor === null ? '' : Number(envase.valor)
         };
       });
-      document.getElementById('configPinLogistica').value = '';
       renderizarTablaConfigEnvases();
     }
 
@@ -22028,17 +22313,46 @@ const NombresEs = (function() {
       renderizarTablaConfigEnvases();
     }
 
+    /**
+     * Cambia los PIN con la autorización del PIN actual de Vacíos y Vales.
+     * Ante una autorización equivocada el servidor responde siempre igual
+     * ("No autorizado."): la pantalla tampoco da pistas.
+     */
+    function cambiarPinesUI(event) {
+      if (event) event.preventDefault();
+      var val = function(id) { return String(document.getElementById(id).value || '').trim(); };
+      var actual = val('pinActualMaestro');
+      var f1 = val('pinNuevoFact'), f2 = val('pinNuevoFact2');
+      var l1 = val('pinNuevoLog'), l2 = val('pinNuevoLog2');
+      var cuatro = /^\d{4}$/;
+      if (!f1 && !l1) { mostrarToast('Completá al menos un PIN nuevo.', 'error'); return; }
+      if ((f1 && !cuatro.test(f1)) || (l1 && !cuatro.test(l1))) { mostrarToast('Cada PIN nuevo debe tener 4 números.', 'error'); return; }
+      if (f1 !== f2 || l1 !== l2) { mostrarToast('Los PIN nuevos no coinciden con su repetición.', 'error'); return; }
+      var boton = document.getElementById('btnCambiarPines');
+      var limpiar = function() {
+        ['pinActualMaestro', 'pinNuevoFact', 'pinNuevoFact2', 'pinNuevoLog', 'pinNuevoLog2'].forEach(function(id) { document.getElementById(id).value = ''; });
+      };
+      boton.disabled = true;
+      svBackend('cambiarPines', [{ actual: actual, nuevoFacturacion: f1, nuevoLogistica: l1 }], function(r) {
+        boton.disabled = false;
+        limpiar();
+        if (!r || !r.success) { mostrarToast((r && r.error) || 'No autorizado.', 'error'); return; }
+        // Lo abierto con el PIN anterior se vuelve a pedir
+        if (r.cambiados.indexOf('vacios-vales') > -1) PinLock.expirarTokenLogistico();
+        if (r.cambiados.indexOf('facturacion') > -1) PinLock.bloquearFacturacion();
+        mostrarToast('PIN actualizado.', 'success');
+      }, function(msg) {
+        boton.disabled = false;
+        limpiar();
+        mostrarToast('No se pudo cambiar: ' + msg, 'error');
+      });
+    }
+
     function guardarConfigLogisticaUI(event) {
       var boton = event.currentTarget || event.target;
-      var pin = document.getElementById('configPinLogistica').value.trim();
       var estado = document.getElementById('estadoConfigLogistica');
       var ids = new Set();
       var envases = [];
-
-      if (pin && !/^\d{4}$/.test(pin)) {
-        mostrarToast('El PIN debe tener exactamente 4 dígitos.', 'error');
-        return;
-      }
       if (envasesLogistica.length === 0) {
         mostrarToast('Agrega al menos un tipo de envase.', 'error');
         return;
@@ -22065,7 +22379,6 @@ const NombresEs = (function() {
       }
 
       var configPayload = { envasesVacios: envases };
-      if (pin) configPayload.pinModulosExtra = pin;
       boton.disabled = true;
       var textoOriginal = boton.textContent;
       boton.textContent = 'Guardando...';
@@ -22082,10 +22395,8 @@ const NombresEs = (function() {
           }
           if (!window.configSistema) window.configSistema = {};
           window.configSistema.envasesVacios = envases;
-          document.getElementById('configPinLogistica').value = '';
-          if (pin) PinLock.expirarTokenLogistico();
           estado.textContent = 'Configuración logística guardada.';
-          mostrarToast('Configuración actualizada. Los nuevos turnos usarán estos valores.', 'success');
+          mostrarToast('Configuración actualizada.', 'success');
         })
         .withFailureHandler(function(error) {
           boton.disabled = false;
@@ -22097,169 +22408,237 @@ const NombresEs = (function() {
     }
 
     // ============================================================================
-    // VACÍOS DIARIOS
+    // CONTROL DE VACÍOS (movimientos)
+    //
+    // Cada movimiento: fecha, proveedor, tipo (botón), INGRESO / EGRESO, cantidad,
+    // observación. Los saldos los calcula el servidor desde las filas.
     // ============================================================================
-    function cargarVaciosDiarios() {
-      var emptyState = document.getElementById('vaciosEmptyState');
-      var workArea = document.getElementById('vaciosWorkArea');
-      var badge = document.getElementById('vaciosStatusBadge');
-      emptyState.style.display = 'none';
-      workArea.style.display = 'none';
-      badge.style.display = 'none';
+    var VacEstado = { datos: null, tipoId: '', movimiento: 'INGRESO', editandoId: null };
 
+    function cargarVaciosMov() {
+      // Si los datos llegaron junto con el PIN, no hace falta otro viaje al servidor
+      var previos = PinLock.tomarDatosPrevios('vacios');
+      if (previos && previos.success) { _pintarVacios(previos); return; }
+      var tbody = document.getElementById('tbodyVacMov');
+      if (tbody && !VacEstado.datos) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Cargando…</td></tr>';
       google.script.run
-        .withSuccessHandler(function(resultado) {
-          if (_gestionarAccesoLogisticoVencido(resultado, 'vacios', function() { cargarVaciosDiarios(); })) return;
-          if (!resultado || !resultado.success) {
-            mostrarToast('Error al cargar vacíos: ' + (resultado && resultado.error ? resultado.error : 'Error desconocido'), 'error');
+        .withSuccessHandler(function(r) {
+          if (_gestionarAccesoLogisticoVencido(r, 'vacios', function() { cargarVaciosMov(); })) return;
+          if (!r || !r.success) {
+            mostrarToast('Error al cargar vacíos: ' + ((r && r.error) || 'Error desconocido'), 'error');
             return;
           }
-
-          var detalle = Array.isArray(resultado.detalles) ? resultado.detalles : [];
-          var cerrado = !resultado.sesion;
-          badge.textContent = cerrado ? 'CERRADO' : 'TURNO ABIERTO';
-          badge.className = 'caja-estado-badge ' + (cerrado ? 'cerrada' : 'abierta');
-          badge.style.display = 'inline-block';
-
-          if (cerrado) {
-            emptyState.style.display = 'block';
-            if (detalle.length === 0) {
-              emptyState.querySelector('p').textContent = 'No hay envases configurados. Configúralos antes de abrir un turno.';
-              emptyState.querySelector('button').disabled = true;
-            } else {
-              emptyState.querySelector('p').textContent = 'Abre el turno para cargar los vacíos de hoy. El stock inicial se copiará del cierre anterior.';
-              emptyState.querySelector('button').disabled = false;
-            }
-            document.getElementById('btnVaciosGuardar').style.display = 'none';
-            document.getElementById('btnVaciosCerrar').style.display = 'none';
-            document.getElementById('vaciosDiferenciaResumen').style.display = 'none';
-            document.getElementById('vaciosWorkArea').style.display = detalle.length ? 'block' : 'none';
-            renderizarGridVacios(detalle, false);
-            return;
-          }
-
-          emptyState.style.display = 'none';
-          workArea.style.display = 'block';
-          document.getElementById('vaciosSesionId').value = resultado.sesion.id;
-          document.getElementById('vaciosDifDinero').textContent = formatearMonto(Number(resultado.sesion.difTotal) || 0);
-          document.getElementById('btnVaciosGuardar').style.display = 'inline-flex';
-          document.getElementById('btnVaciosCerrar').style.display = 'inline-flex';
-          document.getElementById('vaciosDiferenciaResumen').style.display = 'block';
-          renderizarGridVacios(detalle, true);
+          _pintarVacios(r);
         })
         .withFailureHandler(function(error) {
-          mostrarToast('Error al cargar vacíos: ' + (error && error.message ? error.message : 'Error de comunicación'), 'error');
+          mostrarToast('Error al cargar vacíos: ' + ((error && error.message) || 'Error de comunicación'), 'error');
         })
-        .vaciosDiariosEstado(PinLock.obtenerTokenLogistico());
+        .vaciosMovObtener(PinLock.obtenerTokenLogistico());
     }
 
-    function renderizarGridVacios(detalles, editable) {
-      var container = document.getElementById('vaciosGrid');
-      if (!detalles.length) {
-        container.innerHTML = '<div class="card" style="grid-column:1/-1;text-align:center;color:var(--sv-texto-muted);">No hay envases configurados.</div>';
+    function _pintarVacios(datos) {
+      VacEstado.datos = datos;
+      var fecha = document.getElementById('vacFecha');
+      if (fecha && !fecha.value) fecha.value = obtenerFechaLocal();
+      var tipos = datos.tipos || [];
+      if (!tipos.some(function(t) { return t.id === VacEstado.tipoId; })) VacEstado.tipoId = tipos.length ? tipos[0].id : '';
+      _renderTiposVacio();
+      seleccionarMovVacio(VacEstado.movimiento);
+
+      // Stock por tipo
+      document.getElementById('vacStock').innerHTML = (datos.stockPorTipo || []).map(function(s) {
+        var color = s.stock < 0 ? 'var(--sv-peligro)' : 'var(--sv-primario)';
+        return '<div class="stat-card" style="border-left:4px solid ' + color + ';">' +
+          '<div class="stat-value" style="color:' + color + ';">' + (Number(s.stock) || 0) + '</div>' +
+          '<div class="stat-label">' + escapeHtml(s.tipo || '') + '</div></div>';
+      }).join('') || '<div class="card" style="grid-column:1/-1;color:var(--sv-texto-muted);">Configurá los tipos de vacío en Configuración → General.</div>';
+
+      // Proveedores para autocompletar
+      document.getElementById('vacProveedoresLista').innerHTML = (datos.proveedores || []).map(function(p) {
+        return '<option value="' + escapeHtml(p) + '">';
+      }).join('');
+
+      // Saldos por proveedor (proveedor × tipo)
+      var conMov = (datos.stockPorTipo || []);
+      document.getElementById('theadVacSaldos').innerHTML = '<tr><th>Proveedor</th>' +
+        conMov.map(function(s) { return '<th>' + escapeHtml(s.tipo || '') + '</th>'; }).join('') + '<th>Total</th></tr>';
+      var saldos = datos.saldosPorProveedor || [];
+      document.getElementById('tbodyVacSaldos').innerHTML = saldos.length ? saldos.map(function(p) {
+        return '<tr><td style="font-weight:bold;">' + escapeHtml(p.proveedor) + '</td>' +
+          conMov.map(function(s) {
+            var v = Number((p.porTipo || {})[s.tipoId]) || 0;
+            return '<td style="' + (v < 0 ? 'color:var(--sv-peligro);' : '') + '">' + v + '</td>';
+          }).join('') +
+          '<td style="font-weight:bold;">' + (Number(p.total) || 0) + '</td></tr>';
+      }).join('') : '<tr><td colspan="' + (conMov.length + 2) + '" class="empty-state">Todavía no hay movimientos</td></tr>';
+
+      renderMovimientosVacios();
+      svApplyDataLabelsFromHeaders(document.getElementById('module-vacios'));
+    }
+
+    function _renderTiposVacio() {
+      var tipos = (VacEstado.datos && VacEstado.datos.tipos) || [];
+      document.getElementById('vacTipos').innerHTML = tipos.length ? tipos.map(function(t) {
+        return '<button type="button" class="banco-option' + (t.id === VacEstado.tipoId ? ' selected' : '') + '" aria-pressed="' + (t.id === VacEstado.tipoId) + '" ' +
+          'onclick="seleccionarTipoVacio(\'' + escaparJsEnAtributo(t.id) + '\')">' + escapeHtml(t.nombre) + '</button>';
+      }).join('') : '<span style="color:var(--sv-texto-muted);font-size:.85rem;">Sin tipos: agregalos en Configuración → General.</span>';
+    }
+
+    function seleccionarTipoVacio(id) {
+      VacEstado.tipoId = id;
+      _renderTiposVacio();
+    }
+
+    function seleccionarMovVacio(mov) {
+      VacEstado.movimiento = mov === 'EGRESO' ? 'EGRESO' : 'INGRESO';
+      var ing = document.getElementById('tabVacIngreso'), egr = document.getElementById('tabVacEgreso');
+      ing.className = 'tipo-tab' + (VacEstado.movimiento === 'INGRESO' ? ' active-haber' : '');
+      egr.className = 'tipo-tab' + (VacEstado.movimiento === 'EGRESO' ? ' active-debe' : '');
+      ing.setAttribute('aria-pressed', VacEstado.movimiento === 'INGRESO');
+      egr.setAttribute('aria-pressed', VacEstado.movimiento === 'EGRESO');
+    }
+
+    function renderMovimientosVacios() {
+      var tbody = document.getElementById('tbodyVacMov');
+      var movs = (VacEstado.datos && VacEstado.datos.movimientos) || [];
+      var q = normalizarTexto(document.getElementById('vacBuscar').value);
+      var lista = q ? movs.filter(function(m) {
+        return normalizarTexto([m.fecha, m.proveedor, m.tipo, m.movimiento, m.obs].join(' ')).indexOf(q) > -1;
+      }) : movs;
+      if (!lista.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">' + (movs.length ? 'Nada coincide con la búsqueda' : 'Todavía no hay movimientos') + '</td></tr>';
         return;
       }
-
-      container.innerHTML = detalles.map(function(detalle) {
-        var envaseId = escaparAtributoHTML(String(detalle.envaseId));
-        var nombre = escapeHtml(String(detalle.nombre || ''));
-        var valor = Number(detalle.valor) || 0;
-        var inicial = Number(detalle.inicial) || 0;
-        var entraron = Number(detalle.entraron) || 0;
-        var salieron = Number(detalle.salieron) || 0;
-        var finalFisico = Number(detalle.final) || 0;
-        var disabled = editable ? '' : ' disabled';
-        return '<div class="card" style="padding:1rem;border-left:4px solid var(--sv-primario);" data-envase="' + envaseId + '">' +
-          '<div style="display:flex;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap;">' +
-            '<strong style="font-size:1.1rem;">' + nombre + '</strong>' +
-            '<span style="font-size:0.8rem;color:var(--sv-texto-secundario);">Valor: ' + formatearMonto(valor) + '</span>' +
-          '</div>' +
-          '<div style="margin-bottom:1rem;background:var(--sv-superficie-elevada);padding:0.4rem;text-align:center;border-radius:4px;font-weight:bold;">' +
-            'Stock Inicial: <span style="color:var(--sv-primario);font-size:1.1rem;">' + inicial + '</span>' +
-          '</div>' +
-          '<div class="grid grid-2" style="gap:0.5rem;margin-bottom:0.75rem;">' +
-            '<div><label style="font-size:0.75rem;color:var(--sv-info);">+ Entraron</label>' +
-              '<input type="number" class="form-input envase-entraron" value="' + entraron + '" min="0" step="1"' + disabled + '></div>' +
-            '<div><label style="font-size:0.75rem;color:var(--sv-advertencia);">- Salieron</label>' +
-              '<input type="number" class="form-input envase-salieron" value="' + salieron + '" min="0" step="1"' + disabled + '></div>' +
-          '</div>' +
-          '<div style="border-top:1px solid var(--sv-borde);padding-top:0.75rem;">' +
-            '<label style="font-size:0.8rem;font-weight:bold;color:var(--sv-texto);">Stock Físico Final (Para Cierre)</label>' +
-            '<input type="number" class="form-input envase-final" value="' + finalFisico + '" min="0" step="1"' + disabled + ' placeholder="Contar al cerrar">' +
-          '</div>' +
-        '</div>';
+      tbody.innerHTML = lista.map(function(m) {
+        var egreso = m.movimiento === 'EGRESO';
+        return '<tr' + (m.id === VacEstado.editandoId ? ' style="outline:2px solid var(--sv-advertencia);"' : '') + '>' +
+          '<td>' + escapeHtml(formatearFecha(m.fecha)) + '</td>' +
+          '<td>' + escapeHtml(m.proveedor) + '</td>' +
+          '<td><strong>' + escapeHtml(m.tipo) + '</strong></td>' +
+          '<td><span class="tag ' + (egreso ? 'tag-debe' : 'tag-haber') + '">' + (egreso ? 'EGRESO' : 'INGRESO') + '</span></td>' +
+          '<td style="font-weight:bold;color:' + (egreso ? 'var(--sv-peligro)' : 'var(--sv-exito)') + ';">' + (egreso ? '−' : '+') + (Number(m.cantidad) || 0) + '</td>' +
+          '<td style="' + (m.saldo < 0 ? 'color:var(--sv-peligro);' : '') + '">' + (Number(m.saldo) || 0) + '</td>' +
+          '<td>' + escapeHtml(m.obs || '') + '</td>' +
+          '<td class="no-print"><div style="display:flex;gap:.4rem;justify-content:flex-end;">' +
+            '<button type="button" class="btn btn-outline btn-sm" onclick="editarVacio(' + Number(m.id) + ')" aria-label="Editar">✏️</button>' +
+            '<button type="button" class="btn btn-outline btn-sm" onclick="eliminarVacio(' + Number(m.id) + ')" aria-label="Borrar" style="color:var(--sv-peligro);">🗑️</button>' +
+          '</div></td></tr>';
       }).join('');
+      svApplyDataLabelsFromHeaders(document.getElementById('tablaVacMov'));
     }
 
-    function vaciosProcesarAbrir() {
-      var boton = document.querySelector('#vaciosEmptyState button');
+    function guardarVacio(e) {
+      if (e) e.preventDefault();
+      var datos = {
+        fecha: document.getElementById('vacFecha').value,
+        proveedor: document.getElementById('vacProveedor').value.trim(),
+        tipoId: VacEstado.tipoId,
+        movimiento: VacEstado.movimiento,
+        cantidad: Number(document.getElementById('vacCantidad').value),
+        obs: document.getElementById('vacObs').value.trim()
+      };
+      if (!datos.fecha) { mostrarToast('Indicá la fecha', 'error'); return; }
+      if (!datos.proveedor) { mostrarToast('Indicá el proveedor', 'error'); return; }
+      if (!datos.tipoId) { mostrarToast('Elegí el tipo de vacío', 'error'); return; }
+      if (!Number.isInteger(datos.cantidad) || datos.cantidad <= 0) { mostrarToast('La cantidad debe ser un número entero mayor que cero', 'error'); return; }
+
+      var boton = document.getElementById('btnGuardarVacio');
       boton.disabled = true;
-      google.script.run
-        .withSuccessHandler(function(resultado) {
-          boton.disabled = false;
-          if (_gestionarAccesoLogisticoVencido(resultado, 'vacios', function() { cargarVaciosDiarios(); })) return;
-          if (!resultado || !resultado.success) {
-            mostrarToast('Error al abrir: ' + (resultado && resultado.error ? resultado.error : 'No se pudo abrir el turno'), 'error');
-            return;
-          }
-          mostrarToast('Turno abierto correctamente', 'success');
-          cargarVaciosDiarios();
-        })
-        .withFailureHandler(function(error) {
-          boton.disabled = false;
-          mostrarToast('Error al abrir: ' + (error && error.message ? error.message : 'Error de comunicación'), 'error');
-        })
-        .vaciosDiariosAbrir(PinLock.obtenerTokenLogistico());
+      var editando = VacEstado.editandoId;
+      var fin = function() { boton.disabled = false; };
+      var alOk = function(r) {
+        fin();
+        if (_gestionarAccesoLogisticoVencido(r, 'vacios', function() { guardarVacio(); })) return;
+        if (!r || !r.success) { mostrarToast((r && r.error) || 'No se pudo guardar', 'error'); return; }
+        // Se conservan fecha, proveedor, tipo y movimiento: cargar varios tipos seguidos es rápido
+        document.getElementById('vacCantidad').value = '';
+        document.getElementById('vacObs').value = '';
+        if (editando) cancelarEdicionVacio();
+        _pintarVacios(r.datos);
+        mostrarToast(editando ? 'Movimiento actualizado' : 'Movimiento guardado', 'success');
+        document.getElementById('vacCantidad').focus();
+      };
+      var alError = function(error) { fin(); mostrarToast('Error: ' + ((error && error.message) || error), 'error'); };
+      var corredor = google.script.run.withSuccessHandler(alOk).withFailureHandler(alError);
+      if (editando) corredor.vaciosMovEditar(editando, datos, PinLock.obtenerTokenLogistico());
+      else corredor.vaciosMovRegistrar(datos, PinLock.obtenerTokenLogistico());
     }
 
-    function vaciosProcesarGuardado(esCierre) {
-      if (esCierre && !confirm('¿Confirmas el cierre del turno? Revisa el stock físico final de todos los envases.')) return;
+    function editarVacio(id) {
+      var m = ((VacEstado.datos && VacEstado.datos.movimientos) || []).filter(function(x) { return x.id === id; })[0];
+      if (!m) return;
+      VacEstado.editandoId = id;
+      document.getElementById('vacFecha').value = m.fecha;
+      document.getElementById('vacProveedor').value = m.proveedor;
+      document.getElementById('vacCantidad').value = m.cantidad;
+      document.getElementById('vacObs').value = m.obs || '';
+      VacEstado.tipoId = m.tipoId;
+      _renderTiposVacio();
+      seleccionarMovVacio(m.movimiento);
+      document.getElementById('vacEditando').style.display = 'block';
+      document.getElementById('btnGuardarVacio').textContent = '💾 Guardar cambios';
+      renderMovimientosVacios();
+      document.getElementById('formVacios').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
-      var sesionId = document.getElementById('vaciosSesionId').value;
-      var cards = document.querySelectorAll('#vaciosGrid [data-envase]');
-      var detalles = [];
-      for (var i = 0; i < cards.length; i++) {
-        var card = cards[i];
-        var entrada = card.querySelector('.envase-entraron').value;
-        var salida = card.querySelector('.envase-salieron').value;
-        var finalFisico = card.querySelector('.envase-final').value;
-        if (esCierre && finalFisico === '') {
-          mostrarToast('Completa el stock físico final de todos los envases antes de cerrar.', 'error');
-          card.querySelector('.envase-final').focus();
-          return;
-        }
-        detalles.push({
-          envaseId: card.getAttribute('data-envase'),
-          entraron: entrada === '' ? 0 : Number(entrada),
-          salieron: salida === '' ? 0 : Number(salida),
-          final: finalFisico === '' ? 0 : Number(finalFisico)
-        });
+    function cancelarEdicionVacio() {
+      VacEstado.editandoId = null;
+      document.getElementById('vacEditando').style.display = 'none';
+      document.getElementById('btnGuardarVacio').textContent = '💾 Guardar';
+      document.getElementById('vacCantidad').value = '';
+      document.getElementById('vacObs').value = '';
+      renderMovimientosVacios();
+    }
+
+    function eliminarVacio(id) {
+      var m = ((VacEstado.datos && VacEstado.datos.movimientos) || []).filter(function(x) { return x.id === id; })[0];
+      if (!m) return;
+      var texto = formatearFecha(m.fecha) + ' · ' + m.proveedor + ' · ' + m.tipo + ' · ' + m.movimiento + ' ' + m.cantidad;
+      var borrar = function() {
+        google.script.run
+          .withSuccessHandler(function(r) {
+            if (_gestionarAccesoLogisticoVencido(r, 'vacios', function() { eliminarVacio(id); })) return;
+            if (!r || !r.success) { mostrarToast((r && r.error) || 'No se pudo borrar', 'error'); return; }
+            if (VacEstado.editandoId === id) cancelarEdicionVacio();
+            _pintarVacios(r.datos);
+            mostrarToast('Movimiento borrado', 'success');
+          })
+          .withFailureHandler(function(error) { mostrarToast('Error: ' + ((error && error.message) || error), 'error'); })
+          .vaciosMovEliminar(id, PinLock.obtenerTokenLogistico());
+      };
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({ title: '¿Borrar este movimiento?', text: texto, icon: 'warning', showCancelButton: true,
+                    confirmButtonText: 'Borrar', cancelButtonText: 'Cancelar', confirmButtonColor: '#d33' })
+          .then(function(res) { if (res.isConfirmed) borrar(); });
+      } else if (confirm('¿Borrar este movimiento?\n\n' + texto)) {
+        borrar();
       }
-
-      var boton = document.getElementById(esCierre ? 'btnVaciosCerrar' : 'btnVaciosGuardar');
-      var textoOriginal = boton.textContent;
-      boton.disabled = true;
-      boton.textContent = 'Procesando...';
-      google.script.run
-        .withSuccessHandler(function(resultado) {
-          boton.disabled = false;
-          boton.textContent = textoOriginal;
-          if (_gestionarAccesoLogisticoVencido(resultado, 'vacios', function() { cargarVaciosDiarios(); })) return;
-          if (!resultado || !resultado.success) {
-            mostrarToast('Error: ' + (resultado && resultado.error ? resultado.error : 'No se pudo guardar el turno'), 'error');
-            return;
-          }
-          mostrarToast(esCierre ? 'Cierre exitoso. Diferencia: ' + formatearMonto(resultado.difTotal) : 'Progreso guardado', 'success');
-          cargarVaciosDiarios();
-        })
-        .withFailureHandler(function(error) {
-          boton.disabled = false;
-          boton.textContent = textoOriginal;
-          mostrarToast('Error: ' + (error && error.message ? error.message : 'Error de comunicación'), 'error');
-        })
-        .vaciosDiariosGuardar(sesionId, detalles, esCierre, PinLock.obtenerTokenLogistico());
     }
 
+    function exportarVaciosCSV() {
+      var movs = (VacEstado.datos && VacEstado.datos.movimientos) || [];
+      if (!movs.length) { mostrarToast('No hay movimientos para exportar', 'warning'); return; }
+      var esc = function(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+      var lineas = [['Fecha', 'Proveedor', 'Tipo', 'Movimiento', 'Cantidad', 'Saldo', 'Obs'].join(',')];
+      movs.forEach(function(m) {
+        lineas.push([esc(formatearFecha(m.fecha)), esc(m.proveedor), esc(m.tipo), esc(m.movimiento),
+                     String(m.cantidad), String(m.saldo), esc(m.obs || '')].join(','));
+      });
+      var blob = new Blob(['﻿' + lineas.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'vacios_' + obtenerFechaLocal() + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      mostrarToast('CSV descargado', 'success');
+    }
+
+    // ============================================================================
+    // TURNOS DE VACÍOS ANTERIORES (solo lectura, del sistema viejo)
+    // ============================================================================
     function cargarHistorialVacios() {
       var tbody = document.getElementById('tbodyHistorialVacios');
       if (!tbody) return;

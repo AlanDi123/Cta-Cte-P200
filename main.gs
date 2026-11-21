@@ -61,6 +61,11 @@ function doGet(e) {
   var html = _crearSalidaHtmlInterfaz()
     .setTitle('Sol & Verde - Sistema de Cuenta Corriente')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  // Icono del acceso directo del celular ("Agregar a pantalla principal") y
+  // pantalla completa. Si Google rechazara algo, el sistema abre igual.
+  try { html.setFaviconUrl('https://i.imgur.com/tStvmV1.png'); } catch (e) { Logger.log('Favicon: ' + e.message); }
+  try { html.addMetaTag('mobile-web-app-capable', 'yes'); } catch (e) {}
+  try { html.addMetaTag('apple-mobile-web-app-capable', 'yes'); } catch (e) {}
   var denyFrame = PropertiesService.getScriptProperties().getProperty('XFRAME_DENY') === '1';
   html.setXFrameOptionsMode(
     denyFrame ? HtmlService.XFrameOptionsMode.DENY : HtmlService.XFrameOptionsMode.ALLOWALL
@@ -2599,12 +2604,10 @@ function guardarConfiguracionGeneral(config) {
     }
 
     // Validar primero los parámetros logísticos para no guardar una parte de ellos si el resto falla.
-    let pinModulosExtraValidado;
+    // El PIN ya no se cambia por acá (lo cambiaba cualquiera, sin el PIN actual):
+    // ahora es cambiarPines(), en Configuración → Seguridad, con autorización.
     if (config.pinModulosExtra !== undefined) {
-      pinModulosExtraValidado = String(config.pinModulosExtra).trim();
-      if (!/^\d{4}$/.test(pinModulosExtraValidado)) {
-        throw new Error('El PIN de módulos extra debe tener exactamente 4 dígitos');
-      }
+      throw new Error('El PIN se cambia en Configuración → Seguridad.');
     }
     let envasesVaciosValidados;
     if (config.envasesVacios !== undefined) {
@@ -2632,7 +2635,6 @@ function guardarConfiguracionGeneral(config) {
       envasesVaciosValidados = JSON.stringify(envasesSanitizados);
       if (envasesVaciosValidados.length > 8000) throw new Error('La configuración de envases excede el tamaño permitido.');
     }
-    if (pinModulosExtraValidado !== undefined) props.setProperty('PIN_MODULOS_EXTRA', pinModulosExtraValidado);
     if (envasesVaciosValidados !== undefined) props.setProperty('ENVASES_VACIOS', envasesVaciosValidados);
     
     Logger.log('Configuración general guardada correctamente');

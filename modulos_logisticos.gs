@@ -208,48 +208,166 @@ function _validarTokenVales(token) {
   return tokenLimpio.length > 0 && _obtenerCacheAccesoVales().get('VALES_ACCESS_' + tokenLimpio) === '1';
 }
 
-function validarPinModulosExtra(pin) {
-  const pinGuardado = PropertiesService.getScriptProperties().getProperty('PIN_MODULOS_EXTRA');
+// ============================================================================
+// PINES
+//
+// Dos PINes de 4 dígitos, guardados SOLO en propiedades del script (nunca en el
+// código ni en el HTML, que es público en GitHub):
+//   PIN_MODULOS_EXTRA → Vacíos y Vales. Es además la "llave maestra": sin él no
+//                        se puede cambiar ningún PIN.
+//   PIN_FACTURACION   → módulos de Facturación. Antes era '1234' escrito en el
+//                        HTML y comparado en el navegador: no se podía cambiar.
+// ============================================================================
 
-  // Si no hay PIN configurado, NO se cae a ningún valor por defecto.
-  // Antes había un PIN de respaldo escrito en el propio código, de modo que
-  // cualquiera que viera el repositorio en GitHub lo conocía.
-  if (!/^\d{4}$/.test(pinGuardado || '')) {
+/** PIN de facturación mientras nadie lo haya cambiado: el mismo que regía antes. */
+var PIN_FACTURACION_INICIAL = '1234';
+
+function _usuarioActualPin() {
+  try {
+    return Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail() || 'anonimo';
+  } catch (e) {
+    return 'anonimo';
+  }
+}
+
+/**
+ * Límite de intentos por usuario y por tipo de PIN: 5 fallos → 5 minutos de espera.
+ * @returns {{bloqueado: function(): (number|0), fallo: function(): boolean, exito: function()}}
+ */
+function _limitadorPin(tipo) {
+  const cache = _obtenerCacheAccesoVales();
+  const clave = tipo + '_PIN_INTENTOS_' + _usuarioActualPin().slice(0, 150);
+  let estado = {};
+  try { estado = JSON.parse(cache.get(clave) || '{}'); } catch (e) { estado = {}; }
+  return {
+    /** Segundos de espera si está bloqueado; 0 si no. */
+    bloqueado: function() {
+      const ahora = Date.now();
+      return estado.bloqueadoHasta > ahora ? Math.ceil((estado.bloqueadoHasta - ahora) / 1000) : 0;
+    },
+    /** Registra un fallo; devuelve true si con este quedó bloqueado. */
+    fallo: function() {
+      estado.intentos = (Number(estado.intentos) || 0) + 1;
+      if (estado.intentos >= 5) estado.bloqueadoHasta = Date.now() + 300000;
+      cache.put(clave, JSON.stringify(estado), 300);
+      return estado.intentos >= 5;
+    },
+    exito: function() { cache.remove(clave); }
+  };
+}
+
+function _pinLogistica() {
+  const p = PropertiesService.getScriptProperties().getProperty('PIN_MODULOS_EXTRA');
+  return /^\d{4}$/.test(p || '') ? p : '';
+}
+
+function _pinFacturacion() {
+  const p = PropertiesService.getScriptProperties().getProperty('PIN_FACTURACION');
+  return /^\d{4}$/.test(p || '') ? p : PIN_FACTURACION_INICIAL;
+}
+
+/**
+ * Valida el PIN de Vacíos y Vales y entrega un token de 30 minutos.
+ *
+ * Para que entrar sea rápido, en la MISMA llamada devuelve los datos del módulo
+ * que se está abriendo (antes eran dos viajes al servidor, uno detrás del otro).
+ *
+ * @param {string} pin
+ * @param {string} [modulo] - 'vacios' | 'vales'
+ */
+function validarPinModulosExtra(pin, modulo) {
+  const pinCorrecto = _pinLogistica();
+  // Sin PIN configurado NO hay valor por defecto: el repositorio es público.
+  if (!pinCorrecto) {
     return {
       success: false,
       requiereConfiguracion: true,
       error: 'Todavía no hay PIN configurado para estos módulos. ' +
-             'Definilo en Configuración → Parámetros de Logística.'
+             'Definilo en Configuración → Seguridad.'
     };
   }
-  const pinCorrecto = pinGuardado;
-  const cache = _obtenerCacheAccesoVales();
-  const usuario = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail() || 'anonimo';
-  const claveIntentos = 'VALES_PIN_INTENTOS_' + usuario.slice(0, 150);
-  const ahora = Date.now();
-  let estadoIntentos = {};
-  try {
-    estadoIntentos = JSON.parse(cache.get(claveIntentos) || '{}');
-  } catch (error) {
-    estadoIntentos = {};
-  }
-  if (estadoIntentos.bloqueadoHasta > ahora) {
-    const segundos = Math.ceil((estadoIntentos.bloqueadoHasta - ahora) / 1000);
-    return { success: false, error: 'Demasiados intentos. Probá nuevamente en ' + segundos + ' segundos.' };
-  }
+  const limite = _limitadorPin('VALES');
+  const espera = limite.bloqueado();
+  if (espera) return { success: false, error: 'Demasiados intentos. Probá nuevamente en ' + espera + ' segundos.' };
   if (String(pin || '') !== pinCorrecto) {
-    estadoIntentos.intentos = (Number(estadoIntentos.intentos) || 0) + 1;
-    if (estadoIntentos.intentos >= 5) estadoIntentos.bloqueadoHasta = ahora + 300000;
-    cache.put(claveIntentos, JSON.stringify(estadoIntentos), 300);
-    return { success: false, error: estadoIntentos.intentos >= 5
+    return { success: false, error: limite.fallo()
       ? 'Demasiados intentos. Probá nuevamente en 300 segundos.'
       : 'PIN incorrecto.' };
   }
-
-  cache.remove(claveIntentos);
+  limite.exito();
   const token = Utilities.getUuid();
-  cache.put('VALES_ACCESS_' + token, '1', 1800);
-  return { success: true, token: token };
+  _obtenerCacheAccesoVales().put('VALES_ACCESS_' + token, '1', 1800);
+
+  const respuesta = { success: true, token: token };
+  // Los datos van "de regalo": si fallan, la entrada igual se concede y la
+  // pantalla los pide como siempre.
+  try {
+    if (modulo === 'vacios') respuesta.datos = VaciosMovRepository.obtener();
+    else if (modulo === 'vales') respuesta.datos = ValesFisicosRepository.obtenerTodos({});
+    if (respuesta.datos) respuesta.datos = JSON.parse(JSON.stringify(respuesta.datos));
+  } catch (e) {
+    Logger.log('validarPinModulosExtra: datos de ' + modulo + ' no disponibles: ' + e.message);
+    delete respuesta.datos;
+  }
+  return respuesta;
+}
+
+/**
+ * Valida el PIN de los módulos de Facturación (en el servidor, ya no en el HTML).
+ * @param {string} pin
+ */
+function validarPinFacturacion(pin) {
+  const limite = _limitadorPin('FACT');
+  const espera = limite.bloqueado();
+  if (espera) return { success: false, error: 'Demasiados intentos. Probá nuevamente en ' + espera + ' segundos.' };
+  if (String(pin || '') !== _pinFacturacion()) {
+    return { success: false, error: limite.fallo()
+      ? 'Demasiados intentos. Probá nuevamente en 300 segundos.'
+      : 'PIN incorrecto.' };
+  }
+  limite.exito();
+  return { success: true };
+}
+
+/**
+ * Cambia el PIN de Facturación y/o el de Vacíos y Vales.
+ *
+ * Exige el PIN ACTUAL de Vacíos y Vales. Ante un PIN actual equivocado responde
+ * siempre lo mismo ("No autorizado."), sin decir qué estuvo mal: no da pistas.
+ * Única excepción: si el PIN de Vacíos y Vales nunca se configuró, se permite
+ * fijarlo esa vez sin el actual (si no, nadie podría empezar).
+ *
+ * @param {{actual: string, nuevoFacturacion?: string, nuevoLogistica?: string}} datos
+ */
+function cambiarPines(datos) {
+  const d = datos || {};
+  const nuevoFact = String(d.nuevoFacturacion || '').trim();
+  const nuevoLog = String(d.nuevoLogistica || '').trim();
+  if (!nuevoFact && !nuevoLog) return { success: false, error: 'Indicá al menos un PIN nuevo.' };
+  if ((nuevoFact && !/^\d{4}$/.test(nuevoFact)) || (nuevoLog && !/^\d{4}$/.test(nuevoLog))) {
+    return { success: false, error: 'Cada PIN nuevo debe tener exactamente 4 números.' };
+  }
+
+  const pinLog = _pinLogistica();
+  if (pinLog) {
+    const limite = _limitadorPin('CAMBIO');
+    if (limite.bloqueado()) return { success: false, error: 'No autorizado.' };
+    if (String(d.actual || '') !== pinLog) {
+      limite.fallo();
+      return { success: false, error: 'No autorizado.' };
+    }
+    limite.exito();
+  } else if (!nuevoLog) {
+    // Primera vez: hay que empezar por el PIN maestro
+    return { success: false, error: 'No autorizado.' };
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const cambiados = [];
+  if (nuevoLog) { props.setProperty('PIN_MODULOS_EXTRA', nuevoLog); cambiados.push('vacios-vales'); }
+  if (nuevoFact) { props.setProperty('PIN_FACTURACION', nuevoFact); cambiados.push('facturacion'); }
+  // Los accesos ya abiertos no se cortan: sus tokens vencen solos en 30 minutos.
+  return { success: true, cambiados: cambiados };
 }
 
 function valesFisicosRegistrar(data, token) {
@@ -540,4 +658,209 @@ function vaciosDiariosGuardar(sesionId, detalles, esCierre, token) {
 function vaciosDiariosHistorial(token) {
   if (!_validarTokenVales(token)) return { success: false, error: 'Acceso vencido. Ingresá nuevamente el PIN.' };
   return VaciosRepository.obtenerHistorial();
+}
+// ============================================================================
+// CONTROL DE VACÍOS — MOVIMIENTOS
+//
+// Reemplaza a los turnos (abrir / guardar / cerrar). Cada fila es un movimiento:
+// fecha, proveedor, tipo de vacío, INGRESO o EGRESO, cantidad y observación.
+// Los saldos se calculan siempre desde las filas, no se guardan: no pueden
+// desincronizarse.
+//
+// Tipos = la lista de envases de Configuración (ENVASES_VACIOS), la misma que
+// usa Vales para calcular montos.
+//
+// Las hojas de turnos viejas (MOD_VACIOS_SESION / _DETALLE) no se tocan: se
+// siguen pudiendo consultar con vaciosDiariosHistorial.
+// ============================================================================
+
+const VaciosMovRepository = {
+  HOJA: 'MOD_VACIOS_MOV',
+  ENCABEZADOS: ['ID', 'FECHA', 'PROVEEDOR', 'TIPO_ID', 'TIPO', 'MOVIMIENTO', 'CANTIDAD', 'OBS', 'CREADO', 'USUARIO'],
+
+  _hoja: function() {
+    const ss = getSpreadsheet();
+    let hoja = ss.getSheetByName(this.HOJA);
+    if (!hoja) {
+      hoja = ss.insertSheet(this.HOJA);
+      hoja.appendRow(this.ENCABEZADOS);
+      hoja.getRange(1, 1, 1, this.ENCABEZADOS.length).setFontWeight('bold').setBackground('#2E7D32').setFontColor('#FFFFFF');
+      hoja.setFrozenRows(1);
+    }
+    return hoja;
+  },
+
+  _tipos: function() {
+    return VaciosRepository._obtenerEnvasesConfig().map(function(e) { return { id: e.id, nombre: e.nombre }; });
+  },
+
+  _fechaTexto: function(v) {
+    if (v instanceof Date) return formatearFechaLocal(v);
+    return String(v || '').slice(0, 10);
+  },
+
+  /** Filas de la hoja como objetos, con su número de fila. */
+  _leer: function() {
+    const hoja = this._hoja();
+    const ultima = hoja.getLastRow();
+    if (ultima < 2) return [];
+    const self = this;
+    return hoja.getRange(2, 1, ultima - 1, this.ENCABEZADOS.length).getValues().map(function(f, i) {
+      return {
+        fila: i + 2,
+        id: Number(f[0]) || 0,
+        fecha: self._fechaTexto(f[1]),
+        proveedor: String(f[2] || ''),
+        tipoId: String(f[3] || ''),
+        tipo: String(f[4] || ''),
+        movimiento: String(f[5] || '').toUpperCase() === 'EGRESO' ? 'EGRESO' : 'INGRESO',
+        cantidad: Number(f[6]) || 0,
+        obs: String(f[7] || '')
+      };
+    }).filter(function(m) { return m.id > 0; });
+  },
+
+  /** Valida y normaliza lo que llega de la pantalla. Lanza Error con un mensaje claro. */
+  _validar: function(data) {
+    const d = data || {};
+    const fecha = String(d.fecha || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || isNaN(parsearFechaLocal(fecha).getTime())) {
+      throw new Error('La fecha no es válida.');
+    }
+    const proveedor = String(d.proveedor || '').trim().replace(/\s+/g, ' ').toUpperCase();
+    if (!proveedor) throw new Error('Falta el proveedor.');
+    if (proveedor.length > 100) throw new Error('El proveedor admite hasta 100 caracteres.');
+    const tipo = this._tipos().filter(function(t) { return t.id === String(d.tipoId || ''); })[0];
+    if (!tipo) throw new Error('Elegí un tipo de vacío de la lista.');
+    const movimiento = String(d.movimiento || '').toUpperCase();
+    if (movimiento !== 'INGRESO' && movimiento !== 'EGRESO') throw new Error('Indicá si es ingreso o egreso.');
+    const cantidad = Number(d.cantidad);
+    if (!Number.isInteger(cantidad) || cantidad <= 0 || cantidad > 100000) {
+      throw new Error('La cantidad debe ser un número entero mayor que cero.');
+    }
+    const obs = String(d.obs || '').trim().slice(0, 300);
+    return { fecha: fecha, proveedor: proveedor, tipoId: tipo.id, tipo: tipo.nombre, movimiento: movimiento, cantidad: cantidad, obs: obs };
+  },
+
+  /**
+   * Todo lo que muestra la pantalla, calculado desde las filas.
+   * @returns {{success: boolean, movimientos: Array, stockPorTipo: Array, saldosPorProveedor: Array, proveedores: Array, tipos: Array}}
+   */
+  obtener: function() {
+    const tipos = this._tipos();
+    const filas = this._leer().sort(function(a, b) {
+      return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.id - b.id;
+    });
+
+    const saldo = {};          // proveedorNormalizado|tipoId → saldo corrido
+    const stock = {};          // tipoId → stock
+    const nombreTipo = {};
+    tipos.forEach(function(t) { stock[t.id] = 0; nombreTipo[t.id] = t.nombre; });
+    const provs = {};          // proveedorNormalizado → { proveedor, porTipo }
+
+    filas.forEach(function(m) {
+      const signo = m.movimiento === 'EGRESO' ? -1 : 1;
+      const clave = normalizarString(m.proveedor);
+      const k = clave + '|' + m.tipoId;
+      saldo[k] = (saldo[k] || 0) + signo * m.cantidad;
+      m.saldo = saldo[k];
+      stock[m.tipoId] = (stock[m.tipoId] || 0) + signo * m.cantidad;
+      if (!nombreTipo[m.tipoId]) nombreTipo[m.tipoId] = m.tipo;   // tipo que ya no está en Config
+      provs[clave] = provs[clave] || { proveedor: m.proveedor, porTipo: {} };
+      provs[clave].proveedor = m.proveedor;                       // el nombre más reciente
+      provs[clave].porTipo[m.tipoId] = saldo[k];
+    });
+
+    const saldosPorProveedor = Object.keys(provs).map(function(c) {
+      const p = provs[c];
+      let total = 0;
+      Object.keys(p.porTipo).forEach(function(t) { total += p.porTipo[t]; });
+      return { proveedor: p.proveedor, porTipo: p.porTipo, total: total };
+    }).sort(function(a, b) { return a.proveedor.localeCompare(b.proveedor); });
+
+    return {
+      success: true,
+      tipos: tipos,
+      stockPorTipo: Object.keys(stock).map(function(id) { return { tipoId: id, tipo: nombreTipo[id], stock: stock[id] }; }),
+      saldosPorProveedor: saldosPorProveedor,
+      proveedores: saldosPorProveedor.map(function(p) { return p.proveedor; }),
+      // Más reciente primero, sin el número de fila interno
+      movimientos: filas.slice().reverse().map(function(m) {
+        return { id: m.id, fecha: m.fecha, proveedor: m.proveedor, tipoId: m.tipoId, tipo: m.tipo,
+                 movimiento: m.movimiento, cantidad: m.cantidad, saldo: m.saldo, obs: m.obs };
+      })
+    };
+  },
+
+  _conLock: function(fn) {
+    const lock = LockService.getScriptLock();
+    let tengo = false;
+    try {
+      tengo = lock.tryLock(10000);
+      if (!tengo) return { success: false, error: 'El sistema está ocupado. Probá de nuevo en unos segundos.' };
+      fn();
+      SpreadsheetApp.flush();
+      return { success: true, datos: this.obtener() };
+    } catch (error) {
+      return { success: false, error: error.message };
+    } finally {
+      if (tengo) lock.releaseLock();
+    }
+  },
+
+  registrar: function(data) {
+    const self = this;
+    return this._conLock(function() {
+      const m = self._validar(data);
+      const hoja = self._hoja();
+      const ids = self._leer().map(function(x) { return x.id; });
+      const id = (ids.length ? Math.max.apply(null, ids) : 0) + 1;
+      hoja.appendRow([id, parsearFechaLocal(m.fecha), m.proveedor, m.tipoId, m.tipo, m.movimiento, m.cantidad, m.obs,
+                      new Date(), _usuarioActualPin()]);
+    });
+  },
+
+  editar: function(id, data) {
+    const self = this;
+    return this._conLock(function() {
+      const m = self._validar(data);
+      const fila = self._leer().filter(function(x) { return x.id === Number(id); })[0];
+      if (!fila) throw new Error('Ese movimiento ya no existe.');
+      self._hoja().getRange(fila.fila, 2, 1, 7).setValues([[parsearFechaLocal(m.fecha), m.proveedor, m.tipoId, m.tipo,
+                                                              m.movimiento, m.cantidad, m.obs]]);
+    });
+  },
+
+  eliminar: function(id) {
+    const self = this;
+    return this._conLock(function() {
+      const fila = self._leer().filter(function(x) { return x.id === Number(id); })[0];
+      if (!fila) throw new Error('Ese movimiento ya no existe.');
+      self._hoja().deleteRow(fila.fila);
+    });
+  }
+};
+
+function _sinAccesoVacios() {
+  return { success: false, error: 'Acceso vencido. Ingresá nuevamente el PIN.' };
+}
+
+function vaciosMovObtener(token) {
+  if (!_validarTokenVales(token)) return _sinAccesoVacios();
+  try { return VaciosMovRepository.obtener(); } catch (e) { return { success: false, error: e.message }; }
+}
+
+function vaciosMovRegistrar(data, token) {
+  if (!_validarTokenVales(token)) return _sinAccesoVacios();
+  return VaciosMovRepository.registrar(data);
+}
+
+function vaciosMovEditar(id, data, token) {
+  if (!_validarTokenVales(token)) return _sinAccesoVacios();
+  return VaciosMovRepository.editar(id, data);
+}
+
+function vaciosMovEliminar(id, token) {
+  if (!_validarTokenVales(token)) return _sinAccesoVacios();
+  return VaciosMovRepository.eliminar(id);
 }
